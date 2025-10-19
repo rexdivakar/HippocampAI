@@ -1,0 +1,29 @@
+# Include important documentation files
+include README.md
+include LICENSE
+include CHANGELOG.md
+
+# Include configuration templates
+include .env.example
+
+# Include all source code
+recursive-include src *.py
+
+# Include type stubs if any
+recursive-include src *.pyi
+
+# Exclude compiled Python files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude .DS_Store
+
+# Exclude test files from distribution
+recursive-exclude tests *
+exclude .github
+
+# Exclude development files
+exclude .gitignore
+exclude .env
+exclude setup_initial.py
+exclude run_example.sh
