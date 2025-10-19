@@ -11,9 +11,7 @@ def now_utc() -> datetime:
 
 def ensure_utc(dt: datetime) -> datetime:
     """Coerce a datetime into UTC."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
 
 
 def timestamp_to_datetime(ts: float) -> datetime:
