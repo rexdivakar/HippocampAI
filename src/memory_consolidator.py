@@ -3,15 +3,13 @@
 import json
 import logging
 import time
-from typing import List, Dict, Any, Set, Optional
-from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set
 
 import anthropic
 
+from src.embedding_service import EmbeddingService
 from src.memory_retriever import MemoryRetriever
 from src.memory_updater import MemoryUpdater
-from src.embedding_service import EmbeddingService
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,7 +50,7 @@ Do not include any other text."""
         updater: MemoryUpdater,
         embedding_service: EmbeddingService,
         api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022"
+        model: str = "claude-3-5-sonnet-20241022",
     ):
         """
         Initialize the memory consolidator.
@@ -69,6 +67,7 @@ Do not include any other text."""
         self.embeddings = embedding_service
 
         import os
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -94,7 +93,7 @@ Do not include any other text."""
         user_id: str,
         similarity_threshold: float = 0.85,
         min_cluster_size: int = 2,
-        max_memories: int = 100
+        max_memories: int = 100,
     ) -> List[List[Dict[str, Any]]]:
         """
         Find clusters of similar memories.
@@ -111,13 +110,13 @@ Do not include any other text."""
         try:
             # Get all user memories
             all_memories = self.retriever.get_memories_by_filter(
-                filters={"user_id": user_id},
-                limit=max_memories
+                filters={"user_id": user_id}, limit=max_memories
             )
 
             # Filter out archived/outdated memories
             active_memories = [
-                m for m in all_memories
+                m
+                for m in all_memories
                 if not m["metadata"].get("outdated", False)
                 and not m["metadata"].get("archived", False)
             ]
@@ -140,9 +139,7 @@ Do not include any other text."""
 
                 # Search for similar memories
                 similar = self.retriever.search_memories(
-                    query=memory["text"],
-                    limit=20,
-                    filters={"user_id": user_id}
+                    query=memory["text"], limit=20, filters={"user_id": user_id}
                 )
 
                 # Filter by similarity threshold
@@ -176,8 +173,7 @@ Do not include any other text."""
 
             for cluster_ids in clusters:
                 cluster_memories = [
-                    memory_lookup[mid] for mid in cluster_ids
-                    if mid in memory_lookup
+                    memory_lookup[mid] for mid in cluster_ids if mid in memory_lookup
                 ]
                 if len(cluster_memories) >= min_cluster_size:
                     memory_clusters.append(cluster_memories)
@@ -191,9 +187,7 @@ Do not include any other text."""
             raise RuntimeError("Cluster finding failed") from e
 
     def consolidate_cluster(
-        self,
-        cluster: List[Dict[str, Any]],
-        max_retries: int = 2
+        self, cluster: List[Dict[str, Any]], max_retries: int = 2
     ) -> Optional[Dict[str, Any]]:
         """
         Consolidate a cluster of similar memories using AI.
@@ -226,22 +220,20 @@ Do not include any other text."""
                 try:
                     self._rate_limit()
 
-                    prompt = self.CONSOLIDATION_PROMPT.format(
-                        memories_list=memories_text
-                    )
+                    prompt = self.CONSOLIDATION_PROMPT.format(memories_list=memories_text)
 
                     logger.debug(f"Consolidating cluster of {len(cluster)} memories...")
                     message = self.client.messages.create(
                         model=self.model,
                         max_tokens=1024,
                         temperature=0.0,
-                        messages=[{"role": "user", "content": prompt}]
+                        messages=[{"role": "user", "content": prompt}],
                     )
 
                     # Parse response
                     response_text = message.content[0].text.strip()
-                    start_idx = response_text.find('{')
-                    end_idx = response_text.rfind('}') + 1
+                    start_idx = response_text.find("{")
+                    end_idx = response_text.rfind("}") + 1
 
                     if start_idx == -1 or end_idx == 0:
                         raise ValueError("No JSON found in response")
@@ -250,17 +242,23 @@ Do not include any other text."""
                     result = json.loads(json_text)
 
                     # Validate result
-                    required_fields = ["consolidated_text", "consolidated_importance", "memories_to_archive"]
+                    required_fields = [
+                        "consolidated_text",
+                        "consolidated_importance",
+                        "memories_to_archive",
+                    ]
                     for field in required_fields:
                         if field not in result:
                             raise ValueError(f"Missing field: {field}")
 
-                    logger.info(f"Consolidation successful: {len(result['memories_to_archive'])} to archive")
+                    logger.info(
+                        f"Consolidation successful: {len(result['memories_to_archive'])} to archive"
+                    )
                     return result
 
                 except anthropic.RateLimitError as e:
                     if attempt < max_retries:
-                        time.sleep(2 ** attempt)
+                        time.sleep(2**attempt)
                     else:
                         logger.error(f"Rate limit exceeded: {e}")
                         return None
@@ -286,9 +284,7 @@ Do not include any other text."""
             return None
 
     def apply_consolidation(
-        self,
-        cluster: List[Dict[str, Any]],
-        consolidation_result: Dict[str, Any]
+        self, cluster: List[Dict[str, Any]], consolidation_result: Dict[str, Any]
     ) -> Optional[str]:
         """
         Apply consolidation result by merging and archiving memories.
@@ -305,14 +301,14 @@ Do not include any other text."""
             cluster_ids = [m["memory_id"] for m in cluster]
 
             # Use first memory as base for merge
-            primary_id = cluster_ids[0]
+            primary_id = cluster_ids[0]  # noqa: F841
 
             # Merge memories
             merged_id = self.updater.merge_memories(
                 memory_ids=cluster_ids,
                 merged_text=consolidation_result["consolidated_text"],
                 merged_importance=consolidation_result["consolidated_importance"],
-                reason=f"Consolidated cluster: {consolidation_result.get('reasoning', 'Similar memories merged')}"
+                reason=f"Consolidated cluster: {consolidation_result.get('reasoning', 'Similar memories merged')}",
             )
 
             # Archive the memories that should be archived
@@ -322,7 +318,7 @@ Do not include any other text."""
                         # Mark as archived instead of deleting
                         self.updater.mark_memory_outdated(
                             memory_id=mem_id,
-                            reason=f"Archived during consolidation into {merged_id}"
+                            reason=f"Archived during consolidation into {merged_id}",
                         )
                     except Exception as e:
                         logger.warning(f"Failed to archive memory {mem_id}: {e}")
@@ -343,7 +339,7 @@ Do not include any other text."""
         user_id: str,
         similarity_threshold: float = 0.85,
         max_clusters: Optional[int] = None,
-        dry_run: bool = False
+        dry_run: bool = False,
     ) -> Dict[str, Any]:
         """
         Find and consolidate similar memories for a user.
@@ -360,8 +356,7 @@ Do not include any other text."""
         try:
             # Find similar clusters
             clusters = self.find_similar_clusters(
-                user_id=user_id,
-                similarity_threshold=similarity_threshold
+                user_id=user_id, similarity_threshold=similarity_threshold
             )
 
             if not clusters:
@@ -369,7 +364,7 @@ Do not include any other text."""
                     "clusters_found": 0,
                     "clusters_consolidated": 0,
                     "memories_consolidated": 0,
-                    "memories_archived": 0
+                    "memories_archived": 0,
                 }
 
             # Limit number of clusters to process
@@ -403,13 +398,15 @@ Do not include any other text."""
                         consolidated_count += 1
                         total_archived += len(result.get("memories_to_archive", []))
 
-                consolidation_results.append({
-                    "cluster_size": len(cluster),
-                    "consolidated_text": result["consolidated_text"],
-                    "importance": result["consolidated_importance"],
-                    "archived_count": len(result.get("memories_to_archive", [])),
-                    "reasoning": result.get("reasoning", "")
-                })
+                consolidation_results.append(
+                    {
+                        "cluster_size": len(cluster),
+                        "consolidated_text": result["consolidated_text"],
+                        "importance": result["consolidated_importance"],
+                        "archived_count": len(result.get("memories_to_archive", [])),
+                        "reasoning": result.get("reasoning", ""),
+                    }
+                )
 
             summary = {
                 "clusters_found": len(clusters),
@@ -417,7 +414,7 @@ Do not include any other text."""
                 "memories_analyzed": total_memories,
                 "memories_archived": total_archived,
                 "dry_run": dry_run,
-                "results": consolidation_results
+                "results": consolidation_results,
             }
 
             logger.info(
@@ -431,11 +428,7 @@ Do not include any other text."""
             logger.error(f"Memory consolidation failed: {e}")
             raise RuntimeError("Memory consolidation failed") from e
 
-    def schedule_consolidation(
-        self,
-        user_id: str,
-        frequency_days: int = 7
-    ) -> Dict[str, Any]:
+    def schedule_consolidation(self, user_id: str, frequency_days: int = 7) -> Dict[str, Any]:
         """
         Check if consolidation is needed based on frequency.
 
@@ -452,15 +445,17 @@ Do not include any other text."""
         try:
             # Get memory count
             all_memories = self.retriever.get_memories_by_filter(
-                filters={"user_id": user_id},
-                limit=200
+                filters={"user_id": user_id}, limit=200
             )
 
-            active_count = len([
-                m for m in all_memories
-                if not m["metadata"].get("outdated", False)
-                and not m["metadata"].get("archived", False)
-            ])
+            active_count = len(
+                [
+                    m
+                    for m in all_memories
+                    if not m["metadata"].get("outdated", False)
+                    and not m["metadata"].get("archived", False)
+                ]
+            )
 
             # Simple heuristic: consolidate if > 50 active memories
             should_consolidate = active_count > 50
@@ -470,12 +465,9 @@ Do not include any other text."""
                 "frequency_days": frequency_days,
                 "active_memories": active_count,
                 "should_consolidate": should_consolidate,
-                "recommendation": "Run consolidation" if should_consolidate else "No action needed"
+                "recommendation": "Run consolidation" if should_consolidate else "No action needed",
             }
 
         except Exception as e:
             logger.error(f"Failed to check consolidation schedule: {e}")
-            return {
-                "error": str(e),
-                "should_consolidate": False
-            }
+            return {"error": str(e), "should_consolidate": False}

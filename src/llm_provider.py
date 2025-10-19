@@ -1,18 +1,18 @@
 """Multi-provider LLM client supporting Anthropic, OpenAI, and Groq."""
 
+import logging
 import os
 import time
-import logging
-from typing import Optional, Dict, Any, List
-from enum import Enum
 from abc import ABC, abstractmethod
-
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
+
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
     GROQ = "groq"
@@ -34,7 +34,7 @@ class BaseLLMClient(ABC):
         self.model = model
         self.kwargs = kwargs
         self._last_request_time = 0
-        self._min_request_interval = kwargs.get('rate_limit_interval', 0.1)
+        self._min_request_interval = kwargs.get("rate_limit_interval", 0.1)
 
     def _rate_limit(self) -> None:
         """Apply rate limiting."""
@@ -49,7 +49,7 @@ class BaseLLMClient(ABC):
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Generate text completion.
@@ -71,7 +71,7 @@ class BaseLLMClient(ABC):
         messages: List[Dict[str, str]],
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Chat completion.
@@ -94,6 +94,7 @@ class AnthropicClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022", **kwargs):
         super().__init__(api_key, model, **kwargs)
         import anthropic
+
         self.client = anthropic.Anthropic(api_key=api_key)
         self.anthropic = anthropic
         logger.info(f"Initialized Anthropic client with model: {model}")
@@ -103,13 +104,15 @@ class AnthropicClient(BaseLLMClient):
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Generate text using Anthropic."""
         self._rate_limit()
 
-        max_tokens = max_tokens or self.kwargs.get('max_tokens', 4096)
-        temperature = temperature if temperature is not None else self.kwargs.get('temperature', 0.0)
+        max_tokens = max_tokens or self.kwargs.get("max_tokens", 4096)
+        temperature = (
+            temperature if temperature is not None else self.kwargs.get("temperature", 0.0)
+        )
 
         try:
             message = self.client.messages.create(
@@ -117,7 +120,7 @@ class AnthropicClient(BaseLLMClient):
                 max_tokens=max_tokens,
                 temperature=temperature,
                 messages=[{"role": "user", "content": prompt}],
-                **kwargs
+                **kwargs,
             )
             return message.content[0].text
 
@@ -134,7 +137,7 @@ class AnthropicClient(BaseLLMClient):
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Chat completion using Anthropic.
@@ -151,35 +154,37 @@ class AnthropicClient(BaseLLMClient):
         """
         self._rate_limit()
 
-        max_tokens = max_tokens or self.kwargs.get('max_tokens', 4096)
-        temperature = temperature if temperature is not None else self.kwargs.get('temperature', 0.0)
+        max_tokens = max_tokens or self.kwargs.get("max_tokens", 4096)
+        temperature = (
+            temperature if temperature is not None else self.kwargs.get("temperature", 0.0)
+        )
 
         # Anthropic requires system message as separate parameter
         system_message = None
         user_messages = []
 
         for msg in messages:
-            if msg.get('role') == 'system':
-                system_message = msg.get('content')
+            if msg.get("role") == "system":
+                system_message = msg.get("content")
             else:
                 user_messages.append(msg)
 
         try:
             api_params = {
-                'model': self.model,
-                'max_tokens': max_tokens,
-                'temperature': temperature,
-                'messages': user_messages,
-                **kwargs
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": user_messages,
+                **kwargs,
             }
 
             # Add system parameter if system message exists
             if system_message:
-                api_params['system'] = system_message
+                api_params["system"] = system_message
 
             # Add tools if provided
             if tools:
-                api_params['tools'] = tools
+                api_params["tools"] = tools
 
             message = self.client.messages.create(**api_params)
 
@@ -189,17 +194,11 @@ class AnthropicClient(BaseLLMClient):
                 tool_calls = []
                 for content in message.content:
                     if content.type == "tool_use":
-                        tool_calls.append({
-                            "id": content.id,
-                            "name": content.name,
-                            "arguments": content.input
-                        })
+                        tool_calls.append(
+                            {"id": content.id, "name": content.name, "arguments": content.input}
+                        )
 
-                return {
-                    "type": "tool_calls",
-                    "tool_calls": tool_calls,
-                    "message": message
-                }
+                return {"type": "tool_calls", "tool_calls": tool_calls, "message": message}
 
             # Regular text response
             return message.content[0].text
@@ -218,6 +217,7 @@ class OpenAIClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str = "gpt-4o", **kwargs):
         super().__init__(api_key, model, **kwargs)
         from openai import OpenAI
+
         self.client = OpenAI(api_key=api_key)
         logger.info(f"Initialized OpenAI client with model: {model}")
 
@@ -226,14 +226,14 @@ class OpenAIClient(BaseLLMClient):
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Generate text using OpenAI."""
         return self.chat(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
-            **kwargs
+            **kwargs,
         )
 
     def chat(
@@ -241,13 +241,15 @@ class OpenAIClient(BaseLLMClient):
         messages: List[Dict[str, str]],
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Chat completion using OpenAI."""
         self._rate_limit()
 
-        max_tokens = max_tokens or self.kwargs.get('max_tokens', 4096)
-        temperature = temperature if temperature is not None else self.kwargs.get('temperature', 0.0)
+        max_tokens = max_tokens or self.kwargs.get("max_tokens", 4096)
+        temperature = (
+            temperature if temperature is not None else self.kwargs.get("temperature", 0.0)
+        )
 
         try:
             response = self.client.chat.completions.create(
@@ -255,7 +257,7 @@ class OpenAIClient(BaseLLMClient):
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                **kwargs
+                **kwargs,
             )
             return response.choices[0].message.content
 
@@ -270,6 +272,7 @@ class GroqClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str = "llama-3.1-70b-versatile", **kwargs):
         super().__init__(api_key, model, **kwargs)
         from groq import Groq
+
         self.client = Groq(api_key=api_key)
         logger.info(f"Initialized Groq client with model: {model}")
 
@@ -278,14 +281,14 @@ class GroqClient(BaseLLMClient):
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Generate text using Groq."""
         return self.chat(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
-            **kwargs
+            **kwargs,
         )
 
     def chat(
@@ -293,13 +296,15 @@ class GroqClient(BaseLLMClient):
         messages: List[Dict[str, str]],
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Chat completion using Groq."""
         self._rate_limit()
 
-        max_tokens = max_tokens or self.kwargs.get('max_tokens', 8192)
-        temperature = temperature if temperature is not None else self.kwargs.get('temperature', 0.0)
+        max_tokens = max_tokens or self.kwargs.get("max_tokens", 8192)
+        temperature = (
+            temperature if temperature is not None else self.kwargs.get("temperature", 0.0)
+        )
 
         try:
             response = self.client.chat.completions.create(
@@ -307,7 +312,7 @@ class GroqClient(BaseLLMClient):
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                **kwargs
+                **kwargs,
             )
             return response.choices[0].message.content
 
@@ -321,10 +326,7 @@ class LLMClientFactory:
 
     @staticmethod
     def create_client(
-        provider: str,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        **kwargs
+        provider: str, api_key: Optional[str] = None, model: Optional[str] = None, **kwargs
     ) -> BaseLLMClient:
         """
         Create LLM client for specified provider.
@@ -348,7 +350,7 @@ class LLMClientFactory:
             env_key_map = {
                 LLMProvider.ANTHROPIC.value: "ANTHROPIC_API_KEY",
                 LLMProvider.OPENAI.value: "OPENAI_API_KEY",
-                LLMProvider.GROQ.value: "GROQ_API_KEY"
+                LLMProvider.GROQ.value: "GROQ_API_KEY",
             }
             env_key = env_key_map.get(provider)
             if env_key:
@@ -362,7 +364,7 @@ class LLMClientFactory:
             default_models = {
                 LLMProvider.ANTHROPIC.value: "claude-3-5-sonnet-20241022",
                 LLMProvider.OPENAI.value: "gpt-4o",
-                LLMProvider.GROQ.value: "llama-3.1-70b-versatile"
+                LLMProvider.GROQ.value: "llama-3.1-70b-versatile",
             }
             model = default_models.get(provider)
 
@@ -375,8 +377,7 @@ class LLMClientFactory:
             return GroqClient(api_key=api_key, model=model, **kwargs)
         else:
             raise ValueError(
-                f"Unsupported provider: {provider}. "
-                f"Supported: {[p.value for p in LLMProvider]}"
+                f"Unsupported provider: {provider}. Supported: {[p.value for p in LLMProvider]}"
             )
 
 
@@ -384,7 +385,7 @@ def get_llm_client(
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
     model: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> BaseLLMClient:
     """
     Get LLM client using settings from environment or parameters.
@@ -421,15 +422,10 @@ def get_llm_client(
         model_env_map = {
             LLMProvider.ANTHROPIC.value: "ANTHROPIC_MODEL",
             LLMProvider.OPENAI.value: "OPENAI_MODEL",
-            LLMProvider.GROQ.value: "GROQ_MODEL"
+            LLMProvider.GROQ.value: "GROQ_MODEL",
         }
         model_env = model_env_map.get(provider.lower())
         if model_env:
             model = os.getenv(model_env)
 
-    return LLMClientFactory.create_client(
-        provider=provider,
-        api_key=api_key,
-        model=model,
-        **kwargs
-    )
+    return LLMClientFactory.create_client(provider=provider, api_key=api_key, model=model, **kwargs)

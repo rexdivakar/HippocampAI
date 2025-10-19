@@ -1,13 +1,13 @@
 """Example usage of the MemoryExtractor class."""
 
 import sys
-import os
-sys.path.append('..')
 
-from src.qdrant_client import QdrantManager
+sys.path.append("..")
+
 from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore
 from src.memory_extractor import MemoryExtractor
+from src.memory_store import MemoryStore
+from src.qdrant_client import QdrantManager
 from src.settings import get_settings
 
 
@@ -30,7 +30,7 @@ def main():
 
     if not has_api_key:
         print(f"ERROR: {provider.upper()}_API_KEY not set in .env file!")
-        print(f"Please add your API key to .env or choose a different LLM_PROVIDER")
+        print("Please add your API key to .env or choose a different LLM_PROVIDER")
         return
 
     # Initialize services
@@ -74,9 +74,7 @@ def main():
 
     try:
         memories = extractor.extract_memories(
-            conversation_text=conversation,
-            user_id="user_456",
-            session_id="session_demo_001"
+            conversation_text=conversation, user_id="user_456", session_id="session_demo_001"
         )
 
         print(f"   Extracted {len(memories)} memories:\n")
@@ -120,7 +118,7 @@ def main():
             conversation_text=another_conversation,
             user_id="user_456",
             memory_store=memory_store,
-            session_id="session_demo_002"
+            session_id="session_demo_002",
         )
 
         print(f"   Extracted and stored {len(memory_ids)} memories")
@@ -134,16 +132,15 @@ def main():
     from src.memory_retriever import MemoryRetriever
 
     retriever = MemoryRetriever(qdrant_manager=qdrant, embedding_service=embeddings)
-    all_memories = retriever.get_memories_by_filter(
-        filters={"user_id": "user_456"},
-        limit=20
-    )
+    all_memories = retriever.get_memories_by_filter(filters={"user_id": "user_456"}, limit=20)
 
     print(f"   Total memories for user_456: {len(all_memories)}\n")
     for i, mem in enumerate(all_memories, 1):
         print(f"   {i}. [{mem['metadata']['memory_type']}] {mem['text'][:70]}...")
-        print(f"      Importance: {mem['metadata']['importance']}, "
-              f"Category: {mem['metadata']['category']}")
+        print(
+            f"      Importance: {mem['metadata']['importance']}, "
+            f"Category: {mem['metadata']['category']}"
+        )
 
     # Close connection
     print("\n5. Cleaning up...")

@@ -1,16 +1,16 @@
 """Advanced example showcasing deduplication, updates, and importance scoring."""
 
 import sys
-import os
-sys.path.append('..')
 
-from src.qdrant_client import QdrantManager
+sys.path.append("..")
+
 from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
-from src.memory_retriever import MemoryRetriever
-from src.memory_deduplicator import MemoryDeduplicator
-from src.memory_updater import MemoryUpdater
 from src.importance_scorer import ImportanceScorer
+from src.memory_deduplicator import MemoryDeduplicator
+from src.memory_retriever import MemoryRetriever
+from src.memory_store import Category, MemoryStore, MemoryType
+from src.memory_updater import MemoryUpdater
+from src.qdrant_client import QdrantManager
 from src.settings import get_settings
 
 
@@ -33,7 +33,7 @@ def main():
 
     if not has_api_key:
         print(f"ERROR: {provider.upper()}_API_KEY not set in .env file!")
-        print(f"Please add your API key to .env or choose a different LLM_PROVIDER")
+        print("Please add your API key to .env or choose a different LLM_PROVIDER")
         return
 
     # Initialize services
@@ -46,9 +46,7 @@ def main():
     retriever = MemoryRetriever(qdrant_manager=qdrant, embedding_service=embeddings)
     deduplicator = MemoryDeduplicator(retriever=retriever, embedding_service=embeddings)
     updater = MemoryUpdater(
-        qdrant_manager=qdrant,
-        retriever=retriever,
-        embedding_service=embeddings
+        qdrant_manager=qdrant, retriever=retriever, embedding_service=embeddings
     )
     scorer = ImportanceScorer()
     print("   All services initialized!\n")
@@ -63,8 +61,8 @@ def main():
             "importance": 7,
             "category": Category.PERSONAL.value,
             "session_id": "session_adv_001",
-            "confidence": 0.9
-        }
+            "confidence": 0.9,
+        },
     )
     print(f"   Stored memory: {memory_id}\n")
 
@@ -73,19 +71,16 @@ def main():
     new_memory = {
         "text": "I like coffee with almond milk",
         "memory_type": MemoryType.PREFERENCE.value,
-        "importance": 7
+        "importance": 7,
     }
 
     result = deduplicator.process_new_memory(
-        new_memory=new_memory,
-        user_id="user_789",
-        similarity_threshold=0.85,
-        auto_decide=True
+        new_memory=new_memory, user_id="user_789", similarity_threshold=0.85, auto_decide=True
     )
 
     print(f"   Action: {result['action']}")
     print(f"   Found {len(result['duplicates'])} duplicates")
-    if result['decision_data']:
+    if result["decision_data"]:
         print(f"   Decision: {result['decision_data']['decision']}")
         print(f"   Reasoning: {result['decision_data']['reasoning']}")
     print()
@@ -97,7 +92,7 @@ def main():
             memory_id=memory_id,
             new_text="I prefer drinking coffee with oat milk now",
             reason="User changed preference from almond to oat milk",
-            new_importance=8
+            new_importance=8,
         )
         print(f"   Update successful: {success}\n")
     except Exception as e:
@@ -124,8 +119,8 @@ def main():
             "importance": 6,
             "category": Category.HEALTH.value,
             "session_id": "session_adv_002",
-            "confidence": 0.85
-        }
+            "confidence": 0.85,
+        },
     )
 
     # Create conflicting memory
@@ -137,17 +132,14 @@ def main():
             "importance": 7,
             "category": Category.HEALTH.value,
             "session_id": "session_adv_003",
-            "confidence": 0.9
-        }
+            "confidence": 0.9,
+        },
     }
 
     old_memory = retriever.get_memory_by_id(memory_id_2)
 
     try:
-        resolution = updater.resolve_conflict(
-            old_memory=old_memory,
-            new_memory=conflicting_memory
-        )
+        resolution = updater.resolve_conflict(old_memory=old_memory, new_memory=conflicting_memory)
 
         print(f"   Conflict resolution: {resolution['decision']}")
         print(f"   Reasoning: {resolution['reasoning']}")
@@ -155,9 +147,7 @@ def main():
 
         # Apply the resolution
         result_id = updater.apply_resolution(
-            old_memory=old_memory,
-            new_memory=conflicting_memory,
-            resolution=resolution
+            old_memory=old_memory, new_memory=conflicting_memory, resolution=resolution
         )
 
         if result_id:
@@ -176,7 +166,7 @@ def main():
         importance_result = scorer.calculate_importance(
             memory_text=test_memory,
             memory_type=MemoryType.FACT.value,
-            user_context="Health and safety information"
+            user_context="Health and safety information",
         )
 
         print(f"   Memory: {test_memory}")
@@ -191,16 +181,13 @@ def main():
     print("7. Testing importance decay...")
 
     # Get all memories for user
-    all_memories = retriever.get_memories_by_filter(
-        filters={"user_id": "user_789"},
-        limit=20
-    )
+    all_memories = retriever.get_memories_by_filter(filters={"user_id": "user_789"}, limit=20)
 
     print(f"   Found {len(all_memories)} memories for user_789")
 
     decay_results = scorer.batch_update_importance(
         memories=all_memories,
-        access_counts={memory_id: 5, memory_id_2: 2}  # Simulate access counts
+        access_counts={memory_id: 5, memory_id_2: 2},  # Simulate access counts
     )
 
     print(f"   Updated importance for {len(decay_results)} memories:")
@@ -220,8 +207,8 @@ def main():
             "importance": 8,
             "category": Category.WORK.value,
             "session_id": "session_adv_004",
-            "confidence": 1.0
-        }
+            "confidence": 1.0,
+        },
     )
 
     mem2_id = memory_store.store_memory(
@@ -232,8 +219,8 @@ def main():
             "importance": 7,
             "category": Category.WORK.value,
             "session_id": "session_adv_004",
-            "confidence": 0.95
-        }
+            "confidence": 0.95,
+        },
     )
 
     try:
@@ -241,7 +228,7 @@ def main():
             memory_ids=[mem1_id, mem2_id],
             merged_text="I work as a software engineer specializing in backend development with Python",
             merged_importance=9,
-            reason="Combined related work information"
+            reason="Combined related work information",
         )
 
         print(f"   Merged memories into: {merged_id}")
@@ -260,23 +247,17 @@ def main():
     # Example 7: Mark memory as outdated
     print("9. Marking memory as outdated...")
     try:
-        updater.mark_memory_outdated(
-            memory_id=mem2_id,
-            reason="Merged into another memory"
-        )
+        updater.mark_memory_outdated(memory_id=mem2_id, reason="Merged into another memory")
         print(f"   Marked {mem2_id} as outdated\n")
     except Exception as e:
         print(f"   Failed to mark as outdated: {e}\n")
 
     # Summary
     print("10. Final summary...")
-    final_memories = retriever.get_memories_by_filter(
-        filters={"user_id": "user_789"},
-        limit=50
-    )
+    final_memories = retriever.get_memories_by_filter(filters={"user_id": "user_789"}, limit=50)
 
-    active_memories = [m for m in final_memories if not m['metadata'].get('outdated', False)]
-    outdated_memories = [m for m in final_memories if m['metadata'].get('outdated', False)]
+    active_memories = [m for m in final_memories if not m["metadata"].get("outdated", False)]
+    outdated_memories = [m for m in final_memories if m["metadata"].get("outdated", False)]
 
     print(f"   Total memories: {len(final_memories)}")
     print(f"   Active: {len(active_memories)}")

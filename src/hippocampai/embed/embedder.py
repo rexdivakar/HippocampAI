@@ -1,9 +1,9 @@
 """Embedder with batching and quantization."""
 
 import logging
-import queue
 import threading
 from typing import List
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -18,7 +18,7 @@ class Embedder:
         model_name: str = "BAAI/bge-small-en-v1.5",
         batch_size: int = 32,
         quantized: bool = False,
-        dimension: int = 384
+        dimension: int = 384,
     ):
         self.model_name = model_name
         self.batch_size = batch_size
@@ -30,7 +30,7 @@ class Embedder:
             # Load with int8 quantization if supported
             try:
                 model_kwargs["model_kwargs"] = {"torch_dtype": "int8"}
-            except:
+            except:  # noqa: E722
                 logger.warning("int8 quantization not available, using default")
 
         self.model = SentenceTransformer(model_name, **model_kwargs)
@@ -44,10 +44,7 @@ class Embedder:
 
         with self.lock:
             embeddings = self.model.encode(
-                texts,
-                batch_size=self.batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True
+                texts, batch_size=self.batch_size, show_progress_bar=False, convert_to_numpy=True
             )
         return embeddings
 
@@ -64,7 +61,7 @@ def get_embedder(
     model_name: str = "BAAI/bge-small-en-v1.5",
     batch_size: int = 32,
     quantized: bool = False,
-    dimension: int = 384
+    dimension: int = 384,
 ) -> Embedder:
     """Get shared embedder instance."""
     global _embedder_instance
@@ -74,6 +71,6 @@ def get_embedder(
                 model_name=model_name,
                 batch_size=batch_size,
                 quantized=quantized,
-                dimension=dimension
+                dimension=dimension,
             )
     return _embedder_instance

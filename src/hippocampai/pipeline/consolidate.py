@@ -2,8 +2,9 @@
 
 import logging
 from typing import List, Optional
-from hippocampai.models.memory import Memory
+
 from hippocampai.adapters.llm_base import BaseLLM
+from hippocampai.models.memory import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ Merged memory:"""
                 confidence=min(m.confidence for m in memories),
                 tags=list(set(sum([m.tags for m in memories], []))),
                 access_count=sum(m.access_count for m in memories),
-                metadata={"consolidated_from": [m.id for m in memories]}
+                metadata={"consolidated_from": [m.id for m in memories]},
             )
 
         except Exception as e:
@@ -76,5 +77,5 @@ Merged memory:"""
             confidence=min(m.confidence for m in memories),
             tags=list(set(sum([m.tags for m in memories], []))),
             access_count=sum(m.access_count for m in memories),
-            metadata={"consolidated_from": [m.id for m in memories]}
+            metadata={"consolidated_from": [m.id for m in memories]},
         )

@@ -3,16 +3,17 @@
 import logging
 import logging.config
 import logging.handlers
-import yaml
 import sys
 from pathlib import Path
 from typing import Optional
+
+import yaml
 
 
 def setup_logging(
     config_file: Optional[str] = None,
     log_level: Optional[str] = None,
-    log_dir: Optional[str] = None
+    log_dir: Optional[str] = None,
 ) -> None:
     """
     Set up logging configuration.
@@ -45,20 +46,20 @@ def setup_logging(
     # Try to load YAML config
     if config_file.exists():
         try:
-            with open(config_file, 'r') as f:
+            with open(config_file, "r") as f:
                 config = yaml.safe_load(f)
 
             # Update log file paths to use log_dir
-            for handler_name, handler_config in config.get('handlers', {}).items():
-                if 'filename' in handler_config:
-                    filename = Path(handler_config['filename']).name
-                    handler_config['filename'] = str(logs_path / filename)
+            for handler_name, handler_config in config.get("handlers", {}).items():
+                if "filename" in handler_config:
+                    filename = Path(handler_config["filename"]).name
+                    handler_config["filename"] = str(logs_path / filename)
 
             # Apply log level override
             if log_level:
-                config['root']['level'] = log_level.upper()
-                for logger_config in config.get('loggers', {}).values():
-                    logger_config['level'] = log_level.upper()
+                config["root"]["level"] = log_level.upper()
+                for logger_config in config.get("loggers", {}).values():
+                    logger_config["level"] = log_level.upper()
 
             # Apply configuration
             logging.config.dictConfig(config)
@@ -85,13 +86,12 @@ def _setup_basic_logging(log_level: Optional[str] = None, logs_path: Path = None
 
     # Create formatters
     console_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
     file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # Console handler
@@ -105,7 +105,7 @@ def _setup_basic_logging(log_level: Optional[str] = None, logs_path: Path = None
         log_file,
         maxBytes=10 * 1024 * 1024,  # 10MB
         backupCount=5,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
@@ -116,7 +116,7 @@ def _setup_basic_logging(log_level: Optional[str] = None, logs_path: Path = None
         error_file,
         maxBytes=10 * 1024 * 1024,  # 10MB
         backupCount=5,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(file_formatter)
@@ -129,10 +129,10 @@ def _setup_basic_logging(log_level: Optional[str] = None, logs_path: Path = None
     root_logger.addHandler(error_handler)
 
     # Reduce noise from third-party libraries
-    logging.getLogger('anthropic').setLevel(logging.WARNING)
-    logging.getLogger('qdrant_client').setLevel(logging.WARNING)
-    logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger("anthropic").setLevel(logging.WARNING)
+    logging.getLogger("qdrant_client").setLevel(logging.WARNING)
+    logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
     logging.info(f"Basic logging configured (level={logging.getLevelName(level)})")
 

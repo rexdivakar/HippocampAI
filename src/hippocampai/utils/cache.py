@@ -1,7 +1,8 @@
 """Simple TTL cache."""
 
-from cachetools import TTLCache
 from typing import Any, Optional
+
+from cachetools import TTLCache
 
 _cache_instance = None
 

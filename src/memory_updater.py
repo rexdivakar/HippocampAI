@@ -3,16 +3,15 @@
 import json
 import logging
 import time
-from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.qdrant_client import QdrantManager
-from src.memory_retriever import MemoryRetriever
 from src.embedding_service import EmbeddingService
-
+from src.memory_retriever import MemoryRetriever
+from src.qdrant_client import QdrantManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 class ConflictResolution(str, Enum):
     """Possible conflict resolution strategies."""
-    UPDATE = "update"      # New replaces old
-    MERGE = "merge"        # Combine information
+
+    UPDATE = "update"  # New replaces old
+    MERGE = "merge"  # Combine information
     SEPARATE = "separate"  # Both are valid, keep separate
 
 
@@ -71,7 +71,7 @@ Do not include any other text."""
         retriever: MemoryRetriever,
         embedding_service: EmbeddingService,
         api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022"
+        model: str = "claude-3-5-sonnet-20241022",
     ):
         """
         Initialize the memory updater.
@@ -88,6 +88,7 @@ Do not include any other text."""
         self.embeddings = embedding_service
 
         import os
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -112,10 +113,7 @@ Do not include any other text."""
         """Find which collection contains the memory."""
         for collection in self.qdrant.COLLECTIONS:
             try:
-                points = self.qdrant.client.retrieve(
-                    collection_name=collection,
-                    ids=[memory_id]
-                )
+                points = self.qdrant.client.retrieve(collection_name=collection, ids=[memory_id])
                 if points:
                     return collection
             except Exception:
@@ -128,7 +126,7 @@ Do not include any other text."""
         new_text: str,
         reason: str,
         new_importance: Optional[int] = None,
-        collection_name: Optional[str] = None
+        collection_name: Optional[str] = None,
     ) -> bool:
         """
         Update an existing memory with version history.
@@ -170,12 +168,14 @@ Do not include any other text."""
                 metadata["version_history"] = []
 
             # Add current version to history
-            metadata["version_history"].append({
-                "text": existing["text"],
-                "importance": metadata.get("importance"),
-                "timestamp": metadata.get("timestamp"),
-                "version": metadata.get("version", 0)
-            })
+            metadata["version_history"].append(
+                {
+                    "text": existing["text"],
+                    "importance": metadata.get("importance"),
+                    "timestamp": metadata.get("timestamp"),
+                    "version": metadata.get("version", 0),
+                }
+            )
 
             # Update metadata
             metadata["text"] = new_text
@@ -193,20 +193,12 @@ Do not include any other text."""
             # Update in Qdrant
             from qdrant_client.models import PointStruct
 
-            point = PointStruct(
-                id=memory_id,
-                vector=new_embedding.tolist(),
-                payload=metadata
-            )
+            point = PointStruct(id=memory_id, vector=new_embedding.tolist(), payload=metadata)
 
-            self.qdrant.client.upsert(
-                collection_name=collection_name,
-                points=[point]
-            )
+            self.qdrant.client.upsert(collection_name=collection_name, points=[point])
 
             logger.info(
-                f"Updated memory {memory_id} (version {metadata['version']}, "
-                f"reason: {reason})"
+                f"Updated memory {memory_id} (version {metadata['version']}, reason: {reason})"
             )
 
             return True
@@ -215,14 +207,14 @@ Do not include any other text."""
             raise
         except Exception as e:
             logger.error(f"Failed to update memory {memory_id}: {e}")
-            raise RuntimeError(f"Memory update failed") from e
+            raise RuntimeError("Memory update failed") from e
 
     def merge_memories(
         self,
         memory_ids: List[str],
         merged_text: str,
         merged_importance: int,
-        reason: str = "Merged duplicate/related memories"
+        reason: str = "Merged duplicate/related memories",
     ) -> str:
         """
         Merge multiple memories into one.
@@ -272,7 +264,7 @@ Do not include any other text."""
                 {
                     "memory_id": mem["memory_id"],
                     "text": mem["text"],
-                    "importance": mem["metadata"]["importance"]
+                    "importance": mem["metadata"]["importance"],
                 }
                 for mem in memories
             ]
@@ -286,29 +278,19 @@ Do not include any other text."""
             from qdrant_client.models import PointStruct
 
             point = PointStruct(
-                id=primary_id,
-                vector=merged_embedding.tolist(),
-                payload=merged_metadata
+                id=primary_id, vector=merged_embedding.tolist(), payload=merged_metadata
             )
 
-            self.qdrant.client.upsert(
-                collection_name=primary_collection,
-                points=[point]
-            )
+            self.qdrant.client.upsert(collection_name=primary_collection, points=[point])
 
             # Mark other memories as outdated (or delete them)
             for mem_id in memory_ids[1:]:
                 try:
-                    self.mark_memory_outdated(
-                        memory_id=mem_id,
-                        reason=f"Merged into {primary_id}"
-                    )
+                    self.mark_memory_outdated(memory_id=mem_id, reason=f"Merged into {primary_id}")
                 except Exception as e:
                     logger.warning(f"Failed to mark {mem_id} as outdated: {e}")
 
-            logger.info(
-                f"Merged {len(memory_ids)} memories into {primary_id}"
-            )
+            logger.info(f"Merged {len(memory_ids)} memories into {primary_id}")
 
             return primary_id
 
@@ -319,10 +301,7 @@ Do not include any other text."""
             raise RuntimeError("Memory merge failed") from e
 
     def mark_memory_outdated(
-        self,
-        memory_id: str,
-        reason: str,
-        collection_name: Optional[str] = None
+        self, memory_id: str, reason: str, collection_name: Optional[str] = None
     ) -> bool:
         """
         Mark a memory as outdated without deleting it.
@@ -354,9 +333,7 @@ Do not include any other text."""
 
             # Get original embedding (no need to regenerate)
             points = self.qdrant.client.retrieve(
-                collection_name=collection_name,
-                ids=[memory_id],
-                with_vectors=True
+                collection_name=collection_name, ids=[memory_id], with_vectors=True
             )
 
             if not points:
@@ -364,16 +341,9 @@ Do not include any other text."""
 
             from qdrant_client.models import PointStruct
 
-            point = PointStruct(
-                id=memory_id,
-                vector=points[0].vector,
-                payload=metadata
-            )
+            point = PointStruct(id=memory_id, vector=points[0].vector, payload=metadata)
 
-            self.qdrant.client.upsert(
-                collection_name=collection_name,
-                points=[point]
-            )
+            self.qdrant.client.upsert(collection_name=collection_name, points=[point])
 
             logger.info(f"Marked memory {memory_id} as outdated: {reason}")
             return True
@@ -383,10 +353,7 @@ Do not include any other text."""
             raise RuntimeError("Failed to mark memory as outdated") from e
 
     def resolve_conflict(
-        self,
-        old_memory: Dict[str, Any],
-        new_memory: Dict[str, Any],
-        max_retries: int = 2
+        self, old_memory: Dict[str, Any], new_memory: Dict[str, Any], max_retries: int = 2
     ) -> Dict[str, Any]:
         """
         Use Claude to determine how to resolve a conflict between memories.
@@ -415,7 +382,7 @@ Do not include any other text."""
                     new_text=new_memory.get("text", ""),
                     new_type=new_memory.get("metadata", {}).get("memory_type", "unknown"),
                     new_importance=new_memory.get("metadata", {}).get("importance", 5),
-                    new_timestamp=datetime.utcnow().isoformat()
+                    new_timestamp=datetime.utcnow().isoformat(),
                 )
 
                 # Call Claude
@@ -423,13 +390,13 @@ Do not include any other text."""
                     model=self.model,
                     max_tokens=1024,
                     temperature=0.0,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
                 # Parse response
                 response_text = message.content[0].text.strip()
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}") + 1
 
                 if start_idx == -1 or end_idx == 0:
                     raise ValueError("No JSON found in response")
@@ -455,7 +422,7 @@ Do not include any other text."""
 
             except anthropic.RateLimitError as e:
                 if attempt < max_retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     raise RuntimeError("Rate limit exceeded") from e
 
@@ -474,10 +441,7 @@ Do not include any other text."""
         raise RuntimeError("Conflict resolution failed")
 
     def apply_resolution(
-        self,
-        old_memory: Dict[str, Any],
-        new_memory: Dict[str, Any],
-        resolution: Dict[str, Any]
+        self, old_memory: Dict[str, Any], new_memory: Dict[str, Any], resolution: Dict[str, Any]
     ) -> Optional[str]:
         """
         Apply the conflict resolution decision.
@@ -502,15 +466,16 @@ Do not include any other text."""
                     memory_id=old_memory["memory_id"],
                     new_text=new_memory["text"],
                     reason=resolution.get("reasoning", "Conflict resolution: update"),
-                    new_importance=new_memory.get("metadata", {}).get("importance")
+                    new_importance=new_memory.get("metadata", {}).get("importance"),
                 )
                 return old_memory["memory_id"]
 
             elif decision == ConflictResolution.MERGE.value:
                 # Merge both
                 merged_text = resolution.get("merged_text")
-                merged_importance = resolution.get("merged_importance",
-                                                   old_memory["metadata"]["importance"])
+                merged_importance = resolution.get(
+                    "merged_importance", old_memory["metadata"]["importance"]
+                )
 
                 if not merged_text:
                     raise ValueError("Merged text not provided in resolution")
@@ -519,7 +484,7 @@ Do not include any other text."""
                     memory_ids=[old_memory["memory_id"]],
                     merged_text=merged_text,
                     merged_importance=merged_importance,
-                    reason=resolution.get("reasoning", "Conflict resolution: merge")
+                    reason=resolution.get("reasoning", "Conflict resolution: merge"),
                 )
 
             elif decision == ConflictResolution.SEPARATE.value:

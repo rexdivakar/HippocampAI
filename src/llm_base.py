@@ -3,10 +3,9 @@
 import json
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from src.llm_provider import get_llm_client, BaseLLMClient
-
+from src.llm_provider import BaseLLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class LLMBaseMixin:
         provider: Optional[str] = None,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize LLM client.
@@ -35,12 +34,9 @@ class LLMBaseMixin:
             **kwargs: Additional provider-specific settings
         """
         self.llm_client: BaseLLMClient = get_llm_client(
-            provider=provider,
-            api_key=api_key,
-            model=model,
-            **kwargs
+            provider=provider, api_key=api_key, model=model, **kwargs
         )
-        self.provider = provider or self.llm_client.__class__.__name__.replace('Client', '').lower()
+        self.provider = provider or self.llm_client.__class__.__name__.replace("Client", "").lower()
         self.model = model or self.llm_client.model
 
         logger.info(f"Initialized LLM: provider={self.provider}, model={self.model}")
@@ -50,7 +46,7 @@ class LLMBaseMixin:
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> str:
         """
         Call LLM with retry logic.
@@ -70,9 +66,7 @@ class LLMBaseMixin:
         for attempt in range(max_retries + 1):
             try:
                 response = self.llm_client.generate(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature
+                    prompt=prompt, max_tokens=max_tokens, temperature=temperature
                 )
                 return response
 
@@ -80,7 +74,7 @@ class LLMBaseMixin:
                 logger.error(f"LLM call failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
 
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff
+                    wait_time = 2**attempt  # Exponential backoff
                     logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                 else:
@@ -93,7 +87,7 @@ class LLMBaseMixin:
         prompt: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> Dict[str, Any]:
         """
         Call LLM and parse JSON response.
@@ -111,10 +105,7 @@ class LLMBaseMixin:
             RuntimeError: If parsing fails
         """
         response = self._call_llm(
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            max_retries=max_retries
+            prompt=prompt, max_tokens=max_tokens, temperature=temperature, max_retries=max_retries
         )
 
         # Extract JSON from response
@@ -123,8 +114,8 @@ class LLMBaseMixin:
             response = response.strip()
 
             # Look for JSON object
-            start_idx = response.find('{')
-            end_idx = response.rfind('}') + 1
+            start_idx = response.find("{")
+            end_idx = response.rfind("}") + 1
 
             if start_idx == -1 or end_idx == 0:
                 raise ValueError("No JSON object found in response")
@@ -142,7 +133,7 @@ class LLMBaseMixin:
         messages: list,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> str:
         """
         Call LLM with chat messages.
@@ -162,9 +153,7 @@ class LLMBaseMixin:
         for attempt in range(max_retries + 1):
             try:
                 response = self.llm_client.chat(
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature
+                    messages=messages, max_tokens=max_tokens, temperature=temperature
                 )
                 return response
 
@@ -172,7 +161,7 @@ class LLMBaseMixin:
                 logger.error(f"LLM chat failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
 
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                 else:

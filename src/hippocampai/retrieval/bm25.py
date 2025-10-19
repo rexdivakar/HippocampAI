@@ -1,8 +1,9 @@
 """BM25 sparse retrieval."""
 
-from typing import List, Tuple
-from rank_bm25 import BM25Okapi
 import logging
+from typing import List, Tuple
+
+from rank_bm25 import BM25Okapi
 
 logger = logging.getLogger(__name__)
 

@@ -3,9 +3,9 @@
 import hashlib
 import logging
 from typing import List, Optional
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class EmbeddingService:
         Returns:
             MD5 hash of the text
         """
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
+        return hashlib.md5(text.encode("utf-8")).hexdigest()
 
     def _add_to_cache(self, text: str, embedding: np.ndarray) -> None:
         """
@@ -71,7 +71,7 @@ class EmbeddingService:
         if len(self._cache) >= self.cache_size:
             oldest_key = next(iter(self._cache))
             del self._cache[oldest_key]
-            logger.debug(f"Cache full, evicted oldest entry")
+            logger.debug("Cache full, evicted oldest entry")
 
         self._cache[cache_key] = embedding.copy()
 
@@ -182,7 +182,9 @@ class EmbeddingService:
                 logger.error(f"Failed to generate batch embeddings: {e}")
                 raise RuntimeError("Batch embedding generation failed") from e
 
-        logger.info(f"Generated embeddings for {len(texts)} texts ({len(texts_to_encode)} new, {len(texts) - len(texts_to_encode)} cached)")
+        logger.info(
+            f"Generated embeddings for {len(texts)} texts ({len(texts_to_encode)} new, {len(texts) - len(texts_to_encode)} cached)"
+        )
         return embeddings
 
     def get_embedding_dimension(self) -> int:
@@ -210,7 +212,7 @@ class EmbeddingService:
             "cache_size": len(self._cache),
             "max_cache_size": self.cache_size,
             "model_name": self.model_name,
-            "embedding_dimension": self.get_embedding_dimension()
+            "embedding_dimension": self.get_embedding_dimension(),
         }
 
     def switch_model(self, model_name: str) -> None:

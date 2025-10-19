@@ -1,7 +1,9 @@
 """Background jobs scheduler."""
 
 import logging
+
 from apscheduler.schedulers.background import BackgroundScheduler
+
 from hippocampai.client import MemoryClient
 from hippocampai.config import get_config
 
@@ -24,11 +26,7 @@ class JobScheduler:
 
         # Decay job
         self.scheduler.add_job(
-            self.decay_importance,
-            trigger="cron",
-            hour=2,
-            minute=0,
-            id="decay_importance"
+            self.decay_importance, trigger="cron", hour=2, minute=0, id="decay_importance"
         )
 
         # Consolidate job
@@ -38,15 +36,12 @@ class JobScheduler:
             day_of_week="sun",
             hour=3,
             minute=0,
-            id="consolidate_memories"
+            id="consolidate_memories",
         )
 
         # Snapshot job
         self.scheduler.add_job(
-            self.create_snapshots,
-            trigger="cron",
-            minute=0,
-            id="create_snapshots"
+            self.create_snapshots, trigger="cron", minute=0, id="create_snapshots"
         )
 
         self.scheduler.start()
@@ -73,12 +68,8 @@ class JobScheduler:
         """Create Qdrant snapshots (hourly)."""
         logger.info("Creating snapshots")
         try:
-            facts_snap = self.client.qdrant.create_snapshot(
-                self.client.config.collection_facts
-            )
-            prefs_snap = self.client.qdrant.create_snapshot(
-                self.client.config.collection_prefs
-            )
+            facts_snap = self.client.qdrant.create_snapshot(self.client.config.collection_facts)
+            prefs_snap = self.client.qdrant.create_snapshot(self.client.config.collection_prefs)
             logger.info(f"Snapshots created: {facts_snap}, {prefs_snap}")
         except Exception as e:
             logger.error(f"Snapshot failed: {e}")

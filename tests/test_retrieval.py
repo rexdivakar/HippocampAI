@@ -1,9 +1,9 @@
 """Tests for retrieval components."""
 
-import pytest
-from hippocampai.retrieval.rrf import reciprocal_rank_fusion
-from hippocampai.utils.scoring import normalize, recency_score, fuse_scores
 from datetime import datetime, timedelta
+
+from hippocampai.retrieval.rrf import reciprocal_rank_fusion
+from hippocampai.utils.scoring import fuse_scores, normalize, recency_score
 
 
 def test_rrf_fusion():
@@ -39,13 +39,7 @@ def test_recency_score():
 def test_fuse_scores():
     """Test score fusion."""
     weights = {"sim": 0.55, "rerank": 0.20, "recency": 0.15, "importance": 0.10}
-    score = fuse_scores(
-        sim=0.9,
-        rerank=0.8,
-        recency=0.7,
-        importance=0.6,
-        weights=weights
-    )
+    score = fuse_scores(sim=0.9, rerank=0.8, recency=0.7, importance=0.6, weights=weights)
 
     assert 0.7 < score < 0.9
     assert abs(score - 0.82) < 0.05

@@ -2,14 +2,15 @@
 
 import json
 import sys
-import typer
 from typing import Optional
+
+import typer
 from rich import print
 from rich.table import Table
 
+from hippocampai.api.app import run_server
 from hippocampai.client import MemoryClient
 from hippocampai.config import get_config
-from hippocampai.api.app import run_server
 
 app = typer.Typer(name="hippocampai", help="HippocampAI memory engine")
 
@@ -19,7 +20,7 @@ def init():
     """Initialize HippocampAI (create collections)."""
     try:
         config = get_config()
-        client = MemoryClient(config=config)
+        client = MemoryClient(config=config)  # noqa: F841
         print("[green]✓[/green] HippocampAI initialized successfully")
         print(f"  Qdrant: {config.qdrant_url}")
         print(f"  Collections: {config.collection_facts}, {config.collection_prefs}")
@@ -46,12 +47,7 @@ def remember(
 
     try:
         client = MemoryClient()
-        memory = client.remember(
-            text=text,
-            user_id=user,
-            session_id=session,
-            type=type
-        )
+        memory = client.remember(text=text, user_id=user, session_id=session, type=type)
         print(f"[green]✓[/green] Stored memory: {memory.id}")
         print(f"  Text: {memory.text}")
         print(f"  Type: {memory.type.value}")
@@ -72,12 +68,7 @@ def recall(
     """Retrieve memories."""
     try:
         client = MemoryClient()
-        results = client.recall(
-            query=query,
-            user_id=user,
-            session_id=session,
-            k=k
-        )
+        results = client.recall(query=query, user_id=user, session_id=session, k=k)
 
         if json_output:
             data = [
@@ -85,7 +76,7 @@ def recall(
                     "id": r.memory.id,
                     "text": r.memory.text,
                     "score": r.score,
-                    "breakdown": r.breakdown
+                    "breakdown": r.breakdown,
                 }
                 for r in results
             ]
@@ -101,11 +92,7 @@ def recall(
             table.add_column("Type", style="green", width=12)
 
             for r in results:
-                table.add_row(
-                    f"{r.score:.3f}",
-                    r.memory.text[:80],
-                    r.memory.type.value
-                )
+                table.add_row(f"{r.score:.3f}", r.memory.text[:80], r.memory.type.value)
 
             print(table)
 

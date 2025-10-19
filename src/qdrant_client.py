@@ -1,12 +1,12 @@
 """Qdrant client wrapper for managing vector collections."""
 
-from typing import Optional, List
 import logging
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
-from qdrant_client.http import models
-from qdrant_client.http.exceptions import UnexpectedResponse
+from typing import List, Optional
 
+from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.models import Distance, VectorParams
+
+from qdrant_client import QdrantClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,10 +71,7 @@ class QdrantManager:
                 # Create collection
                 self.client.create_collection(
                     collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=self.VECTOR_SIZE,
-                        distance=Distance.COSINE
-                    )
+                    vectors_config=VectorParams(size=self.VECTOR_SIZE, distance=Distance.COSINE),
                 )
                 logger.info(f"Created collection '{collection_name}'")
 
@@ -107,7 +104,7 @@ class QdrantManager:
                 "name": collection_name,
                 "vectors_count": info.vectors_count,
                 "points_count": info.points_count,
-                "status": info.status
+                "status": info.status,
             }
         except Exception as e:
             logger.error(f"Failed to get collection info for '{collection_name}': {e}")

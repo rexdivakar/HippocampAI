@@ -4,12 +4,11 @@ import json
 import logging
 import os
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.memory_store import MemoryType, Category
-
+from src.memory_store import Category, MemoryType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -155,8 +154,8 @@ Remember: Return ONLY the JSON array, nothing else."""
             response_text = response_text.strip()
 
             # Handle case where response might have extra text
-            start_idx = response_text.find('[')
-            end_idx = response_text.rfind(']') + 1
+            start_idx = response_text.find("[")
+            end_idx = response_text.rfind("]") + 1
 
             if start_idx == -1 or end_idx == 0:
                 logger.warning("No JSON array found in response, returning empty list")
@@ -165,7 +164,7 @@ Remember: Return ONLY the JSON array, nothing else."""
             json_text = response_text[start_idx:end_idx]
 
             # Clean up any markdown code blocks
-            json_text = json_text.replace('```json', '').replace('```', '')
+            json_text = json_text.replace("```json", "").replace("```", "")
 
             memories = json.loads(json_text)
 
@@ -187,7 +186,7 @@ Remember: Return ONLY the JSON array, nothing else."""
         conversation_text: str,
         user_id: str,
         session_id: Optional[str] = None,
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> List[Dict[str, Any]]:
         """
         Extract memories from a conversation using Claude API.
@@ -230,12 +229,7 @@ Remember: Return ONLY the JSON array, nothing else."""
                     model=self.model,
                     max_tokens=4096,
                     temperature=0.0,  # Use deterministic extraction
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
                 # Extract response text
@@ -259,16 +253,15 @@ Remember: Return ONLY the JSON array, nothing else."""
                                 "importance": memory["importance"],
                                 "category": memory["category"],
                                 "session_id": session_id,
-                                "confidence": memory["confidence"]
-                            }
+                                "confidence": memory["confidence"],
+                            },
                         }
                         valid_memories.append(enriched_memory)
                     else:
                         logger.warning(f"Skipping invalid memory at index {i}")
 
                 logger.info(
-                    f"Extracted {len(valid_memories)} valid memories "
-                    f"(out of {len(memories)} total)"
+                    f"Extracted {len(valid_memories)} valid memories (out of {len(memories)} total)"
                 )
 
                 return valid_memories
@@ -276,7 +269,7 @@ Remember: Return ONLY the JSON array, nothing else."""
             except anthropic.RateLimitError as e:
                 logger.warning(f"Rate limit hit: {e}")
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff
+                    wait_time = 2**attempt  # Exponential backoff
                     logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                 else:
@@ -299,6 +292,7 @@ Remember: Return ONLY the JSON array, nothing else."""
             except Exception as e:
                 logger.error(f"Unexpected error during extraction: {e}")
                 import traceback
+
                 logger.debug(f"Traceback: {traceback.format_exc()}")
                 if attempt < max_retries:
                     wait_time = 1
@@ -306,7 +300,9 @@ Remember: Return ONLY the JSON array, nothing else."""
                     time.sleep(wait_time)
                 else:
                     # Return empty list instead of failing
-                    logger.warning(f"Memory extraction failed after {max_retries} retries, returning empty list")
+                    logger.warning(
+                        f"Memory extraction failed after {max_retries} retries, returning empty list"
+                    )
                     return []
 
         # Should not reach here, but return empty list just in case
@@ -314,11 +310,7 @@ Remember: Return ONLY the JSON array, nothing else."""
         return []
 
     def extract_and_store(
-        self,
-        conversation_text: str,
-        user_id: str,
-        memory_store,
-        session_id: Optional[str] = None
+        self, conversation_text: str, user_id: str, memory_store, session_id: Optional[str] = None
     ) -> List[str]:
         """
         Extract memories from conversation and store them directly.

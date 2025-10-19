@@ -1,7 +1,7 @@
 """Configuration with env var overrides."""
 
-import os
 from typing import Dict
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 

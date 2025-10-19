@@ -5,12 +5,11 @@ including web search, calculations, and more.
 """
 
 import logging
-import json
-import requests
-from typing import Dict, List, Any, Optional
-from datetime import datetime
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ class WebSearchTool(BaseTool):
         """
         super().__init__(
             name="web_search",
-            description="Search the web for current information, news, facts, and answers to questions"
+            description="Search the web for current information, news, facts, and answers to questions",
         )
         self.search_engine = search_engine.lower()
         logger.info(f"WebSearchTool initialized with engine: {self.search_engine}")
@@ -85,17 +84,12 @@ class WebSearchTool(BaseTool):
                 "query": query,
                 "engine": self.search_engine,
                 "results": results,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Search failed: {e}")
-            return {
-                "success": False,
-                "query": query,
-                "error": str(e),
-                "results": []
-            }
+            return {"success": False, "query": query, "error": str(e), "results": []}
 
     def _search_duckduckgo(self, query: str, num_results: int) -> List[Dict[str, str]]:
         """
@@ -106,12 +100,7 @@ class WebSearchTool(BaseTool):
         try:
             # DuckDuckGo Instant Answer API
             url = "https://api.duckduckgo.com/"
-            params = {
-                "q": query,
-                "format": "json",
-                "no_html": 1,
-                "skip_disambig": 1
-            }
+            params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
 
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
@@ -121,22 +110,26 @@ class WebSearchTool(BaseTool):
 
             # Add abstract if available
             if data.get("Abstract"):
-                results.append({
-                    "title": data.get("Heading", query),
-                    "snippet": data.get("Abstract"),
-                    "url": data.get("AbstractURL", ""),
-                    "source": data.get("AbstractSource", "DuckDuckGo")
-                })
+                results.append(
+                    {
+                        "title": data.get("Heading", query),
+                        "snippet": data.get("Abstract"),
+                        "url": data.get("AbstractURL", ""),
+                        "source": data.get("AbstractSource", "DuckDuckGo"),
+                    }
+                )
 
             # Add related topics
-            for topic in data.get("RelatedTopics", [])[:num_results - 1]:
+            for topic in data.get("RelatedTopics", [])[: num_results - 1]:
                 if isinstance(topic, dict) and topic.get("Text"):
-                    results.append({
-                        "title": topic.get("FirstURL", "").split("/")[-1].replace("_", " "),
-                        "snippet": topic.get("Text"),
-                        "url": topic.get("FirstURL", ""),
-                        "source": "DuckDuckGo"
-                    })
+                    results.append(
+                        {
+                            "title": topic.get("FirstURL", "").split("/")[-1].replace("_", " "),
+                            "snippet": topic.get("Text"),
+                            "url": topic.get("FirstURL", ""),
+                            "source": "DuckDuckGo",
+                        }
+                    )
 
             # If no results, try HTML scraping (fallback)
             if not results:
@@ -149,7 +142,7 @@ class WebSearchTool(BaseTool):
             # Try HTML fallback
             try:
                 return self._search_duckduckgo_html(query, num_results)
-            except:
+            except:  # noqa: E722
                 return []
 
     def _search_duckduckgo_html(self, query: str, num_results: int) -> List[Dict[str, str]]:
@@ -178,21 +171,24 @@ class WebSearchTool(BaseTool):
                 url_match, title, snippet = match
 
                 # Clean HTML tags
-                title = re.sub(r'<.*?>', '', title).strip()
-                snippet = re.sub(r'<.*?>', '', snippet).strip()
+                title = re.sub(r"<.*?>", "", title).strip()
+                snippet = re.sub(r"<.*?>", "", snippet).strip()
 
                 # Decode HTML entities
                 import html as html_module
+
                 title = html_module.unescape(title)
                 snippet = html_module.unescape(snippet)
 
                 if title and url_match:
-                    results.append({
-                        "title": title,
-                        "snippet": snippet if snippet else "No description available",
-                        "url": url_match,
-                        "source": "DuckDuckGo"
-                    })
+                    results.append(
+                        {
+                            "title": title,
+                            "snippet": snippet if snippet else "No description available",
+                            "url": url_match,
+                            "source": "DuckDuckGo",
+                        }
+                    )
 
             # If regex parsing failed, try simpler approach
             if not results:
@@ -201,24 +197,33 @@ class WebSearchTool(BaseTool):
                 links = re.findall(link_pattern, html, re.DOTALL)
 
                 for url_match, title in links[:num_results]:
-                    title = re.sub(r'<.*?>', '', title).strip()
+                    title = re.sub(r"<.*?>", "", title).strip()
                     import html as html_module
+
                     title = html_module.unescape(title)
 
                     if title and url_match:
-                        results.append({
-                            "title": title,
-                            "snippet": f"Information about {query}",
-                            "url": url_match,
-                            "source": "DuckDuckGo"
-                        })
+                        results.append(
+                            {
+                                "title": title,
+                                "snippet": f"Information about {query}",
+                                "url": url_match,
+                                "source": "DuckDuckGo",
+                            }
+                        )
 
-            return results if results else [{
-                "title": f"Search: {query}",
-                "snippet": f"Visit DuckDuckGo to search for '{query}'",
-                "url": f"https://duckduckgo.com/?q={query.replace(' ', '+')}",
-                "source": "DuckDuckGo"
-            }]
+            return (
+                results
+                if results
+                else [
+                    {
+                        "title": f"Search: {query}",
+                        "snippet": f"Visit DuckDuckGo to search for '{query}'",
+                        "url": f"https://duckduckgo.com/?q={query.replace(' ', '+')}",
+                        "source": "DuckDuckGo",
+                    }
+                ]
+            )
 
         except Exception as e:
             logger.error(f"DuckDuckGo HTML search failed: {e}")
@@ -241,12 +246,7 @@ class WebSearchTool(BaseTool):
 
         try:
             url = "https://www.googleapis.com/customsearch/v1"
-            params = {
-                "key": api_key,
-                "cx": cx,
-                "q": query,
-                "num": num_results
-            }
+            params = {"key": api_key, "cx": cx, "q": query, "num": num_results}
 
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
@@ -254,12 +254,14 @@ class WebSearchTool(BaseTool):
 
             results = []
             for item in data.get("items", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "snippet": item.get("snippet", ""),
-                    "url": item.get("link", ""),
-                    "source": "Google"
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "url": item.get("link", ""),
+                        "source": "Google",
+                    }
+                )
 
             return results
 
@@ -283,14 +285,8 @@ class WebSearchTool(BaseTool):
 
         try:
             url = "https://api.search.brave.com/res/v1/web/search"
-            headers = {
-                "X-Subscription-Token": api_key,
-                "Accept": "application/json"
-            }
-            params = {
-                "q": query,
-                "count": num_results
-            }
+            headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+            params = {"q": query, "count": num_results}
 
             response = requests.get(url, headers=headers, params=params, timeout=10)
             response.raise_for_status()
@@ -298,12 +294,14 @@ class WebSearchTool(BaseTool):
 
             results = []
             for item in data.get("web", {}).get("results", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "snippet": item.get("description", ""),
-                    "url": item.get("url", ""),
-                    "source": "Brave"
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "snippet": item.get("description", ""),
+                        "url": item.get("url", ""),
+                        "source": "Brave",
+                    }
+                )
 
             return results
 
@@ -321,16 +319,16 @@ class WebSearchTool(BaseTool):
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The search query to look up on the web"
+                        "description": "The search query to look up on the web",
                     },
                     "num_results": {
                         "type": "integer",
                         "description": "Number of search results to return (default: 5, max: 10)",
-                        "default": 5
-                    }
+                        "default": 5,
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         }
 
 
@@ -338,10 +336,7 @@ class CalculatorTool(BaseTool):
     """Simple calculator tool for mathematical operations."""
 
     def __init__(self):
-        super().__init__(
-            name="calculator",
-            description="Perform mathematical calculations"
-        )
+        super().__init__(name="calculator", description="Perform mathematical calculations")
 
     def execute(self, expression: str) -> Dict[str, Any]:
         """
@@ -361,25 +356,17 @@ class CalculatorTool(BaseTool):
                 "min": min,
                 "max": max,
                 "sum": sum,
-                "pow": pow
+                "pow": pow,
             }
 
             # Evaluate expression
             result = eval(expression, {"__builtins__": {}}, allowed_names)
 
-            return {
-                "success": True,
-                "expression": expression,
-                "result": result
-            }
+            return {"success": True, "expression": expression, "result": result}
 
         except Exception as e:
             logger.error(f"Calculation failed: {e}")
-            return {
-                "success": False,
-                "expression": expression,
-                "error": str(e)
-            }
+            return {"success": False, "expression": expression, "error": str(e)}
 
     def get_schema(self) -> Dict[str, Any]:
         """Get tool schema."""
@@ -391,11 +378,11 @@ class CalculatorTool(BaseTool):
                 "properties": {
                     "expression": {
                         "type": "string",
-                        "description": "Mathematical expression to evaluate (e.g., '2 + 2', 'pow(3, 2)', 'max(10, 20)')"
+                        "description": "Mathematical expression to evaluate (e.g., '2 + 2', 'pow(3, 2)', 'max(10, 20)')",
                     }
                 },
-                "required": ["expression"]
-            }
+                "required": ["expression"],
+            },
         }
 
 
@@ -427,19 +414,13 @@ class ToolRegistry:
         """Execute a tool by name."""
         tool = self.get_tool(name)
         if not tool:
-            return {
-                "success": False,
-                "error": f"Tool '{name}' not found"
-            }
+            return {"success": False, "error": f"Tool '{name}' not found"}
 
         try:
             return tool.execute(**kwargs)
         except Exception as e:
             logger.error(f"Tool execution failed: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
 
 def create_default_registry() -> ToolRegistry:

@@ -2,6 +2,7 @@
 
 import re
 from typing import Optional
+
 from hippocampai.adapters.llm_base import BaseLLM
 
 
@@ -29,7 +30,7 @@ class ImportanceScorer:
         score = 5.0  # baseline
 
         text_lower = text.lower()
-        words = set(re.findall(r'\b\w+\b', text_lower))
+        words = set(re.findall(r"\b\w+\b", text_lower))
 
         # Keyword boost
         if words & self.KEYWORDS_HIGH:

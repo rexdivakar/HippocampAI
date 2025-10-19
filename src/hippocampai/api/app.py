@@ -1,14 +1,15 @@
 """FastAPI application."""
 
 import logging
-from typing import Dict, List, Optional
-from fastapi import FastAPI, Depends, HTTPException
+from typing import List, Optional
+
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import uvicorn
 
-from hippocampai.client import MemoryClient
 from hippocampai.api.deps import get_memory_client
+from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.add_middleware(
@@ -65,10 +66,7 @@ def metrics():
 
 
 @app.post("/v1/memories:remember", response_model=Memory)
-def remember(
-    request: RememberRequest,
-    client: MemoryClient = Depends(get_memory_client)
-):
+def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory_client)):
     """Store a memory."""
     try:
         memory = client.remember(
@@ -77,7 +75,7 @@ def remember(
             session_id=request.session_id,
             type=request.type,
             importance=request.importance,
-            tags=request.tags
+            tags=request.tags,
         )
         return memory
     except Exception as e:
@@ -86,17 +84,11 @@ def remember(
 
 
 @app.post("/v1/memories:recall", response_model=List[RetrievalResult])
-def recall(
-    request: RecallRequest,
-    client: MemoryClient = Depends(get_memory_client)
-):
+def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_client)):
     """Retrieve memories."""
     try:
         results = client.recall(
-            query=request.query,
-            user_id=request.user_id,
-            session_id=request.session_id,
-            k=request.k
+            query=request.query, user_id=request.user_id, session_id=request.session_id, k=request.k
         )
         return results
     except Exception as e:
@@ -105,16 +97,13 @@ def recall(
 
 
 @app.post("/v1/memories:extract", response_model=List[Memory])
-def extract(
-    request: ExtractRequest,
-    client: MemoryClient = Depends(get_memory_client)
-):
+def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)):
     """Extract memories from conversation."""
     try:
         memories = client.extract_from_conversation(
             conversation=request.conversation,
             user_id=request.user_id,
-            session_id=request.session_id
+            session_id=request.session_id,
         )
         return memories
     except Exception as e:

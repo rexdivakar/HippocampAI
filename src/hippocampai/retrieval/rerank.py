@@ -3,14 +3,18 @@
 import hashlib
 import logging
 from typing import List, Tuple
+
 from sentence_transformers import CrossEncoder
+
 from hippocampai.utils.cache import get_cache
 
 logger = logging.getLogger(__name__)
 
 
 class Reranker:
-    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2", cache_ttl: int = 86400):
+    def __init__(
+        self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2", cache_ttl: int = 86400
+    ):
         self.model = CrossEncoder(model_name)
         self.cache = get_cache(ttl=cache_ttl)
         logger.info(f"Loaded reranker: {model_name}")

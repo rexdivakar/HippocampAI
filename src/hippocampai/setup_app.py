@@ -38,9 +38,7 @@ def print_warning(text: str) -> None:
 def check_python_version() -> bool:
     version = sys.version_info
     if version.major < 3 or (version.major == 3 and version.minor < 8):
-        print_error(
-            f"Python 3.8+ required (current: {version.major}.{version.minor})"
-        )
+        print_error(f"Python 3.8+ required (current: {version.major}.{version.minor})")
         return False
 
     print_success(f"Python {version.major}.{version.minor}.{version.micro}")
@@ -167,8 +165,7 @@ def initialize_collections() -> bool:
         collections: Iterable[str] = []
         if hasattr(collections_response, "collections"):
             collections = [
-                getattr(item, "name", str(item))
-                for item in collections_response.collections
+                getattr(item, "name", str(item)) for item in collections_response.collections
             ]
 
         print_success("Initialized Qdrant collections")

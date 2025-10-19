@@ -1,13 +1,13 @@
 """Example usage of the MemoryRetriever class."""
 
 import sys
-sys.path.append('..')
 
-from datetime import datetime, timedelta
-from src.qdrant_client import QdrantManager
+sys.path.append("..")
+
 from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
 from src.memory_retriever import MemoryRetriever
+from src.memory_store import Category, MemoryStore, MemoryType
+from src.qdrant_client import QdrantManager
 from src.settings import get_settings
 
 
@@ -38,8 +38,8 @@ def main():
                 "importance": 8,
                 "category": Category.WORK.value,
                 "session_id": "session_001",
-                "confidence": 0.9
-            }
+                "confidence": 0.9,
+            },
         },
         {
             "text": "I love hiking in the mountains on weekends",
@@ -49,8 +49,8 @@ def main():
                 "importance": 7,
                 "category": Category.PERSONAL.value,
                 "session_id": "session_001",
-                "confidence": 0.95
-            }
+                "confidence": 0.95,
+            },
         },
         {
             "text": "I'm learning Python for machine learning and data science",
@@ -60,8 +60,8 @@ def main():
                 "importance": 9,
                 "category": Category.LEARNING.value,
                 "session_id": "session_002",
-                "confidence": 1.0
-            }
+                "confidence": 1.0,
+            },
         },
         {
             "text": "I exercise every morning at 6 AM, usually running or yoga",
@@ -71,8 +71,8 @@ def main():
                 "importance": 8,
                 "category": Category.HEALTH.value,
                 "session_id": "session_002",
-                "confidence": 0.85
-            }
+                "confidence": 0.85,
+            },
         },
         {
             "text": "We discussed neural networks and deep learning architectures yesterday",
@@ -82,9 +82,9 @@ def main():
                 "importance": 6,
                 "category": Category.LEARNING.value,
                 "session_id": "session_003",
-                "confidence": 0.8
-            }
-        }
+                "confidence": 0.8,
+            },
+        },
     ]
 
     memory_ids = memory_store.store_batch_memories(test_memories)
@@ -98,7 +98,9 @@ def main():
     print(f"   Found {len(results)} results:")
     for i, mem in enumerate(results, 1):
         print(f"     {i}. [{mem['similarity_score']:.3f}] {mem['text'][:60]}...")
-        print(f"        Type: {mem['metadata']['memory_type']}, Category: {mem['metadata']['category']}")
+        print(
+            f"        Type: {mem['metadata']['memory_type']}, Category: {mem['metadata']['category']}"
+        )
     print()
 
     # Example 2: Search with filters
@@ -106,9 +108,9 @@ def main():
     results = retriever.search_memories(
         query="learning programming",
         limit=5,
-        filters={"user_id": "user_123", "category": Category.LEARNING.value}
+        filters={"user_id": "user_123", "category": Category.LEARNING.value},
     )
-    print(f"   Query: 'learning programming' (filtered by user_123, category=learning)")
+    print("   Query: 'learning programming' (filtered by user_123, category=learning)")
     print(f"   Found {len(results)} results:")
     for i, mem in enumerate(results, 1):
         print(f"     {i}. [{mem['similarity_score']:.3f}] {mem['text'][:60]}...")
@@ -128,13 +130,9 @@ def main():
     # Example 4: Get memories by filter (no vector search)
     print("6. Get memories by filter (high importance)...")
     results = retriever.get_memories_by_filter(
-        filters={
-            "user_id": "user_123",
-            "min_importance": 7
-        },
-        limit=10
+        filters={"user_id": "user_123", "min_importance": 7}, limit=10
     )
-    print(f"   Filter: user_123, importance >= 7")
+    print("   Filter: user_123, importance >= 7")
     print(f"   Found {len(results)} results:")
     for i, mem in enumerate(results, 1):
         print(f"     {i}. [Importance: {mem['metadata']['importance']}] {mem['text'][:60]}...")
@@ -151,11 +149,7 @@ def main():
 
     # Example 6: Get important memories
     print("8. Get important memories...")
-    important = retriever.get_important_memories(
-        user_id="user_123",
-        min_importance=8,
-        limit=5
-    )
+    important = retriever.get_important_memories(user_id="user_123", min_importance=8, limit=5)
     print(f"   Found {len(important)} important memories (importance >= 8):")
     for i, mem in enumerate(important, 1):
         print(f"     {i}. [Importance: {mem['metadata']['importance']}] {mem['text'][:60]}...")
@@ -166,9 +160,9 @@ def main():
     results = retriever.search_memories(
         query="daily routine",
         limit=5,
-        collections=["knowledge_base"]  # Only search in knowledge_base
+        collections=["knowledge_base"],  # Only search in knowledge_base
     )
-    print(f"   Query: 'daily routine' (only in knowledge_base collection)")
+    print("   Query: 'daily routine' (only in knowledge_base collection)")
     print(f"   Found {len(results)} results:")
     for i, mem in enumerate(results, 1):
         print(f"     {i}. [{mem['similarity_score']:.3f}] {mem['text'][:60]}...")
@@ -177,13 +171,9 @@ def main():
     # Example 8: Filter by memory type
     print("10. Filter by memory type...")
     results = retriever.get_memories_by_filter(
-        filters={
-            "user_id": "user_123",
-            "memory_type": MemoryType.HABIT.value
-        },
-        limit=10
+        filters={"user_id": "user_123", "memory_type": MemoryType.HABIT.value}, limit=10
     )
-    print(f"   Filter: user_123, memory_type=habit")
+    print("   Filter: user_123, memory_type=habit")
     print(f"   Found {len(results)} results:")
     for i, mem in enumerate(results, 1):
         print(f"     {i}. {mem['text'][:60]}...")

@@ -3,14 +3,13 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from qdrant_client.models import PointStruct
 
-from src.qdrant_client import QdrantManager
 from src.embedding_service import EmbeddingService
-
+from src.qdrant_client import QdrantManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class MemoryType(str, Enum):
     """Valid memory types."""
+
     PREFERENCE = "preference"
     FACT = "fact"
     GOAL = "goal"
@@ -28,6 +28,7 @@ class MemoryType(str, Enum):
 
 class Category(str, Enum):
     """Valid memory categories."""
+
     WORK = "work"
     PERSONAL = "personal"
     LEARNING = "learning"
@@ -40,11 +41,7 @@ class Category(str, Enum):
 class MemoryStore:
     """Store for managing memories with embeddings in Qdrant."""
 
-    def __init__(
-        self,
-        qdrant_manager: QdrantManager,
-        embedding_service: EmbeddingService
-    ):
+    def __init__(self, qdrant_manager: QdrantManager, embedding_service: EmbeddingService):
         """
         Initialize the memory store.
 
@@ -140,19 +137,18 @@ class MemoryStore:
             Collection name to use
         """
         # Map memory types to collections
-        if memory_type in [MemoryType.PREFERENCE.value, MemoryType.FACT.value, MemoryType.GOAL.value]:
+        if memory_type in [
+            MemoryType.PREFERENCE.value,
+            MemoryType.FACT.value,
+            MemoryType.GOAL.value,
+        ]:
             return "personal_facts"
         elif memory_type in [MemoryType.CONTEXT.value, MemoryType.EVENT.value]:
             return "conversation_history"
         else:
             return "knowledge_base"
 
-    def store_memory(
-        self,
-        text: str,
-        memory_type: str,
-        metadata: Dict[str, Any]
-    ) -> str:
+    def store_memory(self, text: str, memory_type: str, metadata: Dict[str, Any]) -> str:
         """
         Store a single memory with its embedding.
 
@@ -191,17 +187,10 @@ class MemoryStore:
             collection_name = self._get_collection_name(memory_type)
 
             # Create point
-            point = PointStruct(
-                id=memory_id,
-                vector=embedding.tolist(),
-                payload=prepared_metadata
-            )
+            point = PointStruct(id=memory_id, vector=embedding.tolist(), payload=prepared_metadata)
 
             # Store in Qdrant
-            self.qdrant.client.upsert(
-                collection_name=collection_name,
-                points=[point]
-            )
+            self.qdrant.client.upsert(collection_name=collection_name, points=[point])
 
             logger.info(
                 f"Stored memory {memory_id} in '{collection_name}' "
@@ -241,7 +230,9 @@ class MemoryStore:
             if not isinstance(memory, dict):
                 raise ValueError(f"Memory at index {i} must be a dictionary")
             if "text" not in memory or "memory_type" not in memory or "metadata" not in memory:
-                raise ValueError(f"Memory at index {i} missing required fields (text, memory_type, metadata)")
+                raise ValueError(
+                    f"Memory at index {i} missing required fields (text, memory_type, metadata)"
+                )
 
             # Validate individual memory
             full_metadata = {**memory["metadata"], "memory_type": memory["memory_type"]}
@@ -274,9 +265,7 @@ class MemoryStore:
 
                 # Create point
                 point = PointStruct(
-                    id=memory_id,
-                    vector=embedding.tolist(),
-                    payload=prepared_metadata
+                    id=memory_id, vector=embedding.tolist(), payload=prepared_metadata
                 )
 
                 # Group by collection
@@ -286,10 +275,7 @@ class MemoryStore:
 
             # Batch upsert to each collection
             for collection_name, points in collections_points.items():
-                self.qdrant.client.upsert(
-                    collection_name=collection_name,
-                    points=points
-                )
+                self.qdrant.client.upsert(collection_name=collection_name, points=points)
                 logger.info(f"Stored {len(points)} memories in '{collection_name}'")
 
             logger.info(f"Successfully stored {len(memory_ids)} memories")
@@ -301,7 +287,9 @@ class MemoryStore:
             logger.error(f"Failed to store batch memories: {e}")
             raise RuntimeError("Batch memory storage failed") from e
 
-    def get_memory(self, memory_id: str, collection_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_memory(
+        self, memory_id: str, collection_name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a memory by ID.
 
@@ -313,14 +301,13 @@ class MemoryStore:
             Memory dictionary or None if not found
         """
         try:
-            collections_to_search = [collection_name] if collection_name else self.qdrant.COLLECTIONS
+            collections_to_search = (
+                [collection_name] if collection_name else self.qdrant.COLLECTIONS
+            )
 
             for coll in collections_to_search:
                 try:
-                    points = self.qdrant.client.retrieve(
-                        collection_name=coll,
-                        ids=[memory_id]
-                    )
+                    points = self.qdrant.client.retrieve(collection_name=coll, ids=[memory_id])
                     if points:
                         return points[0].payload
                 except Exception:

@@ -7,5 +7,5 @@ VECTOR_SIZE = 384
 COLLECTIONS = {
     "personal_facts": "Store personal facts and preferences",
     "conversation_history": "Store conversation context and history",
-    "knowledge_base": "Store general knowledge and information"
+    "knowledge_base": "Store general knowledge and information",
 }

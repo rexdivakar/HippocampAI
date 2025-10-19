@@ -19,11 +19,7 @@ def recency_score(created_at: datetime, half_life_days: int) -> float:
 
 
 def fuse_scores(
-    sim: float,
-    rerank: float,
-    recency: float,
-    importance: float,
-    weights: Dict[str, float]
+    sim: float, rerank: float, recency: float, importance: float, weights: Dict[str, float]
 ) -> float:
     """
     Weighted fusion of scores.
@@ -39,8 +35,8 @@ def fuse_scores(
         Fused score [0,1]
     """
     return (
-        weights["sim"] * sim +
-        weights["rerank"] * rerank +
-        weights["recency"] * recency +
-        weights["importance"] * importance
+        weights["sim"] * sim
+        + weights["rerank"] * rerank
+        + weights["recency"] * recency
+        + weights["importance"] * importance
     )

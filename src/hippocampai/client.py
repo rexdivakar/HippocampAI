@@ -2,18 +2,19 @@
 
 import logging
 from typing import Dict, List, Optional
-from hippocampai.config import Config, get_config
-from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
-from hippocampai.vector.qdrant_store import QdrantStore
-from hippocampai.embed.embedder import get_embedder
-from hippocampai.retrieval.rerank import Reranker
-from hippocampai.retrieval.retriever import HybridRetriever
-from hippocampai.pipeline.extractor import MemoryExtractor
-from hippocampai.pipeline.dedup import MemoryDeduplicator
-from hippocampai.pipeline.consolidate import MemoryConsolidator
-from hippocampai.pipeline.importance import ImportanceScorer
+
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
+from hippocampai.config import Config, get_config
+from hippocampai.embed.embedder import get_embedder
+from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.pipeline.consolidate import MemoryConsolidator
+from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.extractor import MemoryExtractor
+from hippocampai.pipeline.importance import ImportanceScorer
+from hippocampai.retrieval.rerank import Reranker
+from hippocampai.retrieval.retriever import HybridRetriever
+from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class MemoryClient:
         weights: Optional[Dict[str, float]] = None,
         half_lives: Optional[Dict[str, int]] = None,
         allow_cloud: Optional[bool] = None,
-        config: Optional[Config] = None
+        config: Optional[Config] = None,
     ):
         """Initialize memory client."""
         self.config = config or get_config()
@@ -82,19 +83,18 @@ class MemoryClient:
             dimension=self.config.embed_dimension,
             hnsw_m=self.config.hnsw_m,
             ef_construction=self.config.ef_construction,
-            ef_search=self.config.ef_search
+            ef_search=self.config.ef_search,
         )
 
         self.embedder = get_embedder(
             model_name=self.config.embed_model,
             batch_size=self.config.embed_batch_size,
             quantized=self.config.embed_quantized,
-            dimension=self.config.embed_dimension
+            dimension=self.config.embed_dimension,
         )
 
         self.reranker = Reranker(
-            model_name=self.config.reranker_model,
-            cache_ttl=self.config.rerank_cache_ttl
+            model_name=self.config.reranker_model, cache_ttl=self.config.rerank_cache_ttl
         )
 
         self.retriever = HybridRetriever(
@@ -105,18 +105,16 @@ class MemoryClient:
             top_k_final=self.config.top_k_final,
             rrf_k=self.config.rrf_k,
             weights=self.config.get_weights(),
-            half_lives=self.config.get_half_lives()
+            half_lives=self.config.get_half_lives(),
         )
 
         # LLM (optional)
         self.llm = None
         if self.config.llm_provider == "ollama":
-            self.llm = OllamaLLM(
-                model=self.config.llm_model,
-                base_url=self.config.llm_base_url
-            )
+            self.llm = OllamaLLM(model=self.config.llm_model, base_url=self.config.llm_base_url)
         elif self.config.llm_provider == "openai" and self.config.allow_cloud:
             import os
+
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
                 self.llm = OpenAILLM(api_key=api_key, model=self.config.llm_model)
@@ -124,9 +122,7 @@ class MemoryClient:
         # Pipeline
         self.extractor = MemoryExtractor(llm=self.llm, mode="hybrid")
         self.deduplicator = MemoryDeduplicator(
-            qdrant_store=self.qdrant,
-            embedder=self.embedder,
-            reranker=self.reranker
+            qdrant_store=self.qdrant, embedder=self.embedder, reranker=self.reranker
         )
         self.consolidator = MemoryConsolidator(llm=self.llm)
         self.scorer = ImportanceScorer(llm=self.llm)
@@ -140,7 +136,7 @@ class MemoryClient:
         session_id: Optional[str] = None,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> Memory:
         """Store a memory."""
         memory = Memory(
@@ -149,7 +145,7 @@ class MemoryClient:
             session_id=session_id,
             type=MemoryType(type),
             importance=importance or self.scorer.score(text, type),
-            tags=tags or []
+            tags=tags or [],
         )
 
         # Check duplicates
@@ -160,8 +156,7 @@ class MemoryClient:
 
         # Store
         collection = memory.collection_name(
-            self.config.collection_facts,
-            self.config.collection_prefs
+            self.config.collection_facts, self.config.collection_prefs
         )
         vector = self.embedder.encode_single(memory.text)
 
@@ -169,39 +164,27 @@ class MemoryClient:
             collection_name=collection,
             id=memory.id,
             vector=vector,
-            payload=memory.model_dump(mode="json")
+            payload=memory.model_dump(mode="json"),
         )
 
         logger.info(f"Stored memory: {memory.id}")
         return memory
 
     def recall(
-        self,
-        query: str,
-        user_id: str,
-        session_id: Optional[str] = None,
-        k: int = 5
+        self, query: str, user_id: str, session_id: Optional[str] = None, k: int = 5
     ) -> List[RetrievalResult]:
         """Retrieve memories."""
         # Rebuild BM25 if needed
         if not self.retriever.bm25_facts:
             self.retriever.rebuild_bm25(user_id)
 
-        results = self.retriever.retrieve(
-            query=query,
-            user_id=user_id,
-            session_id=session_id,
-            k=k
-        )
+        results = self.retriever.retrieve(query=query, user_id=user_id, session_id=session_id, k=k)
 
         logger.info(f"Retrieved {len(results)} memories for user {user_id}")
         return results
 
     def extract_from_conversation(
-        self,
-        conversation: str,
-        user_id: str,
-        session_id: Optional[str] = None
+        self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> List[Memory]:
         """Extract memories from conversation."""
         memories = self.extractor.extract(conversation, user_id, session_id)
@@ -214,7 +197,7 @@ class MemoryClient:
                 session_id=mem.session_id,
                 type=mem.type.value,
                 importance=mem.importance,
-                tags=mem.tags
+                tags=mem.tags,
             )
 
         return memories

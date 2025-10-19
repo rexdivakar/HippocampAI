@@ -1,14 +1,12 @@
 """Memory retrieval service for searching and fetching memories from Qdrant."""
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from qdrant_client.models import Filter, FieldCondition, MatchValue, Range, DatetimeRange
+from qdrant_client.models import DatetimeRange, FieldCondition, Filter, MatchValue, Range
 
-from src.qdrant_client import QdrantManager
 from src.embedding_service import EmbeddingService
-
+from src.qdrant_client import QdrantManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,11 +15,7 @@ logger = logging.getLogger(__name__)
 class MemoryRetriever:
     """Retriever for searching and fetching memories from Qdrant."""
 
-    def __init__(
-        self,
-        qdrant_manager: QdrantManager,
-        embedding_service: EmbeddingService
-    ):
+    def __init__(self, qdrant_manager: QdrantManager, embedding_service: EmbeddingService):
         """
         Initialize the memory retriever.
 
@@ -51,10 +45,7 @@ class MemoryRetriever:
         # User ID filter
         if "user_id" in filters:
             conditions.append(
-                FieldCondition(
-                    key="user_id",
-                    match=MatchValue(value=filters["user_id"])
-                )
+                FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
             )
 
         # Memory type filter
@@ -65,68 +56,39 @@ class MemoryRetriever:
                 # For simplicity, we'll use the first one
                 memory_type = memory_type[0]
             conditions.append(
-                FieldCondition(
-                    key="memory_type",
-                    match=MatchValue(value=memory_type)
-                )
+                FieldCondition(key="memory_type", match=MatchValue(value=memory_type))
             )
 
         # Category filter
         if "category" in filters:
             conditions.append(
-                FieldCondition(
-                    key="category",
-                    match=MatchValue(value=filters["category"])
-                )
+                FieldCondition(key="category", match=MatchValue(value=filters["category"]))
             )
 
         # Session ID filter
         if "session_id" in filters:
             conditions.append(
-                FieldCondition(
-                    key="session_id",
-                    match=MatchValue(value=filters["session_id"])
-                )
+                FieldCondition(key="session_id", match=MatchValue(value=filters["session_id"]))
             )
 
         # Importance range filter
         if "min_importance" in filters or "max_importance" in filters:
             importance_range = Range(
-                gte=filters.get("min_importance"),
-                lte=filters.get("max_importance")
+                gte=filters.get("min_importance"), lte=filters.get("max_importance")
             )
-            conditions.append(
-                FieldCondition(
-                    key="importance",
-                    range=importance_range
-                )
-            )
+            conditions.append(FieldCondition(key="importance", range=importance_range))
 
         # Confidence range filter
         if "min_confidence" in filters or "max_confidence" in filters:
             confidence_range = Range(
-                gte=filters.get("min_confidence"),
-                lte=filters.get("max_confidence")
+                gte=filters.get("min_confidence"), lte=filters.get("max_confidence")
             )
-            conditions.append(
-                FieldCondition(
-                    key="confidence",
-                    range=confidence_range
-                )
-            )
+            conditions.append(FieldCondition(key="confidence", range=confidence_range))
 
         # Date range filter (timestamp)
         if "start_date" in filters or "end_date" in filters:
-            date_range = DatetimeRange(
-                gte=filters.get("start_date"),
-                lte=filters.get("end_date")
-            )
-            conditions.append(
-                FieldCondition(
-                    key="timestamp",
-                    range=date_range
-                )
-            )
+            date_range = DatetimeRange(gte=filters.get("start_date"), lte=filters.get("end_date"))
+            conditions.append(FieldCondition(key="timestamp", range=date_range))
 
         if not conditions:
             return None
@@ -154,11 +116,11 @@ class MemoryRetriever:
                 "timestamp": point.payload.get("timestamp"),
                 "category": point.payload.get("category"),
                 "session_id": point.payload.get("session_id"),
-                "confidence": point.payload.get("confidence")
-            }
+                "confidence": point.payload.get("confidence"),
+            },
         }
 
-        if include_score and hasattr(point, 'score'):
+        if include_score and hasattr(point, "score"):
             result["similarity_score"] = point.score
 
         return result
@@ -168,7 +130,7 @@ class MemoryRetriever:
         query: str,
         limit: int = 10,
         filters: Optional[Dict[str, Any]] = None,
-        collections: Optional[List[str]] = None
+        collections: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search for relevant memories using vector similarity.
@@ -213,7 +175,7 @@ class MemoryRetriever:
                         collection_name=collection_name,
                         query_vector=query_embedding.tolist(),
                         query_filter=search_filter,
-                        limit=limit
+                        limit=limit,
                     )
 
                     # Format results
@@ -242,9 +204,7 @@ class MemoryRetriever:
             raise RuntimeError("Memory search failed") from e
 
     def get_memory_by_id(
-        self,
-        memory_id: str,
-        collection_name: Optional[str] = None
+        self, memory_id: str, collection_name: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a specific memory by its ID.
@@ -260,14 +220,13 @@ class MemoryRetriever:
             raise ValueError("memory_id must be provided")
 
         try:
-            collections_to_search = [collection_name] if collection_name else self.qdrant.COLLECTIONS
+            collections_to_search = (
+                [collection_name] if collection_name else self.qdrant.COLLECTIONS
+            )
 
             for coll in collections_to_search:
                 try:
-                    points = self.qdrant.client.retrieve(
-                        collection_name=coll,
-                        ids=[memory_id]
-                    )
+                    points = self.qdrant.client.retrieve(collection_name=coll, ids=[memory_id])
 
                     if points:
                         logger.info(f"Retrieved memory {memory_id} from '{coll}'")
@@ -287,10 +246,7 @@ class MemoryRetriever:
             raise RuntimeError("Memory retrieval failed") from e
 
     def get_memories_by_filter(
-        self,
-        filters: Dict[str, Any],
-        limit: int = 50,
-        collections: Optional[List[str]] = None
+        self, filters: Dict[str, Any], limit: int = 50, collections: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Retrieve memories by metadata filters without vector search.
@@ -332,9 +288,7 @@ class MemoryRetriever:
 
                     # Use scroll to get filtered results
                     results, _ = self.qdrant.client.scroll(
-                        collection_name=collection_name,
-                        scroll_filter=search_filter,
-                        limit=limit
+                        collection_name=collection_name, scroll_filter=search_filter, limit=limit
                     )
 
                     # Format results
@@ -362,10 +316,7 @@ class MemoryRetriever:
             raise RuntimeError("Memory filter retrieval failed") from e
 
     def get_recent_memories(
-        self,
-        user_id: str,
-        limit: int = 20,
-        memory_type: Optional[str] = None
+        self, user_id: str, limit: int = 20, memory_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get most recent memories for a user.
@@ -386,10 +337,7 @@ class MemoryRetriever:
             memories = self.get_memories_by_filter(filters, limit=limit * 2)  # Get more for sorting
 
             # Sort by timestamp (most recent first)
-            memories.sort(
-                key=lambda x: x["metadata"].get("timestamp", ""),
-                reverse=True
-            )
+            memories.sort(key=lambda x: x["metadata"].get("timestamp", ""), reverse=True)
 
             return memories[:limit]
 
@@ -398,10 +346,7 @@ class MemoryRetriever:
             raise RuntimeError("Recent memory retrieval failed") from e
 
     def get_important_memories(
-        self,
-        user_id: str,
-        min_importance: int = 7,
-        limit: int = 20
+        self, user_id: str, min_importance: int = 7, limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
         Get important memories for a user.
@@ -414,19 +359,13 @@ class MemoryRetriever:
         Returns:
             List of important memories sorted by importance
         """
-        filters = {
-            "user_id": user_id,
-            "min_importance": min_importance
-        }
+        filters = {"user_id": user_id, "min_importance": min_importance}
 
         try:
             memories = self.get_memories_by_filter(filters, limit=limit * 2)
 
             # Sort by importance (highest first)
-            memories.sort(
-                key=lambda x: x["metadata"].get("importance", 0),
-                reverse=True
-            )
+            memories.sort(key=lambda x: x["metadata"].get("importance", 0), reverse=True)
 
             return memories[:limit]
 
@@ -440,7 +379,7 @@ class MemoryRetriever:
         user_id: str,
         context_type: Optional[str] = None,
         limit: int = 10,
-        access_counts: Optional[Dict[str, int]] = None
+        access_counts: Optional[Dict[str, int]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Intelligent multi-factor search with re-ranking.
@@ -470,19 +409,15 @@ class MemoryRetriever:
 
             # Add context-aware filtering
             if context_type:
-                context_map = {
+                context_map = {  # noqa: F841
                     "work": ["work", "finance"],
                     "personal": ["personal", "social", "health"],
-                    "casual": ["personal", "social", "other"]
+                    "casual": ["personal", "social", "other"],
                 }
                 # Note: Qdrant doesn't support OR on categories easily,
                 # so we'll filter during re-ranking instead
 
-            candidates = self.search_memories(
-                query=query,
-                limit=candidate_limit,
-                filters=filters
-            )
+            candidates = self.search_memories(query=query, limit=candidate_limit, filters=filters)
 
             if not candidates:
                 return []
@@ -491,6 +426,7 @@ class MemoryRetriever:
 
             # Step 2: Calculate recency and importance scores
             from datetime import datetime
+
             now = datetime.utcnow()
 
             scored_results = []
@@ -505,7 +441,7 @@ class MemoryRetriever:
                     context_categories = {
                         "work": ["work", "finance"],
                         "personal": ["personal", "social", "health"],
-                        "casual": ["personal", "social"]
+                        "casual": ["personal", "social"],
                     }
                     if category in context_categories.get(context_type, []):
                         category_boost = 0.15
@@ -520,12 +456,13 @@ class MemoryRetriever:
                 # 3. Recency score (exponential decay)
                 timestamp_str = metadata.get("timestamp", "")
                 try:
-                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                     age_days = (now - timestamp).total_seconds() / 86400
 
                     # Exponential decay: score = e^(-age/30)
                     # 30 days half-life
                     import math
+
                     recency_score = math.exp(-age_days / 30.0)
                 except Exception:
                     recency_score = 0.5  # Default if timestamp invalid
@@ -535,17 +472,14 @@ class MemoryRetriever:
                 access_count = access_counts.get(memory_id, 0)
                 if access_count > 0:
                     import math
+
                     access_boost = min(0.2, math.log(access_count + 1) * 0.05)
                 else:
                     access_boost = 0.0
 
                 # Calculate final score with weights
                 # Similarity: 50%, Importance: 30%, Recency: 20%
-                base_score = (
-                    similarity * 0.50 +
-                    normalized_importance * 0.30 +
-                    recency_score * 0.20
-                )
+                base_score = similarity * 0.50 + normalized_importance * 0.30 + recency_score * 0.20
 
                 final_score = base_score + access_boost + category_boost
 
@@ -558,7 +492,7 @@ class MemoryRetriever:
                     "recency": recency_score,
                     "access_boost": access_boost,
                     "category_boost": category_boost,
-                    "base_score": base_score
+                    "base_score": base_score,
                 }
 
                 scored_results.append(result)
@@ -591,10 +525,7 @@ class MemoryRetriever:
             raise RuntimeError("Smart search failed") from e
 
     def get_context_for_query(
-        self,
-        query: str,
-        user_id: str,
-        max_memories: int = 5
+        self, query: str, user_id: str, max_memories: int = 5
     ) -> Dict[str, Any]:
         """
         Get optimal memory context for a specific query.
@@ -614,7 +545,9 @@ class MemoryRetriever:
             query_lower = query.lower()
             context_type = None
 
-            if any(word in query_lower for word in ["work", "job", "project", "meeting", "deadline"]):
+            if any(
+                word in query_lower for word in ["work", "job", "project", "meeting", "deadline"]
+            ):
                 context_type = "work"
             elif any(word in query_lower for word in ["hobby", "personal", "family", "friend"]):
                 context_type = "personal"
@@ -624,7 +557,7 @@ class MemoryRetriever:
                 query=query,
                 user_id=user_id,
                 context_type=context_type,
-                limit=max_memories * 3  # Get more for categorization
+                limit=max_memories * 3,  # Get more for categorization
             )
 
             # Organize by memory type
@@ -634,7 +567,7 @@ class MemoryRetriever:
                 "goals": [],
                 "habits": [],
                 "context": [],
-                "events": []
+                "events": [],
             }
 
             for memory in all_memories:
@@ -651,7 +584,7 @@ class MemoryRetriever:
                 "context_type": context_type,
                 "memories": organized,
                 "total_relevance": total_score,
-                "memory_count": sum(len(v) for v in organized.values())
+                "memory_count": sum(len(v) for v in organized.values()),
             }
 
             logger.info(

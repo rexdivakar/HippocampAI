@@ -1,12 +1,12 @@
 """Settings and configuration management for HippocampAI."""
 
-import os
-import yaml
 import logging
+import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QdrantSettings:
     """Qdrant database settings."""
+
     host: str = "localhost"
     port: int = 6334
     api_key: Optional[str] = None
@@ -23,6 +24,7 @@ class QdrantSettings:
 @dataclass
 class EmbeddingSettings:
     """Embedding model settings."""
+
     model: str = "all-MiniLM-L6-v2"
     dimension: int = 384
     cache_size: int = 1000
@@ -31,6 +33,7 @@ class EmbeddingSettings:
 @dataclass
 class LLMSettings:
     """LLM provider settings."""
+
     provider: str = "anthropic"  # anthropic, openai, groq
 
     # Anthropic
@@ -55,6 +58,7 @@ class LLMSettings:
 @dataclass
 class MemorySettings:
     """Memory management settings."""
+
     similarity_threshold: float = 0.88
     consolidation_threshold: float = 0.85
     min_importance: int = 1
@@ -64,6 +68,7 @@ class MemorySettings:
 @dataclass
 class RetrievalSettings:
     """Retrieval and search settings."""
+
     default_limit: int = 10
     max_limit: int = 50
     candidates_multiplier: int = 3
@@ -75,6 +80,7 @@ class RetrievalSettings:
 @dataclass
 class SessionSettings:
     """Session management settings."""
+
     timeout_minutes: int = 30
     max_messages: int = 100
     auto_summarize: bool = True
@@ -83,6 +89,7 @@ class SessionSettings:
 @dataclass
 class PerformanceSettings:
     """Performance and rate limiting settings."""
+
     rate_limit_interval_ms: int = 100
     max_retries: int = 2
     request_timeout_seconds: int = 30
@@ -91,6 +98,7 @@ class PerformanceSettings:
 @dataclass
 class LoggingSettings:
     """Logging configuration."""
+
     level: str = "INFO"
     format: str = "json"
     file: str = "logs/hippocampai.log"
@@ -111,11 +119,7 @@ class Settings:
         print(settings.memory.similarity_threshold)
     """
 
-    def __init__(
-        self,
-        env_file: Optional[str] = None,
-        config_file: Optional[str] = None
-    ):
+    def __init__(self, env_file: Optional[str] = None, config_file: Optional[str] = None):
         """
         Initialize settings.
 
@@ -158,11 +162,11 @@ class Settings:
             return
 
         try:
-            with open(env_file, 'r') as f:
+            with open(env_file, "r") as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
                         key = key.strip()
                         value = value.strip()
                         # Only set if not already in environment
@@ -185,7 +189,7 @@ class Settings:
             return {}
 
         try:
-            with open(config_file, 'r') as f:
+            with open(config_file, "r") as f:
                 config = yaml.safe_load(f)
             logger.info(f"Loaded configuration from {config_file}")
             return config or {}
@@ -201,7 +205,7 @@ class Settings:
 
         # Type conversion based on default type
         if isinstance(default, bool):
-            return value.lower() in ('true', '1', 'yes', 'on')
+            return value.lower() in ("true", "1", "yes", "on")
         elif isinstance(default, int):
             try:
                 return int(value)
@@ -220,7 +224,7 @@ class Settings:
             host=self._get_env("QDRANT_HOST", "localhost"),
             port=self._get_env("QDRANT_PORT", 6334),
             api_key=self._get_env("QDRANT_API_KEY"),
-            collection_prefix=self._get_env("QDRANT_COLLECTION_PREFIX", "hippocampai")
+            collection_prefix=self._get_env("QDRANT_COLLECTION_PREFIX", "hippocampai"),
         )
 
     def _load_embedding_settings(self) -> EmbeddingSettings:
@@ -228,7 +232,7 @@ class Settings:
         return EmbeddingSettings(
             model=self._get_env("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
             dimension=self._get_env("EMBEDDING_DIMENSION", 384),
-            cache_size=self._get_env("EMBEDDING_CACHE_SIZE", 1000)
+            cache_size=self._get_env("EMBEDDING_CACHE_SIZE", 1000),
         )
 
     def _load_llm_settings(self) -> LLMSettings:
@@ -249,7 +253,7 @@ class Settings:
             groq_api_key=self._get_env("GROQ_API_KEY"),
             groq_model=self._get_env("GROQ_MODEL", "llama-3.1-70b-versatile"),
             groq_max_tokens=self._get_env("GROQ_MAX_TOKENS", 8192),
-            groq_temperature=self._get_env("GROQ_TEMPERATURE", 0.0)
+            groq_temperature=self._get_env("GROQ_TEMPERATURE", 0.0),
         )
 
     def _load_memory_settings(self) -> MemorySettings:
@@ -258,7 +262,7 @@ class Settings:
             similarity_threshold=self._get_env("SIMILARITY_THRESHOLD", 0.88),
             consolidation_threshold=self._get_env("CONSOLIDATION_THRESHOLD", 0.85),
             min_importance=self._get_env("MIN_IMPORTANCE_SCORE", 1),
-            max_importance=self._get_env("MAX_IMPORTANCE_SCORE", 10)
+            max_importance=self._get_env("MAX_IMPORTANCE_SCORE", 10),
         )
 
     def _load_retrieval_settings(self) -> RetrievalSettings:
@@ -272,7 +276,7 @@ class Settings:
             candidates_multiplier=self._get_env("SMART_SEARCH_CANDIDATES_MULTIPLIER", 3),
             similarity_weight=smart_search.get("similarity_weight", 0.50),
             importance_weight=smart_search.get("importance_weight", 0.30),
-            recency_weight=smart_search.get("recency_weight", 0.20)
+            recency_weight=smart_search.get("recency_weight", 0.20),
         )
 
     def _load_session_settings(self) -> SessionSettings:
@@ -280,7 +284,7 @@ class Settings:
         return SessionSettings(
             timeout_minutes=self._get_env("SESSION_TIMEOUT_MINUTES", 30),
             max_messages=self._get_env("MAX_SESSION_MESSAGES", 100),
-            auto_summarize=True
+            auto_summarize=True,
         )
 
     def _load_performance_settings(self) -> PerformanceSettings:
@@ -288,7 +292,7 @@ class Settings:
         return PerformanceSettings(
             rate_limit_interval_ms=self._get_env("RATE_LIMIT_INTERVAL_MS", 100),
             max_retries=self._get_env("MAX_RETRIES", 2),
-            request_timeout_seconds=self._get_env("REQUEST_TIMEOUT_SECONDS", 30)
+            request_timeout_seconds=self._get_env("REQUEST_TIMEOUT_SECONDS", 30),
         )
 
     def _load_logging_settings(self) -> LoggingSettings:
@@ -296,7 +300,7 @@ class Settings:
         return LoggingSettings(
             level=self._get_env("LOG_LEVEL", "INFO"),
             format=self._get_env("LOG_FORMAT", "json"),
-            file=self._get_env("LOG_FILE", "logs/hippocampai.log")
+            file=self._get_env("LOG_FILE", "logs/hippocampai.log"),
         )
 
     def _validate(self) -> None:
@@ -353,14 +357,17 @@ class Settings:
 
     def get_decay_rates(self) -> Dict[str, float]:
         """Get importance decay rates by memory type."""
-        return self.config.get("memory", {}).get("decay_rates", {
-            "preference": 0.001,
-            "fact": 0.002,
-            "goal": 0.003,
-            "habit": 0.004,
-            "context": 0.008,
-            "event": 0.01
-        })
+        return self.config.get("memory", {}).get(
+            "decay_rates",
+            {
+                "preference": 0.001,
+                "fact": 0.002,
+                "goal": 0.003,
+                "habit": 0.004,
+                "context": 0.008,
+                "event": 0.01,
+            },
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert settings to dictionary."""
@@ -381,13 +388,15 @@ class Settings:
             "retrieval": self.retrieval.__dict__,
             "session": self.session.__dict__,
             "performance": self.performance.__dict__,
-            "logging": self.logging_config.__dict__
+            "logging": self.logging_config.__dict__,
         }
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"Settings(qdrant={self.qdrant.host}:{self.qdrant.port}, " \
-               f"embedding={self.embedding.model})"
+        return (
+            f"Settings(qdrant={self.qdrant.host}:{self.qdrant.port}, "
+            f"embedding={self.embedding.model})"
+        )
 
 
 # Global settings instance

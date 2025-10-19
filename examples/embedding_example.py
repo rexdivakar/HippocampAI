@@ -1,7 +1,8 @@
 """Example usage of the EmbeddingService."""
 
 import sys
-sys.path.append('..')
+
+sys.path.append("..")
 
 from src.embedding_service import EmbeddingService
 
@@ -26,7 +27,7 @@ def main():
     # Generate same embedding again (should hit cache)
     print("--- Cache Test ---")
     embedding2 = embedding_service.generate_embedding(text)
-    print(f"Same text embedded again (cache hit)")
+    print("Same text embedded again (cache hit)")
     print(f"Embeddings are identical: {(embedding == embedding2).all()}\n")
 
     # Generate batch embeddings
@@ -35,13 +36,13 @@ def main():
         "The quick brown fox jumps over the lazy dog.",
         "Machine learning is fascinating.",
         "Python is a great programming language.",
-        "This is a test sentence for embedding."  # Duplicate, should hit cache
+        "This is a test sentence for embedding.",  # Duplicate, should hit cache
     ]
 
     batch_embeddings = embedding_service.generate_batch_embeddings(texts)
     print(f"Generated {len(batch_embeddings)} embeddings")
     for i, (text, emb) in enumerate(zip(texts, batch_embeddings)):
-        print(f"  {i+1}. '{text[:50]}...' -> shape {emb.shape}")
+        print(f"  {i + 1}. '{text[:50]}...' -> shape {emb.shape}")
 
     # Cache statistics
     print("\n--- Cache Statistics ---")

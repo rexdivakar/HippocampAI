@@ -4,11 +4,10 @@ import json
 import logging
 import math
 import time
-from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 import anthropic
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,11 +52,7 @@ Return ONLY a valid JSON object:
 
 Do not include any other text."""
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022"
-    ):
+    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022"):
         """
         Initialize the importance scorer.
 
@@ -66,6 +61,7 @@ Do not include any other text."""
             model: Claude model to use
         """
         import os
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -87,11 +83,7 @@ Do not include any other text."""
         self._last_request_time = time.time()
 
     def calculate_importance(
-        self,
-        memory_text: str,
-        memory_type: str,
-        user_context: str = "",
-        max_retries: int = 2
+        self, memory_text: str, memory_type: str, user_context: str = "", max_retries: int = 2
     ) -> Dict[str, Any]:
         """
         Calculate importance score for a memory using Claude API.
@@ -121,9 +113,7 @@ Do not include any other text."""
 
                 # Build prompt
                 prompt = self.IMPORTANCE_SCORING_PROMPT.format(
-                    memory_text=memory_text,
-                    memory_type=memory_type,
-                    user_context=user_context
+                    memory_text=memory_text, memory_type=memory_type, user_context=user_context
                 )
 
                 # Call Claude
@@ -132,13 +122,13 @@ Do not include any other text."""
                     model=self.model,
                     max_tokens=512,
                     temperature=0.0,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
                 # Parse response
                 response_text = message.content[0].text.strip()
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}") + 1
 
                 if start_idx == -1 or end_idx == 0:
                     raise ValueError("No JSON found in response")
@@ -154,15 +144,13 @@ Do not include any other text."""
                 if not isinstance(score, (int, float)) or not 1 <= score <= 10:
                     raise ValueError(f"Invalid score: {score}")
 
-                logger.info(
-                    f"Importance score: {score}/10 - {result.get('reasoning', '')[:50]}..."
-                )
+                logger.info(f"Importance score: {score}/10 - {result.get('reasoning', '')[:50]}...")
 
                 return result
 
             except anthropic.RateLimitError as e:
                 if attempt < max_retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     raise RuntimeError("Rate limit exceeded") from e
 
@@ -186,7 +174,7 @@ Do not include any other text."""
         current_importance: float,
         access_count: int = 0,
         memory_type: str = "fact",
-        last_update_days: float = None
+        last_update_days: float = None,
     ) -> float:
         """
         Calculate decayed importance based on age and usage.
@@ -212,12 +200,12 @@ Do not include any other text."""
 
         # Base decay rates by memory type
         decay_rates = {
-            "preference": 0.001,   # Very slow decay
-            "fact": 0.002,         # Slow decay
-            "goal": 0.003,         # Moderate decay
-            "habit": 0.004,        # Moderate-fast decay
-            "context": 0.008,      # Fast decay
-            "event": 0.01          # Very fast decay
+            "preference": 0.001,  # Very slow decay
+            "fact": 0.002,  # Slow decay
+            "goal": 0.003,  # Moderate decay
+            "habit": 0.004,  # Moderate-fast decay
+            "context": 0.008,  # Fast decay
+            "event": 0.01,  # Very fast decay
         }
 
         decay_rate = decay_rates.get(memory_type, 0.005)
@@ -281,7 +269,7 @@ Do not include any other text."""
             Age in days (float)
         """
         try:
-            memory_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            memory_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             age = datetime.utcnow() - memory_time
             return age.total_seconds() / 86400  # Convert to days
 
@@ -289,11 +277,7 @@ Do not include any other text."""
             logger.warning(f"Failed to parse timestamp {timestamp}: {e}")
             return 0.0
 
-    def update_importance_for_memory(
-        self,
-        memory: Dict[str, Any],
-        access_count: int = 0
-    ) -> float:
+    def update_importance_for_memory(self, memory: Dict[str, Any], access_count: int = 0) -> float:
         """
         Update importance score for a memory based on decay.
 
@@ -328,15 +312,13 @@ Do not include any other text."""
             current_importance=current_importance,
             access_count=access_count,
             memory_type=memory_type,
-            last_update_days=last_update_days
+            last_update_days=last_update_days,
         )
 
         return new_importance
 
     def batch_update_importance(
-        self,
-        memories: list,
-        access_counts: Optional[Dict[str, int]] = None
+        self, memories: list, access_counts: Optional[Dict[str, int]] = None
     ) -> Dict[str, float]:
         """
         Update importance for a batch of memories.
@@ -362,8 +344,7 @@ Do not include any other text."""
 
             try:
                 new_importance = self.update_importance_for_memory(
-                    memory=memory,
-                    access_count=access_count
+                    memory=memory, access_count=access_count
                 )
                 results[memory_id] = new_importance
 

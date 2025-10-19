@@ -1,16 +1,17 @@
 """Hybrid retriever with two-stage ranking."""
 
 import logging
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-from hippocampai.models.memory import Memory, RetrievalResult
-from hippocampai.vector.qdrant_store import QdrantStore
+from typing import Dict, List, Optional, Tuple
+
 from hippocampai.embed.embedder import Embedder
+from hippocampai.models.memory import Memory, RetrievalResult
 from hippocampai.retrieval.bm25 import BM25Retriever
-from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.router import QueryRouter
-from hippocampai.utils.scoring import fuse_scores, normalize, recency_score
+from hippocampai.retrieval.rrf import reciprocal_rank_fusion
+from hippocampai.utils.scoring import fuse_scores, recency_score
+from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class HybridRetriever:
         top_k_final: int = 20,
         rrf_k: int = 60,
         weights: Optional[Dict[str, float]] = None,
-        half_lives: Optional[Dict[str, int]] = None
+        half_lives: Optional[Dict[str, int]] = None,
     ):
         self.qdrant = qdrant_store
         self.embedder = embedder
@@ -37,12 +38,7 @@ class HybridRetriever:
         self.top_k_final = top_k_final
         self.rrf_k = rrf_k
 
-        self.weights = weights or {
-            "sim": 0.55,
-            "rerank": 0.20,
-            "recency": 0.15,
-            "importance": 0.10
-        }
+        self.weights = weights or {"sim": 0.55, "rerank": 0.20, "recency": 0.15, "importance": 0.10}
 
         self.half_lives = half_lives or {
             "preference": 90,
@@ -50,7 +46,7 @@ class HybridRetriever:
             "habit": 90,
             "fact": 30,
             "event": 14,
-            "context": 30
+            "context": 30,
         }
 
         # BM25 indices (in-memory, rebuilt periodically)
@@ -63,14 +59,10 @@ class HybridRetriever:
         """Rebuild BM25 indices for a user."""
         # Fetch all memories for user
         facts_data = self.qdrant.scroll(
-            collection_name=self.qdrant.collection_facts,
-            filters={"user_id": user_id},
-            limit=10000
+            collection_name=self.qdrant.collection_facts, filters={"user_id": user_id}, limit=10000
         )
         prefs_data = self.qdrant.scroll(
-            collection_name=self.qdrant.collection_prefs,
-            filters={"user_id": user_id},
-            limit=10000
+            collection_name=self.qdrant.collection_prefs, filters={"user_id": user_id}, limit=10000
         )
 
         self.corpus_facts = [(d["id"], d["payload"]["text"]) for d in facts_data]
@@ -89,7 +81,7 @@ class HybridRetriever:
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict] = None
+        filters: Optional[Dict] = None,
     ) -> List[RetrievalResult]:
         """
         Hybrid retrieval with two-stage ranking.
@@ -121,7 +113,7 @@ class HybridRetriever:
                 collection_name=collection,
                 vector=query_vector,
                 limit=self.top_k_qdrant,
-                filters={"user_id": user_id} if not filters else {**filters, "user_id": user_id}
+                filters={"user_id": user_id} if not filters else {**filters, "user_id": user_id},
             )
 
             vector_ranking = [(r["id"], r["score"]) for r in vector_results]
@@ -143,7 +135,7 @@ class HybridRetriever:
 
             # Collect candidates
             id_to_result = {r["id"]: r for r in vector_results}
-            for doc_id, rrf_score in fused[:self.top_k_qdrant]:
+            for doc_id, rrf_score in fused[: self.top_k_qdrant]:
                 if doc_id in id_to_result:
                     all_candidates.append((doc_id, id_to_result[doc_id]))
 
@@ -152,8 +144,7 @@ class HybridRetriever:
 
         # Stage 2: Cross-encoder rerank
         rerank_input = [
-            (cand[0], cand[1]["payload"]["text"], cand[1]["score"])
-            for cand in all_candidates
+            (cand[0], cand[1]["payload"]["text"], cand[1]["score"]) for cand in all_candidates
         ]
         reranked = self.reranker.rerank(query, rerank_input, top_k=self.top_k_qdrant)
 
@@ -179,7 +170,7 @@ class HybridRetriever:
                 rerank=rerank_norm,
                 recency=recency,
                 importance=importance_norm,
-                weights=self.weights
+                weights=self.weights,
             )
 
             memory = Memory(
@@ -194,20 +185,22 @@ class HybridRetriever:
                 created_at=created_at,
                 updated_at=datetime.fromisoformat(payload["updated_at"]),
                 access_count=payload.get("access_count", 0),
-                metadata=payload.get("metadata", {})
+                metadata=payload.get("metadata", {}),
             )
 
-            results.append(RetrievalResult(
-                memory=memory,
-                score=final_score,
-                breakdown={
-                    "sim": sim_score,
-                    "rerank": rerank_norm,
-                    "recency": recency,
-                    "importance": importance_norm,
-                    "final": final_score
-                }
-            ))
+            results.append(
+                RetrievalResult(
+                    memory=memory,
+                    score=final_score,
+                    breakdown={
+                        "sim": sim_score,
+                        "rerank": rerank_norm,
+                        "recency": recency,
+                        "importance": importance_norm,
+                        "final": final_score,
+                    },
+                )
+            )
 
         # Sort by final score
         results.sort(key=lambda x: x.score, reverse=True)

@@ -4,15 +4,14 @@ import json
 import logging
 import time
 import uuid
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.memory_store import MemoryStore, MemoryType, Category
-from src.memory_retriever import MemoryRetriever
 from src.embedding_service import EmbeddingService
-
+from src.memory_retriever import MemoryRetriever
+from src.memory_store import Category, MemoryStore, MemoryType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,7 +49,7 @@ Do not include any other text."""
         retriever: MemoryRetriever,
         embedding_service: EmbeddingService,
         api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022"
+        model: str = "claude-3-5-sonnet-20241022",
     ):
         """
         Initialize the session manager.
@@ -67,6 +66,7 @@ Do not include any other text."""
         self.embeddings = embedding_service
 
         import os
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -112,7 +112,7 @@ Do not include any other text."""
             "message_count": 0,
             "conversation_history": [],
             "topics": [],
-            "status": "active"
+            "status": "active",
         }
 
         self._active_sessions[session_id] = session_data
@@ -121,11 +121,7 @@ Do not include any other text."""
         return session_id
 
     def add_message(
-        self,
-        session_id: str,
-        role: str,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, session_id: str, role: str, content: str, metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Add a message to the session conversation history.
@@ -143,7 +139,7 @@ Do not include any other text."""
             "role": role,
             "content": content,
             "timestamp": datetime.utcnow().isoformat(),
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
         session = self._active_sessions[session_id]
@@ -175,11 +171,7 @@ Do not include any other text."""
 
         return None
 
-    def end_session(
-        self,
-        session_id: str,
-        max_retries: int = 2
-    ) -> Optional[str]:
+    def end_session(self, session_id: str, max_retries: int = 2) -> Optional[str]:
         """
         End a session and create summary.
 
@@ -239,8 +231,8 @@ Do not include any other text."""
                     "duration_seconds": duration_seconds,
                     "message_count": session["message_count"],
                     "topics": summary_data.get("main_topics", []),
-                    "tone": summary_data.get("tone", "other")
-                }
+                    "tone": summary_data.get("tone", "other"),
+                },
             )
 
             # Remove from active sessions
@@ -270,9 +262,7 @@ Do not include any other text."""
         return "\n\n".join(lines)
 
     def _generate_session_summary(
-        self,
-        conversation_history: str,
-        max_retries: int = 2
+        self, conversation_history: str, max_retries: int = 2
     ) -> Optional[Dict[str, Any]]:
         """Generate session summary using Claude API."""
         for attempt in range(max_retries + 1):
@@ -290,13 +280,13 @@ Do not include any other text."""
                     model=self.model,
                     max_tokens=2048,
                     temperature=0.0,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
                 # Parse response
                 response_text = message.content[0].text.strip()
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}") + 1
 
                 if start_idx == -1 or end_idx == 0:
                     raise ValueError("No JSON found in response")
@@ -309,7 +299,7 @@ Do not include any other text."""
 
             except anthropic.RateLimitError as e:
                 if attempt < max_retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     logger.error(f"Rate limit exceeded: {e}")
                     return None
@@ -330,11 +320,7 @@ Do not include any other text."""
 
         return None
 
-    def _create_summary_text(
-        self,
-        summary_data: Dict[str, Any],
-        session: Dict[str, Any]
-    ) -> str:
+    def _create_summary_text(self, summary_data: Dict[str, Any], session: Dict[str, Any]) -> str:
         """Create human-readable summary text."""
         parts = []
 
@@ -359,9 +345,7 @@ Do not include any other text."""
         return ". ".join(parts)
 
     def _calculate_session_importance(
-        self,
-        session: Dict[str, Any],
-        summary_data: Dict[str, Any]
+        self, session: Dict[str, Any], summary_data: Dict[str, Any]
     ) -> int:
         """Calculate importance score for session."""
         base_importance = 5
@@ -390,15 +374,12 @@ Do not include any other text."""
             "learning": Category.LEARNING.value,
             "planning": Category.WORK.value,
             "support": Category.PERSONAL.value,
-            "casual": Category.SOCIAL.value
+            "casual": Category.SOCIAL.value,
         }
         return tone_category_map.get(tone, Category.OTHER.value)
 
     def get_recent_sessions(
-        self,
-        user_id: str,
-        days: int = 7,
-        limit: int = 10
+        self, user_id: str, days: int = 7, limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Get recent session summaries for a user.
@@ -420,25 +401,21 @@ Do not include any other text."""
             filters = {
                 "user_id": user_id,
                 "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat()
+                "end_date": end_date.isoformat(),
             }
 
             sessions = self.retriever.get_memories_by_filter(
                 filters=filters,
-                limit=limit * 2  # Get more for filtering
+                limit=limit * 2,  # Get more for filtering
             )
 
             # Filter for session summaries only
             session_summaries = [
-                s for s in sessions
-                if s.get("metadata", {}).get("is_session_summary", False)
+                s for s in sessions if s.get("metadata", {}).get("is_session_summary", False)
             ]
 
             # Sort by start time (most recent first)
-            session_summaries.sort(
-                key=lambda x: x["metadata"].get("start_time", ""),
-                reverse=True
-            )
+            session_summaries.sort(key=lambda x: x["metadata"].get("start_time", ""), reverse=True)
 
             return session_summaries[:limit]
 

@@ -16,19 +16,16 @@ Usage:
     Then open: http://localhost:5020
 """
 
-import os
-import sys
 import logging
-from typing import Dict, Any
+import sys
 from datetime import datetime
-import json
+from typing import Dict
 
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
 from src.ai_chat import MemoryEnhancedChat
 from src.settings import get_settings
-
 
 # Configure logging
 logging.basicConfig(
@@ -273,9 +270,7 @@ def end_session():
             {
                 "success": True,
                 "summary_id": summary_id,
-                "message": "Session ended and summary saved"
-                if summary_id
-                else "No active session",
+                "message": "Session ended and summary saved" if summary_id else "No active session",
             }
         )
 

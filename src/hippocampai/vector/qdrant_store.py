@@ -2,13 +2,22 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance, VectorParams, PointStruct,
-    HnswConfigDiff, OptimizersConfigDiff, WalConfigDiff,
-    PayloadSchemaType, PayloadIndexInfo, Filter, FieldCondition, MatchValue
-)
+
 import numpy as np
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    HnswConfigDiff,
+    MatchValue,
+    OptimizersConfigDiff,
+    PayloadSchemaType,
+    PointStruct,
+    VectorParams,
+    WalConfigDiff,
+)
+
+from qdrant_client import QdrantClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +33,7 @@ class QdrantStore:
         dimension: int = 384,
         hnsw_m: int = 48,
         ef_construction: int = 256,
-        ef_search: int = 128
+        ef_search: int = 128,
     ):
         self.client = QdrantClient(url=url)
         self.collection_facts = collection_facts
@@ -43,32 +52,22 @@ class QdrantStore:
             if not self.client.collection_exists(collection_name):
                 self.client.create_collection(
                     collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=self.dimension,
-                        distance=Distance.COSINE
-                    ),
-                    hnsw_config=HnswConfigDiff(
-                        m=self.hnsw_m,
-                        ef_construct=self.ef_construction
-                    ),
-                    optimizers_config=OptimizersConfigDiff(
-                        indexing_threshold=20000
-                    ),
-                    wal_config=WalConfigDiff(
-                        wal_capacity_mb=32
-                    )
+                    vectors_config=VectorParams(size=self.dimension, distance=Distance.COSINE),
+                    hnsw_config=HnswConfigDiff(m=self.hnsw_m, ef_construct=self.ef_construction),
+                    optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
+                    wal_config=WalConfigDiff(wal_capacity_mb=32),
                 )
 
                 # Create payload indices
                 self.client.create_payload_index(
                     collection_name=collection_name,
                     field_name="user_id",
-                    field_schema=PayloadSchemaType.KEYWORD
+                    field_schema=PayloadSchemaType.KEYWORD,
                 )
                 self.client.create_payload_index(
                     collection_name=collection_name,
                     field_name="type",
-                    field_schema=PayloadSchemaType.KEYWORD
+                    field_schema=PayloadSchemaType.KEYWORD,
                 )
 
                 logger.info(f"Created collection: {collection_name}")
@@ -77,11 +76,13 @@ class QdrantStore:
         """Insert or update a point."""
         self.client.upsert(
             collection_name=collection_name,
-            points=[PointStruct(
-                id=id,
-                vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
-                payload=payload
-            )]
+            points=[
+                PointStruct(
+                    id=id,
+                    vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
+                    payload=payload,
+                )
+            ],
         )
 
     def search(
@@ -90,7 +91,7 @@ class QdrantStore:
         vector: np.ndarray,
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
-        ef: Optional[int] = None
+        ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Vector similarity search."""
         query_filter = None
@@ -118,23 +119,13 @@ class QdrantStore:
             query_vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
             limit=limit,
             query_filter=query_filter,
-            search_params=search_params
+            search_params=search_params,
         )
 
-        return [
-            {
-                "id": str(r.id),
-                "score": r.score,
-                "payload": r.payload
-            }
-            for r in results
-        ]
+        return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
 
     def scroll(
-        self,
-        collection_name: str,
-        filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100
+        self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Scroll through points."""
         query_filter = None
@@ -152,16 +143,10 @@ class QdrantStore:
             scroll_filter=query_filter,
             limit=limit,
             with_payload=True,
-            with_vectors=False
+            with_vectors=False,
         )
 
-        return [
-            {
-                "id": str(r.id),
-                "payload": r.payload
-            }
-            for r in results
-        ]
+        return [{"id": str(r.id), "payload": r.payload} for r in results]
 
     def delete(self, collection_name: str, ids: List[str]):
         """Delete points by IDs."""

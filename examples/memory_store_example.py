@@ -1,12 +1,12 @@
 """Example usage of the MemoryStore class."""
 
 import sys
-sys.path.append('..')
 
-from datetime import datetime
-from src.qdrant_client import QdrantManager
+sys.path.append("..")
+
 from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
+from src.memory_store import Category, MemoryStore, MemoryType
+from src.qdrant_client import QdrantManager
 from src.settings import get_settings
 
 
@@ -35,8 +35,8 @@ def main():
             "importance": 7,
             "category": Category.PERSONAL.value,
             "session_id": "session_001",
-            "confidence": 0.95
-        }
+            "confidence": 0.95,
+        },
     )
     print(f"   Stored memory: {memory_id}\n")
 
@@ -51,8 +51,8 @@ def main():
                 "importance": 9,
                 "category": Category.PERSONAL.value,
                 "session_id": "session_001",
-                "confidence": 1.0
-            }
+                "confidence": 1.0,
+            },
         },
         {
             "text": "User wants to learn Python for data science",
@@ -62,8 +62,8 @@ def main():
                 "importance": 8,
                 "category": Category.LEARNING.value,
                 "session_id": "session_001",
-                "confidence": 0.9
-            }
+                "confidence": 0.9,
+            },
         },
         {
             "text": "User exercises every morning at 6 AM",
@@ -73,8 +73,8 @@ def main():
                 "importance": 6,
                 "category": Category.HEALTH.value,
                 "session_id": "session_002",
-                "confidence": 0.85
-            }
+                "confidence": 0.85,
+            },
         },
         {
             "text": "We discussed machine learning algorithms in the last conversation",
@@ -84,9 +84,9 @@ def main():
                 "importance": 5,
                 "category": Category.LEARNING.value,
                 "session_id": "session_002",
-                "confidence": 0.8
-            }
-        }
+                "confidence": 0.8,
+            },
+        },
     ]
 
     batch_ids = memory_store.store_batch_memories(memories)

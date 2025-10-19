@@ -3,14 +3,13 @@
 import json
 import logging
 import time
-from typing import List, Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.memory_retriever import MemoryRetriever
 from src.embedding_service import EmbeddingService
-
+from src.memory_retriever import MemoryRetriever
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 class DeduplicationDecision(str, Enum):
     """Possible decisions for handling duplicate memories."""
+
     REPLACE = "replace"  # New memory replaces old one
-    MERGE = "merge"      # Combine both memories
-    SKIP = "skip"        # Don't store new memory (true duplicate)
+    MERGE = "merge"  # Combine both memories
+    SKIP = "skip"  # Don't store new memory (true duplicate)
     STORE_NEW = "store_new"  # Store as separate memory
 
 
@@ -67,7 +67,7 @@ Do not include any other text or explanation."""
         retriever: MemoryRetriever,
         embedding_service: EmbeddingService,
         api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022"
+        model: str = "claude-3-5-sonnet-20241022",
     ):
         """
         Initialize the memory deduplicator.
@@ -85,6 +85,7 @@ Do not include any other text or explanation."""
         self.embeddings = embedding_service
 
         import os
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -106,11 +107,7 @@ Do not include any other text or explanation."""
         self._last_request_time = time.time()
 
     def check_for_duplicates(
-        self,
-        new_memory_text: str,
-        user_id: str,
-        similarity_threshold: float = 0.88,
-        limit: int = 5
+        self, new_memory_text: str, user_id: str, similarity_threshold: float = 0.88, limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
         Check for duplicate memories using vector similarity.
@@ -140,20 +137,18 @@ Do not include any other text or explanation."""
             # Search for similar memories
             logger.debug(f"Searching for duplicates: {new_memory_text[:50]}...")
             results = self.retriever.search_memories(
-                query=new_memory_text,
-                limit=limit,
-                filters={"user_id": user_id}
+                query=new_memory_text, limit=limit, filters={"user_id": user_id}
             )
 
             # Filter by similarity threshold
             duplicates = [
-                result for result in results
+                result
+                for result in results
                 if result.get("similarity_score", 0) >= similarity_threshold
             ]
 
             logger.info(
-                f"Found {len(duplicates)} potential duplicates "
-                f"(threshold: {similarity_threshold})"
+                f"Found {len(duplicates)} potential duplicates (threshold: {similarity_threshold})"
             )
 
             return duplicates
@@ -163,10 +158,7 @@ Do not include any other text or explanation."""
             raise
 
     def should_update_or_skip(
-        self,
-        new_memory: Dict[str, Any],
-        existing_memory: Dict[str, Any],
-        max_retries: int = 2
+        self, new_memory: Dict[str, Any], existing_memory: Dict[str, Any], max_retries: int = 2
     ) -> Dict[str, Any]:
         """
         Use Claude API to decide how to handle a duplicate memory.
@@ -205,7 +197,7 @@ Do not include any other text or explanation."""
                     existing_timestamp=existing_memory["metadata"].get("timestamp", "unknown"),
                     new_text=new_memory["text"],
                     new_type=new_memory["memory_type"],
-                    new_importance=new_memory["importance"]
+                    new_importance=new_memory["importance"],
                 )
 
                 # Call Claude API
@@ -214,15 +206,15 @@ Do not include any other text or explanation."""
                     model=self.model,
                     max_tokens=1024,
                     temperature=0.0,
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
                 # Parse response
                 response_text = message.content[0].text.strip()
 
                 # Extract JSON
-                start_idx = response_text.find('{')
-                end_idx = response_text.rfind('}') + 1
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}") + 1
 
                 if start_idx == -1 or end_idx == 0:
                     raise ValueError("No JSON object found in response")
@@ -249,7 +241,7 @@ Do not include any other text or explanation."""
             except anthropic.RateLimitError as e:
                 logger.warning(f"Rate limit hit: {e}")
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                 else:
@@ -277,7 +269,7 @@ Do not include any other text or explanation."""
         new_memory: Dict[str, Any],
         user_id: str,
         similarity_threshold: float = 0.88,
-        auto_decide: bool = True
+        auto_decide: bool = True,
     ) -> Dict[str, Any]:
         """
         Check for duplicates and determine action for a new memory.
@@ -301,13 +293,13 @@ Do not include any other text or explanation."""
         duplicates = self.check_for_duplicates(
             new_memory_text=new_memory["text"],
             user_id=user_id,
-            similarity_threshold=similarity_threshold
+            similarity_threshold=similarity_threshold,
         )
 
         result = {
             "action": "store",  # Default action
             "duplicates": duplicates,
-            "decision_data": None
+            "decision_data": None,
         }
 
         # If duplicates found and auto_decide is True
@@ -316,8 +308,7 @@ Do not include any other text or explanation."""
             highest_duplicate = duplicates[0]
 
             decision_data = self.should_update_or_skip(
-                new_memory=new_memory,
-                existing_memory=highest_duplicate
+                new_memory=new_memory, existing_memory=highest_duplicate
             )
 
             result["decision_data"] = decision_data
@@ -328,8 +319,7 @@ Do not include any other text or explanation."""
             result["action"] = "manual_review"
 
         logger.info(
-            f"Process new memory: action={result['action']}, "
-            f"duplicates_found={len(duplicates)}"
+            f"Process new memory: action={result['action']}, duplicates_found={len(duplicates)}"
         )
 
         return result

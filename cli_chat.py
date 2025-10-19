@@ -19,8 +19,6 @@ Commands:
 """
 
 import sys
-import os
-from datetime import datetime
 
 from src.ai_chat import MemoryEnhancedChat
 from src.settings import get_settings
@@ -28,15 +26,15 @@ from src.settings import get_settings
 
 # ANSI color codes for pretty output
 class Colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def print_header(text: str):
@@ -111,14 +109,14 @@ def show_stats(chat: MemoryEnhancedChat):
         print(f"  Average Importance: {Colors.BOLD}{stats['avg_importance']:.1f}/10{Colors.ENDC}")
         print(f"  Recent (7 days): {Colors.BOLD}{stats['recent_count']}{Colors.ENDC}")
 
-        if stats['by_type']:
-            print(f"\n  By Type:")
-            for mem_type, count in stats['by_type'].items():
+        if stats["by_type"]:
+            print("\n  By Type:")
+            for mem_type, count in stats["by_type"].items():
                 print(f"    - {mem_type}: {count}")
 
-        if stats['by_category']:
-            print(f"\n  By Category:")
-            for category, count in stats['by_category'].items():
+        if stats["by_category"]:
+            print("\n  By Category:")
+            for category, count in stats["by_category"].items():
                 print(f"    - {category}: {count}")
 
     except Exception as e:
@@ -139,10 +137,10 @@ def show_memories(chat: MemoryEnhancedChat):
         print(f"\n  Showing {len(memories)} memories:\n")
 
         for i, mem in enumerate(memories, 1):
-            mem_type = mem.get('memory_type', 'unknown')
-            text = mem.get('text', '')
-            importance = mem.get('importance', 0)
-            category = mem.get('category', 'unknown')
+            mem_type = mem.get("memory_type", "unknown")
+            text = mem.get("text", "")
+            importance = mem.get("importance", 0)
+            category = mem.get("category", "unknown")
 
             print(f"  {i}. [{mem_type.upper()}] {text}")
             print(f"     Importance: {importance}/10 | Category: {category}")
@@ -155,7 +153,7 @@ def show_memories(chat: MemoryEnhancedChat):
 def main():
     """Main CLI chat loop."""
     # Get user ID from command line or use default
-    user_id = sys.argv[1] if len(sys.argv) > 1 else 'cli_user'
+    user_id = sys.argv[1] if len(sys.argv) > 1 else "cli_user"
 
     # Check API key
     settings = get_settings()
@@ -182,9 +180,7 @@ def main():
 
     try:
         chat = MemoryEnhancedChat(
-            user_id=user_id,
-            auto_extract_memories=True,
-            auto_consolidate=True
+            user_id=user_id, auto_extract_memories=True, auto_consolidate=True
         )
         print_system(f"Ready! Using {provider} as LLM provider.\n")
     except Exception as e:
@@ -201,29 +197,29 @@ def main():
                 continue
 
             # Handle commands
-            if user_input.startswith('/'):
+            if user_input.startswith("/"):
                 command = user_input.lower()
 
-                if command == '/quit' or command == '/exit':
+                if command == "/quit" or command == "/exit":
                     print_system("Ending session...")
                     chat.end_conversation()
                     print_system("Goodbye! 👋")
                     break
 
-                elif command == '/help':
+                elif command == "/help":
                     show_help()
 
-                elif command == '/stats':
+                elif command == "/stats":
                     show_stats(chat)
 
-                elif command == '/memories':
+                elif command == "/memories":
                     show_memories(chat)
 
-                elif command == '/clear':
+                elif command == "/clear":
                     chat.clear_session()
                     print_system("Session cleared!")
 
-                elif command == '/end':
+                elif command == "/end":
                     print_system("Ending session and saving summary...")
                     summary_id = chat.end_conversation()
                     if summary_id:
@@ -264,5 +260,5 @@ def main():
             print_error(f"Unexpected error: {e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
