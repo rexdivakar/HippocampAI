@@ -32,39 +32,49 @@ classifiers = [
 ]
 
 dependencies = [
-    "qdrant-client>=1.7.0",
-    "sentence-transformers>=2.2.0",
-    "rank-bm25>=0.2.2",
-    "pydantic>=2.0.0",
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    "typer[all]>=0.9.0",
-    "apscheduler>=3.10.0",
-    "cachetools>=5.3.0",
-    "httpx>=0.25.0",
-    "python-dotenv>=1.0.0",
-    "pydantic==2.12.3",
+    "pydantic>=2.6,<3.0",
+    "python-dotenv>=1.0,<2.0",
+    "httpx>=0.25,<1.0",
+    "apscheduler>=3.10,<4.0",
+    "cachetools>=5.3,<6.0",
 ]
 
 [project.optional-dependencies]
+core = [
+    "anthropic>=0.39,<1.0",
+    "cachetools>=5.3,<6.0",
+    "fastapi>=0.110,<1.0",
+    "groq>=0.4,<1.0",
+    "ollama>=0.3,<1.0",
+    "openai>=1.0,<2.0",
+    "qdrant-client>=1.7,<2.0",
+    "rank-bm25>=0.2,<1.0",
+    "sentence-transformers>=2.2,<3.0",
+    "typer[all]>=0.9,<1.0",
+    "uvicorn[standard]>=0.24,<1.0",
+]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.1.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "safety>=2.3.0",
-    "bandit[toml]>=1.7.0",
+    "black>=24.4,<25.0",
+    "bandit[toml]>=1.7,<2.0",
+    "liccheck>=0.7,<1.0",
+    "mypy>=1.8,<2.0",
+    "pip-audit>=2.7,<3.0",
+    "pre-commit>=3.5,<4.0",
+    "pytest>=7.4,<8.0",
+    "pytest-asyncio>=0.21,<0.23",
+    "pytest-cov>=4.1,<5.0",
+    "ruff>=0.3,<1.0",
+    "safety>=2.3,<3.0",
 ]
-ollama = [
-    "ollama>=0.1.0",
+test = [
+    "pytest>=7.4,<8.0",
+    "pytest-asyncio>=0.21,<0.23",
+    "pytest-cov>=4.1,<5.0",
 ]
-anthropic = [
-    "anthropic>=0.39.0",
-]
-openai = [
-    "openai>=1.0.0",
+docs = [
+    "mkdocs>=1.5,<2.0",
+    "mkdocs-material>=9.5,<10.0",
+    "mkdocstrings[python]>=0.24,<1.0",
 ]
 
 [project.scripts]
