@@ -1,6 +1,6 @@
 """Time utilities."""
 
-from datetime import UTC, datetime
+from datetime import timezone, datetime
 from typing import Optional
 
 

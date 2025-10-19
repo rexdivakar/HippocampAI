@@ -1,6 +1,6 @@
 """Tests for retrieval components."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timezone, datetime, timedelta
 
 from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 from hippocampai.utils.scoring import fuse_scores, normalize, recency_score
