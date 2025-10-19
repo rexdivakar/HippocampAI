@@ -1,6 +1,6 @@
 """Tests for retrieval components."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 from hippocampai.utils.scoring import fuse_scores, normalize, recency_score
@@ -26,7 +26,7 @@ def test_normalize():
 
 def test_recency_score():
     """Test recency decay."""
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     old = now - timedelta(days=30)
 
     score_now = recency_score(now, half_life_days=30)

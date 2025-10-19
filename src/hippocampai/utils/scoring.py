@@ -4,6 +4,8 @@ import math
 from datetime import datetime
 from typing import Dict
 
+from hippocampai.utils.time import ensure_utc, now_utc
+
 
 def normalize(value: float, min_val: float, max_val: float) -> float:
     """Normalize to [0,1]."""
@@ -14,7 +16,8 @@ def normalize(value: float, min_val: float, max_val: float) -> float:
 
 def recency_score(created_at: datetime, half_life_days: int) -> float:
     """Exponential decay based on half-life."""
-    age_days = (datetime.utcnow() - created_at).total_seconds() / 86400
+    created_utc = ensure_utc(created_at)
+    age_days = (now_utc() - created_utc).total_seconds() / 86400
     return math.exp(-0.693 * age_days / half_life_days)
 
 
