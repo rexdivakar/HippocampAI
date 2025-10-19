@@ -1,0 +1,22 @@
+# Vector Database
+qdrant-client>=1.7.0
+
+# Embeddings
+sentence-transformers>=2.2.0
+
+# LLM Providers
+anthropic>=0.39.0
+openai>=1.0.0
+groq>=0.4.0
+
+# Configuration & Logging
+pyyaml>=6.0
+python-json-logger>=2.0.7
+python-dotenv>=1.0.0
+
+# Web Server (for chat interface)
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Tools & Utilities
+requests>=2.31.0

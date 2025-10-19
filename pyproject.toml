@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hippocampai"
+version = "0.1.0"
+description = "HippocampAI — autonomous long-term memory engine with hybrid retrieval and cross-encoder reranking"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [{name = "HippocampAI Contributors"}]
+keywords = ["llm", "memory", "rag", "retrieval", "vector-database", "qdrant"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "qdrant-client>=1.7.0",
+    "sentence-transformers>=2.2.0",
+    "rank-bm25>=0.2.2",
+    "pydantic>=2.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "typer[all]>=0.9.0",
+    "apscheduler>=3.10.0",
+    "cachetools>=5.3.0",
+    "httpx>=0.25.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+ollama = [
+    "ollama>=0.1.0",
+]
+anthropic = [
+    "anthropic>=0.39.0",
+]
+openai = [
+    "openai>=1.0.0",
+]
+
+[project.scripts]
+hippocampai = "hippocampai.cli.main:app"
+hippocampai-api = "hippocampai.api.app:run_server"
+
+[project.urls]
+Homepage = "https://github.com/rexdivakar/HippocampAI"
+Documentation = "https://github.com/rexdivakar/HippocampAI#readme"
+Repository = "https://github.com/rexdivakar/HippocampAI"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
+ignore = ["E501"]

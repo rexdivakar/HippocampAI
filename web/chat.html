@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HippocampAI - Memory-Enhanced AI Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .user-info {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .user-info input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .stats {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            flex: 1;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .buttons {
+            margin-top: 15px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* Chat area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+        }
+
+        .chat-status {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 15px;
+            width: fit-content;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: bounce 1.4s infinite;
+        }
+
+        /* Tool usage indicator */
+        .tool-usage {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .tool-usage strong {
+            color: #856404;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 15px;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        .input-area input:focus {
+            border-color: #667eea;
+        }
+
+        .input-area button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .input-area button:hover {
+            transform: scale(1.05);
+        }
+
+        .input-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Welcome message */
+        .welcome {
+            text-align: center;
+            padding: 50px;
+            color: #888;
+        }
+
+        .welcome h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .welcome p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="user-info">
+                <h2>User Settings</h2>
+                <input type="text" id="userId" placeholder="Enter your user ID" value="demo_user">
+            </div>
+
+            <div class="stats">
+                <h2>Memory Stats</h2>
+                <div class="stat-item">
+                    <div class="stat-label">Total Memories</div>
+                    <div class="stat-value" id="totalMemories">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Average Importance</div>
+                    <div class="stat-value" id="avgImportance">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Recent (7 days)</div>
+                    <div class="stat-value" id="recentMemories">0</div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button class="btn btn-primary" onclick="viewMemories()">View Memories</button>
+                <button class="btn btn-secondary" onclick="endSession()">End Session</button>
+                <button class="btn btn-secondary" onclick="clearChat()">Clear Chat</button>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div>
+                    <h1>🧠 HippocampAI Chat</h1>
+                    <div class="chat-status" id="status">Ready</div>
+                </div>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="welcome">
+                    <h2>Welcome to HippocampAI! 👋</h2>
+                    <p>I'm your AI assistant with memory. I remember our conversations<br>and learn from them to provide personalized responses.</p>
+                    <p style="margin-top: 20px; font-size: 14px;">Try telling me about yourself, your preferences, or ask me anything!</p>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typing">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()" id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5020/api';
+        let userId = 'demo_user';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            document.getElementById('userId').addEventListener('change', (e) => {
+                userId = e.target.value || 'demo_user';
+                loadHistory();
+                loadStats();
+            });
+        });
+
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Add user message to UI
+            addMessage('user', message);
+            input.value = '';
+
+            // Disable input while processing
+            setInputState(false);
+            showTyping(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMessage('assistant', data.response);
+                    loadStats(); // Update stats after each message
+                } else {
+                    addMessage('assistant', `Error: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            } finally {
+                showTyping(false);
+                setInputState(true);
+                input.focus();
+            }
+        }
+
+        // Add message to UI
+        function addMessage(role, content) {
+            const messagesDiv = document.getElementById('messages');
+
+            // Remove welcome message if exists
+            const welcome = messagesDiv.querySelector('.welcome');
+            if (welcome) welcome.remove();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Load conversation history
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/history?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success && data.history.length > 0) {
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.innerHTML = '';
+
+                    data.history.forEach(msg => {
+                        addMessage(msg.role, msg.content);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Load memory stats
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/stats?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.stats;
+                    document.getElementById('totalMemories').textContent = stats.total_memories || 0;
+                    document.getElementById('avgImportance').textContent =
+                        (stats.avg_importance || 0).toFixed(1);
+                    document.getElementById('recentMemories').textContent = stats.recent_count || 0;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // View memories
+        async function viewMemories() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/memories?user_id=${userId}&limit=50`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const memories = data.memories;
+                    let html = '<h3>Your Memories:</h3><ul style="list-style: none; padding: 0;">';
+
+                    if (memories.length === 0) {
+                        html += '<li>No memories stored yet. Start chatting to create memories!</li>';
+                    } else {
+                        memories.forEach(mem => {
+                            html += `
+                                <li style="margin-bottom: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+                                    <strong>${mem.memory_type}:</strong> ${mem.text}
+                                    <br><small>Importance: ${mem.importance}/10 | ${mem.category}</small>
+                                </li>
+                            `;
+                        });
+                    }
+                    html += '</ul>';
+
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error loading memories:', error);
+                alert('Error loading memories');
+            }
+        }
+
+        // End session
+        async function endSession() {
+            if (!confirm('End current session and save summary?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Session ended and summary saved!');
+                    clearChat();
+                }
+            } catch (error) {
+                console.error('Error ending session:', error);
+                alert('Error ending session');
+            }
+        }
+
+        // Clear chat
+        async function clearChat() {
+            try {
+                await fetch(`${API_BASE}/chat/clear`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                document.getElementById('messages').innerHTML = `
+                    <div class="welcome">
+                        <h2>Chat Cleared! 🧹</h2>
+                        <p>Start a new conversation</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error clearing chat:', error);
+            }
+        }
+
+        // Show/hide typing indicator
+        function showTyping(show) {
+            const typing = document.getElementById('typing');
+            const messages = document.getElementById('messages');
+
+            if (show) {
+                typing.classList.add('active');
+                messages.scrollTop = messages.scrollHeight;
+            } else {
+                typing.classList.remove('active');
+            }
+        }
+
+        // Enable/disable input
+        function setInputState(enabled) {
+            document.getElementById('messageInput').disabled = !enabled;
+            document.getElementById('sendBtn').disabled = !enabled;
+            document.getElementById('status').textContent = enabled ? 'Ready' : 'Thinking...';
+        }
+
+        // Handle Enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
