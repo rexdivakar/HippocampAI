@@ -9,9 +9,24 @@ Usage:
     python test_functional.py
 """
 
+import importlib.util
 import sys
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, patch
+
+# Ensure local src/ package is importable without installation
+PROJECT_ROOT = Path(__file__).resolve().parent
+SRC_PATH = PROJECT_ROOT / "src"
+if SRC_PATH.exists():
+    sys.path.insert(0, str(SRC_PATH))
+
+
+def has_module(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+HAS_RANK_BM25 = has_module("rank_bm25")
 
 
 def print_header(text: str):
@@ -113,6 +128,10 @@ def test_memory_type_routing():
 
 def test_bm25_scoring():
     """Test BM25 text scoring."""
+    if not HAS_RANK_BM25:
+        print("  ⚠️  BM25 test skipped (requires rank_bm25 package)")
+        return True
+
     from hippocampai.retrieval.bm25 import BM25Retriever
 
     print("\n📊 Testing BM25 Retrieval...")
@@ -145,6 +164,10 @@ def test_bm25_scoring():
 
 def test_rrf_fusion():
     """Test Reciprocal Rank Fusion."""
+    if not HAS_RANK_BM25:
+        print("  ⚠️  RRF test skipped (requires rank_bm25 package)")
+        return True
+
     print("\n🔄 Testing Reciprocal Rank Fusion...")
 
     from hippocampai.retrieval.rrf import reciprocal_rank_fusion

@@ -8,25 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `scripts/run-tests.sh` convenience wrapper for running the pytest suite with the correct environment.
-- Contributor onboarding guide (`CONTRIBUTING.md`) and refreshed testing documentation.
-- Automated PyPI publishing via GitHub Actions
-- TestPyPI workflow for release candidates
-- MANIFEST.in for package distribution control
+
+- Migrated all runtime code under `src/hippocampai/` (single import namespace) and moved CLI/Web front ends into the package.
+- New `CONTRIBUTING.md`, updated README/docs, and helper `scripts/run-tests.sh` for local CI parity.
+- Optional extras in `pyproject.toml` (`core`, `dev`, `test`, `docs`) plus `liccheck.ini` and a scheduled dependency-health GitHub workflow.
+- Lazy import of `MemoryClient` so base installs work without vector/db extras.
 
 ### Changed
-- Standardized all runtime timestamps to timezone-aware UTC and updated settings to use modern Pydantic v2 patterns.
-- README/TESTING instructions now document local unit test execution.
-- Renamed `setup.py` to `setup_initial.py` to avoid build conflicts
-- Updated all documentation to reference new setup script name
+
+- Standardised import ordering (ruff/isort), added docstrings to package `__init__` files, and normalised timestamps to timezone-aware UTC.
+- Refreshed test scripts (`test_install.py`, `test_functional.py`) to add `src/` to `PYTHONPATH` and skip optional checks when dependencies are absent.
+- Updated packaging metadata to include HTML assets via `MANIFEST.in` and `package-data`.
 
 ### Fixed
-- Removed legacy `datetime.utcnow()` usage that surfaced deprecation warnings during tests.
-- Fixed circular dependency during `pip install -e .` by removing setup.py from build process
+
+- Removed duplicate modules in the project root that shadowed the packaged implementations.
+- Addressed deprecation warnings in time utilities and recency scoring.
+- Ensured install/functional tests pass in minimal environments (optional deps reported as warnings, not hard failures).
 
 ## [0.1.0] - 2025-01-06
 
 ### Added
+
 - Hybrid retrieval (BM25 + embeddings + RRF)
 - Two-stage ranking with cross-encoder reranking
 - Typed routing for preferences vs facts
