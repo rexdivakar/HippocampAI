@@ -17,6 +17,7 @@ from typing import List
 
 class TestResult:
     """Store test results."""
+
     def __init__(self, name: str, passed: bool, error: str = ""):
         self.name = name
         self.passed = passed
@@ -50,7 +51,8 @@ def test_basic_imports():
 def test_version():
     """Test package version."""
     import hippocampai
-    assert hasattr(hippocampai, '__version__')
+
+    assert hasattr(hippocampai, "__version__")
     print(f"  Package version: {hippocampai.__version__}")
 
 
@@ -59,7 +61,7 @@ def test_memory_type_enum():
     from hippocampai.models.memory import MemoryType
 
     # Check all expected memory types exist
-    expected_types = ['preference', 'fact', 'goal', 'event', 'habit', 'context']
+    expected_types = ["preference", "fact", "goal", "event", "habit", "context"]
     for mem_type in expected_types:
         assert hasattr(MemoryType, mem_type.upper())
 
@@ -80,7 +82,7 @@ def test_memory_model():
         type=MemoryType.FACT,
         timestamp=datetime.now(),
         importance=0.8,
-        embedding=[0.1] * 384  # Typical embedding dimension
+        embedding=[0.1] * 384,  # Typical embedding dimension
     )
 
     assert memory.id == "test_123"
@@ -108,6 +110,7 @@ def test_cli_imports():
 def test_api_imports():
     """Test API module imports."""
     from hippocampai.api import app
+
     assert app is not None
     print("  API module imported successfully")
 
@@ -189,13 +192,13 @@ def test_package_metadata():
     import hippocampai
 
     # Check for standard attributes
-    assert hasattr(hippocampai, '__version__')
-    assert hasattr(hippocampai, '__all__')
+    assert hasattr(hippocampai, "__version__")
+    assert hasattr(hippocampai, "__all__")
 
     # Check exported symbols
-    assert 'MemoryClient' in hippocampai.__all__
-    assert 'Memory' in hippocampai.__all__
-    assert 'MemoryType' in hippocampai.__all__
+    assert "MemoryClient" in hippocampai.__all__
+    assert "Memory" in hippocampai.__all__
+    assert "MemoryType" in hippocampai.__all__
 
     print(f"  Package exports: {', '.join(hippocampai.__all__)}")
 
@@ -203,12 +206,12 @@ def test_package_metadata():
 def test_dependencies():
     """Test that key dependencies are available."""
     dependencies = [
-        ('qdrant_client', 'Qdrant Client'),
-        ('sentence_transformers', 'Sentence Transformers'),
-        ('rank_bm25', 'BM25'),
-        ('pydantic', 'Pydantic'),
-        ('fastapi', 'FastAPI'),
-        ('typer', 'Typer'),
+        ("qdrant_client", "Qdrant Client"),
+        ("sentence_transformers", "Sentence Transformers"),
+        ("rank_bm25", "BM25"),
+        ("pydantic", "Pydantic"),
+        ("fastapi", "FastAPI"),
+        ("typer", "Typer"),
     ]
 
     missing = []
@@ -241,7 +244,7 @@ def print_summary(results: List[TestResult]):
     print(f"\nTotal Tests: {total}")
     print(f"Passed: {passed} ✅")
     print(f"Failed: {failed} ❌")
-    print(f"Success Rate: {(passed/total*100):.1f}%\n")
+    print(f"Success Rate: {(passed / total * 100):.1f}%\n")
 
     if failed > 0:
         print("Failed Tests:")
