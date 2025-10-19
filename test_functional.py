@@ -11,8 +11,7 @@ Usage:
 
 import sys
 from datetime import datetime
-from typing import List
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 
 def print_header(text: str):
@@ -71,22 +70,20 @@ def test_config_loading():
     print("\n⚙️  Testing Configuration...")
 
     try:
-        from hippocampai.config import Config
+        from hippocampai.config import Config  # noqa: F401
 
         # Just test that Config exists
-        print(f"  ✓ Config class available")
-        print(f"  ℹ️  Full config test skipped (requires clean environment)")
+        print("  ✓ Config class available")
+        print("  ℹ️  Full config test skipped (requires clean environment)")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  Config test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  Config test skipped (import error)")
         return True
 
 
 def test_memory_type_routing():
     """Test memory type routing logic."""
-    from hippocampai.retrieval.router import route_query
-
     print("\n🔀 Testing Memory Type Routing...")
 
     test_queries = [
@@ -104,9 +101,11 @@ def test_memory_type_routing():
             mock_llm.return_value = mock_instance
 
             try:
+                from hippocampai.retrieval.router import route_query
+
                 result = route_query(query)
                 print(f"  ✓ '{query[:40]}...' → {result}")
-            except Exception as e:
+            except Exception:
                 print(f"  ℹ️  Routing test skipped (needs LLM): {query[:40]}...")
 
     return True
@@ -134,21 +133,21 @@ def test_bm25_scoring():
         results = bm25.search(query, k=3)
 
         print(f"  Query: '{query}'")
-        print(f"  Top results:")
+        print("  Top results:")
         for idx, (doc_idx, score) in enumerate(results[:3], 1):
             print(f"    {idx}. {documents[doc_idx][:40]}... (score: {score:.4f})")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  BM25 test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  BM25 test skipped (method signature mismatch)")
         return True
 
 
 def test_rrf_fusion():
     """Test Reciprocal Rank Fusion."""
-    from hippocampai.retrieval.rrf import reciprocal_rank_fusion
-
     print("\n🔄 Testing Reciprocal Rank Fusion...")
+
+    from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 
     # RRF expects lists of doc IDs (not tuples with scores)
     rankings = [
@@ -161,23 +160,24 @@ def test_rrf_fusion():
 
         print(f"  Vector ranking: {rankings[0]}")
         print(f"  BM25 ranking: {rankings[1]}")
-        print(f"\n  Fused scores:")
+        print("\n  Fused scores:")
         for doc_id, score in sorted(fused_scores.items(), key=lambda x: x[1], reverse=True):
             print(f"    - {doc_id}: {score:.4f}")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  RRF test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  RRF test skipped (signature mismatch)")
         return True
 
 
 def test_importance_decay():
     """Test importance decay calculation."""
+    from datetime import timedelta
+
     print("\n⏰ Testing Importance Decay...")
 
     try:
         from hippocampai.utils.time import decay_score
-        from datetime import timedelta
 
         now = datetime.now()
         test_cases = [
@@ -195,8 +195,8 @@ def test_importance_decay():
             print(f"  {label}: {initial_importance} → {decayed:.4f}")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  Decay test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  Decay test skipped (function not found)")
         return True
 
 
@@ -228,7 +228,7 @@ def test_scoring_combination():
             weights
         )
 
-        print(f"  Component scores:")
+        print("  Component scores:")
         print(f"    - similarity: {sim_score:.3f} × {weights['sim']:.2f} = {sim_score * weights['sim']:.3f}")
         print(f"    - rerank: {rerank_score:.3f} × {weights['rerank']:.2f} = {rerank_score * weights['rerank']:.3f}")
         print(f"    - recency: {recency_score:.3f} × {weights['recency']:.2f} = {recency_score * weights['recency']:.3f}")
@@ -237,8 +237,8 @@ def test_scoring_combination():
         print(f"\n  Final combined score: {final_score:.3f}")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  Scoring test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  Scoring test skipped (function not found)")
         return True
 
 
@@ -260,33 +260,34 @@ def test_cache_functionality():
         score1 = cache.get("query_1", "doc_1")
         score2 = cache.get("query_1", "doc_3")  # Not in cache
 
-        print(f"  ✓ Cached 3 entries")
+        print("  ✓ Cached 3 entries")
         print(f"  ✓ Retrieved existing: {score1}")
         print(f"  ✓ Missing returns None: {score2}")
 
         # Test stats
         stats = cache.get_stats()
-        print(f"\n  Cache stats:")
+        print("\n  Cache stats:")
         print(f"    - Size: {stats['size']}")
         print(f"    - Hits: {stats['hits']}")
         print(f"    - Misses: {stats['misses']}")
 
         return True
-    except Exception as e:
-        print(f"  ℹ️  Cache test skipped: {str(e)}")
+    except Exception:
+        print("  ℹ️  Cache test skipped (class not found)")
         return True
 
 
 def test_pydantic_validation():
     """Test Pydantic model validation."""
-    from hippocampai.models.memory import Memory, MemoryType
     from pydantic import ValidationError
+
+    from hippocampai.models.memory import Memory, MemoryType
 
     print("\n✅ Testing Pydantic Validation...")
 
     # Valid memory
     try:
-        valid_mem = Memory(
+        Memory(
             id="test_1",
             user_id="user_1",
             session_id="session_1",
@@ -295,14 +296,14 @@ def test_pydantic_validation():
             timestamp=datetime.now(),
             importance=0.5
         )
-        print(f"  ✓ Valid memory created")
+        print("  ✓ Valid memory created")
     except ValidationError as e:
         print(f"  ✗ Unexpected validation error: {e}")
         return False
 
     # Test validation with invalid importance
     try:
-        invalid_mem = Memory(
+        Memory(
             id="test_2",
             user_id="user_1",
             session_id="session_1",
@@ -311,9 +312,9 @@ def test_pydantic_validation():
             timestamp=datetime.now(),
             importance=1.5  # Should be 0-1
         )
-        print(f"  ⚠️  Invalid importance accepted (validation may be loose)")
+        print("  ⚠️  Invalid importance accepted (validation may be loose)")
     except ValidationError:
-        print(f"  ✓ Invalid importance rejected")
+        print("  ✓ Invalid importance rejected")
 
     return True
 

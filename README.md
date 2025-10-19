@@ -1,5 +1,7 @@
 # HippocampAI — Autonomous Memory Engine for LLM Agents
 
+[![Quality Gate Status](https://sonar.craftedbrain.com/api/project_badges/measure?project=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475&metric=alert_status&token=sqb_dd0c0b1bf58646ce474b64a1fa8d83446345bccf)](https://sonar.craftedbrain.com/dashboard?id=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475)
+
 HippocampAI turns raw conversations into a curated long-term memory vault for your AI assistants. It extracts, scores, deduplicates, stores, and retrieves user memories so agents can stay personal, consistent, and context-aware across sessions.
 
 - Plug-and-play `MemoryClient` API with built-in pipelines for extraction, dedupe, consolidation, and importance decay

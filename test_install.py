@@ -12,7 +12,7 @@ Usage:
 
 import sys
 import traceback
-from typing import List, Tuple
+from typing import List
 
 
 class TestResult:
@@ -40,7 +40,8 @@ def run_test(test_name: str, test_func) -> TestResult:
 
 def test_basic_imports():
     """Test basic package imports."""
-    from hippocampai import MemoryClient, Memory, MemoryType
+    from hippocampai import Memory, MemoryClient, MemoryType
+
     assert MemoryClient is not None
     assert Memory is not None
     assert MemoryType is not None
@@ -67,8 +68,9 @@ def test_memory_type_enum():
 
 def test_memory_model():
     """Test Memory model creation."""
-    from hippocampai.models.memory import Memory, MemoryType
     from datetime import datetime
+
+    from hippocampai.models.memory import Memory, MemoryType
 
     memory = Memory(
         id="test_123",
@@ -90,17 +92,16 @@ def test_memory_model():
 
 def test_config_import():
     """Test configuration module."""
-    from hippocampai.config import Config
+    from hippocampai.config import Config  # noqa: F401
 
     # Just test that Config class exists and can be imported
-    assert Config is not None
-    print(f"  Config class imported successfully")
+    print("  Config class imported successfully")
 
 
 def test_cli_imports():
     """Test CLI module imports."""
-    from hippocampai.cli import main
-    assert main is not None
+    from hippocampai.cli import main  # noqa: F401
+
     print("  CLI module imported successfully")
 
 
@@ -113,7 +114,7 @@ def test_api_imports():
 
 def test_pipeline_imports():
     """Test pipeline modules."""
-    from hippocampai.pipeline import extractor, dedup, consolidate, importance
+    from hippocampai.pipeline import consolidate, dedup, extractor, importance
 
     assert extractor is not None
     assert dedup is not None
@@ -176,12 +177,11 @@ def test_utils_imports():
 
 def test_memory_client_creation():
     """Test MemoryClient class availability."""
-    from hippocampai import MemoryClient
+    from hippocampai import MemoryClient  # noqa: F401
 
     # Just test that the class exists
-    assert MemoryClient is not None
-    print(f"  MemoryClient class imported successfully")
-    print(f"  (Note: Full instantiation requires Qdrant connection)")
+    print("  MemoryClient class imported successfully")
+    print("  (Note: Full instantiation requires Qdrant connection)")
 
 
 def test_package_metadata():
@@ -212,11 +212,11 @@ def test_dependencies():
     ]
 
     missing = []
-    for module_name, display_name in dependencies:
+    for module_name, _display_name in dependencies:
         try:
             __import__(module_name)
         except ImportError:
-            missing.append(display_name)
+            missing.append(_display_name)
 
     if missing:
         raise ImportError(f"Missing dependencies: {', '.join(missing)}")
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n\nTests interrupted by user")
         sys.exit(1)
-    except Exception as e:
-        print(f"\n\nFatal error during testing:")
+    except Exception:
+        print("\n\nFatal error during testing:")
         traceback.print_exc()
         sys.exit(1)
