@@ -36,7 +36,7 @@ def test_memory_creation():
             text="I prefer dark mode",
             type=MemoryType.PREFERENCE,
             timestamp=datetime.now(),
-            importance=0.8
+            importance=0.8,
         ),
         Memory(
             id="fact_1",
@@ -45,7 +45,7 @@ def test_memory_creation():
             text="Python is a programming language",
             type=MemoryType.FACT,
             timestamp=datetime.now(),
-            importance=0.6
+            importance=0.6,
         ),
         Memory(
             id="goal_1",
@@ -54,7 +54,7 @@ def test_memory_creation():
             text="Learn machine learning",
             type=MemoryType.GOAL,
             timestamp=datetime.now(),
-            importance=0.9
+            importance=0.9,
         ),
     ]
 
@@ -95,7 +95,7 @@ def test_memory_type_routing():
 
     for query, expected in test_queries:
         # Mock the LLM response
-        with patch('hippocampai.retrieval.router.get_llm') as mock_llm:
+        with patch("hippocampai.retrieval.router.get_llm") as mock_llm:
             mock_instance = Mock()
             mock_instance.generate.return_value = expected
             mock_llm.return_value = mock_instance
@@ -214,25 +214,29 @@ def test_scoring_combination():
         importance_score = 0.65
 
         weights = {
-            'sim': 0.55,
-            'rerank': 0.20,
-            'recency': 0.15,
-            'importance': 0.10,
+            "sim": 0.55,
+            "rerank": 0.20,
+            "recency": 0.15,
+            "importance": 0.10,
         }
 
         final_score = weighted_score(
-            sim_score,
-            rerank_score,
-            recency_score,
-            importance_score,
-            weights
+            sim_score, rerank_score, recency_score, importance_score, weights
         )
 
         print("  Component scores:")
-        print(f"    - similarity: {sim_score:.3f} × {weights['sim']:.2f} = {sim_score * weights['sim']:.3f}")
-        print(f"    - rerank: {rerank_score:.3f} × {weights['rerank']:.2f} = {rerank_score * weights['rerank']:.3f}")
-        print(f"    - recency: {recency_score:.3f} × {weights['recency']:.2f} = {recency_score * weights['recency']:.3f}")
-        print(f"    - importance: {importance_score:.3f} × {weights['importance']:.2f} = {importance_score * weights['importance']:.3f}")
+        print(
+            f"    - similarity: {sim_score:.3f} × {weights['sim']:.2f} = {sim_score * weights['sim']:.3f}"
+        )
+        print(
+            f"    - rerank: {rerank_score:.3f} × {weights['rerank']:.2f} = {rerank_score * weights['rerank']:.3f}"
+        )
+        print(
+            f"    - recency: {recency_score:.3f} × {weights['recency']:.2f} = {recency_score * weights['recency']:.3f}"
+        )
+        print(
+            f"    - importance: {importance_score:.3f} × {weights['importance']:.2f} = {importance_score * weights['importance']:.3f}"
+        )
 
         print(f"\n  Final combined score: {final_score:.3f}")
 
@@ -294,7 +298,7 @@ def test_pydantic_validation():
             text="Valid memory",
             type=MemoryType.FACT,
             timestamp=datetime.now(),
-            importance=0.5
+            importance=0.5,
         )
         print("  ✓ Valid memory created")
     except ValidationError as e:
@@ -310,7 +314,7 @@ def test_pydantic_validation():
             text="Invalid memory",
             type=MemoryType.FACT,
             timestamp=datetime.now(),
-            importance=1.5  # Should be 0-1
+            importance=1.5,  # Should be 0-1
         )
         print("  ⚠️  Invalid importance accepted (validation may be loose)")
     except ValidationError:
@@ -349,6 +353,7 @@ def main():
             failed += 1
             print(f"\n  ❌ {test_name} FAILED: {str(e)}")
             import traceback
+
             traceback.print_exc()
 
     # Summary
@@ -356,7 +361,7 @@ def main():
     print(f"\nTotal Tests: {passed + failed}")
     print(f"Passed: {passed} ✅")
     print(f"Failed: {failed} ❌")
-    print(f"Success Rate: {(passed/(passed+failed)*100):.1f}%\n")
+    print(f"Success Rate: {(passed / (passed + failed) * 100):.1f}%\n")
 
     print_header("TEST COMPLETE")
 
@@ -372,5 +377,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\nFatal error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
