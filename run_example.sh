@@ -192,7 +192,7 @@ main() {
                     ;;
                 7)
                     print_header "Setup & Configuration Test"
-                    PYTHONPATH="$(pwd):$PYTHONPATH" python setup.py
+                    PYTHONPATH="$(pwd):$PYTHONPATH" python setup_initial.py
                     ;;
                 0)
                     print_step "Goodbye!"
@@ -213,7 +213,7 @@ main() {
                 run_all
                 ;;
             --setup)
-                PYTHONPATH="$(pwd):$PYTHONPATH" python setup.py
+                PYTHONPATH="$(pwd):$PYTHONPATH" python setup_initial.py
                 ;;
             --check)
                 check_qdrant

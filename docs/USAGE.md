@@ -22,7 +22,7 @@ Install dependencies and initialize HippocampAI:
 
 ```bash
 pip install -r requirements.txt
-python setup.py
+python setup_initial.py
 ```
 
 `setup.py` bootstraps config files, validates connections, and creates the `hippocampai_facts` and `hippocampai_prefs` collections in Qdrant.

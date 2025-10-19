@@ -225,7 +225,7 @@ pip install -r requirements.txt
 echo "ANTHROPIC_API_KEY=sk-ant-your-key" >> .env
 
 # 3. Run setup
-python setup.py
+python setup_initial.py
 
 # 4. Start chatting!
 python cli_chat.py

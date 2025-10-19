@@ -57,7 +57,7 @@ curl http://localhost:6334/collections
 ### Step 3: Run Setup Script
 
 ```bash
-python setup.py
+python setup_initial.py
 ```
 
 **This will:**
@@ -538,7 +538,7 @@ Before running examples, verify:
 - [ ] Qdrant running: `curl http://localhost:6334/collections`
 - [ ] `.env` file exists: `ls -la .env`
 - [ ] API key set: `grep API_KEY .env`
-- [ ] Setup completed: `python setup.py`
+- [ ] Setup completed: `python setup_initial.py`
 - [ ] Collections created: Check setup output
 
 Then run:
@@ -558,7 +558,7 @@ tail -f logs/hippocampai_error.log
 
 **Validate setup:**
 ```bash
-python setup.py
+python setup_initial.py
 ```
 
 **Test configuration:**

@@ -55,7 +55,7 @@ pip install -r requirements.txt
 
 ```bash
 # Run setup script
-python setup.py
+python setup_initial.py
 ```
 
 This creates:
@@ -344,7 +344,7 @@ chmod 755 logs
 ## Getting Help
 
 - Check logs: `tail -f logs/hippocampai.log`
-- Run setup again: `python setup.py`
+- Run setup again: `python setup_initial.py`
 - Validate config: `python -c "from src.settings import Settings; Settings()"`
 
 Happy memory management! 🧠✨

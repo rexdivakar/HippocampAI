@@ -258,7 +258,7 @@ cp .env.production .env
 1. **Never commit `.env`** - Use `.env` as template
 2. **Use environment variables for secrets** - API keys, passwords
 3. **Use config.yaml for application logic** - Thresholds, weights
-4. **Validate after changes** - Run `python setup.py`
+4. **Validate after changes** - Run `python setup_initial.py`
 5. **Document custom settings** - Add comments in config files
 
 ## Reference

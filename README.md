@@ -26,8 +26,8 @@ git clone https://github.com/rexdivakar/HippocampAI.git
 cd HippocampAI
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-python setup.py          # creates .env, initializes Qdrant collections
+pip install -e .
+python setup_initial.py  # creates .env, initializes Qdrant collections
 ```
 
 Configure the generated `.env`:
