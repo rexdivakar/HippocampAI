@@ -220,3 +220,6 @@ scratch/
 playground/
 test_data/
 debug_output/
+dist
+.pytest_cache
+.ruff_cache
