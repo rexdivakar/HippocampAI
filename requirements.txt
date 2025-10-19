@@ -13,6 +13,7 @@ groq>=0.4.0
 pyyaml>=6.0
 python-json-logger>=2.0.7
 python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
 
 # Web Server (for chat interface)
 flask>=3.0.0

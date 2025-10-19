@@ -66,6 +66,7 @@ Repository = "https://github.com/rexdivakar/HippocampAI"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["hippocampai*"]
 
 [tool.black]
 line-length = 100
