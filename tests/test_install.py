@@ -15,7 +15,7 @@ def has_module(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
 
 
-import pytest
+import pytest  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -37,8 +37,12 @@ OPTIONAL_DEPENDENCIES: List[tuple[str, str]] = [
 ]
 
 
+# Only run MemoryClient import if optional deps are present
 @pytest.mark.skipif(
-    not has_module("cachetools") or not has_module("qdrant_client.http"),
+    not all(
+        has_module(name)
+        for name in ["cachetools", "qdrant_client.http", "sentence_transformers", "rank_bm25"]
+    ),
     reason="Optional runtime dependencies missing",
 )
 def test_memory_client_import() -> None:
