@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timezone, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest  # noqa: F401
 
@@ -40,7 +40,6 @@ class TestTimeUtils:
     def test_ensure_utc_with_aware_datetime(self):
         """Test ensure_utc converts aware datetime to UTC."""
         # Create a datetime in a different timezone (simulated with offset)
-        from datetime import timezone
 
         tz = timezone(timedelta(hours=5))
         aware = datetime(2024, 1, 1, 12, 0, 0, tzinfo=tz)

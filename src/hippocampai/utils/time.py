@@ -1,12 +1,12 @@
 """Time utilities."""
 
-from datetime import timezone, datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 
 def now_utc() -> datetime:
     """Return timezone-aware current UTC datetime."""
-    return datetime.now(UTC)
+    return datetime.now(tz=UTC)
 
 
 def ensure_utc(dt: datetime) -> datetime:
