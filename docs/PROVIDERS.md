@@ -102,7 +102,7 @@ GROQ_TEMPERATURE=0.0
 ### Automatic Provider Selection (from .env)
 
 ```python
-from src.llm_provider import get_llm_client
+from hippocampai.llm_provider import get_llm_client
 
 # Uses LLM_PROVIDER from .env
 client = get_llm_client()
@@ -138,8 +138,8 @@ client = get_llm_client(
 All AI-powered components support provider selection:
 
 ```python
-from src.memory_extractor import MemoryExtractor
-from src.importance_scorer import ImportanceScorer
+from hippocampai.memory_extractor import MemoryExtractor
+from hippocampai.importance_scorer import ImportanceScorer
 
 # Use default provider from .env
 extractor = MemoryExtractor()
@@ -294,7 +294,7 @@ Check model name for your provider:
 
 ```python
 # Test script
-from src.llm_provider import get_llm_client
+from hippocampai.llm_provider import get_llm_client
 
 providers = ["anthropic", "openai", "groq"]
 
@@ -338,7 +338,7 @@ client = get_llm_client(provider=provider)
 ### Custom Provider Settings
 
 ```python
-from src.llm_provider import LLMClientFactory
+from hippocampai.llm_provider import LLMClientFactory
 
 client = LLMClientFactory.create_client(
     provider="openai",

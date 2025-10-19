@@ -4,11 +4,11 @@ import sys
 
 sys.path.append("..")
 
-from src.embedding_service import EmbeddingService
-from src.memory_extractor import MemoryExtractor
-from src.memory_store import MemoryStore
-from src.qdrant_client import QdrantManager
-from src.settings import get_settings
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_extractor import MemoryExtractor
+from hippocampai.memory_store import MemoryStore
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.settings import get_settings
 
 
 def main():
@@ -129,7 +129,7 @@ def main():
 
     # Example 3: Show all memories for user
     print("4. Retrieving all stored memories for user_456...")
-    from src.memory_retriever import MemoryRetriever
+    from hippocampai.memory_retriever import MemoryRetriever
 
     retriever = MemoryRetriever(qdrant_manager=qdrant, embedding_service=embeddings)
     all_memories = retriever.get_memories_by_filter(filters={"user_id": "user_456"}, limit=20)

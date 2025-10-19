@@ -8,8 +8,9 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client.models import PointStruct
 
-from src.embedding_service import EmbeddingService
-from src.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.utils.time import ensure_utc, isoformat_utc
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -120,9 +121,9 @@ class MemoryStore:
 
         # Add timestamp if not present
         if "timestamp" not in prepared:
-            prepared["timestamp"] = datetime.utcnow().isoformat()
+            prepared["timestamp"] = isoformat_utc()
         elif isinstance(prepared["timestamp"], datetime):
-            prepared["timestamp"] = prepared["timestamp"].isoformat()
+            prepared["timestamp"] = isoformat_utc(ensure_utc(prepared["timestamp"]))
 
         return prepared
 

@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, Set
 
 import anthropic
 
-from src.embedding_service import EmbeddingService
-from src.memory_retriever import MemoryRetriever
-from src.memory_updater import MemoryUpdater
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.memory_updater import MemoryUpdater
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

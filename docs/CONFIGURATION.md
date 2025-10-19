@@ -44,7 +44,7 @@ RATE_LIMIT_INTERVAL_MS=100
 MAX_RETRIES=2
 ```
 
-### 2. `config.yaml` - Application Settings
+### 2. `config/config.yaml` - Application Settings
 
 Detailed configuration for all components. Key sections:
 
@@ -80,7 +80,9 @@ retrieval:
     recency_weight: 0.20
 ```
 
-### 3. `logging_config.yaml` - Logging Setup
+> HippocampAI persists all timestamps as ISO 8601 strings with an explicit `+00:00` offset. Existing naive timestamps are normalized to UTC automatically during ingestion.
+
+### 3. `config/logging_config.yaml` - Logging Setup
 
 Controls log levels, formats, and outputs:
 
@@ -101,14 +103,14 @@ handlers:
 Settings are loaded in this order (later overrides earlier):
 
 1. Default values in code
-2. `config.yaml` settings
+2. `config/config.yaml` settings
 3. `.env` file variables
 4. System environment variables
 
 ## Using Settings in Code
 
 ```python
-from src.settings import get_settings
+from hippocampai.settings import get_settings
 
 # Get settings instance
 settings = get_settings()
@@ -146,7 +148,7 @@ QDRANT_API_KEY=your_production_key
 Settings are validated on startup:
 
 ```python
-from src.settings import Settings
+from hippocampai.settings import Settings
 
 try:
     settings = Settings()
@@ -211,7 +213,7 @@ Check:
 ### "Configuration validation failed"
 Run validation:
 ```bash
-python -c "from src.settings import Settings; Settings()"
+python -c "from hippocampai.settings import Settings; Settings()"
 ```
 
 Check error messages for specific issues.
@@ -221,7 +223,7 @@ Check error messages for specific issues.
 ### Custom Config Files
 
 ```python
-from src.settings import Settings
+from hippocampai.settings import Settings
 
 settings = Settings(
     env_file="custom.env",
@@ -237,7 +239,7 @@ import os
 os.environ["SIMILARITY_THRESHOLD"] = "0.90"
 os.environ["LOG_LEVEL"] = "DEBUG"
 
-from src.settings import reload_settings
+from hippocampai.settings import reload_settings
 settings = reload_settings()
 ```
 
@@ -257,7 +259,7 @@ cp .env.production .env
 
 1. **Never commit `.env`** - Use `.env` as template
 2. **Use environment variables for secrets** - API keys, passwords
-3. **Use config.yaml for application logic** - Thresholds, weights
+3. **Use config/config.yaml for application logic** - Thresholds, weights
 4. **Validate after changes** - Run `python setup_initial.py`
 5. **Document custom settings** - Add comments in config files
 

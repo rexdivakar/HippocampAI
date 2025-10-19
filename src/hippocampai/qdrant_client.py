@@ -3,10 +3,9 @@
 import logging
 from typing import List, Optional
 
+from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import Distance, VectorParams
-
-from qdrant_client import QdrantClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

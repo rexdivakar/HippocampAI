@@ -167,7 +167,7 @@ python examples/memory_extractor_example.py
 
 **1. Verify Configuration:**
 ```bash
-python -c "from src.settings import get_settings; s = get_settings(); print(f'Provider: {s.llm.provider}'); print(f'Qdrant: {s.qdrant.host}:{s.qdrant.port}')"
+python -c "from hippocampai.settings import get_settings; s = get_settings(); print(f'Provider: {s.llm.provider}'); print(f'Qdrant: {s.qdrant.host}:{s.qdrant.port}')"
 ```
 
 **2. Test LLM Provider:**
@@ -177,7 +177,7 @@ python examples/provider_comparison.py
 
 **3. Check Qdrant Collections:**
 ```bash
-python -c "from src.qdrant_client import QdrantManager; q = QdrantManager(); print(q.list_collections())"
+python -c "from hippocampai.qdrant_client import QdrantManager; q = QdrantManager(); print(q.list_collections())"
 ```
 
 ### Basic Usage in Python
@@ -189,10 +189,10 @@ python
 
 **Run this code:**
 ```python
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
-from src.memory_retriever import MemoryRetriever
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_store import MemoryStore, MemoryType, Category
+from hippocampai.memory_retriever import MemoryRetriever
 
 # 1. Setup
 qdrant = QdrantManager()  # Uses settings from .env
@@ -386,7 +386,7 @@ tail -f logs/hippocampai.log
 
 **Test provider directly:**
 ```python
-from src.llm_provider import get_llm_client
+from hippocampai.llm_provider import get_llm_client
 
 client = get_llm_client()
 response = client.generate("Say hello")
@@ -399,7 +399,7 @@ print(response)
 
 ### 1. Customize Configuration
 
-**Edit `config.yaml` for:**
+**Edit `config/config.yaml` for:**
 - Memory decay rates
 - Importance thresholds
 - Search weights
@@ -415,12 +415,12 @@ print(response)
 
 **Basic pattern:**
 ```python
-from src.settings import get_settings
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore
-from src.memory_retriever import MemoryRetriever
-from src.memory_extractor import MemoryExtractor
+from hippocampai.settings import get_settings
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_store import MemoryStore
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.memory_extractor import MemoryExtractor
 
 # Initialize
 settings = get_settings()
@@ -439,15 +439,15 @@ extractor = MemoryExtractor()
 
 ```python
 # Use Claude for quality
-from src.memory_extractor import MemoryExtractor
+from hippocampai.memory_extractor import MemoryExtractor
 extractor = MemoryExtractor(provider="anthropic")
 
 # Use Groq for speed
-from src.importance_scorer import ImportanceScorer
+from hippocampai.importance_scorer import ImportanceScorer
 scorer = ImportanceScorer(provider="groq")
 
 # Use OpenAI for balance
-from src.session_manager import SessionManager
+from hippocampai.session_manager import SessionManager
 session_mgr = SessionManager(
     memory_store=store,
     retriever=retriever,
@@ -476,7 +476,7 @@ python examples/memory_extractor_example.py
 ### Use Case 2: Search User's Memories
 
 ```python
-from src.memory_retriever import MemoryRetriever
+from hippocampai.memory_retriever import MemoryRetriever
 
 retriever = MemoryRetriever(qdrant, embeddings)
 
@@ -493,7 +493,7 @@ for r in results:
 ### Use Case 3: Session Management
 
 ```python
-from src.session_manager import SessionManager
+from hippocampai.session_manager import SessionManager
 
 session_mgr = SessionManager(store, retriever, embeddings)
 
@@ -511,7 +511,7 @@ summary_id = session_mgr.end_session(session_id)
 ### Use Case 4: Prevent Duplicates
 
 ```python
-from src.memory_deduplicator import MemoryDeduplicator
+from hippocampai.memory_deduplicator import MemoryDeduplicator
 
 deduplicator = MemoryDeduplicator(retriever, embeddings)
 
@@ -563,7 +563,7 @@ python setup_initial.py
 
 **Test configuration:**
 ```bash
-python -c "from src.settings import Settings; Settings()"
+python -c "from hippocampai.settings import Settings; Settings()"
 ```
 
 **Run diagnostics:**

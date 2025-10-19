@@ -9,14 +9,14 @@ This module provides a complete chat assistant that integrates all HippocampAI f
 
 Usage:
     # CLI mode
-    from src.ai_chat import MemoryEnhancedChat
+    from hippocampai.ai_chat import MemoryEnhancedChat
 
     chat = MemoryEnhancedChat(user_id="user_123")
     response = chat.send_message("Hello! I love hiking.")
     print(response)
 
     # Web API mode
-    See web_chat.py for Flask integration
+    See hippocampai.web_chat for Flask integration
 """
 
 import json
@@ -24,19 +24,19 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.embedding_service import EmbeddingService
-from src.importance_scorer import ImportanceScorer
-from src.llm_provider import get_llm_client
-from src.memory_consolidator import MemoryConsolidator
-from src.memory_deduplicator import MemoryDeduplicator
-from src.memory_extractor import MemoryExtractor
-from src.memory_retriever import MemoryRetriever
-from src.memory_store import Category, MemoryStore
-from src.memory_updater import MemoryUpdater
-from src.qdrant_client import QdrantManager
-from src.session_manager import SessionManager
-from src.settings import get_settings
-from src.tools import create_default_registry
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.importance_scorer import ImportanceScorer
+from hippocampai.llm_provider import get_llm_client
+from hippocampai.memory_consolidator import MemoryConsolidator
+from hippocampai.memory_deduplicator import MemoryDeduplicator
+from hippocampai.memory_extractor import MemoryExtractor
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.memory_store import Category, MemoryStore
+from hippocampai.memory_updater import MemoryUpdater
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.session_manager import SessionManager
+from hippocampai.settings import get_settings
+from hippocampai.tools import create_default_registry
 
 logger = logging.getLogger(__name__)
 

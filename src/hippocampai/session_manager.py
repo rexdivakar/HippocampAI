@@ -4,14 +4,15 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.embedding_service import EmbeddingService
-from src.memory_retriever import MemoryRetriever
-from src.memory_store import Category, MemoryStore, MemoryType
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.memory_store import Category, MemoryStore, MemoryType
+from hippocampai.utils.time import isoformat_utc, now_utc, parse_iso_datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ Do not include any other text."""
         session_data = {
             "session_id": session_id,
             "user_id": user_id,
-            "start_time": datetime.utcnow().isoformat(),
+            "start_time": isoformat_utc(),
             "end_time": None,
             "context": context or "",
             "message_count": 0,
@@ -138,7 +139,7 @@ Do not include any other text."""
         message = {
             "role": role,
             "content": content,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": isoformat_utc(),
             "metadata": metadata or {},
         }
 
@@ -191,12 +192,12 @@ Do not include any other text."""
         session = self._active_sessions[session_id]
 
         # Mark as ended
-        session["end_time"] = datetime.utcnow().isoformat()
+        session["end_time"] = isoformat_utc()
         session["status"] = "ended"
 
         # Calculate duration
-        start_time = datetime.fromisoformat(session["start_time"])
-        end_time = datetime.fromisoformat(session["end_time"])
+        start_time = parse_iso_datetime(session["start_time"])
+        end_time = parse_iso_datetime(session["end_time"])
         duration_seconds = (end_time - start_time).total_seconds()
         session["duration_seconds"] = duration_seconds
 
@@ -394,14 +395,14 @@ Do not include any other text."""
         """
         try:
             # Calculate date range
-            end_date = datetime.utcnow()
+            end_date = now_utc()
             start_date = end_date - timedelta(days=days)
 
             # Retrieve session summaries
             filters = {
                 "user_id": user_id,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
+                "start_date": isoformat_utc(start_date),
+                "end_date": isoformat_utc(end_date),
             }
 
             sessions = self.retriever.get_memories_by_filter(

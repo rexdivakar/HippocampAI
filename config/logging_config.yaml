@@ -50,52 +50,52 @@ handlers:
 
 loggers:
   # Application loggers
-  src.qdrant_client:
+  hippocampai.qdrant_client:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.embedding_service:
+  hippocampai.embedding_service:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_store:
+  hippocampai.memory_store:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_retriever:
+  hippocampai.memory_retriever:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_extractor:
+  hippocampai.memory_extractor:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_deduplicator:
+  hippocampai.memory_deduplicator:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_updater:
+  hippocampai.memory_updater:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.importance_scorer:
+  hippocampai.importance_scorer:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.session_manager:
+  hippocampai.session_manager:
     level: INFO
     handlers: [console, file]
     propagate: false
 
-  src.memory_consolidator:
+  hippocampai.memory_consolidator:
     level: INFO
     handlers: [console, file]
     propagate: false

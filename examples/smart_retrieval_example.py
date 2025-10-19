@@ -4,14 +4,14 @@ import sys
 
 sys.path.append("..")
 
-from src.embedding_service import EmbeddingService
-from src.memory_consolidator import MemoryConsolidator
-from src.memory_retriever import MemoryRetriever
-from src.memory_store import Category, MemoryStore, MemoryType
-from src.memory_updater import MemoryUpdater
-from src.qdrant_client import QdrantManager
-from src.session_manager import SessionManager
-from src.settings import get_settings
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_consolidator import MemoryConsolidator
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.memory_store import Category, MemoryStore, MemoryType
+from hippocampai.memory_updater import MemoryUpdater
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.session_manager import SessionManager
+from hippocampai.settings import get_settings
 
 
 def main():

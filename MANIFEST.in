@@ -8,6 +8,7 @@ include .env.example
 
 # Include all source code
 recursive-include src *.py
+recursive-include src *.html
 
 # Include type stubs if any
 recursive-include src *.pyi

@@ -49,9 +49,9 @@ Perform mathematical calculations.
 The chat works out of the box with DuckDuckGo search! No configuration needed.
 
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 # or
-python cli_chat.py
+python -m hippocampai.cli_chat
 ```
 
 That's it! Try asking: "What's the current temperature in Paris?"
@@ -78,7 +78,7 @@ For Google search, you need API credentials:
 
 4. **Use Google search:**
    ```python
-   from src.tools import WebSearchTool
+   from hippocampai.tools import WebSearchTool
 
    search = WebSearchTool(search_engine="google")
    ```
@@ -99,7 +99,7 @@ For Brave search:
 
 3. **Use Brave search:**
    ```python
-   from src.tools import WebSearchTool
+   from hippocampai.tools import WebSearchTool
 
    search = WebSearchTool(search_engine="brave")
    ```
@@ -113,7 +113,7 @@ For Brave search:
 The AI automatically uses tools when needed:
 
 ```python
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 chat = MemoryEnhancedChat(user_id="alice", enable_tools=True)
 
@@ -127,7 +127,7 @@ print(response)
 You can also call tools directly:
 
 ```python
-from src.tools import create_default_registry
+from hippocampai.tools import create_default_registry
 
 # Get tool registry
 registry = create_default_registry()
@@ -251,7 +251,7 @@ response = chat.send_message("What's the current Bitcoin price and calculate 10%
 You can add your own tools!
 
 ```python
-from src.tools import BaseTool, ToolRegistry
+from hippocampai.tools import BaseTool, ToolRegistry
 from typing import Dict, Any
 
 class WeatherTool(BaseTool):
@@ -507,7 +507,7 @@ Planned additions:
 
 **Get started:**
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 
 Ask: "What's the latest news about AI?"

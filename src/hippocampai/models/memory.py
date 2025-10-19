@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from hippocampai.utils.time import now_utc
+
 
 class MemoryType(str, Enum):
     PREFERENCE = "preference"
@@ -26,8 +28,8 @@ class Memory(BaseModel):
     importance: float = Field(default=5.0, ge=0.0, le=10.0)
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     tags: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
     access_count: int = 0
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

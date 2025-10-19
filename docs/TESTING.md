@@ -4,6 +4,16 @@ This directory contains test scripts to validate your HippocampAI installation f
 
 ## Quick Start
 
+### Run Unit Tests Locally
+
+Use the repo helper script to execute the pytest suite with the correct `PYTHONPATH`:
+
+```bash
+./scripts/run-tests.sh
+# Or pass through any pytest arguments
+./scripts/run-tests.sh -k recency
+```
+
 ### 1. Install from TestPyPI
 
 ```bash

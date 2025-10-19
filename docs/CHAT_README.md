@@ -4,7 +4,7 @@
 
 ### 1. CLI Chat (Command Line)
 ```bash
-python cli_chat.py
+python -m hippocampai.cli_chat
 ```
 
 **Features:**
@@ -15,7 +15,7 @@ python cli_chat.py
 
 ### 2. Web Chat (Browser)
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 Then open: **http://localhost:5000**
 
@@ -28,7 +28,7 @@ Then open: **http://localhost:5000**
 
 ### 3. Python API
 ```python
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 chat = MemoryEnhancedChat(user_id="alice")
 response = chat.send_message("Hello!")
@@ -117,10 +117,10 @@ support.send_message("My order hasn't arrived")
 
 | File | Purpose |
 |------|---------|
-| `src/ai_chat.py` | Core memory-enhanced chat class (650+ lines) |
-| `web_chat.py` | Flask web server with REST API |
-| `web/chat.html` | Beautiful web UI with gradient design |
-| `cli_chat.py` | Command-line chat interface |
+| `src/hippocampai/ai_chat.py` | Core memory-enhanced chat class (650+ lines) |
+| `src/hippocampai/web_chat.py` | Flask web server with REST API |
+| `src/hippocampai/web/chat.html` | Beautiful web UI with gradient design |
+| `src/hippocampai/cli_chat.py` | Command-line chat interface |
 | `docs/CHAT_INTEGRATION.md` | Complete documentation (900+ lines) |
 
 ---
@@ -228,9 +228,9 @@ echo "ANTHROPIC_API_KEY=sk-ant-your-key" >> .env
 python setup_initial.py
 
 # 4. Start chatting!
-python cli_chat.py
+python -m hippocampai.cli_chat
 # or
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 
 ---

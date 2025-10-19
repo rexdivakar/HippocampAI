@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.embedding_service import EmbeddingService
-from src.memory_retriever import MemoryRetriever
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_retriever import MemoryRetriever
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

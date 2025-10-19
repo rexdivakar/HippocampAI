@@ -1,4 +1,4 @@
-"""Utilities."""
+"""Common utility helpers for HippocampAI."""
 
 from hippocampai.utils.cache import get_cache
 from hippocampai.utils.scoring import fuse_scores, normalize, recency_score

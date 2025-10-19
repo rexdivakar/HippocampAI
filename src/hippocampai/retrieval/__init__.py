@@ -1,3 +1,5 @@
+"""Hybrid retrieval strategies and helpers."""
+
 from hippocampai.retrieval.bm25 import BM25Retriever
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever

@@ -1,3 +1,5 @@
+"""Memory processing pipeline components."""
+
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
 from hippocampai.pipeline.extractor import MemoryExtractor

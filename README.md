@@ -44,8 +44,8 @@ LLM_MODEL=qwen2.5:7b-instruct
 Start the chat clients:
 
 ```bash
-python cli_chat.py alice
-python web_chat.py        # open http://localhost:5000
+python -m hippocampai.cli_chat alice
+python -m hippocampai.web_chat        # open http://localhost:5000
 ```
 
 Run the interactive example suite:
@@ -107,6 +107,31 @@ Full API and architecture references live under `docs/`.
 - [docs/PROVIDERS.md](docs/PROVIDERS.md) – switch between Ollama, OpenAI, Anthropic, Groq.
 - [docs/TOOLS.md](docs/TOOLS.md) – extend agents with external tool calls.
 - Need help or want to collaborate? Join the community Discord: https://discord.gg/pPSNW9J7gB
+
+---
+
+## Dependency Management
+
+- We follow a "latest minor" pinning strategy: each requirement is constrained with `>=` and `<` to stay current without taking untested major releases.
+- Install optional groups with extras, e.g. `pip install .[core]` for provider SDKs, `pip install .[test]` for the pytest stack, and `pip install .[docs]` for MkDocs authoring.
+- Run `pip install .[dev]` to pull in tooling such as Ruff, MyPy, `pip-audit`, and `liccheck`.
+- The `dependency-health` GitHub workflow runs weekly (and on relevant PRs) to audit vulnerabilities via `pip-audit` and enforce license compatibility with `liccheck`.
+
+---
+
+## Testing
+
+- Execute the unit suite with `./scripts/run-tests.sh`; pass extra pytest arguments as needed (for example `./scripts/run-tests.sh -k retrieval`).
+- The helper script exports `PYTHONPATH=src` automatically, so no additional environment tweaks are required.
+- CI runs the same command; please mirror it locally before opening a PR.
+
+---
+
+## Contributing
+
+- Start with [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup, coding conventions, and pull request expectations.
+- Run `ruff check` and `pytest` locally before opening a PR; add tests for any behavior changes.
+- All timestamps are stored as timezone-aware UTC (`+00:00`); please normalize new datetime fields via `hippocampai.utils.time` helpers.
 
 ---
 

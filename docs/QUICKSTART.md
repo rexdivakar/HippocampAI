@@ -128,9 +128,9 @@ python examples/advanced_memory_example.py
 ### Basic Usage
 
 ```python
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_store import MemoryStore, MemoryType, Category
 
 # Initialize
 qdrant = QdrantManager(host="localhost", port=6334)
@@ -158,7 +158,7 @@ print(f"Stored memory: {memory_id}")
 ### Search Memories
 
 ```python
-from src.memory_retriever import MemoryRetriever
+from hippocampai.memory_retriever import MemoryRetriever
 
 retriever = MemoryRetriever(qdrant_manager=qdrant, embedding_service=embeddings)
 
@@ -193,7 +193,7 @@ for result in results:
 ### Extract Memories from Conversation
 
 ```python
-from src.memory_extractor import MemoryExtractor
+from hippocampai.memory_extractor import MemoryExtractor
 
 extractor = MemoryExtractor()
 
@@ -218,7 +218,7 @@ for memory in memories:
 ### Session Management
 
 ```python
-from src.session_manager import SessionManager
+from hippocampai.session_manager import SessionManager
 
 session_mgr = SessionManager(
     memory_store=store,
@@ -244,11 +244,11 @@ python
 ```
 
 ```python
-from src.settings import get_settings
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
-from src.memory_retriever import MemoryRetriever
+from hippocampai.settings import get_settings
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_store import MemoryStore, MemoryType, Category
+from hippocampai.memory_retriever import MemoryRetriever
 
 # Setup
 settings = get_settings()
@@ -324,8 +324,8 @@ chmod 755 logs
    - [Architecture Overview](README.md)
 
 2. **Customize:**
-   - Edit `config.yaml` for application settings
-   - Adjust `logging_config.yaml` for log verbosity
+   - Edit `config/config.yaml` for application settings
+   - Adjust `config/logging_config.yaml` for log verbosity
    - Modify `.env` for environment-specific settings
 
 3. **Build your application:**
@@ -345,6 +345,6 @@ chmod 755 logs
 
 - Check logs: `tail -f logs/hippocampai.log`
 - Run setup again: `python setup_initial.py`
-- Validate config: `python -c "from src.settings import Settings; Settings()"`
+- Validate config: `python -c "from hippocampai.settings import Settings; Settings()"`
 
 Happy memory management! 🧠✨

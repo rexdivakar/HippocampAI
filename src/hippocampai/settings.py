@@ -110,7 +110,7 @@ class Settings:
 
     Loads configuration from:
     1. .env file (environment variables)
-    2. config.yaml (application settings)
+    2. config/config.yaml (application settings)
     3. Environment variables (override)
 
     Example:
@@ -124,10 +124,10 @@ class Settings:
         Initialize settings.
 
         Args:
-            env_file: Path to .env file (default: .env in project root)
-            config_file: Path to config.yaml (default: config.yaml in project root)
+            env_file: Path to .env file (default: project_root/.env)
+            config_file: Path to config.yaml (default: project_root/config/config.yaml)
         """
-        self.project_root = Path(__file__).parent.parent
+        self.project_root = Path(__file__).resolve().parents[2]
 
         # Load .env file
         self._load_env_file(env_file)
@@ -180,7 +180,7 @@ class Settings:
     def _load_config_file(self, config_file: Optional[str] = None) -> Dict[str, Any]:
         """Load configuration from YAML file."""
         if config_file is None:
-            config_file = self.project_root / "config.yaml"
+            config_file = self.project_root / "config" / "config.yaml"
         else:
             config_file = Path(config_file)
 

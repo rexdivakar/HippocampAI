@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
@@ -16,8 +17,6 @@ from qdrant_client.models import (
     VectorParams,
     WalConfigDiff,
 )
-
-from qdrant_client import QdrantClient
 
 logger = logging.getLogger(__name__)
 

@@ -38,7 +38,7 @@
 pip install requests
 
 # 2. Start web chat
-python web_chat.py
+python -m hippocampai.web_chat
 
 # 3. Open browser to http://localhost:5020
 
@@ -64,8 +64,8 @@ python web_chat.py
 |------|--------|---------|
 | `src/tools.py` | ✅ NEW | Tool implementations (WebSearch, Calculator, Registry) |
 | `src/llm_provider.py` | ✅ UPDATED | Added tool calling support to AnthropicClient |
-| `src/ai_chat.py` | ✅ UPDATED | Integrated tool calling into chat flow |
-| `web/chat.html` | ✅ UPDATED | Added tool usage visual indicators |
+| `src/hippocampai/ai_chat.py` | ✅ UPDATED | Integrated tool calling into chat flow |
+| `src/hippocampai/web/chat.html` | ✅ UPDATED | Added tool usage visual indicators |
 | `requirements.txt` | ✅ UPDATED | Added requests library |
 | `docs/TOOLS.md` | ✅ NEW | Complete documentation |
 
@@ -90,7 +90,7 @@ response = chat.send_message("What's 15% of 350?")
 
 **DuckDuckGo (Default - Free):**
 ```python
-from src.tools import WebSearchTool
+from hippocampai.tools import WebSearchTool
 
 search = WebSearchTool(search_engine="duckduckgo")
 result = search.execute("Python tutorials")
@@ -159,7 +159,7 @@ chat = MemoryEnhancedChat(
 ### Add Custom Tools
 
 ```python
-from src.tools import BaseTool, ToolRegistry
+from hippocampai.tools import BaseTool, ToolRegistry
 
 class MyCustomTool(BaseTool):
     def execute(self, **kwargs):
@@ -230,7 +230,7 @@ Response: "The current weather in Tokyo is 22°C and sunny..."
 
 1. **Try it now:**
    ```bash
-   python web_chat.py
+   python -m hippocampai.web_chat
    ```
 
 2. **Read full docs:**

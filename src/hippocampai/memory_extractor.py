@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.memory_store import Category, MemoryType
+from hippocampai.memory_store import Category, MemoryType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ Endpoints:
     POST /api/chat/end - End session with summary
 
 Usage:
-    python web_chat.py
+    python -m hippocampai.web_chat
 
     Then open: http://localhost:5020
 """
@@ -19,13 +19,14 @@ Usage:
 import logging
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict
 
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
-from src.ai_chat import MemoryEnhancedChat
-from src.settings import get_settings
+from hippocampai.ai_chat import MemoryEnhancedChat
+from hippocampai.settings import get_settings
 
 # Configure logging
 logging.basicConfig(
@@ -33,8 +34,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
-app = Flask(__name__, template_folder="web", static_folder="web/static")
+# Determine template/static directory inside the package
+_APP_ROOT = Path(__file__).resolve().parent
+_WEB_ROOT = _APP_ROOT / "web"
+
+# Initialize Flask app with package-relative assets
+app = Flask(
+    __name__,
+    template_folder=str(_WEB_ROOT),
+    static_folder=str(_WEB_ROOT / "static") if (_WEB_ROOT / "static").exists() else None,
+)
 CORS(app)  # Enable CORS for API calls
 
 # Store chat instances per user
@@ -336,7 +345,7 @@ def main():
     print("\nServer starting at: http://localhost:5020")
     print("\nEndpoints:")
     print("  - Web Interface: http://localhost:5020/")
-    print("  - API Docs: See web_chat.py docstrings")
+    print("  - API Docs: See hippocampai.web_chat docstrings")
     print("\nPress Ctrl+C to stop")
     print("=" * 60)
     print()

@@ -131,8 +131,9 @@ def validate_configuration() -> bool:
 
 def test_qdrant_connection() -> bool:
     try:
-        from hippocampai.config import get_config
         from qdrant_client import QdrantClient
+
+        from hippocampai.config import get_config
 
         config = get_config()
         client = QdrantClient(url=config.qdrant_url)
@@ -210,7 +211,7 @@ def run_initial_setup(config_path: str | None = None) -> int:
         print("\nNext steps:")
         print("  1. Edit .env and add your API key (e.g. ANTHROPIC_API_KEY)")
         print("  2. Set LLM_PROVIDER in .env if needed (anthropic, openai, groq, ollama)")
-        print("  3. Review config.yaml for additional options")
+        print("  3. Review config/config.yaml for additional options")
         print("  4. Run examples: ./run_example.sh or python examples/memory_store_example.py\n")
         return 0
 

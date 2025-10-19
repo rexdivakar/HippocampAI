@@ -5,8 +5,9 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client.models import DatetimeRange, FieldCondition, Filter, MatchValue, Range
 
-from src.embedding_service import EmbeddingService
-from src.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.utils.time import now_utc, parse_iso_datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -425,9 +426,7 @@ class MemoryRetriever:
             logger.debug(f"Got {len(candidates)} candidates for re-ranking")
 
             # Step 2: Calculate recency and importance scores
-            from datetime import datetime
-
-            now = datetime.utcnow()
+            now = now_utc()
 
             scored_results = []
 
@@ -456,7 +455,7 @@ class MemoryRetriever:
                 # 3. Recency score (exponential decay)
                 timestamp_str = metadata.get("timestamp", "")
                 try:
-                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    timestamp = parse_iso_datetime(timestamp_str)
                     age_days = (now - timestamp).total_seconds() / 86400
 
                     # Exponential decay: score = e^(-age/30)

@@ -3,15 +3,15 @@
 import json
 import logging
 import time
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from src.embedding_service import EmbeddingService
-from src.memory_retriever import MemoryRetriever
-from src.qdrant_client import QdrantManager
+from hippocampai.embedding_service import EmbeddingService
+from hippocampai.memory_retriever import MemoryRetriever
+from hippocampai.qdrant_client import QdrantManager
+from hippocampai.utils.time import isoformat_utc
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ Do not include any other text."""
             metadata["text"] = new_text
             metadata["previous_text"] = existing["text"]
             metadata["update_reason"] = reason
-            metadata["update_timestamp"] = datetime.utcnow().isoformat()
+            metadata["update_timestamp"] = isoformat_utc()
             metadata["version"] = metadata.get("version", 0) + 1
 
             if new_importance is not None:
@@ -255,7 +255,7 @@ Do not include any other text."""
             merged_metadata = memories[0]["metadata"].copy()
             merged_metadata["text"] = merged_text
             merged_metadata["importance"] = merged_importance
-            merged_metadata["merge_timestamp"] = datetime.utcnow().isoformat()
+            merged_metadata["merge_timestamp"] = isoformat_utc()
             merged_metadata["merge_reason"] = reason
             merged_metadata["merged_from"] = memory_ids[1:]  # Other IDs
 
@@ -329,7 +329,7 @@ Do not include any other text."""
             metadata = memory["metadata"].copy()
             metadata["outdated"] = True
             metadata["outdated_reason"] = reason
-            metadata["outdated_timestamp"] = datetime.utcnow().isoformat()
+            metadata["outdated_timestamp"] = isoformat_utc()
 
             # Get original embedding (no need to regenerate)
             points = self.qdrant.client.retrieve(
@@ -382,7 +382,7 @@ Do not include any other text."""
                     new_text=new_memory.get("text", ""),
                     new_type=new_memory.get("metadata", {}).get("memory_type", "unknown"),
                     new_importance=new_memory.get("metadata", {}).get("importance", 5),
-                    new_timestamp=datetime.utcnow().isoformat(),
+                    new_timestamp=isoformat_utc(),
                 )
 
                 # Call Claude

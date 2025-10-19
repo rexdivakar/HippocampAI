@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from src.llm_provider import BaseLLMClient, get_llm_client
+from hippocampai.llm_provider import BaseLLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 

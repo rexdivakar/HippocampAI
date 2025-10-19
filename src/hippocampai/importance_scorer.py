@@ -4,10 +4,11 @@ import json
 import logging
 import math
 import time
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 import anthropic
+
+from hippocampai.utils.time import ensure_utc, isoformat_utc, now_utc, parse_iso_datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -269,8 +270,12 @@ Do not include any other text."""
             Age in days (float)
         """
         try:
-            memory_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            age = datetime.utcnow() - memory_time
+            if isinstance(timestamp, str):
+                memory_time = parse_iso_datetime(timestamp)
+            else:
+                memory_time = ensure_utc(timestamp)
+
+            age = now_utc() - memory_time
             return age.total_seconds() / 86400  # Convert to days
 
         except Exception as e:
@@ -291,7 +296,7 @@ Do not include any other text."""
         metadata = memory.get("metadata", {})
         current_importance = metadata.get("importance", 5)
         memory_type = metadata.get("memory_type", "fact")
-        timestamp = metadata.get("timestamp", datetime.utcnow().isoformat())
+        timestamp = metadata.get("timestamp", isoformat_utc())
 
         # Calculate age
         age_days = self.calculate_age_in_days(timestamp)

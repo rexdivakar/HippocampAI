@@ -4,7 +4,7 @@ import sys
 
 sys.path.append("..")
 
-from src.embedding_service import EmbeddingService
+from hippocampai.embedding_service import EmbeddingService
 
 
 def main():

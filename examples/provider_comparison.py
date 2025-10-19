@@ -5,7 +5,7 @@ import time
 
 sys.path.append("..")
 
-from src.llm_provider import LLMProvider, get_llm_client
+from hippocampai.llm_provider import LLMProvider, get_llm_client
 
 
 def test_provider(provider_name: str, test_prompt: str) -> dict:

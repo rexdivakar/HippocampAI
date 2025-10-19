@@ -70,19 +70,19 @@ ANTHROPIC_API_KEY=sk-ant-your-key-here
 ### 3. Run CLI Chat
 
 ```bash
-python cli_chat.py
+python -m hippocampai.cli_chat
 ```
 
 Or specify a user ID:
 
 ```bash
-python cli_chat.py alice
+python -m hippocampai.cli_chat alice
 ```
 
 ### 4. Run Web Chat
 
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 
 Then open: http://localhost:5000
@@ -95,10 +95,10 @@ Then open: http://localhost:5000
 
 ```bash
 # Default user (cli_user)
-python cli_chat.py
+python -m hippocampai.cli_chat
 
 # Specific user
-python cli_chat.py john_doe
+python -m hippocampai.cli_chat john_doe
 ```
 
 ### Available Commands
@@ -164,7 +164,7 @@ You: /quit
 ### Starting Web Server
 
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 
 Output:
@@ -179,7 +179,7 @@ Server starting at: http://localhost:5000
 
 Endpoints:
   - Web Interface: http://localhost:5000/
-  - API Docs: See web_chat.py docstrings
+  - API Docs: See src/hippocampai/web_chat.py docstrings
 
 Press Ctrl+C to stop
 ============================================================
@@ -241,7 +241,7 @@ Press Ctrl+C to stop
 ### Basic Usage
 
 ```python
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 # Create chat instance
 chat = MemoryEnhancedChat(
@@ -266,7 +266,7 @@ chat.end_conversation()
 ### Advanced Usage
 
 ```python
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 # Initialize with custom settings
 chat = MemoryEnhancedChat(
@@ -771,7 +771,7 @@ preferences = chat.retriever.search_memories(
 
 ### Web Server Configuration
 
-Edit `web_chat.py`:
+Edit `src/hippocampai/web_chat.py`:
 
 ```python
 # Change host/port
@@ -784,7 +784,7 @@ app.run(
 
 ### Web UI Customization
 
-Edit `web/chat.html`:
+Edit `src/hippocampai/web/chat.html`:
 
 - Change colors in `<style>` section
 - Modify layout (sidebar width, chat area)
@@ -800,7 +800,7 @@ For production, replace in-memory sessions with Redis:
 
 ```python
 import redis
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 redis_client = redis.Redis(host='localhost', port=6379)
 
@@ -848,7 +848,7 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "web_chat.py"]
+CMD ["python", "-m", "hippocampai.web_chat"]
 ```
 
 ### NGINX Reverse Proxy
@@ -886,7 +886,7 @@ grep API_KEY .env
 **Solution:** Set PYTHONPATH:
 ```bash
 export PYTHONPATH=/path/to/HippocampAI:$PYTHONPATH
-python cli_chat.py
+python -m hippocampai.cli_chat
 ```
 
 ### Issue: Web server won't start
@@ -918,7 +918,7 @@ pip install flask flask-cors
 
 **Solution:** Run manual consolidation:
 ```python
-from src.memory_consolidator import MemoryConsolidator
+from hippocampai.memory_consolidator import MemoryConsolidator
 
 consolidator = MemoryConsolidator(retriever, updater, embeddings)
 clusters = consolidator.find_similar_clusters(user_id="alice")
@@ -933,7 +933,7 @@ for cluster in clusters:
 ### Example 1: Personal Assistant
 
 ```python
-from src.ai_chat import MemoryEnhancedChat
+from hippocampai.ai_chat import MemoryEnhancedChat
 
 chat = MemoryEnhancedChat(
     user_id="john",
@@ -984,9 +984,9 @@ support.send_message("My order still hasn't arrived")
 
 ## Next Steps
 
-1. **Try CLI Chat**: `python cli_chat.py`
-2. **Launch Web Interface**: `python web_chat.py`
-3. **Read API Docs**: See docstrings in `src/ai_chat.py`
+1. **Try CLI Chat**: `python -m hippocampai.cli_chat`
+2. **Launch Web Interface**: `python -m hippocampai.web_chat`
+3. **Read API Docs**: See docstrings in `src/hippocampai/ai_chat.py`
 4. **Customize**: Modify system prompts, retrieval limits
 5. **Deploy**: Use Docker or cloud platforms
 

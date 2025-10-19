@@ -3,11 +3,11 @@
 This provides a command-line chat interface with memory features.
 
 Usage:
-    python cli_chat.py [user_id]
+    python -m hippocampai.cli_chat [user_id]
 
 Example:
-    python cli_chat.py alice
-    python cli_chat.py  # defaults to 'cli_user'
+    python -m hippocampai.cli_chat alice
+    python -m hippocampai.cli_chat  # defaults to 'cli_user'
 
 Commands:
     /help - Show help
@@ -20,8 +20,8 @@ Commands:
 
 import sys
 
-from src.ai_chat import MemoryEnhancedChat
-from src.settings import get_settings
+from hippocampai.ai_chat import MemoryEnhancedChat
+from hippocampai.settings import get_settings
 
 
 # ANSI color codes for pretty output

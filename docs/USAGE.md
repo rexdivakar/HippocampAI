@@ -25,7 +25,7 @@ pip install -r requirements.txt
 python setup_initial.py
 ```
 
-`setup.py` bootstraps config files, validates connections, and creates the `hippocampai_facts` and `hippocampai_prefs` collections in Qdrant.
+`setup_initial.py` bootstraps config files, validates connections, and creates the `hippocampai_facts` and `hippocampai_prefs` collections in Qdrant.
 
 ---
 
@@ -34,7 +34,7 @@ python setup_initial.py
 ### CLI Chat
 
 ```bash
-python cli_chat.py alice
+python -m hippocampai.cli_chat alice
 ```
 
 - Navigate conversations with commands such as `/stats`, `/memories`, `/help`, `/quit`.
@@ -43,7 +43,7 @@ python cli_chat.py alice
 ### Web Chat
 
 ```bash
-python web_chat.py
+python -m hippocampai.web_chat
 ```
 
 Open `http://localhost:5000` to access the web UI:

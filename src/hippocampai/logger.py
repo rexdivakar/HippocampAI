@@ -27,11 +27,11 @@ def setup_logging(
         setup_logging(log_level="DEBUG", log_dir="custom_logs")
     """
     # Determine project root
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).resolve().parents[2]
 
     # Load logging config file
     if config_file is None:
-        config_file = project_root / "logging_config.yaml"
+        config_file = project_root / "config" / "logging_config.yaml"
     else:
         config_file = Path(config_file)
 
