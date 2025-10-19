@@ -260,4 +260,9 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_commands = {"egg_info", "develop", "build", "sdist", "bdist_wheel"}
+    if any(arg in setup_commands for arg in sys.argv[1:]):
+        # Allow packaging tools to probe without interactive setup.
+        sys.exit(0)
+
     sys.exit(main())
