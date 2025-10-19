@@ -64,7 +64,7 @@ python setup.py
 - ✅ Check Python version
 - ✅ Verify dependencies installed
 - ✅ Create necessary directories (logs/, data/, backups/)
-- ✅ Create `.env` from `.env.example`
+- ✅ Create `.env` from `.env`
 - ✅ Test Qdrant connection
 - ✅ Initialize vector collections
 

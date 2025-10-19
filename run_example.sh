@@ -40,7 +40,7 @@ check_env() {
     if [ ! -f .env ]; then
         print_error ".env file not found"
         print_step "Creating from template..."
-        cp .env.example .env
+        cp .env .env
         print_warning "Please edit .env and add your ANTHROPIC_API_KEY"
         exit 1
     fi

@@ -8,7 +8,7 @@ HippocampAI uses a multi-layered configuration system combining environment vari
 
 Create from template:
 ```bash
-cp .env.example .env
+cp .env .env
 ```
 
 **Required Settings:**
@@ -255,7 +255,7 @@ cp .env.production .env
 
 ## Best Practices
 
-1. **Never commit `.env`** - Use `.env.example` as template
+1. **Never commit `.env`** - Use `.env` as template
 2. **Use environment variables for secrets** - API keys, passwords
 3. **Use config.yaml for application logic** - Thresholds, weights
 4. **Validate after changes** - Run `python setup.py`
@@ -278,4 +278,4 @@ cp .env.production .env
 | `SIMILARITY_THRESHOLD` | float | 0.88 | Duplicate detection threshold |
 | `DEFAULT_SEARCH_LIMIT` | int | 10 | Default search results |
 
-See `.env.example` for complete list.
+See `.env` for complete list.

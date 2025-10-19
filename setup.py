@@ -90,9 +90,9 @@ def create_directories() -> bool:
 
 
 def create_env_file() -> bool:
-    """Create .env file from .env.example if it doesn't exist."""
+    """Create .env file from .env if it doesn't exist."""
     project_root = Path(__file__).parent
-    env_example = project_root / ".env.example"
+    env_example = project_root / ".env"
     env_file = project_root / ".env"
 
     if env_file.exists():
@@ -100,11 +100,11 @@ def create_env_file() -> bool:
         return True
 
     if not env_example.exists():
-        print_error(".env.example not found")
+        print_error(".env not found")
         return False
 
     try:
-        # Copy .env.example to .env
+        # Copy .env to .env
         with open(env_example, 'r') as src:
             content = src.read()
 
