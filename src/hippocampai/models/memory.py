@@ -28,6 +28,7 @@ class Memory(BaseModel):
     tags: List[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = None  # TTL support
     access_count: int = 0
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -36,6 +37,12 @@ class Memory(BaseModel):
         if self.type in {MemoryType.PREFERENCE, MemoryType.GOAL, MemoryType.HABIT}:
             return prefs_col
         return facts_col
+
+    def is_expired(self) -> bool:
+        """Check if memory has expired."""
+        if self.expires_at is None:
+            return False
+        return datetime.utcnow() > self.expires_at
 
 
 class RetrievalResult(BaseModel):

@@ -9,6 +9,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     HnswConfigDiff,
+    MatchAny,
     MatchValue,
     OptimizersConfigDiff,
     PayloadSchemaType,
@@ -69,6 +70,11 @@ class QdrantStore:
                     field_name="type",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name="tags",
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
 
                 logger.info(f"Created collection: {collection_name}")
 
@@ -105,6 +111,14 @@ class QdrantStore:
                 conditions.append(
                     FieldCondition(key="type", match=MatchValue(value=filters["type"]))
                 )
+            if "tags" in filters:
+                # Support both single tag and list of tags
+                tags = filters["tags"]
+                if isinstance(tags, str):
+                    tags = [tags]
+                conditions.append(
+                    FieldCondition(key="tags", match=MatchAny(any=tags))
+                )
             if conditions:
                 query_filter = Filter(must=conditions)
 
@@ -135,6 +149,18 @@ class QdrantStore:
                 conditions.append(
                     FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
                 )
+            if "type" in filters:
+                conditions.append(
+                    FieldCondition(key="type", match=MatchValue(value=filters["type"]))
+                )
+            if "tags" in filters:
+                # Support both single tag and list of tags
+                tags = filters["tags"]
+                if isinstance(tags, str):
+                    tags = [tags]
+                conditions.append(
+                    FieldCondition(key="tags", match=MatchAny(any=tags))
+                )
             if conditions:
                 query_filter = Filter(must=conditions)
 
@@ -151,6 +177,35 @@ class QdrantStore:
     def delete(self, collection_name: str, ids: List[str]):
         """Delete points by IDs."""
         self.client.delete(collection_name=collection_name, points_selector=ids)
+
+    def get(self, collection_name: str, id: str) -> Optional[Dict[str, Any]]:
+        """Get a single point by ID."""
+        try:
+            result = self.client.retrieve(
+                collection_name=collection_name,
+                ids=[id],
+                with_payload=True,
+                with_vectors=False,
+            )
+            if result:
+                return {"id": str(result[0].id), "payload": result[0].payload}
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get point {id}: {e}")
+            return None
+
+    def update(self, collection_name: str, id: str, payload: Dict[str, Any]) -> bool:
+        """Update payload of an existing point."""
+        try:
+            self.client.set_payload(
+                collection_name=collection_name,
+                payload=payload,
+                points=[id],
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update point {id}: {e}")
+            return False
 
     def create_snapshot(self, collection_name: str) -> str:
         """Create collection snapshot."""

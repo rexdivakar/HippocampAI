@@ -1,7 +1,8 @@
 """FastAPI application."""
 
 import logging
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
@@ -37,6 +38,7 @@ class RememberRequest(BaseModel):
     type: str = "fact"
     importance: Optional[float] = None
     tags: Optional[List[str]] = None
+    ttl_days: Optional[int] = None
 
 
 class RecallRequest(BaseModel):
@@ -44,12 +46,37 @@ class RecallRequest(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     k: int = 5
+    filters: Optional[Dict[str, Any]] = None
 
 
 class ExtractRequest(BaseModel):
     conversation: str
     user_id: str
     session_id: Optional[str] = None
+
+
+class UpdateMemoryRequest(BaseModel):
+    memory_id: str
+    text: Optional[str] = None
+    importance: Optional[float] = None
+    tags: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    expires_at: Optional[datetime] = None
+
+
+class DeleteMemoryRequest(BaseModel):
+    memory_id: str
+    user_id: Optional[str] = None
+
+
+class GetMemoriesRequest(BaseModel):
+    user_id: str
+    filters: Optional[Dict[str, Any]] = None
+    limit: int = 100
+
+
+class ExpireMemoriesRequest(BaseModel):
+    user_id: Optional[str] = None
 
 
 # Routes
@@ -70,6 +97,7 @@ def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory
             type=request.type,
             importance=request.importance,
             tags=request.tags,
+            ttl_days=request.ttl_days,
         )
         return memory
     except Exception as e:
@@ -82,7 +110,11 @@ def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_cli
     """Retrieve memories."""
     try:
         results = client.recall(
-            query=request.query, user_id=request.user_id, session_id=request.session_id, k=request.k
+            query=request.query,
+            user_id=request.user_id,
+            session_id=request.session_id,
+            k=request.k,
+            filters=request.filters,
         )
         return results
     except Exception as e:
@@ -102,6 +134,72 @@ def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_c
         return memories
     except Exception as e:
         logger.error(f"Extract failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/v1/memories:update", response_model=Memory)
+def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(get_memory_client)):
+    """Update an existing memory."""
+    try:
+        memory = client.update_memory(
+            memory_id=request.memory_id,
+            text=request.text,
+            importance=request.importance,
+            tags=request.tags,
+            metadata=request.metadata,
+            expires_at=request.expires_at,
+        )
+        if memory is None:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        return memory
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/v1/memories:delete")
+def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(get_memory_client)):
+    """Delete a memory."""
+    try:
+        deleted = client.delete_memory(
+            memory_id=request.memory_id,
+            user_id=request.user_id,
+        )
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Memory not found or unauthorized")
+        return {"success": True, "memory_id": request.memory_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/memories:get", response_model=List[Memory])
+def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)):
+    """Get memories with advanced filtering."""
+    try:
+        memories = client.get_memories(
+            user_id=request.user_id,
+            filters=request.filters,
+            limit=request.limit,
+        )
+        return memories
+    except Exception as e:
+        logger.error(f"Get memories failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/memories:expire")
+def expire_memories(request: ExpireMemoriesRequest, client: MemoryClient = Depends(get_memory_client)):
+    """Clean up expired memories."""
+    try:
+        expired_count = client.expire_memories(user_id=request.user_id)
+        return {"success": True, "expired_count": expired_count}
+    except Exception as e:
+        logger.error(f"Expire memories failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

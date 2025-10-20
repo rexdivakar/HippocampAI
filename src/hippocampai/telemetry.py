@@ -24,6 +24,10 @@ class OperationType(str, Enum):
     DEDUPLICATE = "deduplicate"
     CONSOLIDATE = "consolidate"
     DECAY = "decay"
+    UPDATE = "update"
+    DELETE = "delete"
+    GET = "get"
+    EXPIRE = "expire"
 
 
 @dataclass
@@ -68,6 +72,9 @@ class MemoryTelemetry:
             "recall_duration": [],
             "extract_duration": [],
             "retrieval_count": [],
+            "update_duration": [],
+            "delete_duration": [],
+            "get_duration": [],
         }
 
     def start_trace(
