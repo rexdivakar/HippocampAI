@@ -59,12 +59,6 @@ def health_check():
     return {"status": "ok"}
 
 
-@app.get("/metrics")
-def metrics():
-    """Basic metrics."""
-    return {"memories_stored": "N/A", "queries_served": "N/A"}
-
-
 @app.post("/v1/memories:remember", response_model=Memory)
 def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory_client)):
     """Store a memory."""

@@ -1,350 +1,201 @@
-# HippocampAI Quick Start Guide
+# Quick Start Guide
+
+Get HippocampAI running in 5 minutes!
 
 ## Prerequisites
 
-1. **Python 3.8+** installed
-2. **Qdrant** running (Docker or standalone)
-3. **Anthropic API key** (get from https://console.anthropic.com/)
+- Python 3.9+
+- Docker (for Qdrant)
+- Git
 
-## Step 1: Install Qdrant (if not already running)
+## Step-by-Step Setup
 
-### Option A: Docker (Recommended)
-
-```bash
-docker run -p 6334:6333 -p 6333:6333 \
-  -v $(pwd)/qdrant_storage:/qdrant/storage \
-  qdrant/qdrant
-```
-
-### Option B: Docker Compose
-
-Create `docker-compose.qdrant.yaml`:
-```yaml
-version: '3.8'
-services:
-  qdrant:
-    image: qdrant/qdrant
-    ports:
-      - "6334:6333"
-      - "6333:6333"
-    volumes:
-      - ./qdrant_storage:/qdrant/storage
-```
-
-Run:
-```bash
-docker-compose -f docker-compose.qdrant.yaml up -d
-```
-
-### Option C: Standalone
-
-Download from https://github.com/qdrant/qdrant/releases
-
-## Step 2: Install HippocampAI
+### 1. Clone and Install
 
 ```bash
 # Clone repository
-git clone <your-repo-url>
+git clone https://github.com/rexdivakar/HippocampAI.git
 cd HippocampAI
 
-# Install dependencies
-pip install -r requirements.txt
+# Create virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install HippocampAI
+pip install -e .
 ```
 
-## Step 3: Configure
+### 2. Start Qdrant
 
 ```bash
-# Run setup script
-python setup_initial.py
+# Using Docker
+docker run -d -p 6333:6333 qdrant/qdrant
+
+# Verify it's running
+curl http://localhost:6333/health
 ```
 
-This creates:
-- `.env` file from template
-- `logs/`, `data/`, `backups/` directories
-- Qdrant collections
-
-**Edit `.env` and add your API key:**
-```bash
-# Open in your editor
-nano .env  # or vim, code, etc.
-
-# Add this:
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-
-# If Qdrant is on localhost, change:
-QDRANT_HOST=localhost
-QDRANT_PORT=6334
-```
-
-## Step 4: Run Examples
-
-### Example 1: Basic Memory Storage
+### 3. Configure Environment
 
 ```bash
-python examples/memory_store_example.py
+# Copy example configuration
+cp .env.example .env
+
+# Edit .env with your settings
+nano .env  # or use your favorite editor
 ```
 
-**What it does:**
-- Stores sample memories
-- Retrieves memories by ID
-- Shows collection statistics
-
-### Example 2: Memory Extraction from Conversation
+**Minimal .env configuration:**
 
 ```bash
-python examples/memory_extractor_example.py
+QDRANT_URL=http://localhost:6333
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen2.5:7b-instruct
 ```
 
-**What it does:**
-- Takes a conversation
-- Extracts memories using Claude AI
-- Stores them in Qdrant
-
-### Example 3: Smart Search & Retrieval
+### 4. Initialize Collections
 
 ```bash
-python examples/smart_retrieval_example.py
+python -c "from hippocampai import MemoryClient; MemoryClient()"
 ```
 
-**What it does:**
-- Demonstrates multi-factor ranking
-- Shows session management
-- Tests memory consolidation
-
-### Example 4: Advanced Features
-
-```bash
-python examples/advanced_memory_example.py
+You should see:
+```
+Connected to Qdrant at http://localhost:6333
+Created collection: hippocampai_facts
+Created collection: hippocampai_prefs
 ```
 
-**What it does:**
-- Deduplication
-- Conflict resolution
-- Importance scoring
-- Memory updates
+## Your First Memory
 
-## Step 5: Use in Your Code
-
-### Basic Usage
+Create a file `test_memory.py`:
 
 ```python
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
+from hippocampai import MemoryClient
 
 # Initialize
-qdrant = QdrantManager(host="localhost", port=6334)
-qdrant.create_collections()
-
-embeddings = EmbeddingService()
-store = MemoryStore(qdrant_manager=qdrant, embedding_service=embeddings)
+client = MemoryClient()
 
 # Store a memory
-memory_id = store.store_memory(
-    text="I prefer tea over coffee",
-    memory_type=MemoryType.PREFERENCE.value,
-    metadata={
-        "user_id": "user_123",
-        "importance": 7,
-        "category": Category.PERSONAL.value,
-        "session_id": "session_001",
-        "confidence": 0.9
-    }
+memory = client.remember(
+    text="I love hiking in the mountains",
+    user_id="test_user",
+    type="preference",
+    importance=8.0
 )
 
-print(f"Stored memory: {memory_id}")
-```
+print(f"✓ Stored memory: {memory.id}")
 
-### Search Memories
-
-```python
-from src.memory_retriever import MemoryRetriever
-
-retriever = MemoryRetriever(qdrant_manager=qdrant, embedding_service=embeddings)
-
-# Simple search
-results = retriever.search_memories(
-    query="What drinks do I like?",
-    limit=5,
-    filters={"user_id": "user_123"}
+# Recall it
+results = client.recall(
+    query="What outdoor activities does the user enjoy?",
+    user_id="test_user",
+    k=3
 )
 
+print(f"\n✓ Found {len(results)} relevant memories:")
 for result in results:
-    print(f"[{result['similarity_score']:.2f}] {result['text']}")
+    print(f"  - {result.memory.text} (score: {result.score:.3f})")
 ```
 
-### Smart Search with Ranking
-
-```python
-# Multi-factor ranking (similarity + importance + recency)
-results = retriever.smart_search(
-    query="What drinks do I like?",
-    user_id="user_123",
-    context_type="personal",
-    limit=5
-)
-
-for result in results:
-    print(f"Score: {result['final_score']:.3f}")
-    print(f"Text: {result['text']}")
-    print(f"Breakdown: {result['score_breakdown']}")
-```
-
-### Extract Memories from Conversation
-
-```python
-from src.memory_extractor import MemoryExtractor
-
-extractor = MemoryExtractor()
-
-conversation = """
-User: I really enjoy hiking on weekends
-Assistant: That's great! What kind of trails do you prefer?
-User: I like mountain trails, especially in the morning
-"""
-
-# Extract memories
-memories = extractor.extract_memories(
-    conversation_text=conversation,
-    user_id="user_123",
-    session_id="session_001"
-)
-
-# Store them
-for memory in memories:
-    store.store_memory(**memory)
-```
-
-### Session Management
-
-```python
-from src.session_manager import SessionManager
-
-session_mgr = SessionManager(
-    memory_store=store,
-    retriever=retriever,
-    embedding_service=embeddings
-)
-
-# Start session
-session_id = session_mgr.start_session(user_id="user_123")
-
-# Add messages
-session_mgr.add_message(session_id, "user", "Hello!")
-session_mgr.add_message(session_id, "assistant", "Hi! How can I help?")
-
-# End session (auto-summarizes)
-summary_id = session_mgr.end_session(session_id)
-```
-
-## Step 6: Interactive Python Session
+Run it:
 
 ```bash
-python
+python test_memory.py
 ```
 
-```python
-from src.settings import get_settings
-from src.qdrant_client import QdrantManager
-from src.embedding_service import EmbeddingService
-from src.memory_store import MemoryStore, MemoryType, Category
-from src.memory_retriever import MemoryRetriever
-
-# Setup
-settings = get_settings()
-print(f"Connected to: {settings.qdrant.host}:{settings.qdrant.port}")
-
-qdrant = QdrantManager()
-qdrant.create_collections()
-
-embeddings = EmbeddingService()
-store = MemoryStore(qdrant, embeddings)
-retriever = MemoryRetriever(qdrant, embeddings)
-
-# Now use store and retriever interactively
-store.store_memory(
-    text="I work as a software engineer",
-    memory_type="fact",
-    metadata={
-        "user_id": "me",
-        "importance": 9,
-        "category": "work",
-        "session_id": "interactive",
-        "confidence": 1.0
-    }
-)
-
-# Search
-results = retriever.search_memories("my job", filters={"user_id": "me"})
-for r in results:
-    print(r['text'])
+Expected output:
+```
+✓ Stored memory: f47ac10b-58cc-4372-a567-0e02b2c3d479
+✓ Found 1 relevant memories:
+  - I love hiking in the mountains (score: 0.852)
 ```
 
-## Common Issues
+## Try the CLI
 
-### "ANTHROPIC_API_KEY not set"
 ```bash
-# Add to .env file
-echo "ANTHROPIC_API_KEY=sk-ant-your-key" >> .env
+python cli_chat.py my_username
 ```
 
-### "Qdrant connection failed"
+Type some messages and watch memories being created!
+
+## Try the Web Interface
+
 ```bash
-# Check Qdrant is running
-docker ps | grep qdrant
+# Install web dependencies
+pip install -e ".[web]"
 
-# Or check logs
-docker logs <container-id>
-
-# Make sure host/port in .env match:
-QDRANT_HOST=localhost  # or 192.168.1.120
-QDRANT_PORT=6334
+# Start server
+python web_chat.py
 ```
 
-### "Module not found"
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt
+Open http://localhost:5000 in your browser.
 
-# Or install individually
-pip install qdrant-client sentence-transformers anthropic pyyaml python-json-logger
-```
+## Run Examples
 
-### "Permission denied" on logs/
 ```bash
-# Create logs directory
-mkdir -p logs
-chmod 755 logs
+# Run all examples interactively
+./run_examples.sh
+
+# Or run individually
+python examples/01_basic_usage.py
+python examples/02_conversation_extraction.py
+python examples/03_hybrid_retrieval.py
 ```
 
 ## Next Steps
 
-1. **Read the docs:**
-   - [Configuration Guide](docs/CONFIGURATION.md)
-   - [Architecture Overview](README.md)
+- **Configure LLM Provider**: See [PROVIDERS.md](PROVIDERS.md)
+- **Customize Configuration**: See [CONFIGURATION.md](CONFIGURATION.md)
+- **API Reference**: See [API.md](API.md)
+- **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)
 
-2. **Customize:**
-   - Edit `config.yaml` for application settings
-   - Adjust `logging_config.yaml` for log verbosity
-   - Modify `.env` for environment-specific settings
+## Troubleshooting
 
-3. **Build your application:**
-   - See examples for patterns
-   - Combine components as needed
-   - Add your custom logic
+### Qdrant Connection Error
 
-## Tips
+```
+ERROR: Failed to connect to Qdrant
+```
 
-- **Start with examples** to understand the flow
-- **Use smart_search** for better relevance
-- **Enable consolidation** to reduce memory bloat
-- **Monitor logs/** directory for debugging
-- **Backup qdrant_storage/** regularly
+**Solution**: Make sure Qdrant is running:
+```bash
+docker ps | grep qdrant
+```
+
+### Import Error
+
+```
+ModuleNotFoundError: No module named 'qdrant_client'
+```
+
+**Solution**: Install dependencies:
+```bash
+pip install -e .
+```
+
+### LLM Provider Error
+
+```
+ERROR: LLM_PROVIDER not configured
+```
+
+**Solution**: Set up .env file with valid provider settings (see step 3)
 
 ## Getting Help
 
-- Check logs: `tail -f logs/hippocampai.log`
-- Run setup again: `python setup_initial.py`
-- Validate config: `python -c "from src.settings import Settings; Settings()"`
+- **Discord**: https://discord.gg/pPSNW9J7gB
+- **Issues**: https://github.com/rexdivakar/HippocampAI/issues
+- **Email**: rexdivakar@hotmail.com
 
-Happy memory management! 🧠✨
+## What's Next?
+
+Now that you have HippocampAI running:
+
+1. **Explore Examples** - Run through all 5 examples to see different features
+2. **Read Architecture** - Understand how hybrid retrieval works
+3. **Try Telemetry** - Monitor your memory operations
+4. **Customize** - Tune retrieval weights, decay settings, etc.
+5. **Integrate** - Add HippocampAI to your AI agent!
+
+Happy building! 🧠

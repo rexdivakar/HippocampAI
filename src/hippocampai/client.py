@@ -1,7 +1,7 @@
 """Main MemoryClient - public API."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
@@ -14,9 +14,12 @@ from hippocampai.pipeline.extractor import MemoryExtractor
 from hippocampai.pipeline.importance import ImportanceScorer
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
+from hippocampai.telemetry import OperationType, get_telemetry
 from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
+
+PresetType = Literal["local", "cloud", "production", "development"]
 
 
 class MemoryClient:
@@ -40,9 +43,11 @@ class MemoryClient:
         half_lives: Optional[Dict[str, int]] = None,
         allow_cloud: Optional[bool] = None,
         config: Optional[Config] = None,
+        enable_telemetry: bool = True,
     ):
         """Initialize memory client."""
         self.config = config or get_config()
+        self.telemetry = get_telemetry(enabled=enable_telemetry)
 
         # Override config with params
         if qdrant_url:
@@ -129,6 +134,65 @@ class MemoryClient:
 
         logger.info("MemoryClient initialized")
 
+    @classmethod
+    def from_preset(cls, preset: PresetType, **overrides) -> "MemoryClient":
+        """Create MemoryClient from preset configuration.
+
+        Available presets:
+        - "local": Ollama + local Qdrant (fully self-hosted)
+        - "cloud": OpenAI + local Qdrant (cloud LLM, local vector DB)
+        - "production": Optimized settings for production workloads
+        - "development": Fast settings for development/testing
+        """
+        if preset == "local":
+            config = Config(
+                qdrant_url="http://localhost:6333",
+                llm_provider="ollama",
+                llm_model="qwen2.5:7b-instruct",
+                embed_model="BAAI/bge-small-en-v1.5",
+                allow_cloud=False,
+            )
+        elif preset == "cloud":
+            config = Config(
+                qdrant_url="http://localhost:6333",
+                llm_provider="openai",
+                llm_model="gpt-4o-mini",
+                embed_model="BAAI/bge-small-en-v1.5",
+                allow_cloud=True,
+            )
+        elif preset == "production":
+            config = Config(
+                qdrant_url="http://localhost:6333",
+                hnsw_m=64,  # Higher quality
+                ef_construction=512,
+                ef_search=256,
+                top_k_qdrant=500,  # More candidates
+                top_k_final=50,
+                weight_sim=0.50,
+                weight_rerank=0.30,  # More emphasis on reranking
+                weight_recency=0.10,
+                weight_importance=0.10,
+            )
+        elif preset == "development":
+            config = Config(
+                qdrant_url="http://localhost:6333",
+                hnsw_m=16,  # Faster
+                ef_construction=100,
+                ef_search=50,
+                top_k_qdrant=50,  # Fewer candidates
+                top_k_final=10,
+                embed_quantized=True,  # Faster embeddings
+            )
+        else:
+            raise ValueError(f"Unknown preset: {preset}")
+
+        # Apply overrides
+        for key, value in overrides.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+
+        return cls(config=config)
+
     def remember(
         self,
         text: str,
@@ -139,65 +203,152 @@ class MemoryClient:
         tags: Optional[List[str]] = None,
     ) -> Memory:
         """Store a memory."""
-        memory = Memory(
-            text=text,
+        # Start telemetry trace
+        trace_id = self.telemetry.start_trace(
+            operation=OperationType.REMEMBER,
             user_id=user_id,
             session_id=session_id,
-            type=MemoryType(type),
-            importance=importance or self.scorer.score(text, type),
-            tags=tags or [],
+            memory_type=type,
+            text_length=len(text),
         )
 
-        # Check duplicates
-        action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
-        if action == "skip":
-            logger.info(f"Skipping duplicate memory: {memory.id}")
+        try:
+            memory = Memory(
+                text=text,
+                user_id=user_id,
+                session_id=session_id,
+                type=MemoryType(type),
+                importance=importance or self.scorer.score(text, type),
+                tags=tags or [],
+            )
+
+            # Check duplicates
+            self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
+            action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
+            self.telemetry.add_event(
+                trace_id, "deduplication_check", status="success", action=action, duplicates=len(dup_ids)
+            )
+
+            if action == "skip":
+                logger.info(f"Skipping duplicate memory: {memory.id}")
+                self.telemetry.end_trace(trace_id, status="skipped", result={"duplicate": True})
+                return memory
+
+            # Store
+            collection = memory.collection_name(
+                self.config.collection_facts, self.config.collection_prefs
+            )
+
+            self.telemetry.add_event(trace_id, "embedding", status="in_progress")
+            vector = self.embedder.encode_single(memory.text)
+            self.telemetry.add_event(trace_id, "embedding", status="success")
+
+            self.telemetry.add_event(trace_id, "vector_store", status="in_progress")
+            self.qdrant.upsert(
+                collection_name=collection,
+                id=memory.id,
+                vector=vector,
+                payload=memory.model_dump(mode="json"),
+            )
+            self.telemetry.add_event(trace_id, "vector_store", status="success", collection=collection)
+
+            logger.info(f"Stored memory: {memory.id}")
+            self.telemetry.end_trace(
+                trace_id, status="success", result={"memory_id": memory.id, "collection": collection}
+            )
             return memory
-
-        # Store
-        collection = memory.collection_name(
-            self.config.collection_facts, self.config.collection_prefs
-        )
-        vector = self.embedder.encode_single(memory.text)
-
-        self.qdrant.upsert(
-            collection_name=collection,
-            id=memory.id,
-            vector=vector,
-            payload=memory.model_dump(mode="json"),
-        )
-
-        logger.info(f"Stored memory: {memory.id}")
-        return memory
+        except Exception as e:
+            self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
+            raise
 
     def recall(
         self, query: str, user_id: str, session_id: Optional[str] = None, k: int = 5
     ) -> List[RetrievalResult]:
         """Retrieve memories."""
-        # Rebuild BM25 if needed
-        if not self.retriever.bm25_facts:
-            self.retriever.rebuild_bm25(user_id)
+        # Start telemetry trace
+        trace_id = self.telemetry.start_trace(
+            operation=OperationType.RECALL,
+            user_id=user_id,
+            session_id=session_id,
+            query=query,
+            k=k,
+        )
 
-        results = self.retriever.retrieve(query=query, user_id=user_id, session_id=session_id, k=k)
+        try:
+            # Rebuild BM25 if needed
+            if not self.retriever.bm25_facts:
+                self.telemetry.add_event(trace_id, "bm25_rebuild", status="in_progress")
+                self.retriever.rebuild_bm25(user_id)
+                self.telemetry.add_event(trace_id, "bm25_rebuild", status="success")
 
-        logger.info(f"Retrieved {len(results)} memories for user {user_id}")
-        return results
+            self.telemetry.add_event(trace_id, "hybrid_retrieval", status="in_progress")
+            results = self.retriever.retrieve(query=query, user_id=user_id, session_id=session_id, k=k)
+            self.telemetry.add_event(
+                trace_id, "hybrid_retrieval", status="success", results_count=len(results)
+            )
+
+            logger.info(f"Retrieved {len(results)} memories for user {user_id}")
+            self.telemetry.end_trace(
+                trace_id, status="success", result={"count": len(results), "k": k}
+            )
+            return results
+        except Exception as e:
+            self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
+            raise
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> List[Memory]:
         """Extract memories from conversation."""
-        memories = self.extractor.extract(conversation, user_id, session_id)
+        # Start telemetry trace
+        trace_id = self.telemetry.start_trace(
+            operation=OperationType.EXTRACT,
+            user_id=user_id,
+            session_id=session_id,
+            conversation_length=len(conversation),
+        )
 
-        # Store each
-        for mem in memories:
-            self.remember(
-                text=mem.text,
-                user_id=mem.user_id,
-                session_id=mem.session_id,
-                type=mem.type.value,
-                importance=mem.importance,
-                tags=mem.tags,
+        try:
+            self.telemetry.add_event(trace_id, "extraction", status="in_progress")
+            memories = self.extractor.extract(conversation, user_id, session_id)
+            self.telemetry.add_event(
+                trace_id, "extraction", status="success", extracted_count=len(memories)
             )
 
-        return memories
+            # Store each
+            stored_count = 0
+            for mem in memories:
+                self.remember(
+                    text=mem.text,
+                    user_id=mem.user_id,
+                    session_id=mem.session_id,
+                    type=mem.type.value,
+                    importance=mem.importance,
+                    tags=mem.tags,
+                )
+                stored_count += 1
+
+            logger.info(f"Extracted and stored {stored_count} memories from conversation")
+            self.telemetry.end_trace(
+                trace_id, status="success", result={"extracted": len(memories), "stored": stored_count}
+            )
+            return memories
+        except Exception as e:
+            self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
+            raise
+
+    # Telemetry Access Methods
+    def get_telemetry_metrics(self) -> Dict[str, any]:
+        """Get telemetry metrics summary."""
+        return self.telemetry.get_metrics_summary()
+
+    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None):
+        """Get recent memory operations with traces."""
+        from hippocampai.telemetry import OperationType
+
+        op_type = OperationType(operation) if operation else None
+        return self.telemetry.get_recent_traces(limit=limit, operation=op_type)
+
+    def export_telemetry(self, trace_ids: Optional[List[str]] = None) -> List[Dict]:
+        """Export telemetry data for external analysis."""
+        return self.telemetry.export_traces(trace_ids=trace_ids)
