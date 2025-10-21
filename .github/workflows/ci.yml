@@ -24,11 +24,6 @@ jobs:
         ports:
           - 6333:6333
           - 6334:6334
-        options: >-
-          --health-cmd "curl -f http://localhost:6333/healthz || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout repository
@@ -43,17 +38,25 @@ jobs:
             requirements.txt
             pyproject.toml
 
+      - name: Wait for Qdrant to be ready
+        run: |
+          echo "Waiting for Qdrant to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:6333/healthz > /dev/null 2>&1; then
+              echo "Qdrant is ready!"
+              curl -s http://localhost:6333/ | head -20
+              exit 0
+            fi
+            echo "Attempt $i/30: Qdrant not ready yet, waiting..."
+            sleep 2
+          done
+          echo "Qdrant failed to become ready"
+          exit 1
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
-
-      - name: Wait for Qdrant to be ready
-        run: |
-          echo "Waiting for Qdrant to be ready..."
-          timeout 30 bash -c 'until curl -f http://localhost:6333/healthz; do sleep 1; done'
-          echo "Qdrant is ready!"
-          curl http://localhost:6333/
 
       - name: Lint with Ruff
         run: |
