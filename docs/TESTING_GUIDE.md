@@ -93,7 +93,7 @@ Testing package installation and basic functionality...
 
 Running: Basic imports... ✅ PASS: Basic imports
 Running: Package version... ✅ PASS: Package version
-  Package version: 0.1.0
+  Package version: 1.0.0
 Running: Config import... ✅ PASS: Config import
 Running: Memory models... ✅ PASS: Memory models
 Running: Pipeline imports... ✅ PASS: Pipeline imports
@@ -736,5 +736,5 @@ If tests fail or you encounter issues:
 ---
 
 **Last Updated**: October 2025
-**Test Suite Version**: 0.1.0
+**Test Suite Version**: 1.0.0
 **Total Tests**: 117 ✅

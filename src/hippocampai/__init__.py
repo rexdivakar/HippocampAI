@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __all__ = [
     "MemoryClient",
     "AsyncMemoryClient",
