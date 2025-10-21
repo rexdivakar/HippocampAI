@@ -20,6 +20,8 @@ from qdrant_client.models import (
     WalConfigDiff,
 )
 
+from hippocampai.utils.retry import get_qdrant_retry_decorator
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,8 +80,9 @@ class QdrantStore:
 
                 logger.info(f"Created collection: {collection_name}")
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
-        """Insert or update a point."""
+        """Insert or update a point (with automatic retry on transient failures)."""
         self.client.upsert(
             collection_name=collection_name,
             points=[
@@ -91,6 +94,7 @@ class QdrantStore:
             ],
         )
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def search(
         self,
         collection_name: str,
@@ -99,7 +103,7 @@ class QdrantStore:
         filters: Optional[Dict[str, Any]] = None,
         ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Vector similarity search."""
+        """Vector similarity search (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
             conditions = []
@@ -136,10 +140,11 @@ class QdrantStore:
 
         return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def scroll(
         self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
-        """Scroll through points."""
+        """Scroll through points (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
             conditions = []
@@ -170,12 +175,14 @@ class QdrantStore:
 
         return [{"id": str(r.id), "payload": r.payload} for r in results]
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def delete(self, collection_name: str, ids: List[str]):
-        """Delete points by IDs."""
+        """Delete points by IDs (with automatic retry on transient failures)."""
         self.client.delete(collection_name=collection_name, points_selector=ids)
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def get(self, collection_name: str, id: str) -> Optional[Dict[str, Any]]:
-        """Get a single point by ID."""
+        """Get a single point by ID (with automatic retry on transient failures)."""
         try:
             result = self.client.retrieve(
                 collection_name=collection_name,
@@ -190,8 +197,9 @@ class QdrantStore:
             logger.error(f"Failed to get point {id}: {e}")
             return None
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def update(self, collection_name: str, id: str, payload: Dict[str, Any]) -> bool:
-        """Update payload of an existing point."""
+        """Update payload of an existing point (with automatic retry on transient failures)."""
         try:
             self.client.set_payload(
                 collection_name=collection_name,

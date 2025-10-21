@@ -7,7 +7,7 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 - **Plug-and-play** `MemoryClient` API with built-in pipelines for extraction, dedupe, consolidation, and importance decay
 - **Hybrid retrieval** that fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
 - **Self-hosted first** — works fully offline via Qdrant + Ollama or in the cloud via OpenAI with the same code paths
-- **Production-ready** — ships with CLI and web chat UIs, telemetry, typed models, scheduled jobs, and comprehensive logging
+- **Production-ready** — automatic retry logic, structured JSON logging, request tracing, telemetry, typed models, and scheduled jobs
 - **Fully customizable** — every component (extraction, retrieval, scoring) is extensible without vendor lock-in
 
 ---
@@ -278,6 +278,9 @@ python examples/08_scheduler_demo.py
 # Graph persistence (JSON export/import)
 python examples/09_graph_persistence_demo.py
 
+# Production resilience (retry logic + structured logging)
+python examples/example_resilience.py
+
 # Run all examples
 ./run_examples.sh
 ```
@@ -328,6 +331,8 @@ client = MemoryClient(config=config)
 - [Features Guide](docs/FEATURES.md) - Complete feature documentation with examples
 - [Configuration Guide](docs/CONFIGURATION.md) - All configuration options explained
 - [Provider Setup](docs/PROVIDERS.md) - Configure Ollama, OpenAI, Anthropic, Groq
+- [Testing Guide](docs/TESTING_GUIDE.md) - Complete testing guide (117 tests, 100% pass rate)
+- [Resilience & Observability](docs/RESILIENCE.md) - Automatic retry logic and structured logging
 - [Telemetry Guide](docs/TELEMETRY.md) - Observability and tracing
 - [Changelog](docs/CHANGELOG.md) - Version history and updates
 
@@ -349,12 +354,14 @@ Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 | **Cost** | ✅ Free (self-hosted) | ⚠️ Usage-based pricing |
 
 **Choose HippocampAI when:**
+
 - You need full control and customization
 - Data residency is critical
 - You want to avoid vendor lock-in
 - You're building production systems requiring observability
 
 **Choose Mem0 when:**
+
 - You want zero infrastructure management
 - You're prototyping quickly
 - You don't mind managed services
@@ -364,8 +371,11 @@ Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 ## 🗺️ Roadmap
 
 **Completed (v0.1.0):**
+
 - [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`)
 - [x] Built-in telemetry and observability
+- [x] Automatic retry logic for Qdrant and LLM operations
+- [x] Structured JSON logging with request ID tracking
 - [x] Batch operations (add_memories, delete_memories)
 - [x] Graph indexing and relationships
 - [x] Version control and rollback
@@ -380,6 +390,7 @@ Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 - [x] Persistent graph storage (JSON export/import)
 
 **Planned:**
+
 - [ ] LangChain and LlamaIndex integrations
 - [ ] Retrieval evaluators and A/B testing
 - [ ] Multi-tenant RBAC and access policies
@@ -421,6 +432,5 @@ If you find HippocampAI useful, please star the repo! It helps others discover t
 
 - **Issues**: [GitHub Issues](https://github.com/rexdivakar/HippocampAI/issues)
 - **Discord**: [Join our community](https://discord.gg/pPSNW9J7gB)
-- **Email**: rexdivakar@hotmail.com
 
 Built with ❤️ by the HippocampAI team

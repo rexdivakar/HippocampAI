@@ -300,9 +300,7 @@ class TestAdvancedFeatures:
         mem = client.remember("Version 1", user_id="test_version", importance=5.0)
 
         # Create version
-        client.version_control.create_version(
-            mem.id, {"text": "Version 1", "importance": 5.0}
-        )
+        client.version_control.create_version(mem.id, {"text": "Version 1", "importance": 5.0})
 
         # Get history
         history = client.get_memory_history(mem.id)
@@ -349,9 +347,7 @@ class TestAsyncOperations:
     @pytest.mark.asyncio
     async def test_async_recall(self, async_client):
         """Test async recall operation."""
-        mem = await async_client.remember_async(
-            "Async recall test", user_id="test_async_recall"
-        )
+        mem = await async_client.remember_async("Async recall test", user_id="test_async_recall")
 
         results = await async_client.recall_async("async", user_id="test_async_recall")
         assert isinstance(results, list)

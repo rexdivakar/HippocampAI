@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
+from hippocampai.utils.retry import get_llm_retry_decorator
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,11 @@ class OpenAILLM(BaseLLM):
 
         return self.chat(messages, max_tokens, temperature)
 
+    @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(
         self, messages: List[Dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
-        """Chat completion."""
+        """Chat completion (with automatic retry on transient failures)."""
         try:
             response = self.client.chat.completions.create(
                 model=self.model, messages=messages, max_tokens=max_tokens, temperature=temperature
