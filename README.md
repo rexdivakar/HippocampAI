@@ -1,5 +1,8 @@
 # HippocampAI — Autonomous Memory Engine for LLM Agents
 
+[![PyPI version](https://badge.fury.io/py/hippocampai.svg)](https://pypi.org/project/hippocampai/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/hippocampai.svg)](https://pypi.org/project/hippocampai/)
+[![Downloads](https://pepy.tech/badge/hippocampai)](https://pepy.tech/project/hippocampai)
 [![Quality Gate Status](https://sonar.craftedbrain.com/api/project_badges/measure?project=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475&metric=alert_status&token=sqb_dd0c0b1bf58646ce474b64a1fa8d83446345bccf)](https://sonar.craftedbrain.com/dashboard?id=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475)
 
 HippocampAI turns raw conversations into a curated long-term memory vault for your AI assistants. It extracts, scores, deduplicates, stores, and retrieves user memories so agents can stay personal, consistent, and context-aware across sessions.
@@ -26,6 +29,23 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 ## 🚀 Quick Start
 
 ### 1. Installation
+
+**Install from PyPI (Recommended):**
+
+```bash
+# Install with core dependencies
+pip install hippocampai
+
+# Or install with additional providers
+pip install "hippocampai[all]"  # All providers + API + Web
+pip install "hippocampai[openai]"  # Just OpenAI
+pip install "hippocampai[api]"  # FastAPI server
+pip install "hippocampai[web]"  # Flask web interface
+```
+
+View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
+
+**Or install from source:**
 
 ```bash
 git clone https://github.com/rexdivakar/HippocampAI.git
@@ -326,17 +346,40 @@ client = MemoryClient(config=config)
 
 ## 📖 Documentation
 
-- [Quick Start Guide](docs/QUICKSTART.md) - Get up and running in 5 minutes
-- [API Reference](docs/API_REFERENCE.md) - Complete API documentation for all methods
-- [Features Guide](docs/FEATURES.md) - Complete feature documentation with examples
-- [Configuration Guide](docs/CONFIGURATION.md) - All configuration options explained
-- [Provider Setup](docs/PROVIDERS.md) - Configure Ollama, OpenAI, Anthropic, Groq
-- [Testing Guide](docs/TESTING_GUIDE.md) - Complete testing guide (117 tests, 100% pass rate)
-- [Resilience & Observability](docs/RESILIENCE.md) - Automatic retry logic and structured logging
-- [Telemetry Guide](docs/TELEMETRY.md) - Observability and tracing
-- [Changelog](docs/CHANGELOG.md) - Version history and updates
+### Getting Started
 
-Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Getting Started](docs/GETTING_STARTED.md)** - Detailed installation, setup, and first steps
+- **[Usage Guide](docs/USAGE.md)** - Common usage patterns, chat clients, and integration examples
+
+### Core Documentation
+
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods and classes
+- **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples and use cases
+- **[Configuration Guide](docs/CONFIGURATION.md)** - All configuration options, presets, and environment variables
+- **[Provider Setup](docs/PROVIDERS.md)** - Configure LLM providers (Ollama, OpenAI, Anthropic, Groq)
+
+### Advanced Guides
+
+- **[Resilience & Observability](docs/RESILIENCE.md)** - Automatic retry logic, error handling, and structured logging
+- **[Telemetry Guide](docs/TELEMETRY.md)** - Observability, tracing, metrics, and performance monitoring
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with 117 tests and 100% pass rate
+
+### Examples & Tutorials
+
+- **[Examples Documentation](docs/examples.md)** - Guide to all working examples in the `examples/` directory
+- See the [Examples section](#-examples) above for a complete list of runnable examples
+
+### Developer Resources
+
+- **[Package Summary](docs/PACKAGE_SUMMARY.md)** - Technical overview of the package architecture and structure
+- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Implementation details of core features and components
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to HippocampAI
+- **[Changelog](docs/CHANGELOG.md)** - Version history, updates, and breaking changes
+
+---
+
+**Need help?** Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 
 ---
 

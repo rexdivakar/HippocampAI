@@ -6,8 +6,14 @@ This directory contains working examples demonstrating HippocampAI's core featur
 
 1. Install HippocampAI with dependencies:
    ```bash
+   # From PyPI (recommended)
+   pip install hippocampai
+
+   # Or from source
    pip install -e ".[core]"
    ```
+
+   View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
 
 2. Start Qdrant:
    ```bash
@@ -106,7 +112,7 @@ python examples/05_multi_user.py
 
 ## Next Steps
 
-- Explore the [CLI chat interface](../cli_chat.py)
-- Try the [web interface](../web_chat.py)
-- Read the [full documentation](../docs/)
-- Check the [API reference](../docs/API.md)
+- Read the [Quick Start Guide](QUICKSTART.md)
+- Check the [API Reference](API_REFERENCE.md)
+- Explore the [Complete Features Guide](FEATURES.md)
+- Review the [full documentation](../docs/)

@@ -10,7 +10,22 @@ Get HippocampAI running in 5 minutes!
 
 ## Step-by-Step Setup
 
-### 1. Clone and Install
+### 1. Install HippocampAI
+
+**Option A: Install from PyPI (Recommended)**
+
+```bash
+# Create virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install HippocampAI
+pip install hippocampai
+```
+
+View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
+
+**Option B: Install from source**
 
 ```bash
 # Clone repository
@@ -147,8 +162,8 @@ python examples/03_hybrid_retrieval.py
 
 - **Configure LLM Provider**: See [PROVIDERS.md](PROVIDERS.md)
 - **Customize Configuration**: See [CONFIGURATION.md](CONFIGURATION.md)
-- **API Reference**: See [API.md](API.md)
-- **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)
+- **API Reference**: See [API_REFERENCE.md](API_REFERENCE.md)
+- **Complete Features Guide**: See [FEATURES.md](FEATURES.md)
 
 ## Troubleshooting
 
