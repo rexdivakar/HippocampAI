@@ -187,7 +187,7 @@ def generate_response(client: MemoryClient, user_input: str, user_id: str, sessi
         return response
     else:
         # Fallback response
-        response = f"I understand. I've noted that and will remember our conversation."
+        response = "I understand. I've noted that and will remember our conversation."
         if memories:
             response += f" I recall {len(memories)} related memories about you."
         return response

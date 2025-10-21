@@ -10,14 +10,14 @@ This module extends the MemoryClient with additional capabilities:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from hippocampai.graph import MemoryGraph, RelationType
 from hippocampai.models.memory import Memory
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType
-from hippocampai.utils.context_injection import ContextInjector, inject_context
+from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
 
 logger = logging.getLogger(__name__)
@@ -127,9 +127,7 @@ class MemoryClientExtensions:
                 if self.delete_memory(memory_id, user_id):
                     deleted_count += 1
 
-            self.telemetry.end_trace(
-                trace_id, status="success", result={"deleted": deleted_count}
-            )
+            self.telemetry.end_trace(trace_id, status="success", result={"deleted": deleted_count})
             return deleted_count
 
         except Exception as e:
@@ -384,9 +382,7 @@ class MemoryClientExtensions:
             Snapshot name/ID
         """
         coll_name = (
-            self.config.collection_facts
-            if collection == "facts"
-            else self.config.collection_prefs
+            self.config.collection_facts if collection == "facts" else self.config.collection_prefs
         )
 
         snapshot_name = self.qdrant.create_snapshot(coll_name)

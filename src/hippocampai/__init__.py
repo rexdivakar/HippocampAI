@@ -64,7 +64,13 @@ _INJECT_CONTEXT: Any | None = None
 
 
 def __getattr__(name: str) -> Any:
-    global _MEMORY_CLIENT, _ASYNC_MEMORY_CLIENT, _CONFIG, _GET_CONFIG, _GET_TELEMETRY, _OPERATION_TYPE
+    global \
+        _MEMORY_CLIENT, \
+        _ASYNC_MEMORY_CLIENT, \
+        _CONFIG, \
+        _GET_CONFIG, \
+        _GET_TELEMETRY, \
+        _OPERATION_TYPE
     global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
     global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
 
@@ -176,7 +182,9 @@ def __getattr__(name: str) -> Any:
 
     if name == "ContextInjector":
         if _CONTEXT_INJECTOR is None:
-            from hippocampai.utils.context_injection import ContextInjector as _ImportedContextInjector
+            from hippocampai.utils.context_injection import (
+                ContextInjector as _ImportedContextInjector,
+            )
 
             _CONTEXT_INJECTOR = _ImportedContextInjector
         return _CONTEXT_INJECTOR

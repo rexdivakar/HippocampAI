@@ -91,14 +91,10 @@ class AsyncMemoryClient(MemoryClient):
             ),
         )
 
-    async def delete_memory_async(
-        self, memory_id: str, user_id: Optional[str] = None
-    ) -> bool:
+    async def delete_memory_async(self, memory_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a memory asynchronously."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self.delete_memory(memory_id, user_id)
-        )
+        return await loop.run_in_executor(None, lambda: self.delete_memory(memory_id, user_id))
 
     async def get_memories_async(
         self,
@@ -108,9 +104,7 @@ class AsyncMemoryClient(MemoryClient):
     ) -> List[Memory]:
         """Get memories asynchronously."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self.get_memories(user_id, filters, limit)
-        )
+        return await loop.run_in_executor(None, lambda: self.get_memories(user_id, filters, limit))
 
     async def extract_from_conversation_async(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
@@ -139,16 +133,12 @@ class AsyncMemoryClient(MemoryClient):
     ) -> int:
         """Batch delete memories asynchronously."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self.delete_memories(memory_ids, user_id)
-        )
+        return await loop.run_in_executor(None, lambda: self.delete_memories(memory_ids, user_id))
 
     async def get_memory_statistics_async(self, user_id: str) -> Dict[str, Any]:
         """Get memory statistics asynchronously."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self.get_memory_statistics(user_id)
-        )
+        return await loop.run_in_executor(None, lambda: self.get_memory_statistics(user_id))
 
     async def inject_context_async(
         self,

@@ -51,7 +51,7 @@ class MemoryGraph:
     ):
         """Add a relationship between two memories."""
         if source_id not in self.graph or target_id not in self.graph:
-            logger.warning(f"Cannot add relationship: one or both memories not in graph")
+            logger.warning("Cannot add relationship: one or both memories not in graph")
             return False
 
         self.graph.add_edge(
@@ -152,7 +152,9 @@ class MemoryGraph:
         clusters = list(nx.connected_components(undirected))
         return clusters
 
-    def get_most_connected(self, user_id: Optional[str] = None, top_k: int = 10) -> List[Tuple[str, int]]:
+    def get_most_connected(
+        self, user_id: Optional[str] = None, top_k: int = 10
+    ) -> List[Tuple[str, int]]:
         """
         Get most connected memories (highest degree).
 
@@ -195,7 +197,8 @@ class MemoryGraph:
             "num_edges": subgraph.number_of_edges(),
             "density": nx.density(subgraph) if subgraph.number_of_nodes() > 0 else 0.0,
             "num_clusters": len(self.get_clusters(user_id)),
-            "avg_degree": sum(dict(subgraph.degree()).values()) / max(subgraph.number_of_nodes(), 1),
+            "avg_degree": sum(dict(subgraph.degree()).values())
+            / max(subgraph.number_of_nodes(), 1),
         }
 
     def suggest_relationships(
@@ -289,7 +292,9 @@ class MemoryGraph:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(graph_data, f, indent=indent, ensure_ascii=False)
 
-        logger.info(f"Exported graph to {file_path} (nodes: {len(graph_data['nodes'])}, edges: {len(graph_data['links'])})")
+        logger.info(
+            f"Exported graph to {file_path} (nodes: {len(graph_data['nodes'])}, edges: {len(graph_data['links'])})"
+        )
         return str(file_path)
 
     def import_from_json(self, file_path: Union[str, Path], merge: bool = True) -> Dict:
@@ -321,8 +326,14 @@ class MemoryGraph:
             graph_data = json.load(f)
 
         # Validate structure
-        if not isinstance(graph_data, dict) or "nodes" not in graph_data or "links" not in graph_data:
-            raise ValueError(f"Invalid graph format in {file_path}. Expected 'nodes' and 'links' keys.")
+        if (
+            not isinstance(graph_data, dict)
+            or "nodes" not in graph_data
+            or "links" not in graph_data
+        ):
+            raise ValueError(
+                f"Invalid graph format in {file_path}. Expected 'nodes' and 'links' keys."
+            )
 
         # Store old counts for stats
         old_node_count = self.graph.number_of_nodes()
@@ -333,7 +344,7 @@ class MemoryGraph:
             self.graph.clear()
             self._memory_index.clear()
             self._user_graphs.clear()
-            logger.info(f"Cleared existing graph before import (merge=False)")
+            logger.info("Cleared existing graph before import (merge=False)")
 
         # Import data
         self.import_from_dict(graph_data)

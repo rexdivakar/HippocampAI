@@ -193,7 +193,9 @@ def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get
 
 
 @app.post("/v1/memories:expire")
-def expire_memories(request: ExpireMemoriesRequest, client: MemoryClient = Depends(get_memory_client)):
+def expire_memories(
+    request: ExpireMemoriesRequest, client: MemoryClient = Depends(get_memory_client)
+):
     """Clean up expired memories."""
     try:
         expired_count = client.expire_memories(user_id=request.user_id)

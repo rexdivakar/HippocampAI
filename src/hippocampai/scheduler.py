@@ -39,35 +39,35 @@ class MemoryScheduler:
             return
 
         # Schedule consolidation job
-        if hasattr(self.config, 'consolidate_cron'):
+        if hasattr(self.config, "consolidate_cron"):
             self.scheduler.add_job(
                 self._run_consolidation,
                 trigger=CronTrigger.from_crontab(self.config.consolidate_cron),
-                id='consolidate_memories',
-                name='Memory Consolidation',
-                replace_existing=True
+                id="consolidate_memories",
+                name="Memory Consolidation",
+                replace_existing=True,
             )
             logger.info(f"Scheduled consolidation: {self.config.consolidate_cron}")
 
         # Schedule decay job
-        if hasattr(self.config, 'decay_cron'):
+        if hasattr(self.config, "decay_cron"):
             self.scheduler.add_job(
                 self._run_decay,
                 trigger=CronTrigger.from_crontab(self.config.decay_cron),
-                id='decay_importance',
-                name='Importance Decay',
-                replace_existing=True
+                id="decay_importance",
+                name="Importance Decay",
+                replace_existing=True,
             )
             logger.info(f"Scheduled importance decay: {self.config.decay_cron}")
 
         # Schedule snapshot job
-        if hasattr(self.config, 'snapshot_cron'):
+        if hasattr(self.config, "snapshot_cron"):
             self.scheduler.add_job(
                 self._run_snapshot,
                 trigger=CronTrigger.from_crontab(self.config.snapshot_cron),
-                id='create_snapshots',
-                name='Snapshot Creation',
-                replace_existing=True
+                id="create_snapshots",
+                name="Snapshot Creation",
+                replace_existing=True,
             )
             logger.info(f"Scheduled snapshots: {self.config.snapshot_cron}")
 
@@ -100,7 +100,7 @@ class MemoryScheduler:
 
             # For now, we'll implement a method to consolidate all memories
             # This should be implemented in the client
-            if hasattr(self.client, 'consolidate_all_memories'):
+            if hasattr(self.client, "consolidate_all_memories"):
                 consolidated_count = self.client.consolidate_all_memories()
             else:
                 logger.warning("consolidate_all_memories method not available on client")
@@ -126,7 +126,7 @@ class MemoryScheduler:
 
             # Apply decay to all memories
             # This should be implemented in the client
-            if hasattr(self.client, 'apply_importance_decay'):
+            if hasattr(self.client, "apply_importance_decay"):
                 decayed_count = self.client.apply_importance_decay()
             else:
                 logger.warning("apply_importance_decay method not available on client")
@@ -134,8 +134,7 @@ class MemoryScheduler:
 
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(
-                f"Importance decay completed: {decayed_count} memories updated "
-                f"in {duration:.2f}s"
+                f"Importance decay completed: {decayed_count} memories updated in {duration:.2f}s"
             )
 
         except Exception as e:
@@ -152,7 +151,7 @@ class MemoryScheduler:
 
             # Create snapshots for both collections
             snapshots = []
-            for collection in ['facts', 'prefs']:
+            for collection in ["facts", "prefs"]:
                 snapshot_name = self.client.create_snapshot(collection)
                 snapshots.append(snapshot_name)
                 logger.info(f"Created snapshot: {snapshot_name}")
@@ -174,17 +173,16 @@ class MemoryScheduler:
         jobs = []
         for job in self.scheduler.get_jobs():
             next_run = job.next_run_time
-            jobs.append({
-                "id": job.id,
-                "name": job.name,
-                "next_run": next_run.isoformat() if next_run else None,
-                "trigger": str(job.trigger)
-            })
+            jobs.append(
+                {
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run": next_run.isoformat() if next_run else None,
+                    "trigger": str(job.trigger),
+                }
+            )
 
-        return {
-            "status": "running",
-            "jobs": jobs
-        }
+        return {"status": "running", "jobs": jobs}
 
     def trigger_consolidation_now(self):
         """Manually trigger consolidation job immediately."""

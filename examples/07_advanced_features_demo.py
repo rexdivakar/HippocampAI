@@ -17,7 +17,7 @@ Run this with:
 
 import time
 
-from hippocampai import MemoryClient, RelationType, ChangeType
+from hippocampai import ChangeType, MemoryClient, RelationType
 
 
 def print_section(title: str):
@@ -124,7 +124,7 @@ def main():
         print(f"✓ Updated importance: {test_memory.importance} → {updated.importance}")
         test_memory = updated  # Use updated memory for next steps
     else:
-        print(f"⚠ Skipping version control demo (memory update failed)")
+        print("⚠ Skipping version control demo (memory update failed)")
         print("  This can happen due to timing - continuing with other demos...\n")
         # Continue with other demonstrations
 
@@ -142,7 +142,9 @@ def main():
         history = client.get_memory_history(test_memory.id)
         print(f"\n✓ Version history ({len(history)} versions):")
         for v in history:
-            print(f"  - v{v.version_number}: {v.change_summary} ({v.created_at.strftime('%H:%M:%S')})")
+            print(
+                f"  - v{v.version_number}: {v.change_summary} ({v.created_at.strftime('%H:%M:%S')})"
+            )
 
         # Compare versions
         diff = client.version_control.compare_versions(test_memory.id, 1, 2)
@@ -194,7 +196,7 @@ def main():
     memories = client.get_memories(user_id=user_id)
     tracked = next(m for m in memories if m.id == track_memory.id)
     print(f"✓ Access count: {tracked.access_count}")
-    if hasattr(tracked, 'last_accessed_at') and tracked.last_accessed_at:
+    if hasattr(tracked, "last_accessed_at") and tracked.last_accessed_at:
         print(f"✓ Last accessed: {tracked.last_accessed_at}")
     else:
         print("✓ Access tracking enabled (last_accessed_at stored in payload)")
@@ -252,9 +254,7 @@ def main():
             print(f"    Metadata: {entry.metadata}")
 
     # Get audit trail by change type
-    relationship_audits = client.get_audit_trail(
-        change_type=ChangeType.RELATIONSHIP_ADDED, limit=5
-    )
+    relationship_audits = client.get_audit_trail(change_type=ChangeType.RELATIONSHIP_ADDED, limit=5)
     print(f"\n✓ Relationship changes: {len(relationship_audits)}")
 
     # Get all user activity
@@ -295,7 +295,11 @@ def main():
     # 1. Batch add new memories
     new_memories = [
         {"text": "Deep learning uses neural networks", "tags": ["ml", "dl"], "importance": 8.0},
-        {"text": "TensorFlow is a popular ML framework", "tags": ["ml", "tools"], "importance": 7.5},
+        {
+            "text": "TensorFlow is a popular ML framework",
+            "tags": ["ml", "tools"],
+            "importance": 7.5,
+        },
     ]
     created = client.add_memories(new_memories, user_id=user_id)
     print(f"1. Added {len(created)} new memories")

@@ -1,6 +1,5 @@
 """Memory versioning and audit trail system."""
 
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -128,7 +127,9 @@ class MemoryVersionControl:
         logger.debug(f"Created version {version_number} for memory {memory_id}")
         return version
 
-    def get_version(self, memory_id: str, version_number: Optional[int] = None) -> Optional[MemoryVersion]:
+    def get_version(
+        self, memory_id: str, version_number: Optional[int] = None
+    ) -> Optional[MemoryVersion]:
         """
         Get a specific version of a memory.
 
@@ -278,9 +279,7 @@ class MemoryVersionControl:
         cutoff = datetime.now(timezone.utc).timestamp() - (days_old * 24 * 3600)
         original_count = len(self._audit_trail)
 
-        self._audit_trail = [
-            e for e in self._audit_trail if e.timestamp.timestamp() >= cutoff
-        ]
+        self._audit_trail = [e for e in self._audit_trail if e.timestamp.timestamp() >= cutoff]
 
         cleared = original_count - len(self._audit_trail)
         logger.info(f"Cleared {cleared} old audit entries")

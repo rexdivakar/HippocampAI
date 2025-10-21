@@ -80,7 +80,11 @@ class MemoryTelemetry:
         }
 
     def start_trace(
-        self, operation: OperationType, user_id: str, session_id: Optional[str] = None, **metadata: Any
+        self,
+        operation: OperationType,
+        user_id: str,
+        session_id: Optional[str] = None,
+        **metadata: Any,
     ) -> str:
         """Start a new trace for an operation."""
         if not self.enabled:
@@ -151,7 +155,9 @@ class MemoryTelemetry:
         """Get a specific trace."""
         return self.traces.get(trace_id)
 
-    def get_recent_traces(self, limit: int = 10, operation: Optional[OperationType] = None) -> List[MemoryTrace]:
+    def get_recent_traces(
+        self, limit: int = 10, operation: Optional[OperationType] = None
+    ) -> List[MemoryTrace]:
         """Get recent traces, optionally filtered by operation."""
         traces = list(self.traces.values())
 
@@ -200,9 +206,7 @@ class MemoryTelemetry:
         now = datetime.now(timezone.utc)
         cutoff = now.timestamp() - (older_than_minutes * 60)
         old_traces = [
-            tid
-            for tid, trace in self.traces.items()
-            if trace.start_time.timestamp() < cutoff
+            tid for tid, trace in self.traces.items() if trace.start_time.timestamp() < cutoff
         ]
 
         for tid in old_traces:
@@ -229,28 +233,30 @@ class MemoryTelemetry:
 
         exported = []
         for trace in traces_to_export:
-            exported.append({
-                "trace_id": trace.trace_id,
-                "operation": trace.operation.value,
-                "user_id": trace.user_id,
-                "session_id": trace.session_id,
-                "start_time": trace.start_time.isoformat(),
-                "end_time": trace.end_time.isoformat() if trace.end_time else None,
-                "duration_ms": trace.duration_ms,
-                "status": trace.status,
-                "metadata": trace.metadata,
-                "result": trace.result,
-                "events": [
-                    {
-                        "span_id": event.span_id,
-                        "timestamp": event.timestamp.isoformat(),
-                        "duration_ms": event.duration_ms,
-                        "status": event.status,
-                        "metadata": event.metadata,
-                    }
-                    for event in trace.events
-                ],
-            })
+            exported.append(
+                {
+                    "trace_id": trace.trace_id,
+                    "operation": trace.operation.value,
+                    "user_id": trace.user_id,
+                    "session_id": trace.session_id,
+                    "start_time": trace.start_time.isoformat(),
+                    "end_time": trace.end_time.isoformat() if trace.end_time else None,
+                    "duration_ms": trace.duration_ms,
+                    "status": trace.status,
+                    "metadata": trace.metadata,
+                    "result": trace.result,
+                    "events": [
+                        {
+                            "span_id": event.span_id,
+                            "timestamp": event.timestamp.isoformat(),
+                            "duration_ms": event.duration_ms,
+                            "status": event.status,
+                            "metadata": event.metadata,
+                        }
+                        for event in trace.events
+                    ],
+                }
+            )
 
         return exported
 

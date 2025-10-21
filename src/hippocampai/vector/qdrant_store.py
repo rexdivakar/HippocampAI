@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
@@ -17,8 +18,6 @@ from qdrant_client.models import (
     VectorParams,
     WalConfigDiff,
 )
-
-from qdrant_client import QdrantClient
 
 logger = logging.getLogger(__name__)
 
@@ -116,9 +115,7 @@ class QdrantStore:
                 tags = filters["tags"]
                 if isinstance(tags, str):
                     tags = [tags]
-                conditions.append(
-                    FieldCondition(key="tags", match=MatchAny(any=tags))
-                )
+                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
                 query_filter = Filter(must=conditions)
 
@@ -158,9 +155,7 @@ class QdrantStore:
                 tags = filters["tags"]
                 if isinstance(tags, str):
                     tags = [tags]
-                conditions.append(
-                    FieldCondition(key="tags", match=MatchAny(any=tags))
-                )
+                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
                 query_filter = Filter(must=conditions)
 

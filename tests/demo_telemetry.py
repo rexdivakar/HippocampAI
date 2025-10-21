@@ -1,8 +1,8 @@
 """Demo script showing telemetry features without requiring Qdrant."""
 
 import time
-from datetime import datetime
-from hippocampai.telemetry import get_telemetry, OperationType, MemoryTrace
+
+from hippocampai.telemetry import OperationType, get_telemetry
 
 print("=" * 70)
 print("  HippocampAI Telemetry System Demo")
@@ -21,16 +21,12 @@ trace_id = telemetry.start_trace(
     user_id="demo_user",
     session_id="demo_session",
     text="I love Python programming",
-    memory_type="preference"
+    memory_type="preference",
 )
 
 time.sleep(0.05)  # Simulate work
 telemetry.add_event(
-    trace_id,
-    "deduplication_check",
-    status="success",
-    duration_ms=15.3,
-    duplicates_found=0
+    trace_id, "deduplication_check", status="success", duration_ms=15.3, duplicates_found=0
 )
 
 time.sleep(0.03)
@@ -39,27 +35,21 @@ telemetry.add_event(
     "embedding_generation",
     status="success",
     duration_ms=45.2,
-    model="BAAI/bge-small-en-v1.5"
+    model="BAAI/bge-small-en-v1.5",
 )
 
 time.sleep(0.02)
 telemetry.add_event(
-    trace_id,
-    "vector_store",
-    status="success",
-    duration_ms=12.1,
-    collection="hippocampai_prefs"
+    trace_id, "vector_store", status="success", duration_ms=12.1, collection="hippocampai_prefs"
 )
 
 telemetry.end_trace(
-    trace_id,
-    status="success",
-    result={"memory_id": "abc123", "collection": "hippocampai_prefs"}
+    trace_id, status="success", result={"memory_id": "abc123", "collection": "hippocampai_prefs"}
 )
 
 print(f"   ✓ Created trace: {trace_id[:8]}...")
-print(f"   ✓ Status: success")
-print(f"   ✓ Events: 3 steps tracked")
+print("   ✓ Status: success")
+print("   ✓ Events: 3 steps tracked")
 
 # Demo 2: Multiple Operations
 print("\n2. Simulating Multiple Operations")
@@ -79,17 +69,13 @@ for op_type, content, content_type, duration in operations:
         operation=OperationType(op_type),
         user_id="demo_user",
         content=content[:30] + "...",
-        content_type=content_type
+        content_type=content_type,
     )
 
     # Simulate some processing time
     time.sleep(duration / 1000)
 
-    telemetry.end_trace(
-        trace_id,
-        status="success",
-        result={"processed": True}
-    )
+    telemetry.end_trace(trace_id, status="success", result={"processed": True})
 
     print(f"   ✓ {op_type}: {content[:40]}... ({duration:.1f}ms)")
 
@@ -123,7 +109,9 @@ for i, trace in enumerate(recent, 1):
     print(f"      User: {trace.user_id}")
     print(f"      Session: {trace.session_id or 'N/A'}")
     print(f"      Started: {trace.start_time.strftime('%H:%M:%S')}")
-    print(f"      Duration: {trace.duration_ms:.2f}ms" if trace.duration_ms else "      Duration: N/A")
+    print(
+        f"      Duration: {trace.duration_ms:.2f}ms" if trace.duration_ms else "      Duration: N/A"
+    )
     print(f"      Status: {trace.status}")
     print(f"      Events: {len(trace.events)}")
 
@@ -153,7 +141,7 @@ print("-" * 70)
 if recent:
     trace = recent[0]
     print(f"\n   Inspecting trace: {trace.trace_id[:8]}...")
-    print(f"\n   Timeline:")
+    print("\n   Timeline:")
 
     for i, event in enumerate(trace.events, 1):
         print(f"\n      Event {i}: {event.timestamp.strftime('%H:%M:%S.%f')[:-3]}")
@@ -171,14 +159,14 @@ print("\n   Exporting all traces...")
 exported = telemetry.export_traces()
 
 print(f"\n   ✓ Exported {len(exported)} traces")
-print(f"   ✓ Format: JSON-compatible")
-print(f"   ✓ Ready for: OpenTelemetry, Prometheus, Grafana, etc.")
+print("   ✓ Format: JSON-compatible")
+print("   ✓ Ready for: OpenTelemetry, Prometheus, Grafana, etc.")
 
 # Show sample structure
 if exported:
     sample = exported[0]
-    print(f"\n   Sample trace structure:")
-    print(f"   {{")
+    print("\n   Sample trace structure:")
+    print("   {")
     print(f"      'trace_id': '{sample['trace_id'][:8]}...',")
     print(f"      'operation': '{sample['operation']}',")
     print(f"      'user_id': '{sample['user_id']}',")
@@ -186,7 +174,7 @@ if exported:
     print(f"      'status': '{sample['status']}',")
     print(f"      'events': [{len(sample['events'])} events],")
     print(f"      'metadata': {list(sample['metadata'].keys())},")
-    print(f"   }}")
+    print("   }")
 
 # Demo 8: Telemetry for Debugging
 print("\n8. Using Telemetry for Debugging")
@@ -195,9 +183,7 @@ print("-" * 70)
 # Simulate slow operation
 print("\n   Simulating slow operation...")
 slow_trace = telemetry.start_trace(
-    operation=OperationType.RECALL,
-    user_id="debug_user",
-    query="complex query"
+    operation=OperationType.RECALL, user_id="debug_user", query="complex query"
 )
 
 time.sleep(0.5)  # Simulate slow operation
@@ -244,8 +230,8 @@ print(f"\n   Current traces in memory: {total_traces}")
 # cleared = telemetry.clear_traces(older_than_minutes=60)
 # print(f"   ✓ Would clear {cleared} old traces")
 
-print(f"\n   Note: Automatic cleanup prevents memory buildup")
-print(f"   Recommendation: Run cleanup hourly in production")
+print("\n   Note: Automatic cleanup prevents memory buildup")
+print("   Recommendation: Run cleanup hourly in production")
 
 # Final Summary
 print("\n" + "=" * 70)
@@ -263,17 +249,17 @@ print(f"   Recall operations: {recall_count}")
 print(f"   Extract operations: {extract_count}")
 
 if metrics:
-    avg_latency = sum(s['avg'] for s in metrics.values()) / len(metrics)
+    avg_latency = sum(s["avg"] for s in metrics.values()) / len(metrics)
     print(f"   Average latency: {avg_latency:.2f}ms")
 
-print(f"\n   Features demonstrated:")
-print(f"      ✓ Automatic operation tracking")
-print(f"      ✓ Performance metrics (P50, P95, P99)")
-print(f"      ✓ Detailed trace inspection")
-print(f"      ✓ Operation filtering")
-print(f"      ✓ Export functionality")
-print(f"      ✓ Real-time monitoring")
-print(f"      ✓ Debugging capabilities")
+print("\n   Features demonstrated:")
+print("      ✓ Automatic operation tracking")
+print("      ✓ Performance metrics (P50, P95, P99)")
+print("      ✓ Detailed trace inspection")
+print("      ✓ Operation filtering")
+print("      ✓ Export functionality")
+print("      ✓ Real-time monitoring")
+print("      ✓ Debugging capabilities")
 
 print("\n   All telemetry features working! ✨")
 print("\n" + "=" * 70)

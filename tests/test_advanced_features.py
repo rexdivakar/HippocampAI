@@ -16,13 +16,11 @@ Tests cover:
 import json
 import tempfile
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from hippocampai import MemoryClient, MemoryType, RelationType, ChangeType
-from hippocampai.models.memory import Memory
+from hippocampai import ChangeType, MemoryClient, MemoryType, RelationType
 
 
 @pytest.fixture
@@ -122,9 +120,7 @@ class TestGraphOperations:
         client.graph.add_memory(m2.id, "alice", {})
 
         # Add relationship
-        success = client.add_relationship(
-            m1.id, m2.id, RelationType.RELATED_TO, weight=0.9
-        )
+        success = client.add_relationship(m1.id, m2.id, RelationType.RELATED_TO, weight=0.9)
 
         assert success is True
 
@@ -194,7 +190,7 @@ class TestGraphPersistence:
         client.add_relationship(m1.id, m2.id, RelationType.RELATED_TO, weight=0.9)
 
         # Export to JSON
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
@@ -203,7 +199,7 @@ class TestGraphPersistence:
             assert Path(temp_path).exists()
 
             # Verify JSON structure
-            with open(temp_path, 'r') as f:
+            with open(temp_path, "r") as f:
                 data = json.load(f)
 
             assert "nodes" in data
@@ -236,13 +232,13 @@ class TestGraphPersistence:
         client.graph.add_memory(m1.id, "alice", {})
         client.graph.add_memory(m2.id, "bob", {})
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
             client.export_graph_to_json(temp_path, user_id="alice")
 
-            with open(temp_path, 'r') as f:
+            with open(temp_path, "r") as f:
                 data = json.load(f)
 
             # Should only contain alice's memory
@@ -262,7 +258,7 @@ class TestGraphPersistence:
         client.graph.add_memory(m2.id, "alice", {})
         client.add_relationship(m1.id, m2.id, RelationType.RELATED_TO)
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
@@ -316,7 +312,7 @@ class TestGraphPersistence:
         )
         temp_client.graph.add_memory(m2.id, "bob", {})
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
@@ -352,7 +348,7 @@ class TestGraphPersistence:
         )
         temp_client.graph.add_memory(m2.id, "bob", {})
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
@@ -380,7 +376,7 @@ class TestGraphPersistence:
 
     def test_import_graph_invalid_format(self, client):
         """Test importing invalid JSON format."""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
             json.dump({"invalid": "format"}, f)
 
@@ -403,10 +399,14 @@ class TestGraphPersistence:
         client.add_relationship(memories[0].id, memories[1].id, RelationType.LEADS_TO, weight=0.8)
         client.add_relationship(memories[1].id, memories[2].id, RelationType.CAUSED_BY, weight=0.9)
         client.add_relationship(memories[2].id, memories[3].id, RelationType.SUPPORTS, weight=0.7)
-        client.add_relationship(memories[3].id, memories[4].id, RelationType.RELATED_TO, weight=0.95)
-        client.add_relationship(memories[0].id, memories[4].id, RelationType.SIMILAR_TO, weight=0.85)
+        client.add_relationship(
+            memories[3].id, memories[4].id, RelationType.RELATED_TO, weight=0.95
+        )
+        client.add_relationship(
+            memories[0].id, memories[4].id, RelationType.SIMILAR_TO, weight=0.85
+        )
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
@@ -414,7 +414,7 @@ class TestGraphPersistence:
             client.export_graph_to_json(temp_path)
 
             # Verify export
-            with open(temp_path, 'r') as f:
+            with open(temp_path, "r") as f:
                 data = json.load(f)
 
             assert len(data["nodes"]) == 5
@@ -473,7 +473,7 @@ class TestVersionControl:
         for i in range(3):
             client.version_control.create_version(
                 memory.id,
-                {"text": f"Version {i+1}", "importance": 5.0 + i},
+                {"text": f"Version {i + 1}", "importance": 5.0 + i},
                 created_by="alice",
             )
 
@@ -487,12 +487,8 @@ class TestVersionControl:
         memory = client.remember("V1", user_id="alice", importance=5.0)
 
         # Create versions
-        client.version_control.create_version(
-            memory.id, {"text": "V1", "importance": 5.0}
-        )
-        client.version_control.create_version(
-            memory.id, {"text": "V2", "importance": 7.0}
-        )
+        client.version_control.create_version(memory.id, {"text": "V1", "importance": 5.0})
+        client.version_control.create_version(memory.id, {"text": "V2", "importance": 7.0})
 
         # Compare
         diff = client.version_control.compare_versions(memory.id, 1, 2)
@@ -591,7 +587,7 @@ class TestAccessTracking:
 
     def test_access_tracking_in_recall(self, client):
         """Test that inject_context tracks access."""
-        memory = client.remember("Python programming", user_id="alice")
+        client.remember("Python programming", user_id="alice")
 
         # Use inject_context which should track access
         client.inject_context("Query", "python", "alice", k=1)
@@ -648,7 +644,7 @@ class TestAdvancedFilters:
 
     def test_sort_by_access_count(self, client):
         """Test sorting by access count."""
-        m1 = client.remember("Memory 1", user_id="alice")
+        client.remember("Memory 1", user_id="alice")
         m2 = client.remember("Memory 2", user_id="alice")
 
         # Access m2 multiple times
@@ -711,15 +707,9 @@ class TestAuditTrail:
         m2 = client.remember("M2", user_id="bob")
 
         # Add audit entries
-        client.version_control.add_audit_entry(
-            m1.id, ChangeType.CREATED, user_id="alice"
-        )
-        client.version_control.add_audit_entry(
-            m2.id, ChangeType.CREATED, user_id="bob"
-        )
-        client.version_control.add_audit_entry(
-            m1.id, ChangeType.ACCESSED, user_id="alice"
-        )
+        client.version_control.add_audit_entry(m1.id, ChangeType.CREATED, user_id="alice")
+        client.version_control.add_audit_entry(m2.id, ChangeType.CREATED, user_id="bob")
+        client.version_control.add_audit_entry(m1.id, ChangeType.ACCESSED, user_id="alice")
 
         # Filter by user
         alice_entries = client.get_audit_trail(user_id="alice")
@@ -773,9 +763,7 @@ class TestIntegration:
             client.graph.add_memory(memory.id, "alice", {})
 
         # 2. Add relationships
-        client.add_relationship(
-            created[0].id, created[1].id, RelationType.RELATED_TO
-        )
+        client.add_relationship(created[0].id, created[1].id, RelationType.RELATED_TO)
 
         # 3. Track access
         client.track_memory_access(created[0].id, "alice")

@@ -58,7 +58,7 @@ for query in queries:
         print(f"\n   {i}. {result.memory.text}")
         print(f"      Type: {result.memory.type.value}")
         print(f"      Final Score: {result.score:.3f}")
-        print(f"      Score Breakdown:")
+        print("      Score Breakdown:")
         print(f"        - Similarity: {result.breakdown['sim']:.3f}")
         print(f"        - Rerank: {result.breakdown['rerank']:.3f}")
         print(f"        - Recency: {result.breakdown['recency']:.3f}")

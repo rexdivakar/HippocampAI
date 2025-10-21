@@ -1,8 +1,6 @@
 """Key-Value store for fast memory lookups using Redis-like interface."""
 
-import json
 import logging
-import pickle
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 

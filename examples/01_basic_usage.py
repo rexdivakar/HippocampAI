@@ -59,11 +59,9 @@ print(f"   ✓ Stored event: {memory4.id[:8]}...")
 print("\n3. Recalling memories...")
 
 # Query about coffee
-results = client.recall(
-    query="How does Alice like her coffee?", user_id=user_id, k=3
-)
+results = client.recall(query="How does Alice like her coffee?", user_id=user_id, k=3)
 
-print(f"\n   Query: 'How does Alice like her coffee?'")
+print("\n   Query: 'How does Alice like her coffee?'")
 print(f"   Found {len(results)} relevant memories:")
 for i, result in enumerate(results, 1):
     print(f"\n   {i}. {result.memory.text}")
@@ -75,7 +73,7 @@ for i, result in enumerate(results, 1):
 print("\n" + "-" * 60)
 results = client.recall(query="Where does Alice work?", user_id=user_id, k=3)
 
-print(f"\n   Query: 'Where does Alice work?'")
+print("\n   Query: 'Where does Alice work?'")
 print(f"   Found {len(results)} relevant memories:")
 for i, result in enumerate(results, 1):
     print(f"\n   {i}. {result.memory.text}")
@@ -86,7 +84,7 @@ for i, result in enumerate(results, 1):
 print("\n" + "-" * 60)
 results = client.recall(query="What are Alice's goals?", user_id=user_id, k=3)
 
-print(f"\n   Query: 'What are Alice's goals?'")
+print("\n   Query: 'What are Alice's goals?'")
 print(f"   Found {len(results)} relevant memories:")
 for i, result in enumerate(results, 1):
     print(f"\n   {i}. {result.memory.text}")

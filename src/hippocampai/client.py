@@ -18,7 +18,7 @@ from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType, get_telemetry
-from hippocampai.utils.context_injection import ContextInjector, inject_context
+from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
 
@@ -147,6 +147,7 @@ class MemoryClient:
         self.scheduler = None
         if enable_telemetry and self.config.enable_scheduler:
             from hippocampai.scheduler import MemoryScheduler
+
             self.scheduler = MemoryScheduler(client=self, config=self.config)
 
         logger.info("MemoryClient initialized with advanced features")
@@ -256,7 +257,11 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
             action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
-                trace_id, "deduplication_check", status="success", action=action, duplicates=len(dup_ids)
+                trace_id,
+                "deduplication_check",
+                status="success",
+                action=action,
+                duplicates=len(dup_ids),
             )
 
             if action == "skip":
@@ -280,11 +285,15 @@ class MemoryClient:
                 vector=vector,
                 payload=memory.model_dump(mode="json"),
             )
-            self.telemetry.add_event(trace_id, "vector_store", status="success", collection=collection)
+            self.telemetry.add_event(
+                trace_id, "vector_store", status="success", collection=collection
+            )
 
             logger.info(f"Stored memory: {memory.id}")
             self.telemetry.end_trace(
-                trace_id, status="success", result={"memory_id": memory.id, "collection": collection}
+                trace_id,
+                status="success",
+                result={"memory_id": memory.id, "collection": collection},
             )
             return memory
         except Exception as e:
@@ -367,7 +376,9 @@ class MemoryClient:
 
             logger.info(f"Extracted and stored {stored_count} memories from conversation")
             self.telemetry.end_trace(
-                trace_id, status="success", result={"extracted": len(memories), "stored": stored_count}
+                trace_id,
+                status="success",
+                result={"extracted": len(memories), "stored": stored_count},
             )
             return memories
         except Exception as e:
@@ -539,7 +550,14 @@ class MemoryClient:
 
             logger.info(f"Updated memory: {memory_id}")
             self.telemetry.end_trace(
-                trace_id, status="success", result={"memory_id": memory_id, "updated_fields": len([x for x in [text, importance, tags, metadata, expires_at] if x is not None])}
+                trace_id,
+                status="success",
+                result={
+                    "memory_id": memory_id,
+                    "updated_fields": len(
+                        [x for x in [text, importance, tags, metadata, expires_at] if x is not None]
+                    ),
+                },
             )
             return memory
 
@@ -567,8 +585,12 @@ class MemoryClient:
                 if memory_data:
                     # Verify user_id if provided
                     if user_id and memory_data["payload"].get("user_id") != user_id:
-                        logger.warning(f"User {user_id} attempted to delete memory {memory_id} owned by {memory_data['payload'].get('user_id')}")
-                        self.telemetry.end_trace(trace_id, status="error", result={"error": "unauthorized"})
+                        logger.warning(
+                            f"User {user_id} attempted to delete memory {memory_id} owned by {memory_data['payload'].get('user_id')}"
+                        )
+                        self.telemetry.end_trace(
+                            trace_id, status="error", result={"error": "unauthorized"}
+                        )
                         return False
 
                     self.qdrant.delete(collection_name=coll, ids=[memory_id])
@@ -579,7 +601,9 @@ class MemoryClient:
 
             if deleted:
                 logger.info(f"Deleted memory: {memory_id}")
-                self.telemetry.end_trace(trace_id, status="success", result={"memory_id": memory_id})
+                self.telemetry.end_trace(
+                    trace_id, status="success", result={"memory_id": memory_id}
+                )
                 return True
             else:
                 logger.warning(f"Memory {memory_id} not found")
@@ -645,7 +669,9 @@ class MemoryClient:
                     limit=limit,
                 )
                 all_memories.extend(results)
-                self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="success", count=len(results))
+                self.telemetry.add_event(
+                    trace_id, f"fetch_from_{coll}", status="success", count=len(results)
+                )
 
             # Parse into Memory objects
             memories = []
@@ -669,9 +695,7 @@ class MemoryClient:
             memories = memories[:limit]
 
             logger.info(f"Retrieved {len(memories)} memories for user {user_id}")
-            self.telemetry.end_trace(
-                trace_id, status="success", result={"count": len(memories)}
-            )
+            self.telemetry.end_trace(trace_id, status="success", result={"count": len(memories)})
             return memories
 
         except Exception as e:
@@ -717,7 +741,9 @@ class MemoryClient:
                     self.qdrant.delete(collection_name=coll, ids=expired_ids)
                     expired_count += len(expired_ids)
 
-                self.telemetry.add_event(trace_id, f"scan_{coll}", status="success", expired=len(expired_ids))
+                self.telemetry.add_event(
+                    trace_id, f"scan_{coll}", status="success", expired=len(expired_ids)
+                )
 
             logger.info(f"Expired {expired_count} memories")
             self.telemetry.end_trace(
@@ -802,9 +828,7 @@ class MemoryClient:
                 if self.delete_memory(memory_id, user_id):
                     deleted_count += 1
 
-            self.telemetry.end_trace(
-                trace_id, status="success", result={"deleted": deleted_count}
-            )
+            self.telemetry.end_trace(trace_id, status="success", result={"deleted": deleted_count})
             return deleted_count
 
         except Exception as e:
@@ -1013,9 +1037,7 @@ class MemoryClient:
             Snapshot name/ID
         """
         coll_name = (
-            self.config.collection_facts
-            if collection == "facts"
-            else self.config.collection_prefs
+            self.config.collection_facts if collection == "facts" else self.config.collection_prefs
         )
 
         snapshot_name = self.qdrant.create_snapshot(coll_name)
@@ -1115,7 +1137,9 @@ class MemoryClient:
             self.scheduler.start()
             logger.info("Background scheduler started")
         else:
-            logger.warning("Scheduler not initialized (enable_scheduler=False or enable_telemetry=False)")
+            logger.warning(
+                "Scheduler not initialized (enable_scheduler=False or enable_telemetry=False)"
+            )
 
     def stop_scheduler(self):
         """Stop the background scheduler."""
@@ -1232,7 +1256,7 @@ class MemoryClient:
             processed.add(mem1.id)
 
             # Find similar memories
-            for mem2 in memories[i + 1:]:
+            for mem2 in memories[i + 1 :]:
                 if mem2.id in processed:
                     continue
 

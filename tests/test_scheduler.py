@@ -149,7 +149,7 @@ class TestImportanceDecay:
         initial_importance = memory.importance
 
         # Apply decay (won't decay much for brand new memory)
-        count = client_with_scheduler.apply_importance_decay()
+        client_with_scheduler.apply_importance_decay()
 
         # Fetch updated memory
         memories = client_with_scheduler.get_memories(user_id=test_user_id)

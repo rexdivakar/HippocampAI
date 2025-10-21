@@ -74,7 +74,7 @@ def main():
         tags=["beverages", "coffee", "morning", "dietary"],
         importance=9.0,  # Increased importance
     )
-    print(f"✓ Updated coffee preference with new details")
+    print("✓ Updated coffee preference with new details")
     print(f"  New text: {updated_coffee.text}")
     print(f"  New tags: {updated_coffee.tags}")
     print(f"  New importance: {updated_coffee.importance}")
@@ -142,7 +142,7 @@ def main():
         user_id=user_id,
         filters={"include_expired": True},
     )
-    print(f"\n✓ Memory TTL status:")
+    print("\n✓ Memory TTL status:")
     for mem in all_memories:
         if mem.expires_at:
             days_until_expiry = (mem.expires_at - datetime.utcnow()).days
@@ -179,7 +179,7 @@ def main():
     # Delete the tea memory
     deleted = client.delete_memory(memory_id=tea_memory.id, user_id=user_id)
     if deleted:
-        print(f"✓ Successfully deleted tea habit memory")
+        print("✓ Successfully deleted tea habit memory")
 
     # Verify deletion
     remaining = client.get_memories(user_id=user_id)
@@ -192,7 +192,7 @@ def main():
     metrics = client.get_telemetry_metrics()
     print("\n✓ Operation metrics:")
     for operation, stats in metrics.items():
-        if stats and 'count' in stats:
+        if stats and "count" in stats:
             print(f"  {operation}:")
             print(f"    Count: {stats['count']}")
             print(f"    Avg duration: {stats['avg']:.2f}ms")

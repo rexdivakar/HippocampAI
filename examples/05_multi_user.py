@@ -69,7 +69,9 @@ for user_id, query in queries:
 print("\n4. Testing user isolation...")
 print("\n   Querying Bob's memories with Alice's user_id:")
 results = client.recall(query="What does Bob drink?", user_id="alice", k=5)
-print(f"   Results about Bob found in Alice's memories: {len([r for r in results if 'bob' in r.memory.text.lower()])}")
+print(
+    f"   Results about Bob found in Alice's memories: {len([r for r in results if 'bob' in r.memory.text.lower()])}"
+)
 
 print("\n   ✓ User isolation working correctly")
 

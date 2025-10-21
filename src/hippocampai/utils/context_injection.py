@@ -204,9 +204,7 @@ class ContextInjector:
         """
         return len(text) // 4
 
-    def truncate_to_token_limit(
-        self, memories: List[Memory], current_prompt: str
-    ) -> List[Memory]:
+    def truncate_to_token_limit(self, memories: List[Memory], current_prompt: str) -> List[Memory]:
         """
         Truncate memories to fit within token limit.
 

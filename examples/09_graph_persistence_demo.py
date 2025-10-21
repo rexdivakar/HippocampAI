@@ -63,7 +63,7 @@ def main():
 
     # Display graph stats
     stats = client.graph.get_graph_stats()
-    print(f"\n✓ Graph created:")
+    print("\n✓ Graph created:")
     print(f"  Nodes: {stats['num_nodes']}")
     print(f"  Edges: {stats['num_edges']}")
     print(f"  Density: {stats['density']:.3f}")
@@ -78,7 +78,8 @@ def main():
 
     # Read and display the file
     import json
-    with open(full_graph_path, 'r') as f:
+
+    with open(full_graph_path, "r") as f:
         graph_data = json.load(f)
     print(f"  Nodes in file: {len(graph_data['nodes'])}")
     print(f"  Edges in file: {len(graph_data['links'])}")
@@ -90,7 +91,7 @@ def main():
     client.export_graph_to_json(alice_graph_path, user_id="alice")
     print(f"✓ Exported Alice's graph to: {alice_graph_path}")
 
-    with open(alice_graph_path, 'r') as f:
+    with open(alice_graph_path, "r") as f:
         alice_data = json.load(f)
     print(f"  Alice's nodes: {len(alice_data['nodes'])}")
     print(f"  Alice's edges: {len(alice_data['links'])}")
@@ -99,7 +100,7 @@ def main():
     client.export_graph_to_json(bob_graph_path, user_id="bob")
     print(f"✓ Exported Bob's graph to: {bob_graph_path}")
 
-    with open(bob_graph_path, 'r') as f:
+    with open(bob_graph_path, "r") as f:
         bob_data = json.load(f)
     print(f"  Bob's nodes: {len(bob_data['nodes'])}")
     print(f"  Bob's edges: {len(bob_data['links'])}")
@@ -121,7 +122,7 @@ def main():
     print(f"\nImporting from {full_graph_path}...")
     import_stats = client.import_graph_from_json(full_graph_path)
 
-    print(f"✓ Import completed:")
+    print("✓ Import completed:")
     print(f"  Nodes before: {import_stats['nodes_before']}")
     print(f"  Nodes after: {import_stats['nodes_after']}")
     print(f"  Edges before: {import_stats['edges_before']}")
@@ -162,10 +163,10 @@ def main():
     print("Merging Charlie's graph (merge=True)...")
     merge_stats = client.import_graph_from_json(charlie_graph_path, merge=True)
 
-    print(f"✓ Merge completed:")
+    print("✓ Merge completed:")
     print(f"  Nodes before merge: {merge_stats['nodes_before']}")
     print(f"  Nodes after merge: {merge_stats['nodes_after']}")
-    print(f"  Total users: Alice, Bob, Charlie")
+    print("  Total users: Alice, Bob, Charlie")
 
     # === 6. REPLACE MODE DEMONSTRATION ===
     print_section("6. Replace Mode - Complete Graph Replacement")
@@ -173,10 +174,10 @@ def main():
     print("Importing Bob's graph with merge=False (replace)...")
     replace_stats = client.import_graph_from_json(bob_graph_path, merge=False)
 
-    print(f"✓ Replace completed:")
+    print("✓ Replace completed:")
     print(f"  Nodes before: {replace_stats['nodes_before']}")
     print(f"  Nodes after: {replace_stats['nodes_after']}")
-    print(f"  Graph now contains only Bob's memories")
+    print("  Graph now contains only Bob's memories")
 
     # === 7. GET GRAPH STATISTICS ===
     print_section("7. Final Graph Statistics")

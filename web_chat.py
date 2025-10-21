@@ -98,7 +98,9 @@ def send_message():
         if user_id not in conversation_history:
             conversation_history[user_id] = []
 
-        conversation_history[user_id].append({"role": "user", "content": message, "timestamp": datetime.now().isoformat()})
+        conversation_history[user_id].append(
+            {"role": "user", "content": message, "timestamp": datetime.now().isoformat()}
+        )
 
         # Extract memories from conversation
         if len(conversation_history[user_id]) >= 2:
@@ -125,16 +127,14 @@ def send_message():
             response = client.llm.generate(prompt, max_tokens=512, temperature=0.7)
         else:
             # Fallback response
-            response = f"I understand. I've noted that and will remember our conversation."
+            response = "I understand. I've noted that and will remember our conversation."
             if memories:
                 response += f" I recall {len(memories)} related memories about you."
 
         # Add response to history
-        conversation_history[user_id].append({
-            "role": "assistant",
-            "content": response,
-            "timestamp": datetime.now().isoformat()
-        })
+        conversation_history[user_id].append(
+            {"role": "assistant", "content": response, "timestamp": datetime.now().isoformat()}
+        )
 
         return jsonify(
             {
@@ -198,22 +198,28 @@ def get_memories():
 
         # Get memories from both collections
         facts = client.qdrant.scroll(
-            collection_name=client.config.collection_facts, filters={"user_id": user_id}, limit=limit
+            collection_name=client.config.collection_facts,
+            filters={"user_id": user_id},
+            limit=limit,
         )
         prefs = client.qdrant.scroll(
-            collection_name=client.config.collection_prefs, filters={"user_id": user_id}, limit=limit
+            collection_name=client.config.collection_prefs,
+            filters={"user_id": user_id},
+            limit=limit,
         )
 
         all_memories = []
         for mem in facts + prefs:
             payload = mem.get("payload", {})
-            all_memories.append({
-                "id": mem.get("id"),
-                "text": payload.get("text"),
-                "type": payload.get("type"),
-                "importance": payload.get("importance"),
-                "created_at": payload.get("created_at"),
-            })
+            all_memories.append(
+                {
+                    "id": mem.get("id"),
+                    "text": payload.get("text"),
+                    "type": payload.get("type"),
+                    "importance": payload.get("importance"),
+                    "created_at": payload.get("created_at"),
+                }
+            )
 
         return jsonify({"success": True, "memories": all_memories, "count": len(all_memories)})
 
