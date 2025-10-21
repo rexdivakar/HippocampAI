@@ -174,19 +174,73 @@ Not applicable (initial release)
 
 ## [Unreleased]
 
+### Added (New in v0.2.0)
+
+#### Memory Size Tracking
+- **NEW**: Automatic character and token counting for all memories
+  - Added `text_length: int` field to Memory model
+  - Added `token_count: int` field to Memory model (4 chars ≈ 1 token approximation)
+  - `calculate_size_metrics()` method for automatic calculation
+  - Size metrics calculated on memory creation and updates
+- **NEW**: Memory statistics API
+  - `get_memory_statistics(user_id)` - Get comprehensive size analytics
+  - Returns total memories, characters, tokens, averages, min/max
+  - Statistics grouped by memory type
+- **NEW**: Telemetry integration for size tracking
+  - Added `memory_size_chars` and `memory_size_tokens` metrics
+  - `track_memory_size()` method in telemetry
+  - Size metrics included in metrics summary
+
+#### Async Support
+- **NEW**: `AsyncMemoryClient` class for asynchronous operations
+  - Extends `MemoryClient` with async variants
+  - All core operations: `remember_async()`, `recall_async()`, `update_memory_async()`, `delete_memory_async()`, `get_memories_async()`
+  - Batch operations: `add_memories_async()`, `delete_memories_async()`
+  - Utility methods: `get_memory_statistics_async()`, `inject_context_async()`, `extract_from_conversation_async()`
+  - Uses `asyncio.run_in_executor()` for non-blocking execution
+  - Full support for concurrent operations with `asyncio.gather()`
+- **NEW**: Async test suite
+  - Comprehensive tests in `tests/test_async.py`
+  - Tests for all async operations
+  - Concurrent operation tests
+
+#### Advanced Features (Previously Implemented, Now Documented)
+- Batch operations (`add_memories`, `delete_memories`)
+- Graph indexing and relationships
+- Version control and rollback
+- Context injection for LLM prompts
+- Memory access tracking
+- Advanced filtering and sorting
+- Snapshots and audit trail
+- KV store for fast lookups
+
+### Changed
+- Updated telemetry to track memory size metrics
+- Enhanced `MemoryClient` to calculate size metrics automatically
+- Improved test coverage with async operation tests (5 new test classes, 9 new tests)
+
+### Documentation
+- **Updated**: README.md with async usage examples and memory size tracking
+- **Updated**: FEATURES.md with complete feature documentation (all 15 features)
+- **Removed**: Obsolete chat integration docs (CHAT_INTEGRATION.md, CHAT_README.md)
+- **Removed**: Obsolete tool documentation (TOOLS.md, TOOLS_SUMMARY.md, HOW_TO_RUN.md)
+- **Updated**: Roadmap with completed features
+- **Updated**: Examples list to include advanced features demo
+
 ### Planned Features
+- [ ] Memory consolidation scheduler (background jobs with APScheduler/Celery)
+- [ ] Persistent graph storage (JSON export/import for NetworkX graph)
 - [ ] LangChain integration
 - [ ] LlamaIndex integration
 - [ ] Retrieval evaluators and A/B testing
 - [ ] Multi-tenant RBAC
 - [ ] Native TypeScript SDK
 - [ ] Grafana/Prometheus exporters
-- [ ] Memory versioning
-- [ ] Time-travel queries
+- [ ] WebSocket support for real-time updates
 
 ### Planned Fixes
-- [ ] Fix `test_memory_type_routing` test
 - [ ] Update to Pydantic V2 style (remove deprecated `env` parameter)
+- [ ] Fix datetime.utcnow() deprecation warnings (use datetime.now(UTC))
 - [ ] Improve test coverage to 90%+
 
 ---

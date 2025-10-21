@@ -84,12 +84,16 @@ from hippocampai import MemoryClient
 client = MemoryClient()
 
 # Store a memory
-client.remember(
+memory = client.remember(
     text="I prefer oat milk in my coffee",
     user_id="alice",
     type="preference",
-    importance=8.0
+    importance=8.0,
+    tags=["beverages", "preferences"]
 )
+
+# Memory size is automatically tracked
+print(f"Memory size: {memory.text_length} chars, {memory.token_count} tokens")
 
 # Recall relevant memories
 results = client.recall(
@@ -100,18 +104,52 @@ results = client.recall(
 
 for result in results:
     print(f"{result.memory.text} (score: {result.score:.3f})")
+
+# Get memory statistics
+stats = client.get_memory_statistics(user_id="alice")
+print(f"Total memories: {stats['total_memories']}")
+print(f"Total size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
+```
+
+### Async Usage
+
+```python
+from hippocampai import AsyncMemoryClient
+import asyncio
+
+async def main():
+    client = AsyncMemoryClient()
+
+    # Store memories concurrently
+    tasks = [
+        client.remember_async(f"Memory {i}", user_id="alice")
+        for i in range(10)
+    ]
+    memories = await asyncio.gather(*tasks)
+
+    # Async recall
+    results = await client.recall_async(
+        query="What do you know about me?",
+        user_id="alice",
+        k=5
+    )
+
+asyncio.run(main())
 ```
 
 ---
 
 ## 🎯 Features
 
-### Memory Management
+### Core Memory Operations
 
+- **CRUD Operations** — remember, recall, update, delete with telemetry tracking
 - **Automatic extraction** from conversations using heuristics or LLM
 - **Deduplication** with semantic similarity and reranking
 - **Importance scoring** with configurable decay
 - **Multi-user isolation** — complete data separation per user
+- **Memory size tracking** — automatic character and token counting
+- **Async support** — async variants of all core operations for high-performance apps
 
 ### Hybrid Retrieval
 
@@ -152,15 +190,45 @@ memories = client.extract_from_conversation(
 print(f"Extracted {len(memories)} memories")
 ```
 
-### Telemetry & Observability
-
-Track all memory operations with built-in telemetry (library access only):
+### Advanced Features
 
 ```python
-from hippocampai import MemoryClient
+# Batch operations
+memories_data = [
+    {"text": "I like Python", "tags": ["programming"]},
+    {"text": "I prefer dark mode", "type": "preference"},
+]
+created = client.add_memories(memories_data, user_id="alice")
 
-client = MemoryClient()
+# Graph relationships
+client.add_relationship(
+    source_id=created[0].id,
+    target_id=created[1].id,
+    relation_type=RelationType.RELATED_TO
+)
 
+# Version control
+history = client.get_memory_history(memory_id)
+client.rollback_memory(memory_id, version_number=1)
+
+# Context injection for LLMs
+prompt = client.inject_context(
+    prompt="What are my preferences?",
+    query="user preferences",
+    user_id="alice",
+    k=5
+)
+
+# Memory statistics
+stats = client.get_memory_statistics(user_id="alice")
+print(f"Total: {stats['total_memories']} memories")
+print(f"Size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
+print(f"By type: {stats['by_type']}")
+```
+
+### Telemetry & Observability
+
+```python
 # Memory operations are automatically tracked
 client.remember(text="I love Python", user_id="alice")
 client.recall(query="What do I like?", user_id="alice")
@@ -168,59 +236,13 @@ client.recall(query="What do I like?", user_id="alice")
 # Access telemetry via client
 metrics = client.get_telemetry_metrics()
 print(f"Average recall time: {metrics['recall_duration']['avg']:.2f}ms")
+print(f"Average memory size: {metrics['memory_size_chars']['avg']:.1f} chars")
 
 # Get recent operations
 operations = client.get_recent_operations(limit=10)
 for op in operations:
     print(f"{op.operation.value}: {op.duration_ms:.2f}ms ({op.status})")
-
-# Export telemetry data
-exported = client.export_telemetry()
-
-# Or access global telemetry instance
-from hippocampai import get_telemetry
-telemetry = get_telemetry()
-traces = telemetry.get_recent_traces(limit=10)
 ```
-
----
-
-## 🖥️ Interfaces
-
-### CLI Chat
-
-```bash
-python cli_chat.py alice
-
-# Commands:
-# /help      - Show help
-# /stats     - Show memory statistics
-# /memories  - View stored memories
-# /clear     - Clear session
-# /quit      - Exit
-```
-
-### Web Interface
-
-```bash
-python web_chat.py
-```
-
-Then open http://localhost:5000
-
-### FastAPI Server
-
-```bash
-python -m hippocampai.api.app
-
-# Endpoints:
-# POST /v1/memories:remember - Store a memory
-# POST /v1/memories:recall   - Retrieve memories
-# POST /v1/memories:extract  - Extract from conversation
-# GET  /healthz              - Health check
-```
-
-**Note:** Telemetry data is accessed via library functions, not REST endpoints.
 
 ---
 
@@ -243,6 +265,12 @@ python examples/04_custom_configuration.py
 
 # Multi-user management
 python examples/05_multi_user.py
+
+# Batch operations
+python examples/06_batch_operations.py
+
+# Advanced features (graph, version control, context injection, etc.)
+python examples/07_advanced_features_demo.py
 
 # Run all examples
 ./run_examples.sh
@@ -290,11 +318,12 @@ client = MemoryClient(config=config)
 ## 📖 Documentation
 
 - [Quick Start Guide](docs/QUICKSTART.md) - Get up and running in 5 minutes
+- [API Reference](docs/API_REFERENCE.md) - Complete API documentation for all methods
+- [Features Guide](docs/FEATURES.md) - Complete feature documentation with examples
 - [Configuration Guide](docs/CONFIGURATION.md) - All configuration options explained
 - [Provider Setup](docs/PROVIDERS.md) - Configure Ollama, OpenAI, Anthropic, Groq
-- [API Reference](docs/API.md) - Complete API documentation
-- [Architecture](docs/ARCHITECTURE.md) - System design and components
 - [Telemetry Guide](docs/TELEMETRY.md) - Observability and tracing
+- [Changelog](docs/CHANGELOG.md) - Version history and updates
 
 Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 
@@ -328,14 +357,31 @@ Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 
 ## 🗺️ Roadmap
 
-- [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`) ✅ v0.1.0
-- [x] Built-in telemetry and observability ✅ v0.1.0
+**Completed (v0.1.0):**
+- [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`)
+- [x] Built-in telemetry and observability
+- [x] Batch operations (add_memories, delete_memories)
+- [x] Graph indexing and relationships
+- [x] Version control and rollback
+- [x] Context injection for LLM prompts
+- [x] Memory access tracking
+- [x] Advanced filtering and sorting
+- [x] Snapshots and audit trail
+- [x] KV store for fast lookups
+- [x] Memory size tracking (text_length, token_count)
+- [x] Async variants for all core operations
+
+**In Progress:**
+- [ ] Memory consolidation scheduler (background jobs)
+- [ ] Persistent graph storage (JSON export/import)
+
+**Planned:**
 - [ ] LangChain and LlamaIndex integrations
 - [ ] Retrieval evaluators and A/B testing
 - [ ] Multi-tenant RBAC and access policies
 - [ ] Native TypeScript SDK
 - [ ] Grafana/Prometheus metrics exporters
-- [ ] Memory versioning and time-travel queries
+- [ ] WebSocket support for real-time updates
 
 Contributions welcome! Open issues or PRs to shape HippocampAI's direction.
 
