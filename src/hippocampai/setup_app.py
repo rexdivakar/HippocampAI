@@ -131,8 +131,9 @@ def validate_configuration() -> bool:
 
 def test_qdrant_connection() -> bool:
     try:
-        from hippocampai.config import get_config
         from qdrant_client import QdrantClient
+
+        from hippocampai.config import get_config
 
         config = get_config()
         client = QdrantClient(url=config.qdrant_url)

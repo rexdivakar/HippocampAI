@@ -4,20 +4,23 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
     HnswConfigDiff,
+    MatchAny,
     MatchValue,
     OptimizersConfigDiff,
     PayloadSchemaType,
     PointStruct,
+    SearchParams,
     VectorParams,
     WalConfigDiff,
 )
 
-from qdrant_client import QdrantClient
+from hippocampai.utils.retry import get_qdrant_retry_decorator
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +72,17 @@ class QdrantStore:
                     field_name="type",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name="tags",
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
 
                 logger.info(f"Created collection: {collection_name}")
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
-        """Insert or update a point."""
+        """Insert or update a point (with automatic retry on transient failures)."""
         self.client.upsert(
             collection_name=collection_name,
             points=[
@@ -85,6 +94,7 @@ class QdrantStore:
             ],
         )
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def search(
         self,
         collection_name: str,
@@ -93,7 +103,7 @@ class QdrantStore:
         filters: Optional[Dict[str, Any]] = None,
         ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Vector similarity search."""
+        """Vector similarity search (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
             conditions = []
@@ -105,29 +115,36 @@ class QdrantStore:
                 conditions.append(
                     FieldCondition(key="type", match=MatchValue(value=filters["type"]))
                 )
+            if "tags" in filters:
+                # Support both single tag and list of tags
+                tags = filters["tags"]
+                if isinstance(tags, str):
+                    tags = [tags]
+                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
                 query_filter = Filter(must=conditions)
 
-        search_params = {}
-        if ef:
-            search_params["hnsw_ef"] = ef
-        elif self.ef_search:
-            search_params["hnsw_ef"] = self.ef_search
+        # Build search params
+        hnsw_ef = ef if ef else self.ef_search
+        search_params = SearchParams(hnsw_ef=hnsw_ef) if hnsw_ef else None
 
-        results = self.client.search(
+        # Use query_points instead of deprecated search
+        results = self.client.query_points(
             collection_name=collection_name,
-            query_vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
+            query=vector.tolist() if isinstance(vector, np.ndarray) else vector,
             limit=limit,
             query_filter=query_filter,
             search_params=search_params,
-        )
+            with_payload=True,
+        ).points
 
         return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def scroll(
         self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
-        """Scroll through points."""
+        """Scroll through points (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
             conditions = []
@@ -135,6 +152,16 @@ class QdrantStore:
                 conditions.append(
                     FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
                 )
+            if "type" in filters:
+                conditions.append(
+                    FieldCondition(key="type", match=MatchValue(value=filters["type"]))
+                )
+            if "tags" in filters:
+                # Support both single tag and list of tags
+                tags = filters["tags"]
+                if isinstance(tags, str):
+                    tags = [tags]
+                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
                 query_filter = Filter(must=conditions)
 
@@ -148,9 +175,41 @@ class QdrantStore:
 
         return [{"id": str(r.id), "payload": r.payload} for r in results]
 
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def delete(self, collection_name: str, ids: List[str]):
-        """Delete points by IDs."""
+        """Delete points by IDs (with automatic retry on transient failures)."""
         self.client.delete(collection_name=collection_name, points_selector=ids)
+
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
+    def get(self, collection_name: str, id: str) -> Optional[Dict[str, Any]]:
+        """Get a single point by ID (with automatic retry on transient failures)."""
+        try:
+            result = self.client.retrieve(
+                collection_name=collection_name,
+                ids=[id],
+                with_payload=True,
+                with_vectors=False,
+            )
+            if result:
+                return {"id": str(result[0].id), "payload": result[0].payload}
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get point {id}: {e}")
+            return None
+
+    @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
+    def update(self, collection_name: str, id: str, payload: Dict[str, Any]) -> bool:
+        """Update payload of an existing point (with automatic retry on transient failures)."""
+        try:
+            self.client.set_payload(
+                collection_name=collection_name,
+                payload=payload,
+                points=[id],
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update point {id}: {e}")
+            return False
 
     def create_snapshot(self, collection_name: str) -> str:
         """Create collection snapshot."""

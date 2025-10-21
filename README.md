@@ -1,141 +1,479 @@
 # HippocampAI — Autonomous Memory Engine for LLM Agents
 
+[![PyPI version](https://badge.fury.io/py/hippocampai.svg)](https://pypi.org/project/hippocampai/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/hippocampai.svg)](https://pypi.org/project/hippocampai/)
+[![Downloads](https://pepy.tech/badge/hippocampai)](https://pepy.tech/project/hippocampai)
 [![Quality Gate Status](https://sonar.craftedbrain.com/api/project_badges/measure?project=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475&metric=alert_status&token=sqb_dd0c0b1bf58646ce474b64a1fa8d83446345bccf)](https://sonar.craftedbrain.com/dashboard?id=rexdivakar_HippocampAI_6669aa8c-2e81-4016-9993-b29a3a78c475)
 
 HippocampAI turns raw conversations into a curated long-term memory vault for your AI assistants. It extracts, scores, deduplicates, stores, and retrieves user memories so agents can stay personal, consistent, and context-aware across sessions.
 
-- Plug-and-play `MemoryClient` API with built-in pipelines for extraction, dedupe, consolidation, and importance decay
-- Hybrid retrieval that fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
-- Works fully self-hosted via Qdrant + Ollama or in the cloud via OpenAI (and other providers) with the same code paths
-- Ships with CLI and web chat UIs, typed models, scheduled maintenance jobs, and production-grade logging/config
+- **Plug-and-play** `MemoryClient` API with built-in pipelines for extraction, dedupe, consolidation, and importance decay
+- **Hybrid retrieval** that fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
+- **Self-hosted first** — works fully offline via Qdrant + Ollama or in the cloud via OpenAI with the same code paths
+- **Production-ready** — automatic retry logic, structured JSON logging, request tracing, telemetry, typed models, and scheduled jobs
+- **Fully customizable** — every component (extraction, retrieval, scoring) is extensible without vendor lock-in
 
 ---
 
-## Why HippocampAI
+## ✨ Why HippocampAI
 
 - **Persistent personalization** – store preferences, facts, goals, habits, and events per user with importance scoring and decay
 - **Reliable retrieval** – hybrid ranking surfaces the right memories even when queries are vague or drift semantically
 - **Automatic hygiene** – extractor, deduplicator, consolidator, and scorer keep the memory base uncluttered
 - **Local-first** – run everything on your infra with open models, or flip a switch to activate OpenAI for higher quality
+- **Built-in telemetry** – track all memory operations with detailed tracing and metrics (similar to Mem0 platform)
 - **Extensible Python SDK** – customize every stage without being locked to a hosted API
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
+
+### 1. Installation
+
+**Install from PyPI (Recommended):**
+
+```bash
+# Install with core dependencies
+pip install hippocampai
+
+# Or install with additional providers
+pip install "hippocampai[all]"  # All providers + API + Web
+pip install "hippocampai[openai]"  # Just OpenAI
+pip install "hippocampai[api]"  # FastAPI server
+pip install "hippocampai[web]"  # Flask web interface
+```
+
+View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
+
+**Or install from source:**
 
 ```bash
 git clone https://github.com/rexdivakar/HippocampAI.git
 cd HippocampAI
-python -m venv .venv
-source .venv/bin/activate
+
+# Install with core dependencies
 pip install -e .
-python setup_initial.py  # creates .env, initializes Qdrant collections
+
+# Or install with additional providers
+pip install -e ".[all]"  # All providers + API + Web
+pip install -e ".[openai]"  # Just OpenAI
+pip install -e ".[api]"  # FastAPI server
+pip install -e ".[web]"  # Flask web interface
 ```
 
-Configure the generated `.env`:
+### 2. Start Qdrant
 
 ```bash
-OPENAI_API_KEY=sk-...
+docker run -p 6333:6333 qdrant/qdrant
+```
+
+### 3. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your configuration:
+
+```bash
+# Basic settings
 QDRANT_URL=http://localhost:6333
-LLM_PROVIDER=ollama       # or openai
+LLM_PROVIDER=ollama
 LLM_MODEL=qwen2.5:7b-instruct
+
+# For cloud providers (optional)
+# LLM_PROVIDER=openai
+# OPENAI_API_KEY=sk-your-key-here
+# ALLOW_CLOUD=true
 ```
 
-Start the chat clients:
+### 4. Initialize Collections
 
 ```bash
-python cli_chat.py alice
-python web_chat.py        # open http://localhost:5000
-```
-
-Run the interactive example suite:
-
-```bash
-./run_example.sh
+python -c "from hippocampai import MemoryClient; MemoryClient()"
 ```
 
 ---
 
-## Embed HippocampAI in Your Agent
+## 💡 Basic Usage
 
 ```python
 from hippocampai import MemoryClient
 
-client = MemoryClient(user_id="user_123")
+# Initialize client
+client = MemoryClient()
 
-client.remember(
-    text="I prefer oat milk in my coffee.",
-    user_id="user_123",
-    session_id="morning_chat",
-    type="preference"
+# Store a memory
+memory = client.remember(
+    text="I prefer oat milk in my coffee",
+    user_id="alice",
+    type="preference",
+    importance=8.0,
+    tags=["beverages", "preferences"]
 )
 
-memories = client.recall(
-    query="How should I serve their coffee?",
-    user_id="user_123",
-    session_id="morning_chat",
+# Memory size is automatically tracked
+print(f"Memory size: {memory.text_length} chars, {memory.token_count} tokens")
+
+# Recall relevant memories
+results = client.recall(
+    query="How does Alice like her coffee?",
+    user_id="alice",
     k=3
 )
 
-for item in memories:
-    print(item.memory.text, item.score)
+for result in results:
+    print(f"{result.memory.text} (score: {result.score:.3f})")
+
+# Get memory statistics
+stats = client.get_memory_statistics(user_id="alice")
+print(f"Total memories: {stats['total_memories']}")
+print(f"Total size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
 ```
 
-- `remember` scores importance, checks for duplicates, stores vectors + payload in Qdrant.
-- `recall` rebuilds BM25 on demand, routes queries, fuses vector + lexical hits, reranks, and blends final scores.
+### Async Usage
+
+```python
+from hippocampai import AsyncMemoryClient
+import asyncio
+
+async def main():
+    client = AsyncMemoryClient()
+
+    # Store memories concurrently
+    tasks = [
+        client.remember_async(f"Memory {i}", user_id="alice")
+        for i in range(10)
+    ]
+    memories = await asyncio.gather(*tasks)
+
+    # Async recall
+    results = await client.recall_async(
+        query="What do you know about me?",
+        user_id="alice",
+        k=5
+    )
+
+asyncio.run(main())
+```
 
 ---
 
-## Feature Highlights
+## 🎯 Features
 
-- **Memory extraction** – heuristics + optional LLM convert conversation logs into structured memories.
-- **Deduplication & consolidation** – detect near duplicates via embeddings + rerankers; merge clusters into concise summaries.
-- **Importance decay** – configurable half-life per memory type plus recency/access boosts keep results fresh.
-- **Hybrid retrieval** – vector search + BM25 + reciprocal-rank fusion + cross-encoder rerank → final recency/importance weighted set.
-- **Session management** – track sessions, keep summaries, and bias retrieval toward the active conversation.
-- **Jobs & tooling** – built-in cron schedules for decay/consolidation/snapshots; CLI commands for maintenance.
+### Core Memory Operations
 
-Full API and architecture references live under `docs/`.
+- **CRUD Operations** — remember, recall, update, delete with telemetry tracking
+- **Automatic extraction** from conversations using heuristics or LLM
+- **Deduplication** with semantic similarity and reranking
+- **Importance scoring** with configurable decay
+- **Multi-user isolation** — complete data separation per user
+- **Memory size tracking** — automatic character and token counting
+- **Async support** — async variants of all core operations for high-performance apps
+
+### Hybrid Retrieval
+
+HippocampAI combines multiple retrieval strategies:
+
+1. **Vector search** — semantic similarity using embeddings
+2. **BM25** — keyword matching for precision
+3. **Reciprocal rank fusion** — merges both signals
+4. **Cross-encoder reranking** — precision refinement
+5. **Score fusion** — combines similarity, reranking, recency, and importance
+
+```python
+results = client.recall(query="coffee preferences", user_id="alice", k=5)
+
+for result in results:
+    print(f"Score breakdown:")
+    print(f"  Similarity: {result.breakdown['sim']:.3f}")
+    print(f"  Rerank: {result.breakdown['rerank']:.3f}")
+    print(f"  Recency: {result.breakdown['recency']:.3f}")
+    print(f"  Importance: {result.breakdown['importance']:.3f}")
+```
+
+### Conversation Extraction
+
+```python
+conversation = """
+User: I really enjoy drinking green tea in the morning.
+Assistant: That's great! Green tea is healthy.
+User: Yes, and I usually have it without sugar.
+"""
+
+memories = client.extract_from_conversation(
+    conversation=conversation,
+    user_id="bob",
+    session_id="session_001"
+)
+
+print(f"Extracted {len(memories)} memories")
+```
+
+### Advanced Features
+
+```python
+# Batch operations
+memories_data = [
+    {"text": "I like Python", "tags": ["programming"]},
+    {"text": "I prefer dark mode", "type": "preference"},
+]
+created = client.add_memories(memories_data, user_id="alice")
+
+# Graph relationships
+client.add_relationship(
+    source_id=created[0].id,
+    target_id=created[1].id,
+    relation_type=RelationType.RELATED_TO
+)
+
+# Version control
+history = client.get_memory_history(memory_id)
+client.rollback_memory(memory_id, version_number=1)
+
+# Context injection for LLMs
+prompt = client.inject_context(
+    prompt="What are my preferences?",
+    query="user preferences",
+    user_id="alice",
+    k=5
+)
+
+# Memory statistics
+stats = client.get_memory_statistics(user_id="alice")
+print(f"Total: {stats['total_memories']} memories")
+print(f"Size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
+print(f"By type: {stats['by_type']}")
+```
+
+### Telemetry & Observability
+
+```python
+# Memory operations are automatically tracked
+client.remember(text="I love Python", user_id="alice")
+client.recall(query="What do I like?", user_id="alice")
+
+# Access telemetry via client
+metrics = client.get_telemetry_metrics()
+print(f"Average recall time: {metrics['recall_duration']['avg']:.2f}ms")
+print(f"Average memory size: {metrics['memory_size_chars']['avg']:.1f} chars")
+
+# Get recent operations
+operations = client.get_recent_operations(limit=10)
+for op in operations:
+    print(f"{op.operation.value}: {op.duration_ms:.2f}ms ({op.status})")
+```
 
 ---
 
-## Usage Documentation
+## 📚 Examples
 
-- [docs/USAGE.md](docs/USAGE.md) – end-to-end setup, CLI/web walkthroughs, API snippets, and troubleshooting.
-- [docs/CHAT_INTEGRATION.md](docs/CHAT_INTEGRATION.md) – connect HippocampAI memories to your custom chat front end.
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) – environment variables, YAML overrides, deployment tips.
-- [docs/PROVIDERS.md](docs/PROVIDERS.md) – switch between Ollama, OpenAI, Anthropic, Groq.
-- [docs/TOOLS.md](docs/TOOLS.md) – extend agents with external tool calls.
-- Need help or want to collaborate? Join the community Discord: https://discord.gg/pPSNW9J7gB
+Explore working examples in the `examples/` directory:
+
+```bash
+# Basic usage
+python examples/01_basic_usage.py
+
+# Conversation extraction
+python examples/02_conversation_extraction.py
+
+# Hybrid retrieval
+python examples/03_hybrid_retrieval.py
+
+# Custom configuration
+python examples/04_custom_configuration.py
+
+# Multi-user management
+python examples/05_multi_user.py
+
+# Batch operations
+python examples/06_batch_operations.py
+
+# Advanced features (graph, version control, context injection, etc.)
+python examples/07_advanced_features_demo.py
+
+# Memory consolidation scheduler
+python examples/08_scheduler_demo.py
+
+# Graph persistence (JSON export/import)
+python examples/09_graph_persistence_demo.py
+
+# Production resilience (retry logic + structured logging)
+python examples/example_resilience.py
+
+# Run all examples
+./run_examples.sh
+```
 
 ---
 
-## HippocampAI vs Mem0 and Others
+## ⚙️ Configuration
 
-| Capability                | HippocampAI                                         | Mem0 / hosted memory APIs                    |
-|---------------------------|----------------------------------------------------|----------------------------------------------|
-| Deployment                | Self-hosted first (Qdrant + Ollama), cloud optional| SaaS-first, hosted vector memory             |
-| Customization             | Full Python pipeline control, extend every stage   | Limited to exposed API surface               |
-| Retrieval                 | Hybrid fusion (vector + BM25 + rerank + decay)     | Typically vector-first with optional rerank  |
-| Memory hygiene            | Built-in extraction, dedupe, consolidation, decay  | Generally manual or implicit                 |
-| Data residency & control  | Your infra, your compliance boundaries             | Stored in provider cloud                     |
-| Setup effort              | Requires Qdrant + (optional) local models          | Minimal—call REST API                        |
+### Environment Variables
 
-HippocampAI is ideal when you need ownership, customization, or offline capability. Mem0 (and similar SaaS tools) win when you want zero infrastructure and accept managed trade-offs.
+See `.env.example` for all configuration options:
+
+- **Qdrant** settings (URL, collections, HNSW tuning)
+- **Embedding** model selection and parameters
+- **LLM** provider (ollama, openai, anthropic, groq)
+- **Retrieval** weights and parameters
+- **Decay** half-lives per memory type
+- **Jobs** scheduling (importance decay, consolidation)
+
+### Custom Configuration
+
+```python
+from hippocampai import MemoryClient, Config
+
+# Option 1: Override specific parameters
+client = MemoryClient(
+    qdrant_url="http://localhost:6333",
+    weights={"sim": 0.6, "rerank": 0.2, "recency": 0.1, "importance": 0.1}
+)
+
+# Option 2: Create custom config object
+config = Config(
+    embed_model="BAAI/bge-small-en-v1.5",
+    llm_provider="ollama",
+    llm_model="qwen2.5:7b-instruct",
+    top_k_final=10
+)
+
+client = MemoryClient(config=config)
+```
 
 ---
 
-## Roadmap
+## 📖 Documentation
 
-- LangChain/LlamaIndex adapters
-- Retrieval evaluators and telemetry dashboards
-- Multi-tenant access policies and RBAC
-- Native TypeScript SDK
+### Getting Started
 
-Contributions welcome—open issues or PRs to shape the direction of HippocampAI.
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Getting Started](docs/GETTING_STARTED.md)** - Detailed installation, setup, and first steps
+- **[Usage Guide](docs/USAGE.md)** - Common usage patterns, chat clients, and integration examples
+
+### Core Documentation
+
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods and classes
+- **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples and use cases
+- **[Configuration Guide](docs/CONFIGURATION.md)** - All configuration options, presets, and environment variables
+- **[Provider Setup](docs/PROVIDERS.md)** - Configure LLM providers (Ollama, OpenAI, Anthropic, Groq)
+
+### Advanced Guides
+
+- **[Resilience & Observability](docs/RESILIENCE.md)** - Automatic retry logic, error handling, and structured logging
+- **[Telemetry Guide](docs/TELEMETRY.md)** - Observability, tracing, metrics, and performance monitoring
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with 117 tests and 100% pass rate
+
+### Examples & Tutorials
+
+- **[Examples Documentation](docs/examples.md)** - Guide to all working examples in the `examples/` directory
+- See the [Examples section](#-examples) above for a complete list of runnable examples
+
+### Developer Resources
+
+- **[Package Summary](docs/PACKAGE_SUMMARY.md)** - Technical overview of the package architecture and structure
+- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Implementation details of core features and components
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to HippocampAI
+- **[Changelog](docs/CHANGELOG.md)** - Version history, updates, and breaking changes
 
 ---
 
-## License
+**Need help?** Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 
-Apache 2.0. See [LICENSE](LICENSE) for details.
+---
+
+## 🆚 HippocampAI vs Mem0
+
+| Feature | HippocampAI | Mem0 |
+|---------|-------------|------|
+| **Deployment** | ✅ Self-hosted first, cloud optional | ❌ SaaS-first |
+| **Customization** | ✅ Full pipeline control | ❌ Limited API surface |
+| **Retrieval** | ✅ Hybrid (vector + BM25 + rerank + decay) | ⚠️ Vector-first |
+| **Memory hygiene** | ✅ Built-in extraction, dedupe, consolidation | ⚠️ Manual or implicit |
+| **Telemetry** | ✅ Built-in tracing & metrics | ✅ Platform dashboard |
+| **Data residency** | ✅ Your infra, your data | ❌ Managed cloud |
+| **Setup complexity** | ⚠️ Requires Qdrant | ✅ Zero infra |
+| **Cost** | ✅ Free (self-hosted) | ⚠️ Usage-based pricing |
+
+**Choose HippocampAI when:**
+
+- You need full control and customization
+- Data residency is critical
+- You want to avoid vendor lock-in
+- You're building production systems requiring observability
+
+**Choose Mem0 when:**
+
+- You want zero infrastructure management
+- You're prototyping quickly
+- You don't mind managed services
+
+---
+
+## 🗺️ Roadmap
+
+**Completed (v0.1.0):**
+
+- [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`)
+- [x] Built-in telemetry and observability
+- [x] Automatic retry logic for Qdrant and LLM operations
+- [x] Structured JSON logging with request ID tracking
+- [x] Batch operations (add_memories, delete_memories)
+- [x] Graph indexing and relationships
+- [x] Version control and rollback
+- [x] Context injection for LLM prompts
+- [x] Memory access tracking
+- [x] Advanced filtering and sorting
+- [x] Snapshots and audit trail
+- [x] KV store for fast lookups
+- [x] Memory size tracking (text_length, token_count)
+- [x] Async variants for all core operations
+- [x] Memory consolidation scheduler (background jobs)
+- [x] Persistent graph storage (JSON export/import)
+
+**Planned:**
+
+- [ ] LangChain and LlamaIndex integrations
+- [ ] Retrieval evaluators and A/B testing
+- [ ] Multi-tenant RBAC and access policies
+- [ ] Native TypeScript SDK
+- [ ] Grafana/Prometheus metrics exporters
+- [ ] WebSocket support for real-time updates
+
+Contributions welcome! Open issues or PRs to shape HippocampAI's direction.
+
+---
+
+## 📄 License
+
+Apache 2.0 — See [LICENSE](LICENSE) for details.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`pytest`)
+5. Commit your changes
+6. Push to the branch
+7. Open a Pull Request
+
+---
+
+## 🌟 Star History
+
+If you find HippocampAI useful, please star the repo! It helps others discover the project.
+
+---
+
+## 📧 Contact
+
+- **Issues**: [GitHub Issues](https://github.com/rexdivakar/HippocampAI/issues)
+- **Discord**: [Join our community](https://discord.gg/pPSNW9J7gB)
+
+Built with ❤️ by the HippocampAI team

@@ -1,6 +1,6 @@
 """Flask web server for memory-enhanced chat interface.
 
-This provides a REST API for the chat frontend.
+This provides a REST API for the chat frontend using HippocampAI.
 
 Endpoints:
     POST /api/chat/message - Send message and get response
@@ -8,24 +8,25 @@ Endpoints:
     GET /api/chat/memories - Get user's stored memories
     GET /api/chat/stats - Get memory statistics
     POST /api/chat/clear - Clear current session
-    POST /api/chat/end - End session with summary
+    GET /api/health - Health check
 
 Usage:
     python web_chat.py
 
-    Then open: http://localhost:5020
+    Then open: http://localhost:5000
 """
 
 import logging
 import sys
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
-from src.ai_chat import MemoryEnhancedChat
-from src.settings import get_settings
+from hippocampai import MemoryClient
+from hippocampai.config import get_config
+from hippocampai.models.memory import RetrievalResult
 
 # Configure logging
 logging.basicConfig(
@@ -35,25 +36,25 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__, template_folder="web", static_folder="web/static")
-CORS(app)  # Enable CORS for API calls
+CORS(app)
 
-# Store chat instances per user
-# In production, use Redis or similar for session storage
-chat_sessions: Dict[str, MemoryEnhancedChat] = {}
+# Store chat sessions and conversation history per user
+chat_clients: Dict[str, MemoryClient] = {}
+conversation_history: Dict[str, List[Dict]] = {}
 
 
-def get_or_create_chat(user_id: str) -> MemoryEnhancedChat:
-    """Get existing chat session or create new one."""
-    if user_id not in chat_sessions:
-        logger.info(f"Creating new chat session for user: {user_id}")
-        chat_sessions[user_id] = MemoryEnhancedChat(
-            user_id=user_id, auto_extract_memories=True, auto_consolidate=True
-        )
-    return chat_sessions[user_id]
+def get_or_create_client(user_id: str) -> MemoryClient:
+    """Get existing memory client or create new one."""
+    if user_id not in chat_clients:
+        logger.info(f"Creating new memory client for user: {user_id}")
+        config = get_config()
+        chat_clients[user_id] = MemoryClient(config=config)
+        conversation_history[user_id] = []
+    return chat_clients[user_id]
 
 
 @app.route("/")
-def index():
+def index() -> str:
     """Serve the chat interface."""
     return render_template("chat.html")
 
@@ -66,15 +67,15 @@ def send_message():
     Request JSON:
         {
             "user_id": "alice",
-            "message": "Hello!",
-            "context_type": "personal"  // optional
+            "message": "Hello!"
         }
 
     Response JSON:
         {
             "success": true,
             "response": "AI response here",
-            "timestamp": "2025-10-05T15:30:00"
+            "timestamp": "2025-10-05T15:30:00",
+            "memories_count": 5
         }
     """
     try:
@@ -85,22 +86,62 @@ def send_message():
 
         user_id = data.get("user_id", "default_user")
         message = data.get("message", "").strip()
-        context_type = data.get("context_type")
 
         if not message:
             return jsonify({"success": False, "error": "Message cannot be empty"}), 400
 
-        # Get or create chat session
-        chat = get_or_create_chat(user_id)
+        # Get or create memory client
+        client = get_or_create_client(user_id)
+        session_id = f"web_session_{user_id}"
 
-        # Send message and get response
-        response = chat.send_message(message, context_type=context_type)
+        # Add to conversation history
+        if user_id not in conversation_history:
+            conversation_history[user_id] = []
+
+        conversation_history[user_id].append(
+            {"role": "user", "content": message, "timestamp": datetime.now().isoformat()}
+        )
+
+        # Extract memories from conversation
+        if len(conversation_history[user_id]) >= 2:
+            conv_text = "\n".join([msg["content"] for msg in conversation_history[user_id][-3:]])
+            try:
+                client.extract_from_conversation(conv_text, user_id, session_id)
+            except Exception as e:
+                logger.warning(f"Memory extraction failed: {e}")
+
+        # Retrieve relevant memories
+        memories: List[RetrievalResult] = client.recall(query=message, user_id=user_id, k=5)
+
+        # Generate response
+        if client.llm:
+            # Build context from memories
+            context = ""
+            if memories:
+                context = "Relevant memories:\n"
+                for mem in memories[:3]:
+                    context += f"- {mem.memory.text}\n"
+                context += "\n"
+
+            prompt = f"{context}User: {message}\n\nProvide a helpful, conversational response:"
+            response = client.llm.generate(prompt, max_tokens=512, temperature=0.7)
+        else:
+            # Fallback response
+            response = "I understand. I've noted that and will remember our conversation."
+            if memories:
+                response += f" I recall {len(memories)} related memories about you."
+
+        # Add response to history
+        conversation_history[user_id].append(
+            {"role": "assistant", "content": response, "timestamp": datetime.now().isoformat()}
+        )
 
         return jsonify(
             {
                 "success": True,
                 "response": response,
                 "timestamp": datetime.now().isoformat(),
+                "memories_count": len(memories),
             }
         )
 
@@ -120,25 +161,13 @@ def get_history():
     Response JSON:
         {
             "success": true,
-            "history": [
-                {
-                    "role": "user",
-                    "content": "Hello",
-                    "timestamp": "..."
-                },
-                ...
-            ]
+            "history": [...]
         }
     """
     try:
         user_id = request.args.get("user_id", "default_user")
 
-        if user_id not in chat_sessions:
-            return jsonify({"success": True, "history": []})
-
-        chat = chat_sessions[user_id]
-        history = chat.get_conversation_history()
-
+        history = conversation_history.get(user_id, [])
         return jsonify({"success": True, "history": history})
 
     except Exception as e:
@@ -153,7 +182,6 @@ def get_memories():
 
     Query params:
         user_id: User identifier
-        type: Memory type filter (optional)
         limit: Max results (default: 20)
 
     Response JSON:
@@ -164,13 +192,36 @@ def get_memories():
     """
     try:
         user_id = request.args.get("user_id", "default_user")
-        memory_type = request.args.get("type")
         limit = int(request.args.get("limit", 20))
 
-        chat = get_or_create_chat(user_id)
-        memories = chat.get_user_memories(memory_type=memory_type, limit=limit)
+        client = get_or_create_client(user_id)
 
-        return jsonify({"success": True, "memories": memories, "count": len(memories)})
+        # Get memories from both collections
+        facts = client.qdrant.scroll(
+            collection_name=client.config.collection_facts,
+            filters={"user_id": user_id},
+            limit=limit,
+        )
+        prefs = client.qdrant.scroll(
+            collection_name=client.config.collection_prefs,
+            filters={"user_id": user_id},
+            limit=limit,
+        )
+
+        all_memories = []
+        for mem in facts + prefs:
+            payload = mem.get("payload", {})
+            all_memories.append(
+                {
+                    "id": mem.get("id"),
+                    "text": payload.get("text"),
+                    "type": payload.get("type"),
+                    "importance": payload.get("importance"),
+                    "created_at": payload.get("created_at"),
+                }
+            )
+
+        return jsonify({"success": True, "memories": all_memories, "count": len(all_memories)})
 
     except Exception as e:
         logger.error(f"Error in get_memories: {e}", exc_info=True)
@@ -188,19 +239,34 @@ def get_stats():
     Response JSON:
         {
             "success": true,
-            "stats": {
-                "total_memories": 42,
-                "by_type": {...},
-                "by_category": {...},
-                ...
-            }
+            "stats": {...}
         }
     """
     try:
         user_id = request.args.get("user_id", "default_user")
+        client = get_or_create_client(user_id)
 
-        chat = get_or_create_chat(user_id)
-        stats = chat.get_memory_stats()
+        # Get all memories
+        facts = client.qdrant.scroll(
+            collection_name=client.config.collection_facts, filters={"user_id": user_id}, limit=1000
+        )
+        prefs = client.qdrant.scroll(
+            collection_name=client.config.collection_prefs, filters={"user_id": user_id}, limit=1000
+        )
+
+        all_memories = facts + prefs
+        total = len(all_memories)
+
+        # Calculate stats
+        importances = [mem.get("payload", {}).get("importance", 5.0) for mem in all_memories]
+        avg_importance = sum(importances) / len(importances) if importances else 0
+
+        stats = {
+            "total_memories": total,
+            "facts_count": len(facts),
+            "prefs_count": len(prefs),
+            "avg_importance": round(avg_importance, 2),
+        }
 
         return jsonify({"success": True, "stats": stats})
 
@@ -212,7 +278,7 @@ def get_stats():
 @app.route("/api/chat/clear", methods=["POST"])
 def clear_session():
     """
-    Clear current session without saving.
+    Clear current session history.
 
     Request JSON:
         {
@@ -229,8 +295,8 @@ def clear_session():
         data = request.get_json()
         user_id = data.get("user_id", "default_user")
 
-        if user_id in chat_sessions:
-            chat_sessions[user_id].clear_session()
+        if user_id in conversation_history:
+            conversation_history[user_id] = []
 
         return jsonify({"success": True, "message": "Session cleared"})
 
@@ -239,55 +305,16 @@ def clear_session():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/chat/end", methods=["POST"])
-def end_session():
-    """
-    End session and save summary.
-
-    Request JSON:
-        {
-            "user_id": "alice"
-        }
-
-    Response JSON:
-        {
-            "success": true,
-            "summary_id": "uuid-here",
-            "message": "Session ended and summary saved"
-        }
-    """
-    try:
-        data = request.get_json()
-        user_id = data.get("user_id", "default_user")
-
-        summary_id = None
-        if user_id in chat_sessions:
-            summary_id = chat_sessions[user_id].end_conversation()
-            # Don't delete session, just clear it
-            chat_sessions[user_id].clear_session()
-
-        return jsonify(
-            {
-                "success": True,
-                "summary_id": summary_id,
-                "message": "Session ended and summary saved" if summary_id else "No active session",
-            }
-        )
-
-    except Exception as e:
-        logger.error(f"Error in end_session: {e}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
     try:
-        settings = get_settings()
+        config = get_config()
         return jsonify(
             {
                 "status": "healthy",
-                "provider": settings.llm.provider,
+                "provider": config.llm_provider,
+                "qdrant_url": config.qdrant_url,
                 "timestamp": datetime.now().isoformat(),
             }
         )
@@ -308,34 +335,27 @@ def internal_error(error):
     return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
-def main():
+def main() -> None:
     """Run the web server."""
-    # Check API key
-    settings = get_settings()
-    provider = settings.llm.provider.lower()
-
-    has_api_key = False
-    if provider == "anthropic" and settings.llm.anthropic_api_key:
-        has_api_key = True
-    elif provider == "openai" and settings.llm.openai_api_key:
-        has_api_key = True
-    elif provider == "groq" and settings.llm.groq_api_key:
-        has_api_key = True
-
-    if not has_api_key:
-        print(f"ERROR: {provider.upper()}_API_KEY not set in .env file!")
-        print("Please add your API key to continue.")
+    # Check configuration
+    try:
+        config = get_config()
+    except Exception as e:
+        print(f"ERROR: Failed to load configuration: {e}")
+        print("Make sure .env file exists and is configured correctly")
         sys.exit(1)
 
     # Print startup info
     print("=" * 60)
     print("  HippocampAI Memory-Enhanced Chat Server")
     print("=" * 60)
-    print(f"Provider: {provider}")
-    print(f"Qdrant: {settings.qdrant.host}:{settings.qdrant.port}")
-    print("\nServer starting at: http://localhost:5020")
+    print(f"LLM Provider: {config.llm_provider}")
+    print(f"Model: {config.llm_model}")
+    print(f"Qdrant: {config.qdrant_url}")
+    print("\nServer starting at: http://localhost:5000")
     print("\nEndpoints:")
-    print("  - Web Interface: http://localhost:5020/")
+    print("  - Web Interface: http://localhost:5000/")
+    print("  - Health Check: http://localhost:5000/api/health")
     print("  - API Docs: See web_chat.py docstrings")
     print("\nPress Ctrl+C to stop")
     print("=" * 60)
@@ -344,9 +364,9 @@ def main():
     # Run Flask app
     app.run(
         host="0.0.0.0",
-        port=5020,
+        port=5000,
         debug=True,
-        use_reloader=False,  # Disable reloader to prevent duplicate sessions
+        use_reloader=False,
     )
 
 

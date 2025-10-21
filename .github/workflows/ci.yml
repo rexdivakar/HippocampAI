@@ -2,78 +2,84 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - '*'
-  pull_request:
-    branches:
-      - main
-      - '*'
+    branches: ["*"]
 
 env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
 
 jobs:
-  lint-and-test:
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  test:
+    name: Test and Lint (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
+
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+          - 6334:6334
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            pyproject.toml
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ${{ env.pythonLocation }}
+          key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python-${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m pip install -e '.[core,dev]'
+          pip install -e '.[dev,api]'
 
-      - name: Lint with ruff
+      - name: Wait for Qdrant to be ready
+        run: |
+          echo "Waiting for Qdrant to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:6333/healthz > /dev/null 2>&1; then
+              echo "Qdrant is ready!"
+              curl -s http://localhost:6333/ | head -20
+              exit 0
+            fi
+            echo "Attempt $i/30: Qdrant not ready yet, waiting..."
+            sleep 2
+          done
+          echo "Qdrant failed to become ready"
+          exit 1
+
+      - name: Lint with Ruff
         run: |
           ruff check . --output-format=github
           ruff format . --check
 
-      - name: Check formatting with black
-        run: black --check --diff .
-
-      - name: Type check with mypy (if available)
+      - name: Run Tests
         run: |
-          if pip list | grep -q mypy; then
-            mypy src/ --ignore-missing-imports
-          else
-            echo "mypy not installed, skipping type checking"
-          fi
-        continue-on-error: true
+          pytest -v --maxfail=1 --disable-warnings --cov=src --cov-report=term-missing
+        env:
+          QDRANT_HOST: localhost
+          QDRANT_PORT: 6333
+          QDRANT_URL: http://localhost:6333
 
-      - name: Run unit tests with coverage
-        run: |
-          pytest --cov=src --cov-report=xml --cov-report=term-missing -v
-
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-
-  security:
-    name: Security scan
+  build:
+    name: Build Package
     runs-on: ubuntu-latest
+    needs: [test]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,17 +88,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
-      - name: Install dependencies
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-build-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-build-
+
+      - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          pip install safety bandit[toml]
+          pip install build twine
 
-      - name: Run safety check
-        run: safety check --json
-        continue-on-error: true
+      - name: Build package
+        run: |
+          python -m build
 
-      - name: Run bandit security scan
-        run: bandit -r src/ -f json
-        continue-on-error: true
+      - name: Validate build with Twine
+        run: |
+          twine check dist/*

@@ -14,7 +14,7 @@ import importlib.util
 import sys
 import traceback
 from pathlib import Path
-from typing import Callable, List
+from typing import List
 
 # Ensure local src/ package is importable when running from repository root
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -302,7 +302,7 @@ def test_dependencies():
     if missing_optional:
         print(f"  ⚠️  Optional dependencies not installed: {', '.join(missing_optional)}")
     else:
-        print(f"  All optional dependencies available")
+        print("  All optional dependencies available")
 
 
 def print_header(text: str):

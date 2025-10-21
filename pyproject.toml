@@ -33,25 +33,49 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.6,<3.0",
+    "pydantic-settings>=2.0,<3.0",
     "python-dotenv>=1.0,<2.0",
     "httpx>=0.25,<1.0",
     "apscheduler>=3.10,<4.0",
     "cachetools>=5.3,<6.0",
-]
-
-[project.optional-dependencies]
-core = [
-    "anthropic>=0.39,<1.0",
-    "cachetools>=5.3,<6.0",
-    "fastapi>=0.110,<1.0",
-    "groq>=0.4,<1.0",
-    "ollama>=0.3,<1.0",
-    "openai>=1.0,<2.0",
     "qdrant-client>=1.7,<2.0",
     "rank-bm25>=0.2,<1.0",
     "sentence-transformers>=2.2,<3.0",
     "typer[all]>=0.9,<1.0",
+    "tenacity>=8.2,<9.0",
+    "python-json-logger>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+all = [
+    "anthropic>=0.39,<1.0",
+    "groq>=0.4,<1.0",
+    "ollama>=0.3,<1.0",
+    "openai>=1.0,<2.0",
+    "fastapi>=0.110,<1.0",
     "uvicorn[standard]>=0.24,<1.0",
+    "flask>=3.0,<4.0",
+    "flask-cors>=4.0,<5.0",
+]
+api = [
+    "fastapi>=0.110,<1.0",
+    "uvicorn[standard]>=0.24,<1.0",
+]
+web = [
+    "flask>=3.0,<4.0",
+    "flask-cors>=4.0,<5.0",
+]
+ollama = [
+    "ollama>=0.3,<1.0",
+]
+openai = [
+    "openai>=1.0,<2.0",
+]
+anthropic = [
+    "anthropic>=0.39,<1.0",
+]
+groq = [
+    "groq>=0.4,<1.0",
 ]
 dev = [
     "black>=24.4,<25.0",

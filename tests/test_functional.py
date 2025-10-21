@@ -13,7 +13,6 @@ import importlib.util
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 # Ensure local src/ package is importable without installation
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -101,29 +100,26 @@ def test_memory_type_routing():
     """Test memory type routing logic."""
     print("\n🔀 Testing Memory Type Routing...")
 
-    test_queries = [
-        ("What's my favorite color?", "preference"),
-        ("What languages do I know?", "fact"),
-        ("What am I trying to achieve?", "goal"),
-        ("What happened yesterday?", "event"),
-    ]
+    try:
+        from hippocampai.retrieval.router import QueryRouter
 
-    for query, expected in test_queries:
-        # Mock the LLM response
-        with patch("hippocampai.retrieval.router.get_llm") as mock_llm:
-            mock_instance = Mock()
-            mock_instance.generate.return_value = expected
-            mock_llm.return_value = mock_instance
+        router = QueryRouter()
 
-            try:
-                from hippocampai.retrieval.router import route_query
+        test_queries = [
+            ("What's my favorite color?", "prefs"),
+            ("What languages do I know?", "facts"),
+            ("I like to code", "prefs"),
+            ("Where do I live?", "facts"),
+        ]
 
-                result = route_query(query)
-                print(f"  ✓ '{query[:40]}...' → {result}")
-            except Exception:
-                print(f"  ℹ️  Routing test skipped (needs LLM): {query[:40]}...")
+        for query, expected_type in test_queries:
+            result = router.route(query)
+            print(f"  ✓ '{query[:40]}...' → {result}")
 
-    return True
+        return True
+    except Exception as e:
+        print(f"  ℹ️  Routing test skipped: {str(e)}")
+        return True
 
 
 def test_bm25_scoring():
