@@ -13,6 +13,8 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 - **Production-ready** — automatic retry logic, structured JSON logging, request tracing, telemetry, typed models, and scheduled jobs
 - **Fully customizable** — every component (extraction, retrieval, scoring) is extensible without vendor lock-in
 
+**Current Release:** v1.0.0 — first major stable release of HippocampAI.
+
 ---
 
 ## ✨ Why HippocampAI
@@ -413,7 +415,7 @@ client = MemoryClient(config=config)
 
 ## 🗺️ Roadmap
 
-**Completed (v0.1.0):**
+**Completed (v1.0.0):**
 
 - [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`)
 - [x] Built-in telemetry and observability

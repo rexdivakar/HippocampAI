@@ -5,6 +5,25 @@ All notable changes to HippocampAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- No changes yet.
+
+## [1.0.0] - 2025-10-21
+
+### Highlights
+- First major stable release of HippocampAI, signaling API and feature stability for production use.
+
+### Documentation
+- Expanded installation instructions and consolidated example guides in the README and docs for clearer onboarding.
+
+### Changed
+- Improved CI workflow caching to better reuse Python environments and pip downloads.
+
+### Fixed
+- Standardized timestamp parsing in `HybridRetriever` by routing ISO strings through `parse_iso_datetime`.
+- Updated retrieval tests to use `now_utc()` for timezone-aware recency scoring assertions.
+
 ## [0.1.0] - 2025-10-20
 
 ### Added
@@ -172,7 +191,7 @@ Not applicable (initial release)
 
 ---
 
-## [Unreleased]
+## [0.2.0] - TBD
 
 ### Added (New in v0.2.0)
 
@@ -245,4 +264,6 @@ Not applicable (initial release)
 
 ---
 
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0
