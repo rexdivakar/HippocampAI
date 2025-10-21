@@ -15,6 +15,7 @@ from qdrant_client.models import (
     OptimizersConfigDiff,
     PayloadSchemaType,
     PointStruct,
+    SearchParams,
     VectorParams,
     WalConfigDiff,
 )
@@ -119,19 +120,19 @@ class QdrantStore:
             if conditions:
                 query_filter = Filter(must=conditions)
 
-        search_params = {}
-        if ef:
-            search_params["hnsw_ef"] = ef
-        elif self.ef_search:
-            search_params["hnsw_ef"] = self.ef_search
+        # Build search params
+        hnsw_ef = ef if ef else self.ef_search
+        search_params = SearchParams(hnsw_ef=hnsw_ef) if hnsw_ef else None
 
-        results = self.client.search(
+        # Use query_points instead of deprecated search
+        results = self.client.query_points(
             collection_name=collection_name,
-            query_vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
+            query=vector.tolist() if isinstance(vector, np.ndarray) else vector,
             limit=limit,
             query_filter=query_filter,
             search_params=search_params,
-        )
+            with_payload=True,
+        ).points
 
         return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
 

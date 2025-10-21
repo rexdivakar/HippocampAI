@@ -48,8 +48,8 @@ jobs:
           ruff check . --output-format=github
           ruff format . --check
 
-      - name: Check formatting with black
-        run: black --check --diff .
+      # - name: Check formatting with black
+      #   run: black --check --diff .
 
       - name: Type check with mypy (if available)
         run: |

@@ -251,11 +251,11 @@ class MemoryGraph:
         else:
             subgraph = self.graph
 
-        return nx.node_link_data(subgraph)
+        return nx.node_link_data(subgraph, edges="links")
 
     def import_from_dict(self, data: Dict):
         """Import graph from dictionary format."""
-        imported_graph = nx.node_link_graph(data)
+        imported_graph = nx.node_link_graph(data, edges="links")
         self.graph = nx.compose(self.graph, imported_graph)
 
         # Rebuild indices
