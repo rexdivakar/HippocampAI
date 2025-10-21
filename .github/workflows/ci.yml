@@ -5,7 +5,6 @@ on:
     branches: ["*"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch:
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -21,17 +20,15 @@ jobs:
 
     services:
       qdrant:
-        image: qdrant/qdrant:v1.11.9
+        image: qdrant/qdrant:latest
         ports:
           - 6333:6333
+          - 6334:6334
         options: >-
-          --health-cmd="wget -qO- http://localhost:6333/readyz || exit 1"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=30
-
-    env:
-      QDRANT_URL: "http://localhost:6333"
+          --health-cmd "curl -f http://localhost:6333/healthz || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout repository
@@ -49,18 +46,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # install dev deps; adjust extras as your project needs
-          pip install -e '.[dev]' || pip install -e .
+          pip install -e '.[dev]'
 
-      - name: Wait for Qdrant to be healthy
+      - name: Wait for Qdrant to be ready
         run: |
-          for i in {1..60}; do
-            if curl -sf http://localhost:6333/readyz >/dev/null; then
-              echo "Qdrant is ready"; exit 0
-            fi
-            sleep 1
-          done
-          echo "Qdrant failed to become ready"; exit 1
+          echo "Waiting for Qdrant to be ready..."
+          timeout 30 bash -c 'until curl -f http://localhost:6333/healthz; do sleep 1; done'
+          echo "Qdrant is ready!"
+          curl http://localhost:6333/
 
       - name: Lint with Ruff
         run: |
@@ -70,6 +63,10 @@ jobs:
       - name: Run Tests
         run: |
           pytest -v --maxfail=1 --disable-warnings --cov=src --cov-report=term-missing
+        env:
+          QDRANT_HOST: localhost
+          QDRANT_PORT: 6333
+          QDRANT_URL: http://localhost:6333
 
   build:
     name: Build Package
@@ -97,9 +94,3 @@ jobs:
       - name: Validate build with Twine
         run: |
           twine check dist/*
-
-      - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
