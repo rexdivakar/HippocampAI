@@ -161,6 +161,75 @@ client.get_memory_clusters(
 
 Find clusters of related memories.
 
+#### export_graph_to_json()
+```python
+client.export_graph_to_json(
+    file_path: str,
+    user_id: Optional[str] = None,
+    indent: int = 2
+) -> str
+```
+
+Export memory graph to a JSON file for backup or transfer.
+
+**Args:**
+- `file_path`: Path where the JSON file will be saved
+- `user_id`: Optional user ID to export only a specific user's graph
+- `indent`: JSON indentation level (default: 2)
+
+**Returns:** File path where the graph was saved
+
+**Example:**
+```python
+# Export full graph
+client.export_graph_to_json("memory_graph.json")
+
+# Export user-specific graph
+client.export_graph_to_json("alice_graph.json", user_id="alice")
+```
+
+#### import_graph_from_json()
+```python
+client.import_graph_from_json(
+    file_path: str,
+    merge: bool = True
+) -> Dict[str, Any]
+```
+
+Import memory graph from a JSON file.
+
+**Args:**
+- `file_path`: Path to the JSON file to import
+- `merge`: If True, merge with existing graph; if False, replace existing graph
+
+**Returns:** Dictionary with import statistics:
+```python
+{
+    "file_path": str,          # Path that was imported
+    "nodes_before": int,       # Node count before import
+    "nodes_after": int,        # Node count after import
+    "edges_before": int,       # Edge count before import
+    "edges_after": int,        # Edge count after import
+    "nodes_imported": int,     # Nodes in the file
+    "edges_imported": int,     # Edges in the file
+    "merged": bool             # Whether it was merged or replaced
+}
+```
+
+**Raises:**
+- `FileNotFoundError`: If the file doesn't exist
+- `ValueError`: If the file contains invalid graph format
+
+**Example:**
+```python
+# Import and merge with existing graph
+stats = client.import_graph_from_json("memory_graph.json")
+print(f"Imported {stats['nodes_imported']} nodes")
+
+# Replace existing graph
+stats = client.import_graph_from_json("backup.json", merge=False)
+```
+
 ### Version Control
 
 #### get_memory_history()

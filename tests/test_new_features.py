@@ -371,6 +371,107 @@ class TestTelemetry:
         assert operations[0].operation.value == "get"
 
 
+class TestMemorySizeTracking:
+    """Test memory size tracking functionality."""
+
+    def test_size_calculated_on_creation(self, client, test_user_id):
+        """Test that text_length and token_count are calculated on creation."""
+        text = "This is a test memory for size tracking"
+        memory = client.remember(
+            text=text,
+            user_id=test_user_id,
+        )
+
+        assert memory.text_length == len(text)
+        assert memory.token_count == len(text) // 4  # 4 chars ≈ 1 token
+
+    def test_size_recalculated_on_update(self, client, test_user_id):
+        """Test that sizes are recalculated when text is updated."""
+        memory = client.remember(
+            text="Short",
+            user_id=test_user_id,
+        )
+
+        old_length = memory.text_length
+        old_tokens = memory.token_count
+
+        # Update with longer text
+        new_text = "This is a much longer piece of text for testing size updates"
+        updated = client.update_memory(
+            memory_id=memory.id,
+            text=new_text,
+        )
+
+        assert updated.text_length == len(new_text)
+        assert updated.token_count == len(new_text) // 4
+        assert updated.text_length > old_length
+        assert updated.token_count > old_tokens
+
+    def test_get_memory_statistics(self, client, test_user_id):
+        """Test getting memory statistics."""
+        # Create memories with different sizes
+        client.remember(text="Short memory", user_id=test_user_id)
+        client.remember(
+            text="This is a medium length memory for testing",
+            user_id=test_user_id,
+        )
+        client.remember(
+            text="This is a much longer memory that contains significantly more text to test the statistics calculation properly",
+            user_id=test_user_id,
+        )
+
+        stats = client.get_memory_statistics(user_id=test_user_id)
+
+        assert stats["total_memories"] >= 3
+        assert stats["total_characters"] > 0
+        assert stats["total_tokens"] > 0
+        assert stats["avg_memory_size_chars"] > 0
+        assert stats["avg_memory_size_tokens"] > 0
+        assert stats["largest_memory_chars"] > stats["smallest_memory_chars"]
+
+    def test_statistics_by_type(self, client, test_user_id):
+        """Test statistics grouped by memory type."""
+        client.remember(
+            text="I like programming",
+            user_id=test_user_id,
+            type="preference",
+        )
+        client.remember(
+            text="Python is a versatile language",
+            user_id=test_user_id,
+            type="fact",
+        )
+        client.remember(
+            text="Learn advanced Python patterns",
+            user_id=test_user_id,
+            type="goal",
+        )
+
+        stats = client.get_memory_statistics(user_id=test_user_id)
+
+        assert "by_type" in stats
+        by_type = stats["by_type"]
+
+        # Should have at least preference, fact, and goal types
+        assert "preference" in by_type or "fact" in by_type or "goal" in by_type
+
+        # Each type should have count, total_chars, total_tokens, avg_chars, avg_tokens
+        for type_stats in by_type.values():
+            assert "count" in type_stats
+            assert "total_chars" in type_stats
+            assert "total_tokens" in type_stats
+            assert "avg_chars" in type_stats
+            assert "avg_tokens" in type_stats
+
+    def test_empty_statistics(self, client):
+        """Test statistics for user with no memories."""
+        stats = client.get_memory_statistics(user_id="nonexistent_user_123")
+
+        assert stats["total_memories"] == 0
+        assert stats["total_characters"] == 0
+        assert stats["total_tokens"] == 0
+
+
 class TestIntegration:
     """Integration tests combining multiple features."""
 
@@ -389,6 +490,9 @@ class TestIntegration:
         assert memory.id is not None
         assert "beverages" in memory.tags
         assert memory.expires_at is not None
+        # Verify size tracking
+        assert memory.text_length > 0
+        assert memory.token_count > 0
 
         # Update it
         updated = client.update_memory(
@@ -398,6 +502,8 @@ class TestIntegration:
         )
 
         assert "milk" in updated.tags
+        # Verify size was recalculated
+        assert updated.text_length > memory.text_length
 
         # Retrieve with filters
         results = client.recall(
@@ -417,6 +523,11 @@ class TestIntegration:
 
         assert len(memories) > 0
         assert any(m.id == memory.id for m in memories)
+
+        # Check statistics
+        stats = client.get_memory_statistics(user_id=test_user_id)
+        assert stats["total_memories"] >= 1
+        assert stats["total_characters"] > 0
 
         # Delete
         deleted = client.delete_memory(memory_id=memory.id, user_id=test_user_id)

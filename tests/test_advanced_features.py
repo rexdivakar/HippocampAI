@@ -2,6 +2,7 @@
 
 Tests cover:
 - Graph operations (relationships, clusters, paths)
+- Graph persistence (JSON export/import)
 - KV store (caching, indexing, TTL)
 - Version control (versioning, comparison, rollback)
 - Context injection (templates, token limits, history)
@@ -12,8 +13,11 @@ Tests cover:
 - Audit trail
 """
 
+import json
+import tempfile
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -166,6 +170,276 @@ class TestGraphOperations:
         # Get clusters
         clusters = client.get_memory_clusters("alice")
         assert len(clusters) >= 1
+
+
+# === GRAPH PERSISTENCE TESTS ===
+
+
+class TestGraphPersistence:
+    """Test graph export/import to JSON."""
+
+    def test_export_graph_to_json(self, client):
+        """Test exporting graph to JSON file."""
+        # Create memories and relationships
+        m1 = client.remember("Memory 1", user_id="alice")
+        m2 = client.remember("Memory 2", user_id="alice")
+        m3 = client.remember("Memory 3", user_id="bob")
+
+        # Add to graph
+        client.graph.add_memory(m1.id, "alice", {"text": "Memory 1"})
+        client.graph.add_memory(m2.id, "alice", {"text": "Memory 2"})
+        client.graph.add_memory(m3.id, "bob", {"text": "Memory 3"})
+
+        # Add relationships
+        client.add_relationship(m1.id, m2.id, RelationType.RELATED_TO, weight=0.9)
+
+        # Export to JSON
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            result_path = client.export_graph_to_json(temp_path)
+            assert result_path == temp_path
+            assert Path(temp_path).exists()
+
+            # Verify JSON structure
+            with open(temp_path, 'r') as f:
+                data = json.load(f)
+
+            assert "nodes" in data
+            assert "links" in data
+            assert len(data["nodes"]) == 3
+            assert len(data["links"]) == 1
+
+            # Verify node data
+            node_ids = [node["id"] for node in data["nodes"]]
+            assert m1.id in node_ids
+            assert m2.id in node_ids
+            assert m3.id in node_ids
+
+            # Verify edge data
+            edge = data["links"][0]
+            assert edge["source"] == m1.id
+            assert edge["target"] == m2.id
+            assert edge["relation"] == RelationType.RELATED_TO.value
+            assert edge["weight"] == 0.9
+
+        finally:
+            # Cleanup
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_export_graph_user_filtered(self, client):
+        """Test exporting graph for a specific user."""
+        m1 = client.remember("Alice memory", user_id="alice")
+        m2 = client.remember("Bob memory", user_id="bob")
+
+        client.graph.add_memory(m1.id, "alice", {})
+        client.graph.add_memory(m2.id, "bob", {})
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            client.export_graph_to_json(temp_path, user_id="alice")
+
+            with open(temp_path, 'r') as f:
+                data = json.load(f)
+
+            # Should only contain alice's memory
+            assert len(data["nodes"]) == 1
+            assert data["nodes"][0]["id"] == m1.id
+
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_import_graph_from_json(self, client):
+        """Test importing graph from JSON file."""
+        # Create and export initial graph
+        m1 = client.remember("Memory 1", user_id="alice")
+        m2 = client.remember("Memory 2", user_id="alice")
+
+        client.graph.add_memory(m1.id, "alice", {})
+        client.graph.add_memory(m2.id, "alice", {})
+        client.add_relationship(m1.id, m2.id, RelationType.RELATED_TO)
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            # Export
+            client.export_graph_to_json(temp_path)
+
+            # Clear graph
+            client.graph.graph.clear()
+            client.graph._memory_index.clear()
+            client.graph._user_graphs.clear()
+
+            assert client.graph.graph.number_of_nodes() == 0
+            assert client.graph.graph.number_of_edges() == 0
+
+            # Import
+            stats = client.import_graph_from_json(temp_path)
+
+            # Verify stats
+            assert stats["nodes_before"] == 0
+            assert stats["edges_before"] == 0
+            assert stats["nodes_after"] == 2
+            assert stats["edges_after"] == 1
+            assert stats["nodes_imported"] == 2
+            assert stats["edges_imported"] == 1
+            assert stats["merged"] is True
+
+            # Verify graph was restored
+            assert client.graph.graph.number_of_nodes() == 2
+            assert client.graph.graph.number_of_edges() == 1
+
+            # Verify relationship exists
+            related = client.get_related_memories(m1.id)
+            assert len(related) >= 1
+            assert related[0][0] == m2.id
+
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_import_graph_merge_mode(self, client):
+        """Test importing graph with merge mode."""
+        # Create initial graph
+        m1 = client.remember("Memory 1", user_id="alice")
+        client.graph.add_memory(m1.id, "alice", {})
+
+        # Create second graph in temp file
+        m2 = client.remember("Memory 2", user_id="bob")
+        temp_client = MemoryClient(
+            qdrant_url="http://localhost:6333",
+            collection_facts="test_temp_graph",
+            enable_telemetry=False,
+        )
+        temp_client.graph.add_memory(m2.id, "bob", {})
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            # Export second graph
+            temp_client.export_graph_to_json(temp_path)
+
+            # Import with merge=True (should have both)
+            stats = client.import_graph_from_json(temp_path, merge=True)
+
+            assert stats["nodes_before"] == 1
+            assert stats["nodes_after"] == 2
+            assert stats["merged"] is True
+
+            # Both memories should be in graph
+            assert m1.id in client.graph.graph.nodes()
+            assert m2.id in client.graph.graph.nodes()
+
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_import_graph_replace_mode(self, client):
+        """Test importing graph with replace mode."""
+        # Create initial graph
+        m1 = client.remember("Memory 1", user_id="alice")
+        client.graph.add_memory(m1.id, "alice", {})
+
+        # Create second graph
+        m2 = client.remember("Memory 2", user_id="bob")
+        temp_client = MemoryClient(
+            qdrant_url="http://localhost:6333",
+            collection_facts="test_temp_graph",
+            enable_telemetry=False,
+        )
+        temp_client.graph.add_memory(m2.id, "bob", {})
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            # Export second graph
+            temp_client.export_graph_to_json(temp_path)
+
+            # Import with merge=False (should replace)
+            stats = client.import_graph_from_json(temp_path, merge=False)
+
+            assert stats["nodes_before"] == 1
+            assert stats["nodes_after"] == 1
+            assert stats["merged"] is False
+
+            # Only m2 should be in graph
+            assert m1.id not in client.graph.graph.nodes()
+            assert m2.id in client.graph.graph.nodes()
+
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_import_graph_file_not_found(self, client):
+        """Test importing from non-existent file."""
+        with pytest.raises(FileNotFoundError):
+            client.import_graph_from_json("nonexistent_file.json")
+
+    def test_import_graph_invalid_format(self, client):
+        """Test importing invalid JSON format."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+            json.dump({"invalid": "format"}, f)
+
+        try:
+            with pytest.raises(ValueError, match="Invalid graph format"):
+                client.import_graph_from_json(temp_path)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_export_import_complex_graph(self, client):
+        """Test export/import with complex graph structure."""
+        # Create complex graph with multiple relationships
+        memories = []
+        for i in range(5):
+            m = client.remember(f"Memory {i}", user_id="alice")
+            client.graph.add_memory(m.id, "alice", {"index": i})
+            memories.append(m)
+
+        # Create various relationship types
+        client.add_relationship(memories[0].id, memories[1].id, RelationType.LEADS_TO, weight=0.8)
+        client.add_relationship(memories[1].id, memories[2].id, RelationType.CAUSED_BY, weight=0.9)
+        client.add_relationship(memories[2].id, memories[3].id, RelationType.SUPPORTS, weight=0.7)
+        client.add_relationship(memories[3].id, memories[4].id, RelationType.RELATED_TO, weight=0.95)
+        client.add_relationship(memories[0].id, memories[4].id, RelationType.SIMILAR_TO, weight=0.85)
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+            temp_path = f.name
+
+        try:
+            # Export
+            client.export_graph_to_json(temp_path)
+
+            # Verify export
+            with open(temp_path, 'r') as f:
+                data = json.load(f)
+
+            assert len(data["nodes"]) == 5
+            assert len(data["links"]) == 5
+
+            # Clear and reimport
+            client.graph.graph.clear()
+            client.graph._memory_index.clear()
+            client.graph._user_graphs.clear()
+
+            stats = client.import_graph_from_json(temp_path)
+
+            # Verify complete restoration
+            assert stats["nodes_after"] == 5
+            assert stats["edges_after"] == 5
+
+            # Verify all relationships are preserved
+            related = client.get_related_memories(memories[0].id, max_depth=1)
+            assert len(related) == 2  # leads_to m1, similar_to m4
+
+            related_deep = client.get_related_memories(memories[0].id, max_depth=3)
+            assert len(related_deep) >= 2
+
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
 
 
 # === VERSION CONTROL TESTS ===

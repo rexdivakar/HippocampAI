@@ -143,6 +143,12 @@ class MemoryClient:
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
 
+        # Scheduler (optional)
+        self.scheduler = None
+        if enable_telemetry and self.config.enable_scheduler:
+            from hippocampai.scheduler import MemoryScheduler
+            self.scheduler = MemoryScheduler(client=self, config=self.config)
+
         logger.info("MemoryClient initialized with advanced features")
 
     @classmethod
@@ -240,6 +246,12 @@ class MemoryClient:
                 tags=tags or [],
                 expires_at=expires_at,
             )
+
+            # Calculate size metrics
+            memory.calculate_size_metrics()
+
+            # Track size in telemetry
+            self.telemetry.track_memory_size(memory.text_length, memory.token_count)
 
             # Check duplicates
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
@@ -379,6 +391,66 @@ class MemoryClient:
         """Export telemetry data for external analysis."""
         return self.telemetry.export_traces(trace_ids=trace_ids)
 
+    def get_memory_statistics(self, user_id: str) -> Dict[str, Any]:
+        """Get memory size and usage statistics for a user.
+
+        Args:
+            user_id: User ID to get statistics for
+
+        Returns:
+            Dictionary with memory statistics including size metrics
+        """
+        memories = self.get_memories(user_id, limit=10000)
+
+        if not memories:
+            return {
+                "total_memories": 0,
+                "total_characters": 0,
+                "total_tokens": 0,
+                "avg_memory_size_chars": 0,
+                "avg_memory_size_tokens": 0,
+                "largest_memory_chars": 0,
+                "smallest_memory_chars": 0,
+            }
+
+        total_chars = sum(m.text_length for m in memories)
+        total_tokens = sum(m.token_count for m in memories)
+        char_sizes = [m.text_length for m in memories]
+
+        return {
+            "total_memories": len(memories),
+            "total_characters": total_chars,
+            "total_tokens": total_tokens,
+            "avg_memory_size_chars": total_chars / len(memories),
+            "avg_memory_size_tokens": total_tokens / len(memories),
+            "largest_memory_chars": max(char_sizes),
+            "smallest_memory_chars": min(char_sizes),
+            "by_type": self._get_size_by_type(memories),
+        }
+
+    def _get_size_by_type(self, memories: List[Memory]) -> Dict[str, Dict[str, Any]]:
+        """Get size statistics grouped by memory type."""
+        by_type = {}
+        for mem in memories:
+            type_name = mem.type.value
+            if type_name not in by_type:
+                by_type[type_name] = {
+                    "count": 0,
+                    "total_chars": 0,
+                    "total_tokens": 0,
+                }
+            by_type[type_name]["count"] += 1
+            by_type[type_name]["total_chars"] += mem.text_length
+            by_type[type_name]["total_tokens"] += mem.token_count
+
+        # Calculate averages
+        for type_name in by_type:
+            count = by_type[type_name]["count"]
+            by_type[type_name]["avg_chars"] = by_type[type_name]["total_chars"] / count
+            by_type[type_name]["avg_tokens"] = by_type[type_name]["total_tokens"] / count
+
+        return by_type
+
     def update_memory(
         self,
         memory_id: str,
@@ -423,6 +495,12 @@ class MemoryClient:
             # Update fields
             if text is not None:
                 memory.text = text
+                # Recalculate size metrics
+                memory.calculate_size_metrics()
+
+                # Track updated size in telemetry
+                self.telemetry.track_memory_size(memory.text_length, memory.token_count)
+
                 # Re-embed if text changed
                 self.telemetry.add_event(trace_id, "re_embedding", status="in_progress")
                 vector = self.embedder.encode_single(text)
@@ -793,6 +871,52 @@ class MemoryClient:
         """
         return self.graph.get_clusters(user_id)
 
+    def export_graph_to_json(
+        self, file_path: str, user_id: Optional[str] = None, indent: int = 2
+    ) -> str:
+        """Export memory graph to a JSON file for persistence.
+
+        Args:
+            file_path: Path where the JSON file will be saved
+            user_id: Optional user ID to export only a specific user's graph
+            indent: JSON indentation level (default: 2)
+
+        Returns:
+            The file path where the graph was saved
+
+        Example:
+            >>> client.export_graph_to_json("memory_graph.json")
+            >>> client.export_graph_to_json("alice_graph.json", user_id="alice")
+        """
+        return self.graph.export_to_json(file_path, user_id, indent)
+
+    def import_graph_from_json(self, file_path: str, merge: bool = True) -> Dict:
+        """Import memory graph from a JSON file.
+
+        Args:
+            file_path: Path to the JSON file to import
+            merge: If True, merge with existing graph; if False, replace existing graph
+
+        Returns:
+            Dictionary with import statistics including:
+            - file_path: Path that was imported
+            - nodes_before/after: Node counts before and after import
+            - edges_before/after: Edge counts before and after import
+            - nodes_imported: Number of nodes in the imported file
+            - edges_imported: Number of edges in the imported file
+            - merged: Whether the graph was merged or replaced
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file contains invalid graph format
+
+        Example:
+            >>> stats = client.import_graph_from_json("memory_graph.json")
+            >>> print(f"Imported {stats['nodes_imported']} nodes")
+            >>> stats = client.import_graph_from_json("backup.json", merge=False)
+        """
+        return self.graph.import_from_json(file_path, merge)
+
     # === VERSION CONTROL ===
 
     def get_memory_history(self, memory_id: str) -> List:
@@ -983,3 +1107,205 @@ class MemoryClient:
             memories.sort(key=lambda m: m.created_at, reverse=reverse)
 
         return memories[:limit]
+
+    # === SCHEDULER METHODS ===
+
+    def start_scheduler(self):
+        """Start the background scheduler for memory maintenance tasks."""
+        if self.scheduler:
+            self.scheduler.start()
+            logger.info("Background scheduler started")
+        else:
+            logger.warning("Scheduler not initialized (enable_scheduler=False or enable_telemetry=False)")
+
+    def stop_scheduler(self):
+        """Stop the background scheduler."""
+        if self.scheduler:
+            self.scheduler.stop()
+            logger.info("Background scheduler stopped")
+
+    def get_scheduler_status(self) -> dict:
+        """Get scheduler status and job information."""
+        if self.scheduler:
+            return self.scheduler.get_job_status()
+        return {"status": "not_initialized", "jobs": []}
+
+    def consolidate_all_memories(self, similarity_threshold: float = 0.85) -> int:
+        """Consolidate similar memories across all users.
+
+        This method is called by the scheduler for periodic consolidation.
+
+        Args:
+            similarity_threshold: Minimum similarity score to consider memories for consolidation
+
+        Returns:
+            Number of memory clusters consolidated
+        """
+        consolidated_count = 0
+
+        try:
+            # Get all memories from both collections
+            all_memories = []
+            for coll in [self.config.collection_facts, self.config.collection_prefs]:
+                results = self.qdrant.scroll(
+                    collection_name=coll,
+                    filters={},
+                    limit=10000,
+                )
+                all_memories.extend(results)
+
+            if not all_memories:
+                logger.info("No memories to consolidate")
+                return 0
+
+            # Group by user
+            user_memories = {}
+            for data in all_memories:
+                memory = Memory(**data["payload"])
+                user_id = memory.user_id
+                if user_id not in user_memories:
+                    user_memories[user_id] = []
+                user_memories[user_id].append(memory)
+
+            # Consolidate for each user
+            for user_id, memories in user_memories.items():
+                if len(memories) < 2:
+                    continue
+
+                # Find similar memory clusters
+                clusters = self._find_similar_clusters(memories, similarity_threshold)
+
+                for cluster in clusters:
+                    if len(cluster) < 2:
+                        continue
+
+                    # Consolidate cluster
+                    consolidated = self.consolidator.consolidate(cluster)
+                    if consolidated:
+                        # Delete old memories
+                        old_ids = [m.id for m in cluster]
+                        self.delete_memories(old_ids, user_id)
+
+                        # Store consolidated memory
+                        self.remember(
+                            text=consolidated.text,
+                            user_id=consolidated.user_id,
+                            session_id=consolidated.session_id,
+                            type=consolidated.type.value,
+                            importance=consolidated.importance,
+                            tags=consolidated.tags,
+                        )
+
+                        consolidated_count += 1
+                        logger.info(f"Consolidated {len(cluster)} memories for user {user_id}")
+
+            logger.info(f"Total consolidation completed: {consolidated_count} clusters")
+            return consolidated_count
+
+        except Exception as e:
+            logger.error(f"Consolidation failed: {e}", exc_info=True)
+            return consolidated_count
+
+    def _find_similar_clusters(
+        self, memories: List[Memory], threshold: float = 0.85
+    ) -> List[List[Memory]]:
+        """Find clusters of similar memories.
+
+        Args:
+            memories: List of memories to cluster
+            threshold: Similarity threshold
+
+        Returns:
+            List of memory clusters
+        """
+        if len(memories) < 2:
+            return []
+
+        clusters = []
+        processed = set()
+
+        for i, mem1 in enumerate(memories):
+            if mem1.id in processed:
+                continue
+
+            # Start new cluster
+            cluster = [mem1]
+            processed.add(mem1.id)
+
+            # Find similar memories
+            for mem2 in memories[i + 1:]:
+                if mem2.id in processed:
+                    continue
+
+                # Check if same type
+                if mem1.type != mem2.type:
+                    continue
+
+                # Calculate similarity using reranker
+                try:
+                    score = self.reranker.rerank_single(mem1.text, mem2.text)
+                    if score >= threshold:
+                        cluster.append(mem2)
+                        processed.add(mem2.id)
+                except Exception as e:
+                    logger.warning(f"Reranking failed: {e}")
+                    continue
+
+            if len(cluster) > 1:
+                clusters.append(cluster)
+
+        return clusters
+
+    def apply_importance_decay(self) -> int:
+        """Apply importance decay to all memories based on age.
+
+        This method is called by the scheduler for periodic decay.
+
+        Returns:
+            Number of memories updated
+        """
+        updated_count = 0
+
+        try:
+            from datetime import datetime
+
+            now = datetime.utcnow()
+
+            # Get half-lives from config
+            half_lives = self.config.get_half_lives()
+
+            # Process all memories
+            for coll in [self.config.collection_facts, self.config.collection_prefs]:
+                results = self.qdrant.scroll(
+                    collection_name=coll,
+                    filters={},
+                    limit=10000,
+                )
+
+                for data in results:
+                    memory = Memory(**data["payload"])
+
+                    # Calculate age in days
+                    age_days = (now - memory.created_at).total_seconds() / 86400
+
+                    # Get half-life for memory type
+                    half_life = half_lives.get(memory.type.value, 30)
+
+                    # Calculate decay factor: importance * (0.5 ^ (age / half_life))
+                    decay_factor = 0.5 ** (age_days / half_life)
+                    new_importance = memory.importance * decay_factor
+
+                    # Only update if decay is significant (> 0.1 change)
+                    if abs(memory.importance - new_importance) > 0.1:
+                        self.update_memory(
+                            memory_id=memory.id,
+                            importance=new_importance,
+                        )
+                        updated_count += 1
+
+            logger.info(f"Importance decay completed: {updated_count} memories updated")
+            return updated_count
+
+        except Exception as e:
+            logger.error(f"Importance decay failed: {e}", exc_info=True)
+            return updated_count

@@ -75,6 +75,8 @@ class MemoryTelemetry:
             "update_duration": [],
             "delete_duration": [],
             "get_duration": [],
+            "memory_size_chars": [],
+            "memory_size_tokens": [],
         }
 
     def start_trace(
@@ -159,6 +161,14 @@ class MemoryTelemetry:
         # Sort by start time, most recent first
         traces.sort(key=lambda t: t.start_time, reverse=True)
         return traces[:limit]
+
+    def track_memory_size(self, text_length: int, token_count: int) -> None:
+        """Track memory size metrics."""
+        if not self.enabled:
+            return
+
+        self.metrics["memory_size_chars"].append(float(text_length))
+        self.metrics["memory_size_tokens"].append(float(token_count))
 
     def get_metrics_summary(self) -> Dict[str, Any]:
         """Get summary statistics for all metrics."""

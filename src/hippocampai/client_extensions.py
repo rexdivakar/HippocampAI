@@ -208,6 +208,69 @@ class MemoryClientExtensions:
 
         return self.graph.get_clusters(user_id)
 
+    def export_graph_to_json(
+        self,
+        file_path: str,
+        user_id: Optional[str] = None,
+        indent: int = 2,
+    ) -> str:
+        """
+        Export memory graph to a JSON file for persistence.
+
+        Args:
+            file_path: Path where the JSON file will be saved
+            user_id: Optional user ID to export only a specific user's graph
+            indent: JSON indentation level (default: 2)
+
+        Returns:
+            The file path where the graph was saved
+
+        Example:
+            >>> client.export_graph_to_json("memory_graph.json")
+            >>> client.export_graph_to_json("alice_graph.json", user_id="alice")
+        """
+        if not self.graph:
+            logger.warning("Graph indexing not enabled")
+            return ""
+
+        return self.graph.export_to_json(file_path, user_id, indent)
+
+    def import_graph_from_json(
+        self,
+        file_path: str,
+        merge: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Import memory graph from a JSON file.
+
+        Args:
+            file_path: Path to the JSON file to import
+            merge: If True, merge with existing graph; if False, replace existing graph
+
+        Returns:
+            Dictionary with import statistics including:
+            - file_path: Path that was imported
+            - nodes_before/after: Node counts before and after import
+            - edges_before/after: Edge counts before and after import
+            - nodes_imported: Number of nodes in the imported file
+            - edges_imported: Number of edges in the imported file
+            - merged: Whether the graph was merged or replaced
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file contains invalid graph format
+
+        Example:
+            >>> stats = client.import_graph_from_json("memory_graph.json")
+            >>> print(f"Imported {stats['nodes_imported']} nodes")
+            >>> stats = client.import_graph_from_json("backup.json", merge=False)
+        """
+        if not self.graph:
+            logger.warning("Graph indexing not enabled")
+            return {}
+
+        return self.graph.import_from_json(file_path, merge)
+
     # === VERSION CONTROL ===
 
     def get_memory_history(self, memory_id: str) -> List:

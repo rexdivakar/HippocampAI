@@ -1,9 +1,11 @@
 """Graph index for memory relationships using NetworkX."""
 
+import json
 import logging
 from collections import defaultdict
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import networkx as nx
 
@@ -259,3 +261,101 @@ class MemoryGraph:
             if user_id:
                 self._memory_index[node] = {"user_id": user_id, "metadata": attrs}
                 self._user_graphs[user_id].add(node)
+
+    def export_to_json(
+        self, file_path: Union[str, Path], user_id: Optional[str] = None, indent: int = 2
+    ) -> str:
+        """
+        Export graph to a JSON file.
+
+        Args:
+            file_path: Path where the JSON file will be saved
+            user_id: Optional user ID to export only a specific user's graph
+            indent: JSON indentation level (default: 2)
+
+        Returns:
+            The file path where the graph was saved
+
+        Example:
+            >>> graph.export_to_json("memory_graph.json")
+            >>> graph.export_to_json("alice_graph.json", user_id="alice")
+        """
+        file_path = Path(file_path)
+
+        # Get graph data
+        graph_data = self.export_to_dict(user_id)
+
+        # Save to file
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(graph_data, f, indent=indent, ensure_ascii=False)
+
+        logger.info(f"Exported graph to {file_path} (nodes: {len(graph_data['nodes'])}, edges: {len(graph_data['links'])})")
+        return str(file_path)
+
+    def import_from_json(self, file_path: Union[str, Path], merge: bool = True) -> Dict:
+        """
+        Import graph from a JSON file.
+
+        Args:
+            file_path: Path to the JSON file to import
+            merge: If True, merge with existing graph; if False, replace existing graph
+
+        Returns:
+            Dictionary with import statistics
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            json.JSONDecodeError: If the file contains invalid JSON
+
+        Example:
+            >>> graph.import_from_json("memory_graph.json")
+            >>> graph.import_from_json("backup.json", merge=False)
+        """
+        file_path = Path(file_path)
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"Graph file not found: {file_path}")
+
+        # Load from file
+        with open(file_path, "r", encoding="utf-8") as f:
+            graph_data = json.load(f)
+
+        # Validate structure
+        if not isinstance(graph_data, dict) or "nodes" not in graph_data or "links" not in graph_data:
+            raise ValueError(f"Invalid graph format in {file_path}. Expected 'nodes' and 'links' keys.")
+
+        # Store old counts for stats
+        old_node_count = self.graph.number_of_nodes()
+        old_edge_count = self.graph.number_of_edges()
+
+        # Clear existing graph if not merging
+        if not merge:
+            self.graph.clear()
+            self._memory_index.clear()
+            self._user_graphs.clear()
+            logger.info(f"Cleared existing graph before import (merge=False)")
+
+        # Import data
+        self.import_from_dict(graph_data)
+
+        # Calculate stats
+        new_node_count = self.graph.number_of_nodes()
+        new_edge_count = self.graph.number_of_edges()
+
+        stats = {
+            "file_path": str(file_path),
+            "nodes_before": old_node_count,
+            "edges_before": old_edge_count,
+            "nodes_after": new_node_count,
+            "edges_after": new_edge_count,
+            "nodes_imported": len(graph_data["nodes"]),
+            "edges_imported": len(graph_data["links"]),
+            "merged": merge,
+        }
+
+        logger.info(
+            f"Imported graph from {file_path} "
+            f"(nodes: {old_node_count} -> {new_node_count}, edges: {old_edge_count} -> {new_edge_count})"
+        )
+
+        return stats

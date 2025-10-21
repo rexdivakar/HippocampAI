@@ -30,6 +30,8 @@ class Memory(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: Optional[datetime] = None  # TTL support
     access_count: int = 0
+    text_length: int = 0  # Character count
+    token_count: int = 0  # Approximate token count
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     def collection_name(self, facts_col: str, prefs_col: str) -> str:
@@ -43,6 +45,16 @@ class Memory(BaseModel):
         if self.expires_at is None:
             return False
         return datetime.utcnow() > self.expires_at
+
+    @staticmethod
+    def estimate_tokens(text: str) -> int:
+        """Estimate token count (rough approximation: 4 chars ≈ 1 token)."""
+        return len(text) // 4
+
+    def calculate_size_metrics(self):
+        """Calculate and update size metrics."""
+        self.text_length = len(self.text)
+        self.token_count = self.estimate_tokens(self.text)
 
 
 class RetrievalResult(BaseModel):

@@ -9,6 +9,7 @@ from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
 __version__ = "0.1.0"
 __all__ = [
     "MemoryClient",
+    "AsyncMemoryClient",
     "Memory",
     "MemoryType",
     "RetrievalResult",
@@ -29,6 +30,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
+    from hippocampai.async_client import AsyncMemoryClient as AsyncMemoryClient
     from hippocampai.client import MemoryClient as MemoryClient
     from hippocampai.config import Config as Config
     from hippocampai.config import get_config as get_config
@@ -45,6 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.versioning import MemoryVersionControl as MemoryVersionControl
 
 _MEMORY_CLIENT: Any | None = None
+_ASYNC_MEMORY_CLIENT: Any | None = None
 _CONFIG: Any | None = None
 _GET_CONFIG: Any | None = None
 _GET_TELEMETRY: Any | None = None
@@ -61,7 +64,7 @@ _INJECT_CONTEXT: Any | None = None
 
 
 def __getattr__(name: str) -> Any:
-    global _MEMORY_CLIENT, _CONFIG, _GET_CONFIG, _GET_TELEMETRY, _OPERATION_TYPE
+    global _MEMORY_CLIENT, _ASYNC_MEMORY_CLIENT, _CONFIG, _GET_CONFIG, _GET_TELEMETRY, _OPERATION_TYPE
     global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
     global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
 
@@ -78,6 +81,20 @@ def __getattr__(name: str) -> Any:
                 ) from exc
 
         return _MEMORY_CLIENT
+
+    if name == "AsyncMemoryClient":
+        if _ASYNC_MEMORY_CLIENT is None:
+            try:
+                from hippocampai.async_client import AsyncMemoryClient as _ImportedAsyncMemoryClient
+
+                _ASYNC_MEMORY_CLIENT = _ImportedAsyncMemoryClient
+            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
+                raise ModuleNotFoundError(
+                    "hippocampai.AsyncMemoryClient requires optional dependencies (qdrant-client, sentence-transformers). "
+                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
+                ) from exc
+
+        return _ASYNC_MEMORY_CLIENT
 
     if name == "Config":
         if _CONFIG is None:

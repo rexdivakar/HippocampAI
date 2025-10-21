@@ -272,6 +272,12 @@ python examples/06_batch_operations.py
 # Advanced features (graph, version control, context injection, etc.)
 python examples/07_advanced_features_demo.py
 
+# Memory consolidation scheduler
+python examples/08_scheduler_demo.py
+
+# Graph persistence (JSON export/import)
+python examples/09_graph_persistence_demo.py
+
 # Run all examples
 ./run_examples.sh
 ```
@@ -370,10 +376,8 @@ Need help? Join our community: [Discord](https://discord.gg/pPSNW9J7gB)
 - [x] KV store for fast lookups
 - [x] Memory size tracking (text_length, token_count)
 - [x] Async variants for all core operations
-
-**In Progress:**
-- [ ] Memory consolidation scheduler (background jobs)
-- [ ] Persistent graph storage (JSON export/import)
+- [x] Memory consolidation scheduler (background jobs)
+- [x] Persistent graph storage (JSON export/import)
 
 **Planned:**
 - [ ] LangChain and LlamaIndex integrations
