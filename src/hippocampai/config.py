@@ -11,12 +11,8 @@ class Config(BaseSettings):
 
     # Qdrant
     qdrant_url: str = Field(default="http://localhost:6333", validation_alias="QDRANT_URL")
-    collection_facts: str = Field(
-        default="hippocampai_facts", validation_alias="COLLECTION_FACTS"
-    )
-    collection_prefs: str = Field(
-        default="hippocampai_prefs", validation_alias="COLLECTION_PREFS"
-    )
+    collection_facts: str = Field(default="hippocampai_facts", validation_alias="COLLECTION_FACTS")
+    collection_prefs: str = Field(default="hippocampai_prefs", validation_alias="COLLECTION_PREFS")
 
     # HNSW tuning
     hnsw_m: int = Field(default=48, validation_alias="HNSW_M")
