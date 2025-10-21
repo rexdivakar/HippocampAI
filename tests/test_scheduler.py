@@ -38,9 +38,9 @@ class TestSchedulerInitialization:
         assert client_with_scheduler.scheduler is not None
 
     def test_scheduler_disabled_by_default(self):
-        """Test that scheduler is disabled by default."""
+        """Test that scheduler is disabled when enable_scheduler=False."""
         config = Config(enable_scheduler=False)
-        client = MemoryClient(config=config)
+        client = MemoryClient(config=config, enable_telemetry=False)
         assert client.scheduler is None
 
     def test_start_scheduler(self, client_with_scheduler):
@@ -64,7 +64,7 @@ class TestSchedulerInitialization:
     def test_scheduler_status_not_initialized(self):
         """Test scheduler status when not initialized."""
         config = Config(enable_scheduler=False)
-        client = MemoryClient(config=config)
+        client = MemoryClient(config=config, enable_telemetry=False)
 
         status = client.get_scheduler_status()
         assert status["status"] == "not_initialized"
