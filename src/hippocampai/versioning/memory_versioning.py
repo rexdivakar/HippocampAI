@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -54,7 +54,7 @@ class AuditEntry:
     audit_id: str = field(default_factory=lambda: str(uuid4()))
     memory_id: str = ""
     change_type: ChangeType = ChangeType.UPDATED
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
     changes: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -114,7 +114,7 @@ class MemoryVersionControl:
             memory_id=memory_id,
             version_number=version_number,
             data=data.copy(),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             created_by=created_by,
             change_summary=change_summary,
         )
@@ -275,7 +275,7 @@ class MemoryVersionControl:
         Returns:
             Number of entries cleared
         """
-        cutoff = datetime.utcnow().timestamp() - (days_old * 24 * 3600)
+        cutoff = datetime.now(timezone.utc).timestamp() - (days_old * 24 * 3600)
         original_count = len(self._audit_trail)
 
         self._audit_trail = [

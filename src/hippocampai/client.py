@@ -1,7 +1,7 @@
 """Main MemoryClient - public API."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from hippocampai.adapters.provider_ollama import OllamaLLM
@@ -234,8 +234,7 @@ class MemoryClient:
             # Calculate expiration if TTL is set
             expires_at = None
             if ttl_days is not None:
-                from datetime import timedelta
-                expires_at = datetime.utcnow() + timedelta(days=ttl_days)
+                expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
 
             memory = Memory(
                 text=text,
@@ -517,7 +516,7 @@ class MemoryClient:
             if expires_at is not None:
                 memory.expires_at = expires_at
 
-            memory.updated_at = datetime.utcnow()
+            memory.updated_at = datetime.now(timezone.utc)
 
             # Update in Qdrant
             self.telemetry.add_event(trace_id, "update_vector_store", status="in_progress")
@@ -989,7 +988,7 @@ class MemoryClient:
             if memory_data:
                 payload = memory_data["payload"]
                 payload["access_count"] = payload.get("access_count", 0) + 1
-                payload["last_accessed_at"] = datetime.utcnow().isoformat()
+                payload["last_accessed_at"] = datetime.now(timezone.utc).isoformat()
 
                 self.qdrant.update(coll, memory_id, payload)
 
@@ -1267,9 +1266,7 @@ class MemoryClient:
         updated_count = 0
 
         try:
-            from datetime import datetime
-
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # Get half-lives from config
             half_lives = self.config.get_half_lives()

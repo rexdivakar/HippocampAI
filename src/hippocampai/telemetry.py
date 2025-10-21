@@ -7,7 +7,7 @@ Track memory creation, retrieval, extraction, and performance metrics.
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -92,7 +92,7 @@ class MemoryTelemetry:
             operation=operation,
             user_id=user_id,
             session_id=session_id,
-            start_time=datetime.now(datetime.UTC) if hasattr(datetime, 'UTC') else datetime.utcnow(),
+            start_time=datetime.now(timezone.utc),
             metadata=metadata,
         )
 
@@ -117,7 +117,7 @@ class MemoryTelemetry:
             trace_id=trace_id,
             span_id=str(uuid4()),
             operation=trace.operation,
-            timestamp=datetime.now(datetime.UTC) if hasattr(datetime, 'UTC') else datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             duration_ms=duration_ms,
             metadata=metadata,
             status=status,
@@ -134,7 +134,7 @@ class MemoryTelemetry:
             return None
 
         trace = self.traces[trace_id]
-        trace.end_time = datetime.now(datetime.UTC) if hasattr(datetime, 'UTC') else datetime.utcnow()
+        trace.end_time = datetime.now(timezone.utc)
         trace.duration_ms = (trace.end_time - trace.start_time).total_seconds() * 1000
         trace.status = status
         trace.result = result
@@ -197,7 +197,7 @@ class MemoryTelemetry:
             self.traces.clear()
             return count
 
-        now = datetime.now(datetime.UTC) if hasattr(datetime, 'UTC') else datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cutoff = now.timestamp() - (older_than_minutes * 60)
         old_traces = [
             tid

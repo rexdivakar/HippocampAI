@@ -10,7 +10,7 @@ This module extends the MemoryClient with additional capabilities:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from hippocampai.graph import MemoryGraph, RelationType
@@ -358,7 +358,7 @@ class MemoryClientExtensions:
             if memory_data:
                 payload = memory_data["payload"]
                 payload["access_count"] = payload.get("access_count", 0) + 1
-                payload["last_accessed_at"] = datetime.utcnow().isoformat()
+                payload["last_accessed_at"] = datetime.now(timezone.utc).isoformat()
 
                 self.qdrant.update(coll, memory_id, payload)
 

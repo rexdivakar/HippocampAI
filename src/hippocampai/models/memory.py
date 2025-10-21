@@ -1,6 +1,6 @@
 """Memory models and enums."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -26,8 +26,8 @@ class Memory(BaseModel):
     importance: float = Field(default=5.0, ge=0.0, le=10.0)
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     tags: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None  # TTL support
     access_count: int = 0
     text_length: int = 0  # Character count
@@ -44,7 +44,7 @@ class Memory(BaseModel):
         """Check if memory has expired."""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     @staticmethod
     def estimate_tokens(text: str) -> int:

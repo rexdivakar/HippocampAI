@@ -3,7 +3,7 @@
 import json
 import logging
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -21,14 +21,14 @@ class InMemoryKVStore:
         """Set a key-value pair with optional TTL."""
         self._store[key] = value
         if ttl_seconds:
-            self._ttl[key] = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+            self._ttl[key] = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
         logger.debug(f"Set key: {key}")
 
     def get(self, key: str) -> Optional[Any]:
         """Get value by key."""
         # Check TTL
         if key in self._ttl:
-            if datetime.utcnow() > self._ttl[key]:
+            if datetime.now(timezone.utc) > self._ttl[key]:
                 self.delete(key)
                 return None
 
