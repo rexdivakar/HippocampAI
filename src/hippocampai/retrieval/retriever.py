@@ -1,7 +1,6 @@
 """Hybrid retriever with two-stage ranking."""
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from hippocampai.embed.embedder import Embedder
