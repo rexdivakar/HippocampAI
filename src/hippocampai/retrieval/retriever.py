@@ -11,6 +11,7 @@ from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.router import QueryRouter
 from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 from hippocampai.utils.scoring import fuse_scores, recency_score
+from hippocampai.utils.time import parse_iso_datetime
 from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class HybridRetriever:
 
             # Compute component scores
             importance_norm = payload.get("importance", 5.0) / 10.0
-            created_at = datetime.fromisoformat(payload["created_at"])
+            created_at = parse_iso_datetime(payload["created_at"])
             mem_type = payload.get("type", "fact")
             half_life = self.half_lives.get(mem_type, 30)
             recency = recency_score(created_at, half_life)
@@ -183,7 +184,7 @@ class HybridRetriever:
                 confidence=payload.get("confidence", 0.9),
                 tags=payload.get("tags", []),
                 created_at=created_at,
-                updated_at=datetime.fromisoformat(payload["updated_at"]),
+                updated_at=parse_iso_datetime(payload["updated_at"]),
                 access_count=payload.get("access_count", 0),
                 metadata=payload.get("metadata", {}),
             )
