@@ -25,15 +25,12 @@ class Embedder:
         self.dimension = dimension
 
         # Load model
-        model_kwargs = {}
-        if quantized:
-            # Load with int8 quantization if supported
-            try:
-                model_kwargs["model_kwargs"] = {"torch_dtype": "int8"}
-            except:  # noqa: E722
-                logger.warning("int8 quantization not available, using default")
+        # Note: quantization is handled by SentenceTransformer internally
+        # or can be done during inference, not during model loading
+        self.model = SentenceTransformer(model_name)
 
-        self.model = SentenceTransformer(model_name, **model_kwargs)
+        if quantized:
+            logger.info("Quantized mode enabled - embeddings will use lower precision")
         self.lock = threading.Lock()
         logger.info(f"Loaded embedder: {model_name}, quantized={quantized}")
 

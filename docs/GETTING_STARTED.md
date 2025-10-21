@@ -18,6 +18,16 @@ ollama pull qwen2.5:7b-instruct
 
 ## Installation
 
+**Option A: Install from PyPI (Recommended)**
+
+```bash
+pip install hippocampai
+```
+
+View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
+
+**Option B: Install from source**
+
 ```bash
 cd /Users/rexdivakar/workspace/HippocampAI
 pip install -e .
@@ -189,8 +199,8 @@ pip install -e .
 
 ## What's Next?
 
-1. Check `README_NEW.md` for full documentation
-2. See `PACKAGE_SUMMARY.md` for architecture details
+1. Check `README.md` for full documentation
+2. See `FEATURES.md` for complete feature guide
 3. Explore `src/hippocampai/` for implementation
 4. Read `CHANGELOG.md` for version history
 

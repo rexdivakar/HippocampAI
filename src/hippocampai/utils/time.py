@@ -1,7 +1,12 @@
 """Time utilities."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 
 
 def now_utc() -> datetime:
