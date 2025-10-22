@@ -306,3 +306,32 @@ class OptimizedMemoryClient:
     def detect_topic_shift(self, user_id: str, window_size: int = 10):
         """Detect if there's been a shift in conversation topics."""
         return self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
+
+    # Multi-agent support
+    def create_agent(self, name: str, user_id: str, role=None, description=None, metadata=None):
+        """Create a new agent with its own memory space."""
+        return self.client.create_agent(name, user_id, role, description, metadata)
+
+    def get_agent(self, agent_id: str):
+        """Get agent by ID."""
+        return self.client.get_agent(agent_id)
+
+    def list_agents(self, user_id=None):
+        """List all agents."""
+        return self.client.list_agents(user_id)
+
+    def create_run(self, agent_id: str, user_id: str, name=None, metadata=None):
+        """Create a new run for an agent."""
+        return self.client.create_run(agent_id, user_id, name, metadata)
+
+    def grant_agent_permission(self, granter_agent_id: str, grantee_agent_id: str, permissions, memory_filters=None, expires_at=None):
+        """Grant permission for one agent to access another's memories."""
+        return self.client.grant_agent_permission(granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at)
+
+    def get_agent_memories(self, agent_id: str, requesting_agent_id=None, filters=None, limit: int = 100):
+        """Get memories for an agent, respecting permissions."""
+        return self.client.get_agent_memories(agent_id, requesting_agent_id, filters, limit)
+
+    def transfer_memory(self, memory_id: str, source_agent_id: str, target_agent_id: str, transfer_type: str = "copy"):
+        """Transfer a memory from one agent to another."""
+        return self.client.transfer_memory(memory_id, source_agent_id, target_agent_id, transfer_type)

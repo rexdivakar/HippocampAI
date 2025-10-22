@@ -2,7 +2,8 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Set
+from uuid import uuid4
 
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
@@ -18,6 +19,8 @@ from hippocampai.pipeline.extractor import MemoryExtractor
 from hippocampai.pipeline.importance import ImportanceScorer
 from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
 from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
+from hippocampai.multiagent import MultiAgentManager
+from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.session import SessionManager
@@ -155,6 +158,7 @@ class MemoryClient:
         self.version_control = MemoryVersionControl()
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
+        self.multiagent = MultiAgentManager()  # Multi-agent support
 
         # Session Management
         self.session_manager = SessionManager(
@@ -241,6 +245,9 @@ class MemoryClient:
         importance: Optional[float] = None,
         tags: Optional[List[str]] = None,
         ttl_days: Optional[int] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        visibility: Optional[str] = None,
     ) -> Memory:
         """Store a memory."""
         # Start telemetry trace
@@ -266,6 +273,9 @@ class MemoryClient:
                 importance=importance or self.scorer.score(text, type),
                 tags=tags or [],
                 expires_at=expires_at,
+                agent_id=agent_id,
+                run_id=run_id,
+                visibility=visibility or MemoryVisibility.PRIVATE.value,
             )
 
             # Auto-enrich with semantic categorization
@@ -1776,3 +1786,261 @@ class MemoryClient:
         recent_memories.sort(key=lambda m: m.created_at)
 
         return self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
+
+    # === MULTI-AGENT SUPPORT ===
+
+    def create_agent(
+        self,
+        name: str,
+        user_id: str,
+        role: AgentRole = AgentRole.ASSISTANT,
+        description: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Agent:
+        """Create a new agent with its own memory space.
+
+        Args:
+            name: Agent name
+            user_id: User ID owning the agent
+            role: Agent role (assistant, specialist, coordinator, observer)
+            description: Optional description
+            metadata: Optional metadata
+
+        Returns:
+            Created Agent object
+
+        Example:
+            >>> agent = client.create_agent("Research Assistant", "alice", role=AgentRole.SPECIALIST)
+        """
+        return self.multiagent.create_agent(name, user_id, role, description, metadata)
+
+    def get_agent(self, agent_id: str) -> Optional[Agent]:
+        """Get agent by ID."""
+        return self.multiagent.get_agent(agent_id)
+
+    def list_agents(self, user_id: Optional[str] = None) -> List[Agent]:
+        """List all agents, optionally filtered by user."""
+        return self.multiagent.list_agents(user_id)
+
+    def update_agent(
+        self,
+        agent_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        role: Optional[AgentRole] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        is_active: Optional[bool] = None,
+    ) -> Optional[Agent]:
+        """Update agent properties."""
+        return self.multiagent.update_agent(agent_id, name, description, role, metadata, is_active)
+
+    def delete_agent(self, agent_id: str) -> bool:
+        """Delete an agent and its associated data."""
+        return self.multiagent.delete_agent(agent_id)
+
+    def create_run(
+        self,
+        agent_id: str,
+        user_id: str,
+        name: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Run:
+        """Create a new run for an agent.
+
+        Runs organize memories in a User → Agent → Run hierarchy.
+
+        Args:
+            agent_id: Agent ID
+            user_id: User ID
+            name: Optional run name
+            metadata: Optional metadata
+
+        Returns:
+            Created Run object
+
+        Example:
+            >>> run = client.create_run(agent.id, "alice", name="Research Session 1")
+            >>> memory = client.remember("Key finding", "alice", agent_id=agent.id, run_id=run.id)
+        """
+        return self.multiagent.create_run(agent_id, user_id, name, metadata)
+
+    def get_run(self, run_id: str) -> Optional[Run]:
+        """Get run by ID."""
+        return self.multiagent.get_run(run_id)
+
+    def list_runs(
+        self, agent_id: Optional[str] = None, user_id: Optional[str] = None
+    ) -> List[Run]:
+        """List runs, optionally filtered by agent or user."""
+        return self.multiagent.list_runs(agent_id, user_id)
+
+    def complete_run(self, run_id: str, status: str = "completed") -> Optional[Run]:
+        """Mark a run as completed."""
+        return self.multiagent.complete_run(run_id, status)
+
+    def grant_agent_permission(
+        self,
+        granter_agent_id: str,
+        grantee_agent_id: str,
+        permissions: Set[PermissionType],
+        memory_filters: Optional[Dict[str, Any]] = None,
+        expires_at: Optional[datetime] = None,
+    ) -> AgentPermission:
+        """Grant permission for one agent to access another's memories.
+
+        Args:
+            granter_agent_id: Agent granting permission
+            grantee_agent_id: Agent receiving permission
+            permissions: Set of permissions (READ, WRITE, SHARE, DELETE)
+            memory_filters: Optional filters for which memories to share
+            expires_at: Optional expiration datetime
+
+        Returns:
+            Created AgentPermission object
+
+        Example:
+            >>> # Allow agent2 to read agent1's memories
+            >>> perm = client.grant_agent_permission(
+            ...     agent1.id,
+            ...     agent2.id,
+            ...     {PermissionType.READ}
+            ... )
+        """
+        return self.multiagent.grant_permission(
+            granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at
+        )
+
+    def revoke_agent_permission(self, permission_id: str) -> bool:
+        """Revoke an agent permission."""
+        return self.multiagent.revoke_permission(permission_id)
+
+    def check_agent_permission(
+        self, agent_id: str, target_agent_id: str, permission: PermissionType
+    ) -> bool:
+        """Check if an agent has permission to access another agent's memories."""
+        return self.multiagent.check_permission(agent_id, target_agent_id, permission)
+
+    def list_agent_permissions(
+        self,
+        granter_agent_id: Optional[str] = None,
+        grantee_agent_id: Optional[str] = None,
+    ) -> List[AgentPermission]:
+        """List permissions, optionally filtered."""
+        return self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
+
+    def transfer_memory(
+        self,
+        memory_id: str,
+        source_agent_id: str,
+        target_agent_id: str,
+        transfer_type: str = "copy",
+    ) -> Optional[Any]:
+        """Transfer a memory from one agent to another.
+
+        Args:
+            memory_id: Memory ID to transfer
+            source_agent_id: Source agent ID
+            target_agent_id: Target agent ID
+            transfer_type: "copy", "move", or "share"
+
+        Returns:
+            MemoryTransfer record or None if not allowed
+
+        Example:
+            >>> # Copy a memory from agent1 to agent2
+            >>> transfer = client.transfer_memory(memory.id, agent1.id, agent2.id, "copy")
+        """
+        # Get the memory
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+
+                # Transfer
+                transfer = self.multiagent.transfer_memory(
+                    memory, source_agent_id, target_agent_id, transfer_type
+                )
+
+                if transfer and transfer_type in ["copy", "share"]:
+                    # Create copy for target agent
+                    copied = memory.model_copy(deep=True)
+                    copied.id = str(uuid4())
+                    copied.agent_id = target_agent_id
+                    copied.metadata["transferred_from"] = source_agent_id
+                    copied.metadata["transfer_type"] = transfer_type
+
+                    # Store copied memory
+                    collection = memory.collection_name(
+                        self.config.collection_facts, self.config.collection_prefs
+                    )
+                    vector = self.embedder.encode_single(copied.text)
+                    self.qdrant.upsert(
+                        collection_name=collection,
+                        id=copied.id,
+                        vector=vector,
+                        payload=copied.model_dump(mode="json"),
+                    )
+
+                    # If move, delete original
+                    if transfer_type == "move":
+                        self.delete_memory(memory_id, memory.user_id)
+
+                return transfer
+
+        return None
+
+    def get_agent_memories(
+        self,
+        agent_id: str,
+        requesting_agent_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 100,
+    ) -> List[Memory]:
+        """Get memories for an agent, respecting permissions.
+
+        Args:
+            agent_id: Agent whose memories to retrieve
+            requesting_agent_id: Agent requesting access (for permission check)
+            filters: Optional additional filters
+            limit: Maximum memories to return
+
+        Returns:
+            List of accessible Memory objects
+
+        Example:
+            >>> # Get agent1's own memories
+            >>> memories = client.get_agent_memories(agent1.id)
+            >>>
+            >>> # Get agent1's memories from agent2's perspective (filtered by permissions)
+            >>> memories = client.get_agent_memories(agent1.id, requesting_agent_id=agent2.id)
+        """
+        # Get agent to verify user_id
+        agent = self.multiagent.get_agent(agent_id)
+        if not agent:
+            return []
+
+        # Get all memories for the user
+        filters = filters or {}
+        filters["agent_id"] = agent_id
+        memories = self.get_memories(agent.user_id, filters=filters, limit=limit)
+
+        # Filter by permissions if requesting from another agent
+        if requesting_agent_id and requesting_agent_id != agent_id:
+            memories = self.multiagent.filter_accessible_memories(
+                requesting_agent_id, memories, PermissionType.READ
+            )
+
+        return memories
+
+    def get_agent_stats(self, agent_id: str) -> Optional[Any]:
+        """Get memory statistics for an agent.
+
+        Returns:
+            AgentMemoryStats object with detailed statistics
+        """
+        agent = self.multiagent.get_agent(agent_id)
+        if not agent:
+            return None
+
+        memories = self.get_memories(agent.user_id, limit=10000)
+        return self.multiagent.get_agent_stats(agent_id, memories)
