@@ -11,9 +11,10 @@ This document provides comprehensive documentation for all memory management fea
 5. [Version Control & Audit](#version-control--audit)
 6. [Batch Operations](#batch-operations)
 7. [Context Injection](#context-injection)
-8. [Storage & Caching](#storage--caching)
-9. [Monitoring & Telemetry](#monitoring--telemetry)
-10. [API Reference](#api-reference)
+8. [Session Management](#session-management)
+9. [Storage & Caching](#storage--caching)
+10. [Monitoring & Telemetry](#monitoring--telemetry)
+11. [API Reference](#api-reference)
 
 ---
 
@@ -705,6 +706,709 @@ selected_memories = injector.truncate_to_token_limit(
 ```
 
 **Location:** `src/hippocampai/utils/context_injection.py`
+
+---
+
+## Session Management
+
+HippocampAI's session management system allows you to organize conversations into structured sessions with automatic summarization, entity tracking, and semantic search capabilities.
+
+### Overview
+
+**Key Features:**
+- Session lifecycle management (create, update, complete, delete)
+- Automatic LLM-powered summarization
+- Entity extraction and tracking (people, technologies, organizations, etc.)
+- Fact extraction with confidence scores
+- Semantic session search
+- Hierarchical sessions (parent-child relationships)
+- Automatic topic boundary detection
+- Rich metadata and tagging
+
+### Core Models
+
+#### Session
+```python
+class Session(BaseModel):
+    id: str                              # Unique session ID
+    user_id: str                         # Owner user ID
+    title: Optional[str]                 # Session title
+    summary: Optional[str]               # Auto-generated summary
+    status: SessionStatus                # active, inactive, completed, archived
+    parent_session_id: Optional[str]     # For hierarchical sessions
+    child_session_ids: List[str]         # Child sessions
+    message_count: int                   # Total messages tracked
+    memory_count: int                    # Associated memories
+    entities: Dict[str, Entity]          # Extracted entities
+    facts: List[SessionFact]             # Extracted facts
+    metadata: Dict[str, Any]             # Custom metadata
+    tags: List[str]                      # Tags for filtering
+    started_at: datetime                 # Session start time
+    last_activity_at: datetime           # Last message time
+    ended_at: Optional[datetime]         # Completion time
+```
+
+#### Entity
+```python
+class Entity(BaseModel):
+    name: str                    # Entity name
+    type: str                    # person, organization, technology, etc.
+    mentions: int                # Number of times mentioned
+    first_mentioned_at: datetime # First occurrence
+    last_mentioned_at: datetime  # Most recent occurrence
+    metadata: Dict[str, Any]     # Additional context
+```
+
+#### SessionFact
+```python
+class SessionFact(BaseModel):
+    fact: str                    # Fact statement
+    confidence: float            # 0.0-1.0 confidence score
+    extracted_at: datetime       # Extraction timestamp
+    sources: List[str]           # Memory IDs supporting this fact
+```
+
+### 1. Create Session - `create_session()`
+
+Create a new conversation session with optional metadata and hierarchy.
+
+**Signature:**
+```python
+def create_session(
+    user_id: str,
+    title: Optional[str] = None,
+    parent_session_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    tags: Optional[List[str]] = None,
+) -> Session
+```
+
+**Example:**
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# Basic session
+session = client.create_session(
+    user_id="alice",
+    title="ML Project Discussion"
+)
+
+# Session with metadata and tags
+session = client.create_session(
+    user_id="alice",
+    title="Q1 Planning - Sentiment Analysis",
+    tags=["work", "ml", "quarterly"],
+    metadata={
+        "project": "sentiment-analysis",
+        "team": "data-science",
+        "priority": "high"
+    }
+)
+
+# Hierarchical session (child)
+child_session = client.create_session(
+    user_id="alice",
+    title="Deep Dive: Model Architecture",
+    parent_session_id=session.id,
+    tags=["technical", "deep-dive"]
+)
+```
+
+**Location:** `src/hippocampai/client.py:1043`
+
+---
+
+### 2. Track Messages - `track_session_message()`
+
+Track messages within a session with automatic entity extraction.
+
+**Signature:**
+```python
+def track_session_message(
+    session_id: str,
+    text: str,
+    user_id: str,
+    type: str = "fact",
+    importance: Optional[float] = None,
+    tags: Optional[List[str]] = None,
+    auto_boundary_detect: bool = False,
+) -> Session
+```
+
+**Features:**
+- Creates memory and associates with session
+- Updates session statistics
+- Auto-extracts entities
+- Optional boundary detection (creates new session if topic changes)
+- Triggers auto-summarization at threshold
+
+**Example:**
+```python
+# Basic message tracking
+session = client.track_session_message(
+    session_id=session.id,
+    text="We're building a sentiment analysis model using BERT",
+    user_id="alice"
+)
+
+# With importance and tags
+session = client.track_session_message(
+    session_id=session.id,
+    text="Deadline is Friday - this is critical",
+    user_id="alice",
+    type="fact",
+    importance=9.5,
+    tags=["deadline", "critical"]
+)
+
+# With boundary detection
+result = client.track_session_message(
+    session_id=session.id,
+    text="Let's switch topics to cloud infrastructure",
+    user_id="alice",
+    auto_boundary_detect=True  # May create new session
+)
+
+if result.id != session.id:
+    print(f"Topic changed - new session created: {result.id}")
+```
+
+**Location:** `src/hippocampai/client.py:1095`
+
+---
+
+### 3. Session Summarization - `summarize_session()`
+
+Generate LLM-powered summaries of sessions.
+
+**Signature:**
+```python
+def summarize_session(
+    session_id: str,
+    force: bool = False
+) -> Optional[str]
+```
+
+**Features:**
+- Automatic summarization at message threshold (default: 10)
+- Manual summary generation
+- Force re-summarization
+- Graceful fallback if LLM unavailable
+
+**Example:**
+```python
+# Generate summary
+summary = client.summarize_session(session.id)
+if summary:
+    print(f"Summary: {summary}")
+else:
+    print("LLM not available or insufficient messages")
+
+# Force re-summarization
+summary = client.summarize_session(session.id, force=True)
+```
+
+**Location:** `src/hippocampai/client.py:1210`
+
+---
+
+### 4. Entity Extraction - `extract_session_entities()`
+
+Extract and track named entities from session messages.
+
+**Signature:**
+```python
+def extract_session_entities(
+    session_id: str,
+    force: bool = False
+) -> Dict[str, Any]
+```
+
+**Entity Types:**
+- `person` - People and names
+- `organization` - Companies, institutions
+- `technology` - Technologies, frameworks, tools
+- `location` - Places and locations
+- `product` - Products and services
+- `concept` - Abstract concepts
+- `event` - Events and occurrences
+
+**Example:**
+```python
+# Extract entities
+entities = client.extract_session_entities(session.id)
+
+if entities:
+    for name, entity in entities.items():
+        print(f"{name} ({entity.type})")
+        print(f"  Mentions: {entity.mentions}")
+        print(f"  First seen: {entity.first_mentioned_at}")
+        print(f"  Last seen: {entity.last_mentioned_at}")
+
+# Force re-extraction
+entities = client.extract_session_entities(session.id, force=True)
+```
+
+**Location:** `src/hippocampai/client.py:1241`
+
+**Fallback:** Uses regex-based extraction if LLM unavailable
+
+---
+
+### 5. Fact Extraction - `extract_session_facts()`
+
+Extract key facts with confidence scores from sessions.
+
+**Signature:**
+```python
+def extract_session_facts(
+    session_id: str,
+    force: bool = False
+) -> List[SessionFact]
+```
+
+**Example:**
+```python
+# Extract facts
+facts = client.extract_session_facts(session.id)
+
+if facts:
+    for fact in facts:
+        print(f"Fact: {fact.fact}")
+        print(f"  Confidence: {fact.confidence:.2f}")
+        print(f"  Sources: {len(fact.sources)} memories")
+```
+
+**Location:** `src/hippocampai/client.py:1225`
+
+---
+
+### 6. Session Search - `search_sessions()`
+
+Semantic search across all sessions.
+
+**Signature:**
+```python
+def search_sessions(
+    query: str,
+    user_id: str,
+    k: int = 5,
+    filters: Optional[Dict[str, Any]] = None
+) -> List[SessionSearchResult]
+```
+
+**Supported Filters:**
+- `tags`: Tag filtering (str or list)
+- `metadata`: Metadata key-value matching
+- `status`: Session status filtering
+
+**Example:**
+```python
+# Basic search
+results = client.search_sessions(
+    query="machine learning tensorflow discussions",
+    user_id="alice",
+    k=5
+)
+
+for result in results:
+    print(f"{result.session.title}")
+    print(f"  Score: {result.score:.3f}")
+    print(f"  Messages: {result.session.message_count}")
+
+# Search with filters
+results = client.search_sessions(
+    query="project planning",
+    user_id="alice",
+    k=10,
+    filters={
+        "tags": ["work"],
+        "metadata": {"priority": "high"}
+    }
+)
+```
+
+**Location:** `src/hippocampai/client.py:1139`
+
+---
+
+### 7. Hierarchical Sessions - `get_child_sessions()`
+
+Manage parent-child session relationships.
+
+**Signature:**
+```python
+def get_child_sessions(
+    parent_session_id: str
+) -> List[Session]
+```
+
+**Example:**
+```python
+# Create parent session
+parent = client.create_session(
+    user_id="alice",
+    title="ML Project - Overall Planning"
+)
+
+# Create child sessions
+arch_session = client.create_session(
+    user_id="alice",
+    title="Deep Dive: Architecture",
+    parent_session_id=parent.id
+)
+
+data_session = client.create_session(
+    user_id="alice",
+    title="Deep Dive: Data Pipeline",
+    parent_session_id=parent.id
+)
+
+# Get all children
+children = client.get_child_sessions(parent.id)
+for child in children:
+    print(f"- {child.title} ({child.message_count} messages)")
+```
+
+**Location:** `src/hippocampai/client.py:1197`
+
+---
+
+### 8. Session Statistics - `get_session_statistics()`
+
+Get comprehensive analytics for a session.
+
+**Signature:**
+```python
+def get_session_statistics(
+    session_id: str
+) -> Dict[str, Any]
+```
+
+**Returns:**
+```python
+{
+    "message_count": int,
+    "memory_count": int,
+    "duration_seconds": float,
+    "entity_count": int,
+    "fact_count": int,
+    "avg_importance": float,
+    "top_entities": List[Dict],  # Top 10 entities by mentions
+    "memory_types": Dict[str, int]  # Breakdown by type
+}
+```
+
+**Example:**
+```python
+stats = client.get_session_statistics(session.id)
+
+print(f"Messages: {stats['message_count']}")
+print(f"Duration: {stats['duration_seconds']:.1f}s")
+print(f"Entities: {stats['entity_count']}")
+print(f"Facts: {stats['fact_count']}")
+print(f"Avg Importance: {stats['avg_importance']:.2f}")
+
+# Top entities
+for entity in stats['top_entities']:
+    print(f"  - {entity['name']} ({entity['type']}): {entity['mentions']} mentions")
+```
+
+**Location:** `src/hippocampai/client.py:1255`
+
+---
+
+### 9. User Sessions - `get_user_sessions()`
+
+Retrieve all sessions for a user with optional filtering.
+
+**Signature:**
+```python
+def get_user_sessions(
+    user_id: str,
+    status: Optional[SessionStatus] = None,
+    limit: int = 50
+) -> List[Session]
+```
+
+**Example:**
+```python
+from hippocampai import SessionStatus
+
+# All sessions
+all_sessions = client.get_user_sessions(user_id="alice")
+
+# Filter by status
+active_sessions = client.get_user_sessions(
+    user_id="alice",
+    status=SessionStatus.ACTIVE
+)
+
+completed_sessions = client.get_user_sessions(
+    user_id="alice",
+    status=SessionStatus.COMPLETED,
+    limit=100
+)
+```
+
+**Location:** `src/hippocampai/client.py:1153`
+
+---
+
+### 10. Complete Session - `complete_session()`
+
+Mark a session as completed with optional final summary.
+
+**Signature:**
+```python
+def complete_session(
+    session_id: str,
+    generate_summary: bool = False
+) -> Optional[Session]
+```
+
+**Example:**
+```python
+# Complete without summary
+completed = client.complete_session(session_id)
+
+# Complete with final summary
+completed = client.complete_session(
+    session_id=session.id,
+    generate_summary=True
+)
+
+if completed:
+    print(f"Duration: {completed.duration_seconds():.1f}s")
+    print(f"Summary: {completed.summary}")
+```
+
+**Location:** `src/hippocampai/client.py:1122`
+
+---
+
+### 11. Session Memories - `get_session_memories()`
+
+Retrieve all memories associated with a session.
+
+**Signature:**
+```python
+def get_session_memories(
+    session_id: str,
+    limit: int = 100
+) -> List[Memory]
+```
+
+**Example:**
+```python
+# Get all session memories
+memories = client.get_session_memories(session.id)
+
+for memory in memories:
+    print(f"[{memory.type}] {memory.text}")
+    print(f"  Importance: {memory.importance:.1f}")
+```
+
+**Location:** `src/hippocampai/client.py:1181`
+
+---
+
+### Complete Session Management Example
+
+```python
+from hippocampai import MemoryClient, SessionStatus
+
+client = MemoryClient()
+user_id = "alice"
+
+# 1. Create session
+session = client.create_session(
+    user_id=user_id,
+    title="ML Project - Requirements",
+    tags=["work", "ml"],
+    metadata={"project": "sentiment-analysis"}
+)
+
+# 2. Track conversation
+messages = [
+    "We need sentiment analysis for customer reviews",
+    "Dataset should have 100k+ reviews",
+    "Using TensorFlow and BERT",
+    "Deadline is end of Q1"
+]
+
+for msg in messages:
+    session = client.track_session_message(
+        session_id=session.id,
+        text=msg,
+        user_id=user_id
+    )
+
+# 3. Generate summary
+summary = client.summarize_session(session.id)
+print(f"Summary: {summary}")
+
+# 4. Extract insights
+facts = client.extract_session_facts(session.id)
+entities = client.extract_session_entities(session.id)
+
+print(f"Facts: {len(facts)}")
+for fact in facts:
+    print(f"  - {fact.fact} (confidence: {fact.confidence:.2f})")
+
+print(f"Entities: {len(entities)}")
+for name, entity in entities.items():
+    print(f"  - {name} ({entity.type}): {entity.mentions} mentions")
+
+# 5. Get statistics
+stats = client.get_session_statistics(session.id)
+print(f"Duration: {stats['duration_seconds']:.1f}s")
+print(f"Avg Importance: {stats['avg_importance']:.2f}")
+
+# 6. Search similar sessions
+similar = client.search_sessions(
+    query="machine learning projects",
+    user_id=user_id,
+    k=5
+)
+
+# 7. Complete session
+completed = client.complete_session(
+    session_id=session.id,
+    generate_summary=True
+)
+```
+
+**Full Example:** `examples/10_session_management_demo.py`
+
+---
+
+### Automatic Boundary Detection
+
+Sessions can automatically detect topic changes and create new sessions.
+
+**How it works:**
+1. **LLM-based** (preferred): Compares new message with session summary
+2. **Fallback**: Entity overlap analysis + inactivity timeout
+
+**Example:**
+```python
+# Track messages with boundary detection
+result = client.track_session_message(
+    session_id=current_session.id,
+    text="Let's switch to discussing cloud infrastructure",
+    user_id="alice",
+    auto_boundary_detect=True
+)
+
+# Check if new session was created
+if result.id != current_session.id:
+    print("Topic changed - new session created")
+    print(f"Old: {current_session.id}")
+    print(f"New: {result.id}")
+```
+
+**Configuration:**
+```python
+from hippocampai import SessionManager
+
+session_manager = SessionManager(
+    qdrant_store=client.qdrant,
+    embedder=client.embedder,
+    llm=client.llm,
+    collection_name="sessions",
+    auto_summarize_threshold=10,      # Summarize after 10 messages
+    inactivity_threshold_minutes=30   # Boundary after 30 min inactivity
+)
+```
+
+---
+
+### Use Cases
+
+**1. Customer Support:**
+```python
+support_session = client.create_session(
+    user_id="customer_123",
+    title="Support Ticket #12345",
+    tags=["support", "billing"],
+    metadata={
+        "ticket_id": "12345",
+        "category": "billing",
+        "assigned_to": "agent_42"
+    }
+)
+```
+
+**2. Educational Tutoring:**
+```python
+course_session = client.create_session(
+    user_id="student_alice",
+    title="Python Programming - Week 1",
+    tags=["education", "programming"],
+    metadata={
+        "course": "python-101",
+        "instructor": "bob"
+    }
+)
+
+# Create lesson sub-sessions
+for lesson in ["Variables", "Functions", "Loops"]:
+    client.create_session(
+        user_id="student_alice",
+        title=f"Lesson: {lesson}",
+        parent_session_id=course_session.id
+    )
+```
+
+**3. Project Management:**
+```python
+project = client.create_session(
+    user_id="alice",
+    title="Q1 2024 - ML Infrastructure",
+    tags=["work", "infrastructure"],
+    metadata={"team": "ml-platform", "quarter": "Q1-2024"}
+)
+
+# Weekly planning sessions
+weekly = client.create_session(
+    user_id="alice",
+    title="Week 1 - Requirements",
+    parent_session_id=project.id
+)
+```
+
+---
+
+### Session Management Benefits
+
+- **Organization**: Structure conversations logically
+- **Context Retention**: Full conversation history with summaries
+- **Entity Tracking**: Automatic identification of key entities
+- **Fact Extraction**: Distill key information with confidence
+- **Semantic Search**: Find relevant past sessions easily
+- **Hierarchy**: Organize complex discussions with parent-child
+- **Analytics**: Rich statistics on session activity
+- **Topic Detection**: Automatic boundary detection
+
+---
+
+### Dependencies
+
+- **Required**: Core HippocampAI dependencies (Qdrant, embedder)
+- **Optional**: LLM provider (Ollama/OpenAI) for:
+  - Summarization
+  - Fact extraction
+  - LLM-based entity extraction
+  - LLM-based boundary detection
+
+**Fallback:** Works without LLM using regex-based entity extraction
+
+---
+
+**For complete documentation, see:** [SESSION_MANAGEMENT.md](SESSION_MANAGEMENT.md)
 
 ---
 
