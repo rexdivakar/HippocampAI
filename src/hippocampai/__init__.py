@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
 from hippocampai.models.session import Session, SessionStatus, SessionSearchResult, SessionFact, Entity
+from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
 
 __version__ = "1.0.0"
 __all__ = [
@@ -37,6 +38,14 @@ __all__ = [
     "ChangeType",
     "ContextInjector",
     "inject_context",
+    # Multi-agent support
+    "Agent",
+    "AgentRole",
+    "Run",
+    "AgentPermission",
+    "PermissionType",
+    "MemoryVisibility",
+    "MultiAgentManager",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
@@ -250,5 +259,10 @@ def __getattr__(name: str) -> Any:
 
             _INJECT_CONTEXT = _ImportedInjectContext
         return _INJECT_CONTEXT
+
+    # Multi-agent manager
+    if name == "MultiAgentManager":
+        from hippocampai.multiagent import MultiAgentManager as _ImportedMultiAgentManager
+        return _ImportedMultiAgentManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")
