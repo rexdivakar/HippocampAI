@@ -32,7 +32,7 @@ OPENAI_MODEL=gpt-4o
 **For Groq (Fast Inference):**
 ```env
 GROQ_API_KEY=gsk_your-groq-key-here
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
 ## Provider Details
@@ -82,20 +82,23 @@ OPENAI_TEMPERATURE=0.0
 **Best for:** Speed, cost efficiency, open models
 
 **Models:**
-- `llama-3.1-70b-versatile` - Best quality (recommended)
-- `llama-3.1-8b-instant` - Fastest
-- `mixtral-8x7b-32768` - Large context
+- `llama-3.3-70b-versatile` - Best quality (recommended, latest LLaMA 3.3)
+- `llama-3.1-8b-instant` - Fastest (instant responses)
+- `mixtral-8x7b-32768` - Large context window (32K tokens)
+- `gemma2-9b-it` - Google's Gemma model
 
 **Configuration:**
 ```env
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_...
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.3-70b-versatile
 GROQ_MAX_TOKENS=8192
 GROQ_TEMPERATURE=0.0
 ```
 
 **Get API Key:** https://console.groq.com/
+
+**Note:** Check https://console.groq.com/docs/models for latest available models
 
 ## Usage in Code
 
@@ -121,7 +124,7 @@ client = get_llm_client(provider="openai")
 # Use specific model
 client = get_llm_client(
     provider="groq",
-    model="llama-3.1-8b-instant"
+    model="llama-3.3-70b-versatile"
 )
 
 # Full customization
@@ -152,7 +155,7 @@ extractor = MemoryExtractor(
 
 scorer = ImportanceScorer(
     provider="groq",
-    model="llama-3.1-70b-versatile"
+    model="llama-3.3-70b-versatile"
 )
 ```
 
@@ -216,7 +219,7 @@ ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 OPENAI_MODEL=gpt-4o
 
 # Groq
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
 **For Development/Testing:**
@@ -287,7 +290,7 @@ Check model name for your provider:
 - `gpt4` ✗
 
 **Groq:**
-- `llama-3.1-70b-versatile` ✓
+- `llama-3.3-70b-versatile` ✓
 - `llama3` ✗
 
 ## Testing Different Providers
@@ -383,7 +386,7 @@ client = get_llm_client(provider="openai")
 | `OPENAI_API_KEY` | OpenAI | - | OpenAI API key |
 | `OPENAI_MODEL` | OpenAI | `gpt-4o` | Model name |
 | `GROQ_API_KEY` | Groq | - | Groq API key |
-| `GROQ_MODEL` | Groq | `llama-3.1-70b-versatile` | Model name |
+| `GROQ_MODEL` | Groq | `llama-3.3-70b-versatile` | Model name |
 
 ### Supported Models
 

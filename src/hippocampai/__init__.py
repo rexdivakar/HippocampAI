@@ -10,6 +10,8 @@ from hippocampai.models.session import Session, SessionStatus, SessionSearchResu
 __version__ = "1.0.0"
 __all__ = [
     "MemoryClient",
+    "EnhancedMemoryClient",
+    "OptimizedMemoryClient",
     "AsyncMemoryClient",
     "Memory",
     "MemoryType",
@@ -40,6 +42,8 @@ __all__ = [
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.async_client import AsyncMemoryClient as AsyncMemoryClient
     from hippocampai.client import MemoryClient as MemoryClient
+    from hippocampai.enhanced_client import EnhancedMemoryClient as EnhancedMemoryClient
+    from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
     from hippocampai.config import Config as Config
     from hippocampai.config import get_config as get_config
     from hippocampai.graph import MemoryGraph as MemoryGraph
@@ -56,6 +60,8 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.versioning import MemoryVersionControl as MemoryVersionControl
 
 _MEMORY_CLIENT: Any | None = None
+_ENHANCED_MEMORY_CLIENT: Any | None = None
+_OPTIMIZED_MEMORY_CLIENT: Any | None = None
 _ASYNC_MEMORY_CLIENT: Any | None = None
 _CONFIG: Any | None = None
 _GET_CONFIG: Any | None = None
@@ -76,6 +82,8 @@ _INJECT_CONTEXT: Any | None = None
 def __getattr__(name: str) -> Any:
     global \
         _MEMORY_CLIENT, \
+        _ENHANCED_MEMORY_CLIENT, \
+        _OPTIMIZED_MEMORY_CLIENT, \
         _ASYNC_MEMORY_CLIENT, \
         _CONFIG, \
         _GET_CONFIG, \
@@ -98,6 +106,34 @@ def __getattr__(name: str) -> Any:
                 ) from exc
 
         return _MEMORY_CLIENT
+
+    if name == "EnhancedMemoryClient":
+        if _ENHANCED_MEMORY_CLIENT is None:
+            try:
+                from hippocampai.enhanced_client import EnhancedMemoryClient as _ImportedEnhancedMemoryClient
+
+                _ENHANCED_MEMORY_CLIENT = _ImportedEnhancedMemoryClient
+            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
+                raise ModuleNotFoundError(
+                    "hippocampai.EnhancedMemoryClient requires optional dependencies. "
+                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
+                ) from exc
+
+        return _ENHANCED_MEMORY_CLIENT
+
+    if name == "OptimizedMemoryClient":
+        if _OPTIMIZED_MEMORY_CLIENT is None:
+            try:
+                from hippocampai.optimized_client import OptimizedMemoryClient as _ImportedOptimizedMemoryClient
+
+                _OPTIMIZED_MEMORY_CLIENT = _ImportedOptimizedMemoryClient
+            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
+                raise ModuleNotFoundError(
+                    "hippocampai.OptimizedMemoryClient requires optional dependencies. "
+                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
+                ) from exc
+
+        return _OPTIMIZED_MEMORY_CLIENT
 
     if name == "AsyncMemoryClient":
         if _ASYNC_MEMORY_CLIENT is None:

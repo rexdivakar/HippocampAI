@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
+from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.config import Config, get_config
 from hippocampai.embed.embedder import get_embedder
 from hippocampai.graph import MemoryGraph, RelationType
@@ -130,6 +131,12 @@ class MemoryClient:
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
                 self.llm = OpenAILLM(api_key=api_key, model=self.config.llm_model)
+        elif self.config.llm_provider == "groq" and self.config.allow_cloud:
+            import os
+
+            api_key = os.getenv("GROQ_API_KEY")
+            if api_key:
+                self.llm = GroqLLM(api_key=api_key, model=self.config.llm_model)
 
         # Pipeline
         self.extractor = MemoryExtractor(llm=self.llm, mode="hybrid")
