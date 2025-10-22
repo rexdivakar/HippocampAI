@@ -4,26 +4,28 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
+from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
-from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.config import Config, get_config
 from hippocampai.embed.embedder import get_embedder
 from hippocampai.graph import MemoryGraph, RelationType
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
 from hippocampai.pipeline.extractor import MemoryExtractor
 from hippocampai.pipeline.importance import ImportanceScorer
+from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
+from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
+from hippocampai.session import SessionManager
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
-from hippocampai.session import SessionManager
-from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +147,8 @@ class MemoryClient:
         )
         self.consolidator = MemoryConsolidator(llm=self.llm)
         self.scorer = ImportanceScorer(llm=self.llm)
+        self.smart_updater = SmartMemoryUpdater(llm=self.llm, similarity_threshold=0.85)
+        self.categorizer = SemanticCategorizer(llm=self.llm)
 
         # Advanced Features
         self.graph = MemoryGraph()
@@ -264,13 +268,70 @@ class MemoryClient:
                 expires_at=expires_at,
             )
 
+            # Auto-enrich with semantic categorization
+            self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
+            memory = self.categorizer.enrich_memory_with_categories(memory)
+            self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
+
             # Calculate size metrics
             memory.calculate_size_metrics()
 
             # Track size in telemetry
             self.telemetry.track_memory_size(memory.text_length, memory.token_count)
 
-            # Check duplicates
+            # Check for similar memories and decide on smart update
+            self.telemetry.add_event(trace_id, "smart_update_check", status="in_progress")
+            existing_memories = self.get_memories(user_id, limit=100)
+            similar = self.categorizer.find_similar_memories(memory, existing_memories, similarity_threshold=0.85)
+
+            if similar:
+                # Found similar memory, use smart updater to decide action
+                existing_memory = similar[0][0]  # Most similar memory
+                decision = self.smart_updater.should_update_memory(existing_memory, text)
+
+                self.telemetry.add_event(
+                    trace_id,
+                    "smart_update_check",
+                    status="success",
+                    action=decision.action,
+                    reason=decision.reason,
+                )
+
+                if decision.action == "skip":
+                    # Update confidence of existing memory
+                    updated_existing = self.smart_updater.update_confidence(existing_memory, "reinforcement")
+                    self.update_memory(
+                        memory_id=existing_memory.id,
+                        importance=updated_existing.confidence * 10,  # Scale confidence to importance
+                    )
+                    logger.info(f"Skipping similar memory: {decision.reason}")
+                    self.telemetry.end_trace(trace_id, status="skipped", result={"reason": decision.reason})
+                    return existing_memory
+
+                elif decision.action == "update":
+                    # Update existing memory
+                    if decision.merged_memory:
+                        self.update_memory(
+                            memory_id=existing_memory.id,
+                            text=decision.merged_memory.text,
+                            importance=decision.merged_memory.importance,
+                            tags=decision.merged_memory.tags,
+                        )
+                        logger.info(f"Updated existing memory: {decision.reason}")
+                        self.telemetry.end_trace(trace_id, status="updated", result={"reason": decision.reason})
+                        return decision.merged_memory
+
+                elif decision.action == "merge":
+                    # Delete old, store merged
+                    if decision.merged_memory:
+                        self.delete_memory(existing_memory.id, user_id)
+                        memory = decision.merged_memory
+                        logger.info(f"Merged memories: {decision.reason}")
+                # If action is "keep_both", continue with normal storage
+            else:
+                self.telemetry.add_event(trace_id, "smart_update_check", status="success", action="new")
+
+            # Check duplicates (basic dedup as fallback)
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
             action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
@@ -1614,3 +1675,104 @@ class MemoryClient:
             True if deleted successfully
         """
         return self.session_manager.delete_session(session_id)
+
+    # === SMART MEMORY UPDATES & CLUSTERING ===
+
+    def reconcile_user_memories(self, user_id: str) -> List[Memory]:
+        """Reconcile and resolve conflicts in user's memories.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            List of reconciled memories
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        if not memories:
+            return []
+
+        reconciled = self.smart_updater.reconcile_memories(memories, user_id)
+
+        logger.info(f"Reconciled {len(memories)} memories into {len(reconciled)} for user {user_id}")
+        return reconciled
+
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+        """Cluster user's memories by topics.
+
+        Args:
+            user_id: User ID
+            max_clusters: Maximum number of clusters
+
+        Returns:
+            List of MemoryCluster objects
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        if not memories:
+            return []
+
+        clusters = self.categorizer.cluster_memories(memories, max_clusters=max_clusters)
+
+        logger.info(f"Clustered {len(memories)} memories into {len(clusters)} topics for user {user_id}")
+        return clusters
+
+    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+        """Suggest tags for a memory.
+
+        Args:
+            memory: Memory to suggest tags for
+            max_tags: Maximum number of tags
+
+        Returns:
+            List of suggested tags
+        """
+        return self.categorizer.suggest_tags(memory, max_tags=max_tags)
+
+    def refine_memory_quality(self, memory_id: str, context: Optional[str] = None) -> Optional[Memory]:
+        """Refine a memory's text quality using LLM.
+
+        Args:
+            memory_id: Memory ID to refine
+            context: Optional context for refinement
+
+        Returns:
+            Refined memory or None if not found
+        """
+        # Fetch memory
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+
+                # Refine
+                refined = self.smart_updater.refine_memory(memory, context)
+
+                # Update if changed
+                if refined.text != memory.text:
+                    return self.update_memory(
+                        memory_id=memory_id,
+                        text=refined.text,
+                        importance=refined.importance,
+                    )
+
+                return memory
+
+        return None
+
+    def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Optional[str]:
+        """Detect if there's been a shift in conversation topics.
+
+        Args:
+            user_id: User ID
+            window_size: Number of recent memories to analyze
+
+        Returns:
+            New dominant topic if shift detected, None otherwise
+        """
+        recent_memories = self.get_memories(user_id, limit=window_size * 2)
+        if not recent_memories:
+            return None
+
+        # Sort by creation time
+        recent_memories.sort(key=lambda m: m.created_at)
+
+        return self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
