@@ -21,6 +21,8 @@ from hippocampai.telemetry import OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
+from hippocampai.session import SessionManager
+from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +145,14 @@ class MemoryClient:
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
 
+        # Session Management
+        self.session_manager = SessionManager(
+            qdrant_store=self.qdrant,
+            embedder=self.embedder,
+            llm=self.llm,
+            collection_name="hippocampai_sessions",
+        )
+
         # Scheduler (optional)
         self.scheduler = None
         if enable_telemetry and self.config.enable_scheduler:
@@ -150,7 +160,7 @@ class MemoryClient:
 
             self.scheduler = MemoryScheduler(client=self, config=self.config)
 
-        logger.info("MemoryClient initialized with advanced features")
+        logger.info("MemoryClient initialized with advanced features and session management")
 
     @classmethod
     def from_preset(cls, preset: PresetType, **overrides) -> "MemoryClient":
@@ -1330,3 +1340,270 @@ class MemoryClient:
         except Exception as e:
             logger.error(f"Importance decay failed: {e}", exc_info=True)
             return updated_count
+
+    # === SESSION MANAGEMENT ===
+
+    def create_session(
+        self,
+        user_id: str,
+        title: Optional[str] = None,
+        parent_session_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Session:
+        """Create a new conversation session.
+
+        Args:
+            user_id: User ID
+            title: Optional session title
+            parent_session_id: Optional parent session for hierarchical sessions
+            metadata: Optional metadata
+            tags: Optional tags
+
+        Returns:
+            Created Session object
+        """
+        return self.session_manager.create_session(
+            user_id=user_id,
+            title=title,
+            parent_session_id=parent_session_id,
+            metadata=metadata,
+            tags=tags,
+        )
+
+    def get_session(self, session_id: str) -> Optional[Session]:
+        """Get session by ID.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Session object or None if not found
+        """
+        return self.session_manager.get_session(session_id)
+
+    def update_session(
+        self,
+        session_id: str,
+        title: Optional[str] = None,
+        summary: Optional[str] = None,
+        status: Optional[SessionStatus] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Optional[Session]:
+        """Update session fields.
+
+        Args:
+            session_id: Session ID
+            title: Optional new title
+            summary: Optional summary
+            status: Optional status
+            metadata: Optional metadata to merge
+            tags: Optional tags
+
+        Returns:
+            Updated Session or None if not found
+        """
+        return self.session_manager.update_session(
+            session_id=session_id,
+            title=title,
+            summary=summary,
+            status=status,
+            metadata=metadata,
+            tags=tags,
+        )
+
+    def track_session_message(
+        self,
+        session_id: str,
+        text: str,
+        user_id: str,
+        type: str = "fact",
+        importance: Optional[float] = None,
+        tags: Optional[List[str]] = None,
+        auto_boundary_detect: bool = True,
+    ) -> Optional[Session]:
+        """Track a message in a session and optionally detect boundaries.
+
+        Args:
+            session_id: Session ID
+            text: Message text
+            user_id: User ID
+            type: Memory type
+            importance: Optional importance score
+            tags: Optional tags
+            auto_boundary_detect: Whether to auto-detect session boundaries
+
+        Returns:
+            Updated Session or new Session if boundary detected
+        """
+        # Check for session boundary
+        if auto_boundary_detect:
+            boundary_detected, reason = self.session_manager.detect_session_boundary(
+                session_id, text
+            )
+            if boundary_detected:
+                logger.info(f"Session boundary detected: {reason}. Creating new session.")
+                # Complete old session
+                self.complete_session(session_id)
+                # Create new session
+                old_session = self.session_manager.get_session(session_id)
+                new_session = self.session_manager.create_session(
+                    user_id=user_id,
+                    title=f"Session continued from {session_id[:8]}",
+                    parent_session_id=session_id,
+                    metadata={"boundary_reason": reason, "previous_session": session_id},
+                )
+                session_id = new_session.id
+
+        # Store memory
+        memory = self.remember(
+            text=text,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            importance=importance,
+            tags=tags,
+        )
+
+        # Track in session
+        session = self.session_manager.track_message(session_id, memory, auto_extract=True)
+
+        return session
+
+    def complete_session(
+        self, session_id: str, generate_summary: bool = True
+    ) -> Optional[Session]:
+        """Complete a session and generate summary.
+
+        Args:
+            session_id: Session ID
+            generate_summary: Whether to generate summary
+
+        Returns:
+            Completed Session or None
+        """
+        return self.session_manager.complete_session(session_id, generate_summary)
+
+    def search_sessions(
+        self,
+        query: str,
+        user_id: Optional[str] = None,
+        k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SessionSearchResult]:
+        """Search sessions by semantic similarity.
+
+        Args:
+            query: Search query
+            user_id: Optional user ID filter
+            k: Number of results
+            filters: Optional filters (status, tags, etc.)
+
+        Returns:
+            List of SessionSearchResult objects
+        """
+        return self.session_manager.search_sessions(query, user_id, k, filters)
+
+    def get_user_sessions(
+        self,
+        user_id: str,
+        status: Optional[SessionStatus] = None,
+        limit: int = 50,
+    ) -> List[Session]:
+        """Get sessions for a user.
+
+        Args:
+            user_id: User ID
+            status: Optional status filter
+            limit: Maximum results
+
+        Returns:
+            List of Session objects sorted by date
+        """
+        return self.session_manager.get_user_sessions(user_id, status, limit)
+
+    def get_session_memories(self, session_id: str, limit: int = 100) -> List[Memory]:
+        """Get all memories for a session.
+
+        Args:
+            session_id: Session ID
+            limit: Maximum number of memories
+
+        Returns:
+            List of Memory objects
+        """
+        return self.get_memories(user_id="*", filters={"session_id": session_id}, limit=limit)
+
+    def get_child_sessions(self, parent_session_id: str) -> List[Session]:
+        """Get child sessions of a parent session.
+
+        Args:
+            parent_session_id: Parent session ID
+
+        Returns:
+            List of child Session objects
+        """
+        return self.session_manager.get_child_sessions(parent_session_id)
+
+    def summarize_session(self, session_id: str, force: bool = False) -> Optional[str]:
+        """Generate summary for a session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-summarization
+
+        Returns:
+            Generated summary or None
+        """
+        return self.session_manager.summarize_session(session_id, force)
+
+    def extract_session_facts(
+        self, session_id: str, force: bool = False
+    ) -> List:
+        """Extract key facts from session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-extraction
+
+        Returns:
+            List of SessionFact objects
+        """
+        return self.session_manager.extract_session_facts(session_id, force)
+
+    def extract_session_entities(
+        self, session_id: str, force: bool = False
+    ) -> Dict[str, Any]:
+        """Extract entities from session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-extraction
+
+        Returns:
+            Dictionary of entity_name -> Entity
+        """
+        return self.session_manager.extract_session_entities(session_id, force)
+
+    def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
+        """Get statistics for a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dictionary with session statistics
+        """
+        return self.session_manager.get_session_statistics(session_id)
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            True if deleted successfully
+        """
+        return self.session_manager.delete_session(session_id)

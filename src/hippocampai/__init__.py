@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.session import Session, SessionStatus, SessionSearchResult, SessionFact, Entity
 
 __version__ = "1.0.0"
 __all__ = [
@@ -17,6 +18,13 @@ __all__ = [
     "Config",
     "get_telemetry",
     "OperationType",
+    # Session management
+    "Session",
+    "SessionStatus",
+    "SessionSearchResult",
+    "SessionFact",
+    "Entity",
+    "SessionManager",
     # Advanced features
     "MemoryGraph",
     "RelationType",
@@ -36,6 +44,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.config import get_config as get_config
     from hippocampai.graph import MemoryGraph as MemoryGraph
     from hippocampai.graph import RelationType as RelationType
+    from hippocampai.session import SessionManager as SessionManager
     from hippocampai.storage import MemoryKVStore as MemoryKVStore
     from hippocampai.telemetry import OperationType as OperationType
     from hippocampai.telemetry import get_telemetry as get_telemetry
@@ -52,6 +61,7 @@ _CONFIG: Any | None = None
 _GET_CONFIG: Any | None = None
 _GET_TELEMETRY: Any | None = None
 _OPERATION_TYPE: Any | None = None
+_SESSION_MANAGER: Any | None = None
 _MEMORY_GRAPH: Any | None = None
 _RELATION_TYPE: Any | None = None
 _MEMORY_KV_STORE: Any | None = None
@@ -70,7 +80,8 @@ def __getattr__(name: str) -> Any:
         _CONFIG, \
         _GET_CONFIG, \
         _GET_TELEMETRY, \
-        _OPERATION_TYPE
+        _OPERATION_TYPE, \
+        _SESSION_MANAGER
     global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
     global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
 
@@ -129,6 +140,14 @@ def __getattr__(name: str) -> Any:
 
             _OPERATION_TYPE = _ImportedOperationType
         return _OPERATION_TYPE
+
+    # Session management
+    if name == "SessionManager":
+        if _SESSION_MANAGER is None:
+            from hippocampai.session import SessionManager as _ImportedSessionManager
+
+            _SESSION_MANAGER = _ImportedSessionManager
+        return _SESSION_MANAGER
 
     # Advanced features
     if name == "MemoryGraph":
