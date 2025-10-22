@@ -286,3 +286,24 @@ class EnhancedMemoryClient:
     def llm(self):
         """Access underlying LLM."""
         return self.client.llm
+
+    # Smart memory updates and clustering
+    def reconcile_user_memories(self, user_id: str) -> List[Memory]:
+        """Reconcile and resolve conflicts in user's memories."""
+        return self.client.reconcile_user_memories(user_id=user_id)
+
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+        """Cluster user's memories by topics."""
+        return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
+
+    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+        """Suggest tags for a memory."""
+        return self.client.suggest_memory_tags(memory=memory, max_tags=max_tags)
+
+    def refine_memory_quality(self, memory_id: str, context: Optional[str] = None) -> Optional[Memory]:
+        """Refine a memory's text quality using LLM."""
+        return self.client.refine_memory_quality(memory_id=memory_id, context=context)
+
+    def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Optional[str]:
+        """Detect if there's been a shift in conversation topics."""
+        return self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
