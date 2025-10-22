@@ -171,6 +171,7 @@ asyncio.run(main())
 - **Importance scoring** with configurable decay
 - **Multi-user isolation** — complete data separation per user
 - **Memory size tracking** — automatic character and token counting
+- **Semantic clustering & auto-categorization** — automatic topic detection, tag suggestion, and category assignment
 - **Async support** — async variants of all core operations for high-performance apps
 
 ### Hybrid Retrieval
@@ -246,6 +247,14 @@ stats = client.get_memory_statistics(user_id="alice")
 print(f"Total: {stats['total_memories']} memories")
 print(f"Size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
 print(f"By type: {stats['by_type']}")
+
+# Semantic clustering & categorization
+clusters = client.cluster_user_memories(user_id="alice", max_clusters=10)
+for cluster in clusters:
+    print(f"Topic: {cluster.topic}, Memories: {len(cluster.memories)}")
+
+tags = client.suggest_memory_tags(memory, max_tags=5)
+topic_shift = client.detect_topic_shift(user_id="alice", window_size=10)
 ```
 
 ### Telemetry & Observability
@@ -299,6 +308,15 @@ python examples/08_scheduler_demo.py
 
 # Graph persistence (JSON export/import)
 python examples/09_graph_persistence_demo.py
+
+# Session management (hierarchical conversations, boundaries, summaries)
+python examples/10_session_management_demo.py
+
+# Semantic clustering & auto-categorization
+python examples/11_semantic_clustering_demo.py
+
+# Multi-agent memory management
+python examples/12_multiagent_demo.py
 
 # Production resilience (retry logic + structured logging)
 python examples/example_resilience.py
@@ -433,6 +451,10 @@ client = MemoryClient(config=config)
 - [x] Async variants for all core operations
 - [x] Memory consolidation scheduler (background jobs)
 - [x] Persistent graph storage (JSON export/import)
+- [x] Session management (hierarchical conversations, boundaries, summaries)
+- [x] Smart memory updates (conflict resolution, quality refinement)
+- [x] Semantic clustering & auto-categorization (topic detection, tag suggestion)
+- [x] Multi-agent support (agent-specific memory spaces, permissions, transfers)
 
 **Planned:**
 
