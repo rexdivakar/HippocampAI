@@ -134,18 +134,20 @@ Tags:"""
         text_lower = memory.text.lower()
 
         # Pattern-based category detection
+        # Note: Order matters - more specific patterns first
         category_patterns = {
+            MemoryType.GOAL: [
+                r'\b(want to|plan to|planning to|goal|aim|trying to|working towards)\b',
+                r'\b(will|going to)\b',
+            ],
             MemoryType.PREFERENCE: [
                 r'\b(love|like|prefer|enjoy|favorite|hate|dislike)\b',
-                r'\b(i want|i need|i wish)\b',
+                r'\b(i want|i need|i wish)(?! to)\b',  # Exclude "want to" which is a goal
             ],
             MemoryType.FACT: [
-                r'\b(is|are|was|were|has|have|works at|lives in)\b',
+                r'\b(is|are|was|were|has|have)\b',
+                r'\b(work at|works at|working at|live in|lives in|living in)\b',
                 r'\b(name is|age is|from|born in)\b',
-            ],
-            MemoryType.GOAL: [
-                r'\b(want to|plan to|goal|aim|trying to|working towards)\b',
-                r'\b(will|going to|planning)\b',
             ],
             MemoryType.HABIT: [
                 r'\b(always|usually|often|regularly|every day|daily|weekly)\b',
@@ -164,9 +166,12 @@ Tags:"""
                 if re.search(pattern, text_lower):
                     scores[category] += 1
 
-        # Use LLM if available and scores are unclear
+        # Use LLM if available and scores are unclear (but only if LLM is working)
         if self.llm and (not scores or max(scores.values()) < 2):
-            return self._llm_assign_category(memory.text)
+            llm_result = self._llm_assign_category(memory.text, fallback=None)
+            if llm_result is not None:
+                return llm_result
+            # If LLM fails, continue with pattern-based scores below
 
         # Return highest scoring category, or default to current type
         if scores:
@@ -174,8 +179,16 @@ Tags:"""
 
         return memory.type
 
-    def _llm_assign_category(self, text: str) -> MemoryType:
-        """Use LLM to assign category."""
+    def _llm_assign_category(self, text: str, fallback: Optional[MemoryType] = MemoryType.FACT) -> Optional[MemoryType]:
+        """Use LLM to assign category.
+
+        Args:
+            text: Text to categorize
+            fallback: Fallback type if LLM fails (None to return None on failure)
+
+        Returns:
+            MemoryType if successful, fallback value if failed
+        """
         categories = ", ".join([t.value for t in MemoryType])
         prompt = f"""Categorize this memory into ONE of these types: {categories}
 
@@ -194,7 +207,7 @@ Category (respond with only the category name):"""
         except Exception as e:
             logger.warning(f"LLM category assignment failed: {e}")
 
-        return MemoryType.FACT  # Default fallback
+        return fallback
 
     def find_similar_memories(
         self,
@@ -214,20 +227,55 @@ Category (respond with only the category name):"""
         """
         similar = []
 
-        query_tokens = set(re.findall(r'\w+', memory.text.lower()))
+        # Semantic keyword groups for better matching
+        synonym_groups = [
+            {'love', 'like', 'enjoy', 'adore', 'prefer', 'fond'},
+            {'hate', 'dislike', 'detest', 'loathe'},
+            {'work', 'job', 'career', 'employment', 'position'},
+            {'want', 'need', 'desire', 'wish', 'goal'},
+            {'always', 'usually', 'often', 'regularly', 'frequently'},
+        ]
+
+        query_text = memory.text.lower()
+        query_tokens = set(re.findall(r'\w+', query_text))
+
+        # Remove common stop words
+        stop_words = {'i', 'a', 'the', 'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+                     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+                     'at', 'on', 'in', 'to', 'for', 'of', 'and', 'or', 'but', 'not', 'really',
+                     'very', 'quite', 'just', 'so', 'too', 'also'}
+        query_tokens = query_tokens - stop_words
 
         for existing in existing_memories:
             if existing.id == memory.id:
                 continue
 
-            # Calculate token overlap
-            existing_tokens = set(re.findall(r'\w+', existing.text.lower()))
+            existing_text = existing.text.lower()
+            existing_tokens = set(re.findall(r'\w+', existing_text))
+            existing_tokens = existing_tokens - stop_words
+
             if not query_tokens or not existing_tokens:
                 continue
 
+            # Calculate base token overlap (Jaccard)
             intersection = query_tokens.intersection(existing_tokens)
             union = query_tokens.union(existing_tokens)
-            similarity = len(intersection) / len(union)
+            jaccard_sim = len(intersection) / len(union) if union else 0
+
+            # Calculate semantic similarity using synonym groups
+            semantic_boost = 0
+            for group in synonym_groups:
+                query_has = any(token in group for token in query_tokens)
+                existing_has = any(token in group for token in existing_tokens)
+                if query_has and existing_has:
+                    semantic_boost += 0.20  # Boost for semantic match
+
+            # Combine scores
+            similarity = min(jaccard_sim + semantic_boost, 1.0)
+
+            # Also check for substring matches (one contains the other)
+            if query_text in existing_text or existing_text in query_text:
+                similarity = max(similarity, 0.8)
 
             if similarity >= similarity_threshold:
                 similar.append((existing, similarity))
@@ -345,16 +393,22 @@ Category (respond with only the category name):"""
         """
         enriched = memory.model_copy(deep=True)
 
-        # Auto-assign category if not set or is generic
-        if not enriched.type or enriched.type == MemoryType.CONTEXT:
-            enriched.type = self.assign_category(memory)
+        # Always verify/correct category using pattern-based detection
+        suggested_type = self.assign_category(memory)
+
+        # Apply the suggested type if it's different from current type
+        # Pattern-based detection is more accurate than user-provided type
+        if suggested_type != enriched.type:
+            logger.debug(f"Auto-correcting memory type: {enriched.type} -> {suggested_type} for text '{memory.text[:50]}'")
+            enriched.type = suggested_type
 
         # Add suggested tags if none exist
+        # Use enriched memory so tags reflect the corrected type
         if not enriched.tags:
-            enriched.tags = self.suggest_tags(memory)
+            enriched.tags = self.suggest_tags(enriched)
         else:
             # Add additional suggested tags
-            suggested = self.suggest_tags(memory)
+            suggested = self.suggest_tags(enriched)
             existing_tags = set(enriched.tags)
             new_tags = [tag for tag in suggested if tag not in existing_tags]
             enriched.tags.extend(new_tags[:3])  # Add up to 3 new tags

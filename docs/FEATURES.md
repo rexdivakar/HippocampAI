@@ -12,9 +12,11 @@ This document provides comprehensive documentation for all memory management fea
 6. [Batch Operations](#batch-operations)
 7. [Context Injection](#context-injection)
 8. [Session Management](#session-management)
-9. [Storage & Caching](#storage--caching)
-10. [Monitoring & Telemetry](#monitoring--telemetry)
-11. [API Reference](#api-reference)
+9. [Temporal Reasoning](#temporal-reasoning)
+10. [Cross-Session Insights](#cross-session-insights)
+11. [Storage & Caching](#storage--caching)
+12. [Monitoring & Telemetry](#monitoring--telemetry)
+13. [API Reference](#api-reference)
 
 ---
 
@@ -1409,6 +1411,846 @@ weekly = client.create_session(
 ---
 
 **For complete documentation, see:** [SESSION_MANAGEMENT.md](SESSION_MANAGEMENT.md)
+
+---
+
+## Temporal Reasoning
+
+HippocampAI's temporal reasoning system enables time-based memory operations, chronological analysis, event sequencing, and future memory scheduling.
+
+### Overview
+
+**Key Features:**
+- Time-range based memory queries (last week, last month, etc.)
+- Chronological narrative construction
+- Memory timeline creation with event extraction
+- Event sequence analysis for related activities
+- Memory scheduling with recurrence support
+- Temporal statistics and summaries
+
+### Time Range Queries - `get_memories_by_time_range()`
+
+Query memories using predefined or custom time ranges.
+
+**Signature:**
+```python
+def get_memories_by_time_range(
+    user_id: str,
+    time_range: Optional[TimeRange] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    filters: Optional[Dict[str, Any]] = None,
+    limit: int = 100,
+) -> List[Memory]
+```
+
+**Time Range Options:**
+- `LAST_HOUR` - Past 60 minutes
+- `LAST_DAY` - Past 24 hours
+- `LAST_WEEK` - Past 7 days
+- `LAST_MONTH` - Past 30 days
+- `LAST_YEAR` - Past 365 days
+- `TODAY` - Current day (midnight to now)
+- `YESTERDAY` - Previous day
+- `THIS_WEEK` - Monday to now
+- `THIS_MONTH` - Month start to now
+- `THIS_YEAR` - Year start to now
+
+**Example:**
+```python
+from hippocampai import MemoryClient, TimeRange
+
+client = MemoryClient()
+
+# Get memories from last week
+last_week = client.get_memories_by_time_range(
+    user_id="alice",
+    time_range=TimeRange.LAST_WEEK
+)
+
+# Custom time range
+from datetime import datetime, timedelta, timezone
+start = datetime.now(timezone.utc) - timedelta(days=3)
+end = datetime.now(timezone.utc)
+
+custom_range = client.get_memories_by_time_range(
+    user_id="alice",
+    start_time=start,
+    end_time=end
+)
+
+# With additional filters
+work_memories = client.get_memories_by_time_range(
+    user_id="alice",
+    time_range=TimeRange.THIS_MONTH,
+    filters={"tags": ["work"]},
+    limit=50
+)
+```
+
+**Location:** `src/hippocampai/client.py:2052`
+
+---
+
+### Chronological Narratives - `build_memory_narrative()`
+
+Generate human-readable chronological narratives from memories.
+
+**Signature:**
+```python
+def build_memory_narrative(
+    user_id: str,
+    time_range: Optional[TimeRange] = None,
+    title: Optional[str] = None
+) -> str
+```
+
+**Example:**
+```python
+# Generate narrative for last week
+narrative = client.build_memory_narrative(
+    user_id="alice",
+    time_range=TimeRange.LAST_WEEK,
+    title="My Week in Review"
+)
+print(narrative)
+# Output:
+# My Week in Review
+#
+# 2024-01-15 09:00 - Morning standup meeting
+# 2024-01-15 14:30 - Code review session
+# 2024-01-16 10:00 - Project planning meeting
+# ...
+```
+
+**Location:** `src/hippocampai/client.py:2095`
+
+---
+
+### Memory Timelines - `create_memory_timeline()`
+
+Create structured timelines with extracted temporal events.
+
+**Signature:**
+```python
+def create_memory_timeline(
+    user_id: str,
+    title: str = "Memory Timeline",
+    time_range: Optional[TimeRange] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+) -> Timeline
+```
+
+**Timeline Model:**
+```python
+class Timeline(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    events: List[TemporalEvent]
+    start_time: datetime
+    end_time: datetime
+
+    def get_duration(self) -> timedelta:
+        """Get timeline duration"""
+```
+
+**Temporal Event Model:**
+```python
+class TemporalEvent(BaseModel):
+    id: str
+    memory_id: str
+    text: str
+    timestamp: datetime
+    event_type: str  # "meeting", "task", "milestone", "note"
+    participants: List[str]
+    location: Optional[str]
+    duration: Optional[int]  # minutes
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+# Create timeline
+timeline = client.create_memory_timeline(
+    user_id="alice",
+    title="Last Month's Activities",
+    time_range=TimeRange.LAST_MONTH
+)
+
+print(f"Timeline: {timeline.title}")
+print(f"Events: {len(timeline.events)}")
+print(f"Duration: {timeline.get_duration()}")
+
+# Access events
+for event in timeline.events[:5]:
+    print(f"{event.timestamp}: {event.event_type}")
+    print(f"  {event.text}")
+    if event.participants:
+        print(f"  With: {', '.join(event.participants)}")
+```
+
+**Location:** `src/hippocampai/client.py:2119`
+
+---
+
+### Event Sequence Analysis - `analyze_event_sequences()`
+
+Identify sequences of related events within time windows.
+
+**Signature:**
+```python
+def analyze_event_sequences(
+    user_id: str,
+    max_gap_hours: int = 24
+) -> List[List[Memory]]
+```
+
+**Example:**
+```python
+# Find event sequences (max 24 hour gap)
+sequences = client.analyze_event_sequences(
+    user_id="alice",
+    max_gap_hours=24
+)
+
+print(f"Found {len(sequences)} sequences")
+
+for i, sequence in enumerate(sequences, 1):
+    print(f"\nSequence {i}:")
+    print(f"  Events: {len(sequence)}")
+    print(f"  Timespan: {sequence[0].created_at} to {sequence[-1].created_at}")
+
+    for memory in sequence:
+        print(f"    • {memory.text}")
+```
+
+**Use Cases:**
+- Identify multi-step workflows
+- Track project progression
+- Detect behavioral patterns
+- Group related activities
+
+**Location:** `src/hippocampai/client.py:2154`
+
+---
+
+### Memory Scheduling - `schedule_memory()`
+
+Schedule memories for future creation with optional recurrence.
+
+**Signature:**
+```python
+def schedule_memory(
+    text: str,
+    user_id: str,
+    scheduled_for: datetime,
+    type: str = "fact",
+    tags: Optional[List[str]] = None,
+    recurrence: Optional[str] = None,  # "daily", "weekly", "monthly"
+    reminder_offset: Optional[int] = None,  # minutes before
+    metadata: Optional[Dict[str, Any]] = None,
+) -> ScheduledMemory
+```
+
+**Scheduled Memory Model:**
+```python
+class ScheduledMemory(BaseModel):
+    id: str
+    user_id: str
+    text: str
+    type: MemoryType
+    scheduled_for: datetime
+    triggered: bool
+    recurrence: Optional[str]
+    reminder_offset: Optional[int]
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+from datetime import datetime, timedelta, timezone
+
+# One-time scheduled memory
+tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+scheduled = client.schedule_memory(
+    text="Follow up on project proposal",
+    user_id="alice",
+    scheduled_for=tomorrow,
+    tags=["reminder", "work"]
+)
+
+# Daily recurring memory
+morning_standup = client.schedule_memory(
+    text="Morning standup meeting",
+    user_id="alice",
+    scheduled_for=datetime.now(timezone.utc).replace(hour=9, minute=0),
+    type="event",
+    recurrence="daily",
+    reminder_offset=15  # 15 minutes before
+)
+
+# Weekly recurring memory
+next_week = datetime.now(timezone.utc) + timedelta(days=7)
+weekly_review = client.schedule_memory(
+    text="Weekly team retrospective",
+    user_id="alice",
+    scheduled_for=next_week,
+    recurrence="weekly",
+    tags=["meeting", "team"]
+)
+```
+
+**Location:** `src/hippocampai/client.py:2176`
+
+---
+
+### Getting Due Memories - `get_due_scheduled_memories()`
+
+Retrieve all scheduled memories that are due for creation.
+
+**Signature:**
+```python
+def get_due_scheduled_memories() -> List[ScheduledMemory]
+```
+
+**Example:**
+```python
+# Check for due memories
+due_memories = client.get_due_scheduled_memories()
+
+for scheduled in due_memories:
+    print(f"Due: {scheduled.text}")
+    print(f"  Scheduled for: {scheduled.scheduled_for}")
+    print(f"  Recurrence: {scheduled.recurrence or 'None'}")
+
+    # Create the memory
+    memory = client.remember(
+        scheduled.text,
+        scheduled.user_id,
+        type=scheduled.type.value,
+        tags=["scheduled"]
+    )
+
+    # Mark as triggered (handles recurrence automatically)
+    client.trigger_scheduled_memory(scheduled.id)
+```
+
+**Location:** `src/hippocampai/client.py:2223`
+
+---
+
+### Triggering Scheduled Memories - `trigger_scheduled_memory()`
+
+Mark a scheduled memory as triggered and handle recurrence.
+
+**Signature:**
+```python
+def trigger_scheduled_memory(scheduled_id: str) -> bool
+```
+
+**Behavior:**
+- Marks memory as triggered
+- If recurrence is set, creates next occurrence:
+  - `daily`: Schedules for next day
+  - `weekly`: Schedules for next week
+  - `monthly`: Schedules for next month
+
+**Location:** `src/hippocampai/client.py:2235`
+
+---
+
+### Temporal Statistics - `get_temporal_summary()`
+
+Get comprehensive temporal statistics for user's memories.
+
+**Signature:**
+```python
+def get_temporal_summary(user_id: str) -> Dict[str, Any]
+```
+
+**Returns:**
+```python
+{
+    "total_memories": int,
+    "time_span_days": int,
+    "first_memory": datetime,
+    "most_recent": datetime,
+    "peak_activity_hour": int,  # 0-23
+    "daily_distribution": Dict[str, int],  # day -> count
+    "memory_type_distribution": Dict[str, int],
+    "avg_memories_per_day": float
+}
+```
+
+**Example:**
+```python
+stats = client.get_temporal_summary(user_id="alice")
+
+print(f"Total memories: {stats['total_memories']}")
+print(f"Time span: {stats['time_span_days']} days")
+print(f"Peak activity: {stats['peak_activity_hour']}:00")
+
+# Daily distribution
+for day, count in stats['daily_distribution'].items():
+    bar = '█' * (count // 10)
+    print(f"{day}: {count:3d} {bar}")
+```
+
+**Location:** `src/hippocampai/client.py:2246`
+
+---
+
+### Temporal Reasoning Use Cases
+
+**1. Personal Memory Journal:**
+```python
+# Build monthly narratives
+narrative = client.build_memory_narrative(
+    user_id="alice",
+    time_range=TimeRange.THIS_MONTH,
+    title="January 2024 - Month in Review"
+)
+```
+
+**2. Task Management:**
+```python
+# Schedule recurring reminders
+daily_checkin = client.schedule_memory(
+    text="Daily progress update",
+    user_id="alice",
+    scheduled_for=datetime.now(timezone.utc).replace(hour=17, minute=0),
+    recurrence="daily"
+)
+```
+
+**3. Activity Analysis:**
+```python
+# Analyze work patterns
+sequences = client.analyze_event_sequences(
+    user_id="alice",
+    max_gap_hours=4
+)
+print(f"Found {len(sequences)} work sessions")
+```
+
+**4. Time-based Insights:**
+```python
+# Peak productivity analysis
+stats = client.get_temporal_summary(user_id="alice")
+print(f"Most active hour: {stats['peak_activity_hour']}:00")
+```
+
+---
+
+## Cross-Session Insights
+
+HippocampAI's insight system analyzes memories across sessions to detect behavioral patterns, track changes, identify habits, and analyze long-term trends.
+
+### Overview
+
+**Key Features:**
+- Pattern detection (recurring, sequential, correlational)
+- Behavioral change tracking between time periods
+- Preference drift analysis with timeline evolution
+- Habit formation detection with multi-factor scoring
+- Long-term trend analysis with direction and strength
+
+### Pattern Detection - `detect_patterns()`
+
+Detect behavioral patterns across memories and sessions.
+
+**Signature:**
+```python
+def detect_patterns(
+    user_id: str,
+    session_ids: Optional[List[str]] = None
+) -> List[Pattern]
+```
+
+**Pattern Types:**
+- `recurring` - Repeated behaviors or activities
+- `sequential` - Ordered sequences of events
+- `correlational` - Co-occurring activities
+
+**Pattern Model:**
+```python
+class Pattern(BaseModel):
+    id: str
+    user_id: str
+    pattern_type: str
+    description: str
+    confidence: float  # 0.0-1.0
+    occurrences: int
+    first_seen: datetime
+    last_seen: datetime
+    memory_ids: List[str]
+    session_ids: List[str]
+    frequency: Optional[str]  # "daily", "weekly", etc.
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+# Detect all patterns
+patterns = client.detect_patterns(user_id="alice")
+
+for pattern in patterns[:5]:
+    print(f"{pattern.pattern_type.upper()}: {pattern.description}")
+    print(f"  Confidence: {pattern.confidence:.2f}")
+    print(f"  Occurrences: {pattern.occurrences}")
+    print(f"  Frequency: {pattern.frequency or 'irregular'}")
+    print(f"  First seen: {pattern.first_seen}")
+
+# Detect patterns in specific sessions
+patterns = client.detect_patterns(
+    user_id="alice",
+    session_ids=["session_1", "session_2"]
+)
+```
+
+**Location:** `src/hippocampai/client.py:2265`
+
+---
+
+### Behavioral Change Tracking - `track_behavior_changes()`
+
+Track changes in user behavior between time periods.
+
+**Signature:**
+```python
+def track_behavior_changes(
+    user_id: str,
+    comparison_days: int = 30,
+) -> List[BehaviorChange]
+```
+
+**Change Types:**
+- `PREFERENCE_SHIFT` - Changed preferences
+- `HABIT_FORMED` - New habit established
+- `HABIT_BROKEN` - Habit discontinued
+- `GOAL_ACHIEVED` - Goal completed
+- `GOAL_ABANDONED` - Goal dropped
+- `INTEREST_GAINED` - New interest area
+- `INTEREST_LOST` - Reduced interest
+- `BEHAVIOR_PATTERN` - General behavior change
+
+**BehaviorChange Model:**
+```python
+class BehaviorChange(BaseModel):
+    id: str
+    user_id: str
+    change_type: ChangeType
+    description: str
+    confidence: float
+    before_value: Optional[str]
+    after_value: Optional[str]
+    change_magnitude: Optional[float]
+    detected_at: datetime
+    evidence_memory_ids: List[str]
+    evidence_session_ids: List[str]
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+# Compare last 30 days vs previous period
+changes = client.track_behavior_changes(
+    user_id="alice",
+    comparison_days=30
+)
+
+for change in changes:
+    print(f"{change.change_type.value.upper()}")
+    print(f"  {change.description}")
+    print(f"  Confidence: {change.confidence:.2f}")
+
+    if change.before_value and change.after_value:
+        print(f"  Before: {change.before_value}")
+        print(f"  After: {change.after_value}")
+
+    if change.change_magnitude:
+        print(f"  Magnitude: {change.change_magnitude:.2f}")
+```
+
+**Location:** `src/hippocampai/client.py:2295`
+
+---
+
+### Preference Drift Analysis - `analyze_preference_drift()`
+
+Analyze how user preferences evolve over time.
+
+**Signature:**
+```python
+def analyze_preference_drift(
+    user_id: str,
+    category: Optional[str] = None
+) -> List[PreferenceDrift]
+```
+
+**PreferenceDrift Model:**
+```python
+class PreferenceDrift(BaseModel):
+    id: str
+    user_id: str
+    category: str
+    original_preference: str
+    current_preference: str
+    drift_score: float  # 0.0 (stable) to 1.0 (complete change)
+    timeline: List[Tuple[datetime, str]]  # Evolution history
+    memory_ids: List[str]
+    first_recorded: datetime
+    last_updated: datetime
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+# Analyze all preference drifts
+drifts = client.analyze_preference_drift(user_id="alice")
+
+for drift in drifts:
+    print(f"Category: {drift.category}")
+    print(f"  Original: {drift.original_preference}")
+    print(f"  Current: {drift.current_preference}")
+    print(f"  Drift score: {drift.drift_score:.2f}")
+    print(f"  Timeline points: {len(drift.timeline)}")
+
+    # Show evolution
+    for timestamp, value in drift.timeline:
+        print(f"    {timestamp.date()}: {value}")
+
+# Analyze specific category
+food_drifts = client.analyze_preference_drift(
+    user_id="alice",
+    category="food"
+)
+```
+
+**Location:** `src/hippocampai/client.py:2325`
+
+---
+
+### Habit Detection - `detect_habits()`
+
+Detect and score potential habits from behavioral patterns.
+
+**Signature:**
+```python
+def detect_habits(
+    user_id: str,
+    min_occurrences: int = 5
+) -> List[HabitScore]
+```
+
+**HabitScore Model:**
+```python
+class HabitScore(BaseModel):
+    id: str
+    user_id: str
+    behavior: str
+    habit_score: float  # 0.0-1.0
+    consistency: float  # Regularity of occurrence
+    frequency: int  # Number of occurrences
+    recency: float  # How recent
+    duration: int  # Days active
+    status: str  # "forming", "established", "breaking", "broken"
+    occurrences: List[datetime]
+    memory_ids: List[str]
+    detected_at: datetime
+    metadata: Dict[str, Any]
+```
+
+**Scoring Factors:**
+- **Consistency** (40%): Regularity of occurrence
+- **Frequency** (30%): Number of times performed
+- **Recency** (20%): How recently performed
+- **Duration** (10%): How long the behavior has been tracked
+
+**Example:**
+```python
+# Detect habits (minimum 5 occurrences)
+habits = client.detect_habits(
+    user_id="alice",
+    min_occurrences=5
+)
+
+# Habits are sorted by score (highest first)
+for habit in habits[:5]:
+    print(f"Behavior: {habit.behavior}")
+    print(f"  Habit score: {habit.habit_score:.2f}")
+    print(f"  Status: {habit.status.upper()}")
+    print(f"  Consistency: {habit.consistency:.2f}")
+    print(f"  Frequency: {habit.frequency} times")
+    print(f"  Duration: {habit.duration} days")
+
+    # Show recent occurrences
+    recent = habit.occurrences[-3:]
+    for occ in recent:
+        print(f"    • {occ.date()}")
+```
+
+**Status Classification:**
+- `forming`: score < 0.4, duration < 21 days
+- `established`: score >= 0.7
+- `breaking`: score declining, recent occurrences reduced
+- `broken`: no recent occurrences
+
+**Location:** `src/hippocampai/client.py:2348`
+
+---
+
+### Trend Analysis - `analyze_trends()`
+
+Analyze long-term trends in user behavior.
+
+**Signature:**
+```python
+def analyze_trends(
+    user_id: str,
+    window_days: int = 30
+) -> List[Trend]
+```
+
+**Trend Model:**
+```python
+class Trend(BaseModel):
+    id: str
+    user_id: str
+    category: str
+    trend_type: str  # "increasing", "decreasing", "stable", "cyclical"
+    description: str
+    confidence: float
+    data_points: List[Tuple[datetime, float]]
+    direction: str  # "up", "down", "flat"
+    strength: float  # 0.0-1.0
+    detected_at: datetime
+    metadata: Dict[str, Any]
+```
+
+**Example:**
+```python
+# Analyze trends over last 30 days
+trends = client.analyze_trends(
+    user_id="alice",
+    window_days=30
+)
+
+for trend in trends:
+    print(f"Category: {trend.category}")
+    print(f"  Trend: {trend.trend_type}")
+    print(f"  Direction: {trend.direction.upper()}")
+    print(f"  Strength: {trend.strength:.2f}")
+    print(f"  Confidence: {trend.confidence:.2f}")
+    print(f"  Description: {trend.description}")
+
+    # Visual indicator
+    if trend.direction == "up":
+        print("  📈 ↗️")
+    elif trend.direction == "down":
+        print("  📉 ↘️")
+    else:
+        print("  📊 ➡️")
+```
+
+**Location:** `src/hippocampai/client.py:2370`
+
+---
+
+### Cross-Session Insights Use Cases
+
+**1. Personalized Recommendations:**
+```python
+# Detect patterns to recommend activities
+patterns = client.detect_patterns(user_id="alice")
+recurring = [p for p in patterns if p.pattern_type == "recurring"]
+for pattern in recurring:
+    recommend_based_on_pattern(pattern)
+```
+
+**2. Behavior Change Interventions:**
+```python
+# Detect broken habits and intervene
+habits = client.detect_habits(user_id="alice")
+breaking = [h for h in habits if h.status == "breaking"]
+for habit in breaking:
+    send_motivation_message(habit.behavior)
+```
+
+**3. Preference Adaptation:**
+```python
+# Adapt UI based on preference drift
+drifts = client.analyze_preference_drift(user_id="alice")
+for drift in drifts:
+    if drift.drift_score > 0.7:  # Significant change
+        update_recommendations(drift.category, drift.current_preference)
+```
+
+**4. Progress Tracking:**
+```python
+# Track behavioral changes for goal achievement
+changes = client.track_behavior_changes(user_id="alice")
+achievements = [c for c in changes if c.change_type == ChangeType.GOAL_ACHIEVED]
+for achievement in achievements:
+    celebrate_milestone(achievement.description)
+```
+
+**5. Long-term Analytics:**
+```python
+# Analyze trends for insights
+trends = client.analyze_trends(user_id="alice", window_days=90)
+positive_trends = [t for t in trends if t.direction == "up" and t.strength > 0.7]
+for trend in positive_trends:
+    report_positive_change(trend.category, trend.description)
+```
+
+---
+
+### Insights Integration Example
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+user_id = "alice"
+
+# 1. Detect patterns
+patterns = client.detect_patterns(user_id)
+print(f"Found {len(patterns)} patterns")
+
+# 2. Track changes
+changes = client.track_behavior_changes(user_id, comparison_days=30)
+print(f"Detected {len(changes)} behavioral changes")
+
+# 3. Analyze preferences
+drifts = client.analyze_preference_drift(user_id)
+print(f"Found {len(drifts)} preference drifts")
+
+# 4. Identify habits
+habits = client.detect_habits(user_id, min_occurrences=5)
+established = [h for h in habits if h.status == "established"]
+print(f"{len(established)} established habits")
+
+# 5. Analyze trends
+trends = client.analyze_trends(user_id, window_days=30)
+increasing = [t for t in trends if t.direction == "up"]
+print(f"{len(increasing)} increasing trends")
+
+# Generate comprehensive report
+report = {
+    "patterns": len(patterns),
+    "changes": len(changes),
+    "preference_drifts": len(drifts),
+    "established_habits": len(established),
+    "positive_trends": len(increasing)
+}
+```
+
+**Full Examples:**
+- `examples/13_temporal_reasoning_demo.py`
+- `examples/14_cross_session_insights_demo.py`
 
 ---
 
