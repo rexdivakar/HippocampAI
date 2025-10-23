@@ -132,21 +132,42 @@ class SmartMemoryUpdater:
 
     def _detect_conflict(self, text1: str, text2: str) -> bool:
         """Detect if two memories conflict (contradict each other)."""
-        # Keywords indicating negation or change
-        negation_patterns = [
-            r'\bnot\b', r'\bno\b', r'\bnever\b', r'\bdon\'t\b', r'\bdoesn\'t\b',
-            r'\bno longer\b', r'\bused to\b', r'\bchanged\b', r'\bdifferent\b',
-            r'\binstead\b', r'\bnow\b', r'\bactually\b'
-        ]
-
         t1_lower = text1.lower()
         t2_lower = text2.lower()
 
         # Check if texts are similar but one contains negation
         similarity = self._calculate_similarity(text1, text2)
-        if similarity > 0.6:
-            for pattern in negation_patterns:
-                if re.search(pattern, t2_lower) and not re.search(pattern, t1_lower):
+        if similarity > 0.5:  # Lowered threshold for better detection
+            # Simple negation keywords (using simpler patterns)
+            negation_words = [
+                "don't", "dont", "doesn't", "doesnt", "didn't", "didnt",
+                "not", "no", "never", "no longer", "used to",
+                "changed", "different", "instead", "stopped",
+                "quit", "avoid", "dislike", "hate"
+            ]
+
+            t1_has_neg = any(neg in t1_lower for neg in negation_words)
+            t2_has_neg = any(neg in t2_lower for neg in negation_words)
+
+            # One has negation, other doesn't - likely a conflict
+            if t1_has_neg != t2_has_neg:
+                return True
+
+            # Check for opposite sentiment words
+            positive_negative_pairs = [
+                (["love", "like", "enjoy", "prefer"], ["hate", "dislike", "avoid"]),
+                (["work", "working"], ["quit", "left", "fired", "unemployed"]),
+                (["live", "lives"], ["moved", "relocated"]),
+            ]
+
+            for positive, negative in positive_negative_pairs:
+                t1_has_pos = any(word in t1_lower for word in positive)
+                t1_has_neg = any(word in t1_lower for word in negative)
+                t2_has_pos = any(word in t2_lower for word in positive)
+                t2_has_neg = any(word in t2_lower for word in negative)
+
+                # One has positive, other has negative for same concept
+                if (t1_has_pos and t2_has_neg) or (t1_has_neg and t2_has_pos):
                     return True
 
         # LLM-based conflict detection if available

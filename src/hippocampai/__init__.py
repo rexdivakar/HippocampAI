@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
 from hippocampai.models.session import Session, SessionStatus, SessionSearchResult, SessionFact, Entity
 from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
+from hippocampai.pipeline.temporal import TimeRange, ScheduledMemory, Timeline, TemporalEvent
+from hippocampai.pipeline.insights import Pattern, BehaviorChange, PreferenceDrift, HabitScore, Trend, ChangeType as InsightChangeType
 
 __version__ = "1.0.0"
 __all__ = [
@@ -46,6 +48,18 @@ __all__ = [
     "PermissionType",
     "MemoryVisibility",
     "MultiAgentManager",
+    # Temporal reasoning
+    "TimeRange",
+    "ScheduledMemory",
+    "Timeline",
+    "TemporalEvent",
+    # Cross-session insights
+    "Pattern",
+    "BehaviorChange",
+    "PreferenceDrift",
+    "HabitScore",
+    "Trend",
+    "InsightChangeType",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only

@@ -22,6 +22,8 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 - **Persistent personalization** – store preferences, facts, goals, habits, and events per user with importance scoring and decay
 - **Reliable retrieval** – hybrid ranking surfaces the right memories even when queries are vague or drift semantically
 - **Automatic hygiene** – extractor, deduplicator, consolidator, and scorer keep the memory base uncluttered
+- **Temporal reasoning** – time-based queries, chronological narratives, event sequences, and memory scheduling
+- **Cross-session insights** – detect patterns, track behavioral changes, analyze preference drift, and identify habits
 - **Local-first** – run everything on your infra with open models, or flip a switch to activate OpenAI for higher quality
 - **Built-in telemetry** – track all memory operations with detailed tracing and metrics (similar to Mem0 platform)
 - **Extensible Python SDK** – customize every stage without being locked to a hosted API
@@ -172,6 +174,8 @@ asyncio.run(main())
 - **Multi-user isolation** — complete data separation per user
 - **Memory size tracking** — automatic character and token counting
 - **Semantic clustering & auto-categorization** — automatic topic detection, tag suggestion, and category assignment
+- **Temporal reasoning** — time-based queries, narratives, timelines, event sequences, and memory scheduling
+- **Cross-session insights** — pattern detection, behavioral change tracking, preference drift analysis, and habit scoring
 - **Async support** — async variants of all core operations for high-performance apps
 
 ### Hybrid Retrieval
@@ -211,6 +215,102 @@ memories = client.extract_from_conversation(
 )
 
 print(f"Extracted {len(memories)} memories")
+```
+
+### Temporal Reasoning
+
+Query memories by time range, build chronological narratives, analyze event sequences, and schedule future memories:
+
+```python
+from hippocampai import TimeRange
+
+# Get memories from specific time periods
+last_week_memories = client.get_memories_by_time_range(
+    user_id="alice",
+    time_range=TimeRange.LAST_WEEK
+)
+
+# Build chronological narrative
+narrative = client.build_memory_narrative(
+    user_id="alice",
+    time_range=TimeRange.LAST_MONTH,
+    title="My Month in Review"
+)
+print(narrative)
+
+# Create memory timeline
+timeline = client.create_memory_timeline(
+    user_id="alice",
+    title="Last Week's Journey",
+    time_range=TimeRange.LAST_WEEK
+)
+print(f"Timeline has {len(timeline.events)} events")
+
+# Analyze event sequences
+sequences = client.analyze_event_sequences(
+    user_id="alice",
+    max_gap_hours=24
+)
+print(f"Found {len(sequences)} related event sequences")
+
+# Schedule future memories with recurrence
+from datetime import datetime, timedelta, timezone
+tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+scheduled = client.schedule_memory(
+    text="Follow up on project proposal",
+    user_id="alice",
+    scheduled_for=tomorrow,
+    recurrence="daily"  # Can be "daily", "weekly", "monthly"
+)
+
+# Get temporal summary
+stats = client.get_temporal_summary(user_id="alice")
+print(f"Peak activity hour: {stats['peak_activity_hour']}")
+```
+
+### Cross-Session Insights
+
+Detect behavioral patterns, track changes, analyze preference drift, and identify habits:
+
+```python
+# Detect patterns across sessions
+patterns = client.detect_patterns(user_id="alice")
+for pattern in patterns[:3]:
+    print(f"{pattern.pattern_type}: {pattern.description}")
+    print(f"Confidence: {pattern.confidence:.2f}")
+    print(f"Occurrences: {pattern.occurrences}")
+
+# Track behavioral changes
+changes = client.track_behavior_changes(
+    user_id="alice",
+    comparison_days=30  # Compare recent 30 days vs older
+)
+for change in changes:
+    print(f"{change.change_type.value}: {change.description}")
+    print(f"Confidence: {change.confidence:.2f}")
+
+# Analyze preference drift
+drifts = client.analyze_preference_drift(user_id="alice")
+for drift in drifts:
+    print(f"Category: {drift.category}")
+    print(f"Original: {drift.original_preference}")
+    print(f"Current: {drift.current_preference}")
+    print(f"Drift score: {drift.drift_score:.2f}")
+
+# Detect habit formation
+habits = client.detect_habits(user_id="alice", min_occurrences=5)
+for habit in habits[:3]:
+    print(f"Behavior: {habit.behavior}")
+    print(f"Habit score: {habit.habit_score:.2f}")
+    print(f"Status: {habit.status}")
+    print(f"Consistency: {habit.consistency:.2f}")
+
+# Analyze long-term trends
+trends = client.analyze_trends(user_id="alice", window_days=30)
+for trend in trends:
+    print(f"Category: {trend.category}")
+    print(f"Trend: {trend.trend_type} ({trend.direction})")
+    print(f"Strength: {trend.strength:.2f}")
 ```
 
 ### Advanced Features
@@ -317,6 +417,12 @@ python examples/11_semantic_clustering_demo.py
 
 # Multi-agent memory management
 python examples/12_multiagent_demo.py
+
+# Temporal reasoning (time-based queries, narratives, scheduling)
+python examples/13_temporal_reasoning_demo.py
+
+# Cross-session insights (patterns, habits, preference drift, trends)
+python examples/14_cross_session_insights_demo.py
 
 # Production resilience (retry logic + structured logging)
 python examples/example_resilience.py
@@ -455,6 +561,8 @@ client = MemoryClient(config=config)
 - [x] Smart memory updates (conflict resolution, quality refinement)
 - [x] Semantic clustering & auto-categorization (topic detection, tag suggestion)
 - [x] Multi-agent support (agent-specific memory spaces, permissions, transfers)
+- [x] Temporal reasoning (time-based queries, narratives, timelines, event sequences, scheduling)
+- [x] Cross-session insights (pattern detection, behavioral changes, preference drift, habit tracking, trends)
 
 **Planned:**
 

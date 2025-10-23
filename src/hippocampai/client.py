@@ -19,6 +19,8 @@ from hippocampai.pipeline.extractor import MemoryExtractor
 from hippocampai.pipeline.importance import ImportanceScorer
 from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
 from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
+from hippocampai.pipeline.temporal import TemporalAnalyzer, TimeRange, ScheduledMemory, Timeline
+from hippocampai.pipeline.insights import InsightAnalyzer, Pattern, BehaviorChange, PreferenceDrift, HabitScore, Trend
 from hippocampai.multiagent import MultiAgentManager
 from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
 from hippocampai.retrieval.rerank import Reranker
@@ -152,6 +154,8 @@ class MemoryClient:
         self.scorer = ImportanceScorer(llm=self.llm)
         self.smart_updater = SmartMemoryUpdater(llm=self.llm, similarity_threshold=0.85)
         self.categorizer = SemanticCategorizer(llm=self.llm)
+        self.temporal_analyzer = TemporalAnalyzer(llm=self.llm)  # Temporal reasoning
+        self.insight_analyzer = InsightAnalyzer(llm=self.llm)  # Cross-session insights
 
         # Advanced Features
         self.graph = MemoryGraph()
@@ -280,7 +284,9 @@ class MemoryClient:
 
             # Auto-enrich with semantic categorization
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
+            original_type = memory.type
             memory = self.categorizer.enrich_memory_with_categories(memory)
+            logger.info(f"Enrichment: {original_type} -> {memory.type} for text '{memory.text[:50]}'")
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
 
             # Calculate size metrics
@@ -353,7 +359,7 @@ class MemoryClient:
             )
 
             if action == "skip":
-                logger.info(f"Skipping duplicate memory: {memory.id}")
+                logger.info(f"Skipping duplicate memory: {memory.id}, type={memory.type}")
                 self.telemetry.end_trace(trace_id, status="skipped", result={"duplicate": True})
                 return memory
 
@@ -377,7 +383,7 @@ class MemoryClient:
                 trace_id, "vector_store", status="success", collection=collection
             )
 
-            logger.info(f"Stored memory: {memory.id}")
+            logger.info(f"Stored memory: {memory.id}, type={memory.type}")
             self.telemetry.end_trace(
                 trace_id,
                 status="success",
@@ -2044,3 +2050,341 @@ class MemoryClient:
 
         memories = self.get_memories(agent.user_id, limit=10000)
         return self.multiagent.get_agent_stats(agent_id, memories)
+
+    # === TEMPORAL REASONING ===
+
+    def get_memories_by_time_range(
+        self,
+        user_id: str,
+        time_range: Optional[TimeRange] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 100,
+    ) -> List[Memory]:
+        """Get memories within a specific time range.
+
+        Args:
+            user_id: User ID
+            time_range: Predefined time range (e.g., LAST_WEEK, THIS_MONTH)
+            start_time: Custom start time (if time_range not specified)
+            end_time: Custom end time (if time_range not specified)
+            filters: Additional filters
+            limit: Maximum memories to return
+
+        Returns:
+            List of memories within time range
+
+        Example:
+            >>> # Get memories from last week
+            >>> memories = client.get_memories_by_time_range("alice", time_range=TimeRange.LAST_WEEK)
+            >>>
+            >>> # Get memories from custom date range
+            >>> from datetime import datetime, timedelta, timezone
+            >>> start = datetime.now(timezone.utc) - timedelta(days=7)
+            >>> end = datetime.now(timezone.utc)
+            >>> memories = client.get_memories_by_time_range("alice", start_time=start, end_time=end)
+        """
+        # Get all memories
+        all_memories = self.get_memories(user_id, filters=filters, limit=limit * 2)
+
+        # Filter by time range
+        filtered = self.temporal_analyzer.filter_by_time_range(
+            all_memories, time_range, start_time, end_time
+        )
+
+        return filtered[:limit]
+
+    def build_memory_narrative(
+        self, user_id: str, time_range: Optional[TimeRange] = None, title: Optional[str] = None
+    ) -> str:
+        """Build a chronological narrative from user's memories.
+
+        Args:
+            user_id: User ID
+            time_range: Optional time range filter
+            title: Optional narrative title
+
+        Returns:
+            Formatted chronological narrative
+
+        Example:
+            >>> narrative = client.build_memory_narrative("alice", TimeRange.LAST_MONTH, "My Month")
+            >>> print(narrative)
+        """
+        memories = self.get_memories(user_id, limit=1000)
+
+        if time_range:
+            memories = self.temporal_analyzer.filter_by_time_range(memories, time_range)
+
+        return self.temporal_analyzer.build_chronological_narrative(memories, title)
+
+    def create_memory_timeline(
+        self,
+        user_id: str,
+        title: str = "Memory Timeline",
+        time_range: Optional[TimeRange] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> Timeline:
+        """Create a timeline of user's memories.
+
+        Args:
+            user_id: User ID
+            title: Timeline title
+            time_range: Optional predefined time range
+            start_time: Optional custom start time
+            end_time: Optional custom end time
+
+        Returns:
+            Timeline object with temporal events
+
+        Example:
+            >>> timeline = client.create_memory_timeline("alice", "Last Week", TimeRange.LAST_WEEK)
+            >>> print(f"Timeline has {len(timeline.events)} events")
+            >>> print(f"Duration: {timeline.get_duration()}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+
+        if time_range:
+            memories = self.temporal_analyzer.filter_by_time_range(memories, time_range)
+        elif start_time and end_time:
+            memories = self.temporal_analyzer.filter_by_time_range(
+                memories, None, start_time, end_time
+            )
+
+        return self.temporal_analyzer.create_timeline(memories, user_id, title, start_time, end_time)
+
+    def analyze_event_sequences(
+        self, user_id: str, max_gap_hours: int = 24
+    ) -> List[List[Memory]]:
+        """Identify sequences of related events in memories.
+
+        Args:
+            user_id: User ID
+            max_gap_hours: Maximum time gap to consider events related
+
+        Returns:
+            List of event sequences (each is a list of memories)
+
+        Example:
+            >>> sequences = client.analyze_event_sequences("alice", max_gap_hours=6)
+            >>> for i, seq in enumerate(sequences):
+            >>>     print(f"Sequence {i+1}: {len(seq)} related events")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        return self.temporal_analyzer.analyze_event_sequences(memories, max_gap_hours)
+
+    def schedule_memory(
+        self,
+        text: str,
+        user_id: str,
+        scheduled_for: datetime,
+        type: str = "fact",
+        tags: Optional[List[str]] = None,
+        recurrence: Optional[str] = None,
+        reminder_offset: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> ScheduledMemory:
+        """Schedule a memory for future creation.
+
+        Args:
+            text: Memory text
+            user_id: User ID
+            scheduled_for: When to create the memory
+            type: Memory type
+            tags: Optional tags
+            recurrence: Optional recurrence ("daily", "weekly", "monthly")
+            reminder_offset: Minutes before scheduled_for to trigger
+            metadata: Optional metadata
+
+        Returns:
+            ScheduledMemory object
+
+        Example:
+            >>> from datetime import datetime, timedelta, timezone
+            >>> tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+            >>> scheduled = client.schedule_memory(
+            >>>     "Follow up on project",
+            >>>     "alice",
+            >>>     tomorrow,
+            >>>     recurrence="daily"
+            >>> )
+        """
+        return self.temporal_analyzer.schedule_memory(
+            text=text,
+            user_id=user_id,
+            scheduled_for=scheduled_for,
+            type=MemoryType(type),
+            tags=tags,
+            recurrence=recurrence,
+            reminder_offset=reminder_offset,
+            metadata=metadata,
+        )
+
+    def get_due_scheduled_memories(self) -> List[ScheduledMemory]:
+        """Get scheduled memories that are due for creation.
+
+        Returns:
+            List of due scheduled memories
+
+        Example:
+            >>> due = client.get_due_scheduled_memories()
+            >>> for scheduled in due:
+            >>>     memory = client.remember(scheduled.text, scheduled.user_id)
+            >>>     client.trigger_scheduled_memory(scheduled.id)
+        """
+        return self.temporal_analyzer.get_due_scheduled_memories()
+
+    def trigger_scheduled_memory(self, scheduled_id: str) -> bool:
+        """Mark a scheduled memory as triggered.
+
+        Args:
+            scheduled_id: Scheduled memory ID
+
+        Returns:
+            True if triggered successfully
+        """
+        return self.temporal_analyzer.trigger_scheduled_memory(scheduled_id)
+
+    def get_temporal_summary(self, user_id: str) -> Dict[str, Any]:
+        """Get temporal statistics for user's memories.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Dictionary with temporal statistics
+
+        Example:
+            >>> stats = client.get_temporal_summary("alice")
+            >>> print(f"Time span: {stats['time_span_days']} days")
+            >>> print(f"Peak activity: {stats['peak_activity_hour']}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.temporal_analyzer.get_temporal_summary(memories, user_id)
+
+    # === CROSS-SESSION INSIGHTS ===
+
+    def detect_patterns(
+        self, user_id: str, session_ids: Optional[List[str]] = None
+    ) -> List[Pattern]:
+        """Detect behavioral patterns across memories and sessions.
+
+        Args:
+            user_id: User ID
+            session_ids: Optional list of session IDs to analyze
+
+        Returns:
+            List of detected patterns
+
+        Example:
+            >>> patterns = client.detect_patterns("alice")
+            >>> for pattern in patterns[:5]:
+            >>>     print(f"{pattern.pattern_type}: {pattern.description}")
+            >>>     print(f"  Confidence: {pattern.confidence:.2f}")
+            >>>     print(f"  Occurrences: {pattern.occurrences}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+
+        # Get sessions if IDs provided
+        sessions = None
+        if session_ids:
+            sessions = [self.session_manager.get_session(sid) for sid in session_ids]
+            sessions = [s for s in sessions if s is not None]
+
+        return self.insight_analyzer.detect_patterns(memories, user_id, sessions)
+
+    def track_behavior_changes(
+        self,
+        user_id: str,
+        comparison_days: int = 30,
+    ) -> List[BehaviorChange]:
+        """Track changes in user behavior between time periods.
+
+        Args:
+            user_id: User ID
+            comparison_days: Days to use for comparison (compares recent vs older)
+
+        Returns:
+            List of detected behavior changes
+
+        Example:
+            >>> changes = client.track_behavior_changes("alice", comparison_days=30)
+            >>> for change in changes:
+            >>>     print(f"{change.change_type.value}: {change.description}")
+            >>>     print(f"  Confidence: {change.confidence:.2f}")
+        """
+        all_memories = self.get_memories(user_id, limit=10000)
+
+        # Split into old and new periods
+        cutoff = datetime.now(timezone.utc) - timedelta(days=comparison_days)
+        old_memories = [m for m in all_memories if m.created_at < cutoff]
+        new_memories = [m for m in all_memories if m.created_at >= cutoff]
+
+        return self.insight_analyzer.track_behavior_changes(old_memories, new_memories, user_id)
+
+    def analyze_preference_drift(
+        self, user_id: str, category: Optional[str] = None
+    ) -> List[PreferenceDrift]:
+        """Analyze how user preferences have changed over time.
+
+        Args:
+            user_id: User ID
+            category: Optional category to filter
+
+        Returns:
+            List of preference drift analyses
+
+        Example:
+            >>> drifts = client.analyze_preference_drift("alice")
+            >>> for drift in drifts:
+            >>>     print(f"Category: {drift.category}")
+            >>>     print(f"  Original: {drift.original_preference}")
+            >>>     print(f"  Current: {drift.current_preference}")
+            >>>     print(f"  Drift score: {drift.drift_score:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
+
+    def detect_habits(self, user_id: str, min_occurrences: int = 5) -> List[HabitScore]:
+        """Detect and score potential habits from user's memories.
+
+        Args:
+            user_id: User ID
+            min_occurrences: Minimum occurrences to consider as habit
+
+        Returns:
+            List of habit scores (sorted by score)
+
+        Example:
+            >>> habits = client.detect_habits("alice", min_occurrences=5)
+            >>> for habit in habits[:3]:
+            >>>     print(f"Behavior: {habit.behavior}")
+            >>>     print(f"  Habit score: {habit.habit_score:.2f}")
+            >>>     print(f"  Status: {habit.status}")
+            >>>     print(f"  Frequency: {habit.frequency} times")
+            >>>     print(f"  Consistency: {habit.consistency:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
+
+    def analyze_trends(self, user_id: str, window_days: int = 30) -> List[Trend]:
+        """Analyze long-term trends in user behavior.
+
+        Args:
+            user_id: User ID
+            window_days: Analysis window in days
+
+        Returns:
+            List of trends
+
+        Example:
+            >>> trends = client.analyze_trends("alice", window_days=30)
+            >>> for trend in trends:
+            >>>     print(f"Category: {trend.category}")
+            >>>     print(f"  Trend: {trend.trend_type} ({trend.direction})")
+            >>>     print(f"  Strength: {trend.strength:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.analyze_trends(memories, user_id, window_days)

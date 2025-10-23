@@ -335,10 +335,10 @@ class MultiAgentManager:
             logger.warning(f"Agent {source_agent_id} doesn't own memory {memory.id}")
             return None
 
-        # Check permission for share
-        if not self.check_permission(source_agent_id, target_agent_id, PermissionType.SHARE):
+        # Check permission for share: target needs permission from source to receive the memory
+        if not self.check_permission(target_agent_id, source_agent_id, PermissionType.SHARE):
             logger.warning(
-                f"Agent {source_agent_id} doesn't have SHARE permission for {target_agent_id}"
+                f"Agent {target_agent_id} doesn't have SHARE permission from {source_agent_id}"
             )
             return None
 
@@ -394,7 +394,9 @@ class MultiAgentManager:
         by_visibility = defaultdict(int)
         for mem in agent_memories:
             visibility = getattr(mem, "visibility", MemoryVisibility.PRIVATE)
-            by_visibility[visibility.value] += 1
+            # visibility might be a string (from storage) or enum
+            visibility_str = visibility if isinstance(visibility, str) else visibility.value
+            by_visibility[visibility_str] += 1
 
         # Count by type
         by_type = defaultdict(int)
