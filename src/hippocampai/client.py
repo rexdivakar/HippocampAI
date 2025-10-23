@@ -11,7 +11,11 @@ from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.config import Config, get_config
 from hippocampai.embed.embedder import get_embedder
 from hippocampai.graph import MemoryGraph, RelationType
+from hippocampai.graph.knowledge_graph import KnowledgeGraph
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.pipeline.fact_extraction import FactExtractionPipeline, ExtractedFact, FactCategory
+from hippocampai.pipeline.entity_recognition import EntityRecognizer, Entity, EntityRelationship, EntityType
+from hippocampai.pipeline.summarization import Summarizer, SessionSummary, SummaryStyle
 from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
@@ -157,8 +161,13 @@ class MemoryClient:
         self.temporal_analyzer = TemporalAnalyzer(llm=self.llm)  # Temporal reasoning
         self.insight_analyzer = InsightAnalyzer(llm=self.llm)  # Cross-session insights
 
+        # Intelligence modules
+        self.fact_extractor = FactExtractionPipeline(llm=self.llm)
+        self.entity_recognizer = EntityRecognizer(llm=self.llm)
+        self.summarizer = Summarizer(llm=self.llm)
+
         # Advanced Features
-        self.graph = MemoryGraph()
+        self.graph = KnowledgeGraph()  # Enhanced with entity and fact support
         self.version_control = MemoryVersionControl()
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
@@ -2388,3 +2397,511 @@ class MemoryClient:
         """
         memories = self.get_memories(user_id, limit=10000)
         return self.insight_analyzer.analyze_trends(memories, user_id, window_days)
+
+    # === INTELLIGENCE FEATURES ===
+
+    def extract_facts(
+        self,
+        text: str,
+        source: str = "text",
+        user_id: Optional[str] = None,
+    ) -> List[ExtractedFact]:
+        """Extract structured facts from text.
+
+        Args:
+            text: Input text to extract facts from
+            source: Source identifier (e.g., "conversation", "document")
+            user_id: Optional user ID for context
+
+        Returns:
+            List of ExtractedFact objects
+
+        Example:
+            >>> facts = client.extract_facts(
+            ...     "John works at Google in San Francisco. He studied Computer Science at MIT.",
+            ...     source="profile"
+            ... )
+            >>> for fact in facts:
+            ...     print(f"{fact.category.value}: {fact.fact}")
+        """
+        return self.fact_extractor.extract_facts(text, source, user_id)
+
+    def extract_facts_from_conversation(
+        self,
+        conversation: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+    ) -> List[ExtractedFact]:
+        """Extract facts from a multi-turn conversation.
+
+        Args:
+            conversation: Full conversation text
+            user_id: User ID
+            session_id: Optional session ID
+
+        Returns:
+            List of ExtractedFact objects
+
+        Example:
+            >>> conversation = '''
+            ... User: I'm a software engineer at Tesla
+            ... Assistant: That's great! How long have you been there?
+            ... User: About 2 years now
+            ... '''
+            >>> facts = client.extract_facts_from_conversation(conversation, "alice")
+        """
+        return self.fact_extractor.extract_from_conversation(conversation, user_id, session_id)
+
+    def extract_entities(
+        self,
+        text: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[Entity]:
+        """Extract named entities from text.
+
+        Args:
+            text: Input text
+            context: Optional context (memory_id, user_id, etc.)
+
+        Returns:
+            List of Entity objects
+
+        Example:
+            >>> entities = client.extract_entities(
+            ...     "Elon Musk founded SpaceX in California in 2002"
+            ... )
+            >>> for entity in entities:
+            ...     print(f"{entity.type.value}: {entity.text}")
+        """
+        return self.entity_recognizer.extract_entities(text, context)
+
+    def extract_relationships(
+        self,
+        text: str,
+        entities: Optional[List[Entity]] = None,
+    ) -> List[EntityRelationship]:
+        """Extract relationships between entities.
+
+        Args:
+            text: Input text
+            entities: Previously extracted entities (optional)
+
+        Returns:
+            List of EntityRelationship objects
+
+        Example:
+            >>> relationships = client.extract_relationships(
+            ...     "Steve Jobs worked at Apple and lived in California"
+            ... )
+            >>> for rel in relationships:
+            ...     print(f"{rel.relation_type.value}: confidence {rel.confidence}")
+        """
+        return self.entity_recognizer.extract_relationships(text, entities)
+
+    def get_entity_profile(self, entity_id: str) -> Optional[Any]:
+        """Get complete profile for an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            EntityProfile object or None
+
+        Example:
+            >>> profile = client.get_entity_profile("person_john_doe")
+            >>> if profile:
+            ...     print(f"Name: {profile.canonical_name}")
+            ...     print(f"Mentions: {profile.mention_count}")
+            ...     print(f"Aliases: {profile.aliases}")
+        """
+        return self.entity_recognizer.get_entity_profile(entity_id)
+
+    def search_entities(
+        self,
+        query: str,
+        entity_type: Optional[EntityType] = None,
+        min_mentions: int = 1,
+    ) -> List[Any]:
+        """Search for entities by name.
+
+        Args:
+            query: Search query
+            entity_type: Optional entity type filter
+            min_mentions: Minimum number of mentions
+
+        Returns:
+            List of EntityProfile objects
+
+        Example:
+            >>> # Search for all people named "John"
+            >>> results = client.search_entities("john", entity_type=EntityType.PERSON)
+            >>>
+            >>> # Search for frequently mentioned entities
+            >>> results = client.search_entities("tesla", min_mentions=5)
+        """
+        return self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+
+    def summarize_conversation(
+        self,
+        messages: List[Dict[str, Any]],
+        session_id: str = "unknown",
+        style: SummaryStyle = SummaryStyle.CONCISE,
+        entities: Optional[List[str]] = None,
+    ) -> SessionSummary:
+        """Generate summary for a conversation.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            session_id: Session identifier
+            style: Summary style (concise, detailed, bullet_points, etc.)
+            entities: Pre-extracted entities (optional)
+
+        Returns:
+            SessionSummary object
+
+        Example:
+            >>> messages = [
+            ...     {"role": "user", "content": "I need help with Python"},
+            ...     {"role": "assistant", "content": "I'd be happy to help!"},
+            ... ]
+            >>> summary = client.summarize_conversation(
+            ...     messages,
+            ...     session_id="session_123",
+            ...     style=SummaryStyle.BULLET_POINTS
+            ... )
+            >>> print(summary.summary)
+            >>> print(f"Topics: {summary.topics}")
+            >>> print(f"Action items: {summary.action_items}")
+        """
+        return self.summarizer.summarize_session(messages, session_id, style, entities)
+
+    def create_rolling_summary(
+        self,
+        messages: List[Dict[str, Any]],
+        window_size: int = 10,
+        style: SummaryStyle = SummaryStyle.CONCISE,
+    ) -> str:
+        """Create rolling summary of recent messages.
+
+        Args:
+            messages: All messages
+            window_size: Number of recent messages to summarize
+            style: Summary style
+
+        Returns:
+            Summary text
+
+        Example:
+            >>> summary = client.create_rolling_summary(messages, window_size=5)
+        """
+        return self.summarizer.create_rolling_summary(messages, window_size, style)
+
+    def extract_conversation_insights(
+        self,
+        messages: List[Dict[str, Any]],
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """Extract insights from conversation.
+
+        Args:
+            messages: Conversation messages
+            user_id: User identifier
+
+        Returns:
+            Dictionary with insights including decisions, learning points, patterns
+
+        Example:
+            >>> insights = client.extract_conversation_insights(messages, "alice")
+            >>> print(f"Topics: {insights['topics']}")
+            >>> print(f"Sentiment: {insights['sentiment']}")
+            >>> print(f"Key decisions: {insights['key_decisions']}")
+        """
+        return self.summarizer.extract_insights(messages, user_id)
+
+    # === KNOWLEDGE GRAPH OPERATIONS ===
+
+    def add_entity_to_graph(
+        self,
+        entity: Entity,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Add an entity node to the knowledge graph.
+
+        Args:
+            entity: Entity object
+            metadata: Additional metadata
+
+        Returns:
+            Node ID for the entity
+
+        Example:
+            >>> entities = client.extract_entities("Steve Jobs founded Apple")
+            >>> for entity in entities:
+            ...     node_id = client.add_entity_to_graph(entity)
+        """
+        return self.graph.add_entity(entity, metadata)
+
+    def add_fact_to_graph(
+        self,
+        fact: ExtractedFact,
+        fact_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Add a fact node to the knowledge graph.
+
+        Args:
+            fact: ExtractedFact object
+            fact_id: Optional custom fact ID
+            metadata: Additional metadata
+
+        Returns:
+            Node ID for the fact
+
+        Example:
+            >>> facts = client.extract_facts("John works at Google")
+            >>> for fact in facts:
+            ...     node_id = client.add_fact_to_graph(fact)
+        """
+        return self.graph.add_fact(fact, fact_id, metadata)
+
+    def link_memory_to_entity(
+        self,
+        memory_id: str,
+        entity_id: str,
+        relation_type: RelationType = RelationType.RELATED_TO,
+        confidence: float = 0.9,
+    ) -> bool:
+        """Link a memory to an entity in the knowledge graph.
+
+        Args:
+            memory_id: Memory node ID
+            entity_id: Entity ID
+            relation_type: Type of relationship
+            confidence: Confidence score
+
+        Returns:
+            True if successful
+
+        Example:
+            >>> # Extract entities and link to memory
+            >>> entities = client.extract_entities(memory.text)
+            >>> for entity in entities:
+            ...     client.add_entity_to_graph(entity)
+            ...     client.link_memory_to_entity(memory.id, entity.entity_id)
+        """
+        return self.graph.link_memory_to_entity(memory_id, entity_id, relation_type, confidence)
+
+    def link_memory_to_fact(
+        self,
+        memory_id: str,
+        fact_id: str,
+        confidence: float = 0.9,
+    ) -> bool:
+        """Link a memory to a fact extracted from it.
+
+        Args:
+            memory_id: Memory node ID
+            fact_id: Fact ID
+            confidence: Confidence score
+
+        Returns:
+            True if successful
+        """
+        return self.graph.link_memory_to_fact(memory_id, fact_id, confidence)
+
+    def get_entity_memories(self, entity_id: str) -> List[str]:
+        """Get all memories mentioning an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of memory IDs
+
+        Example:
+            >>> memory_ids = client.get_entity_memories("person_john_doe")
+            >>> for mem_id in memory_ids:
+            ...     # Fetch and process memories
+            ...     pass
+        """
+        return self.graph.get_entity_memories(entity_id)
+
+    def get_entity_facts(self, entity_id: str) -> List[str]:
+        """Get all facts about an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of fact IDs
+
+        Example:
+            >>> fact_ids = client.get_entity_facts("organization_google")
+        """
+        return self.graph.get_entity_facts(entity_id)
+
+    def get_entity_connections(
+        self,
+        entity_id: str,
+        max_distance: int = 2,
+    ) -> Dict[str, List[tuple]]:
+        """Find all entities connected to a given entity.
+
+        Args:
+            entity_id: Source entity ID
+            max_distance: Maximum distance (hops) to search
+
+        Returns:
+            Dictionary mapping relation types to lists of (entity_id, distance) tuples
+
+        Example:
+            >>> connections = client.get_entity_connections("person_john_doe", max_distance=2)
+            >>> for relation_type, entities in connections.items():
+            ...     print(f"{relation_type}: {len(entities)} connected entities")
+        """
+        return self.graph.find_entity_connections(entity_id, max_distance)
+
+    def get_knowledge_subgraph(
+        self,
+        center_id: str,
+        radius: int = 2,
+        include_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Get a subgraph around a central node.
+
+        Args:
+            center_id: Central node ID (memory, entity, or fact)
+            radius: How many hops to include
+            include_types: Filter by node types (e.g., ["entity", "fact"])
+
+        Returns:
+            Subgraph data with nodes and edges
+
+        Example:
+            >>> subgraph = client.get_knowledge_subgraph("person_john_doe", radius=2)
+            >>> print(f"Nodes: {len(subgraph['nodes'])}")
+            >>> print(f"Edges: {len(subgraph['edges'])}")
+        """
+        from hippocampai.graph.knowledge_graph import NodeType
+
+        node_types = None
+        if include_types:
+            node_types = [NodeType(t) for t in include_types]
+
+        return self.graph.get_knowledge_subgraph(center_id, radius, node_types)
+
+    def get_entity_timeline(self, entity_id: str) -> List[Dict[str, Any]]:
+        """Get chronological timeline of facts and memories about an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of timeline events sorted by time
+
+        Example:
+            >>> timeline = client.get_entity_timeline("person_john_doe")
+            >>> for event in timeline:
+            ...     print(f"{event['timestamp']}: {event['type']} - {event.get('text', '')}")
+        """
+        return self.graph.get_entity_timeline(entity_id)
+
+    def infer_knowledge(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Infer new facts from existing knowledge graph patterns.
+
+        Args:
+            user_id: Optional user ID to limit inference
+
+        Returns:
+            List of inferred facts with confidence scores
+
+        Example:
+            >>> inferred = client.infer_knowledge(user_id="alice")
+            >>> for fact in inferred:
+            ...     print(f"{fact['fact']} (confidence: {fact['confidence']:.2f})")
+            ...     print(f"  Rule: {fact['rule']}")
+        """
+        return self.graph.infer_new_facts(user_id)
+
+    def enrich_memory_with_intelligence(
+        self,
+        memory: Memory,
+        add_to_graph: bool = True,
+    ) -> Dict[str, Any]:
+        """Enrich a memory with facts, entities, and add to knowledge graph.
+
+        This is a convenience method that extracts facts and entities from a memory
+        and optionally adds them to the knowledge graph.
+
+        Args:
+            memory: Memory object to enrich
+            add_to_graph: Whether to add extracted information to knowledge graph
+
+        Returns:
+            Dictionary with extracted facts, entities, and relationships
+
+        Example:
+            >>> memory = client.remember("Steve Jobs founded Apple in California", "alice")
+            >>> enrichment = client.enrich_memory_with_intelligence(memory)
+            >>> print(f"Facts: {len(enrichment['facts'])}")
+            >>> print(f"Entities: {len(enrichment['entities'])}")
+            >>> print(f"Relationships: {len(enrichment['relationships'])}")
+        """
+        # Extract facts
+        facts = self.fact_extractor.extract_facts(
+            memory.text,
+            source=f"memory_{memory.id}",
+            user_id=memory.user_id,
+        )
+
+        # Extract entities
+        entities = self.entity_recognizer.extract_entities(
+            memory.text,
+            context={"memory_id": memory.id, "user_id": memory.user_id},
+        )
+
+        # Extract relationships
+        relationships = self.entity_recognizer.extract_relationships(memory.text, entities)
+
+        # Add to knowledge graph if requested
+        if add_to_graph:
+            # Add entities
+            for entity in entities:
+                try:
+                    entity_node_id = self.graph.add_entity(entity)
+                    # Link memory to entity
+                    self.graph.link_memory_to_entity(memory.id, entity.entity_id)
+                except Exception as e:
+                    logger.warning(f"Failed to add entity to graph: {e}")
+
+            # Add facts
+            for fact in facts:
+                try:
+                    fact_id = f"fact_{hash(fact.fact) % 10**10}"
+                    fact_node_id = self.graph.add_fact(fact, fact_id)
+                    # Link memory to fact
+                    self.graph.link_memory_to_fact(memory.id, fact_id)
+
+                    # Link facts to entities they mention
+                    for entity_name in fact.entities:
+                        # Try to find matching entity
+                        for entity in entities:
+                            if entity.text.lower() == entity_name.lower():
+                                self.graph.link_fact_to_entity(fact_id, entity.entity_id)
+                                break
+                except Exception as e:
+                    logger.warning(f"Failed to add fact to graph: {e}")
+
+            # Add entity relationships
+            for relationship in relationships:
+                try:
+                    self.graph.link_entities(relationship)
+                except Exception as e:
+                    logger.warning(f"Failed to add relationship to graph: {e}")
+
+        return {
+            "facts": facts,
+            "entities": entities,
+            "relationships": relationships,
+            "graph_updated": add_to_graph,
+        }

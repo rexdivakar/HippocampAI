@@ -22,6 +22,7 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 - **Persistent personalization** – store preferences, facts, goals, habits, and events per user with importance scoring and decay
 - **Reliable retrieval** – hybrid ranking surfaces the right memories even when queries are vague or drift semantically
 - **Automatic hygiene** – extractor, deduplicator, consolidator, and scorer keep the memory base uncluttered
+- **Intelligence features** – automatic fact extraction, entity recognition, session summarization, and knowledge graph building
 - **Temporal reasoning** – time-based queries, chronological narratives, event sequences, and memory scheduling
 - **Cross-session insights** – detect patterns, track behavioral changes, analyze preference drift, and identify habits
 - **Local-first** – run everything on your infra with open models, or flip a switch to activate OpenAI for higher quality
@@ -174,6 +175,7 @@ asyncio.run(main())
 - **Multi-user isolation** — complete data separation per user
 - **Memory size tracking** — automatic character and token counting
 - **Semantic clustering & auto-categorization** — automatic topic detection, tag suggestion, and category assignment
+- **Intelligence features** — fact extraction, entity recognition, session summarization, and knowledge graph building
 - **Temporal reasoning** — time-based queries, narratives, timelines, event sequences, and memory scheduling
 - **Cross-session insights** — pattern detection, behavioral change tracking, preference drift analysis, and habit scoring
 - **Async support** — async variants of all core operations for high-performance apps
@@ -313,6 +315,60 @@ for trend in trends:
     print(f"Strength: {trend.strength:.2f}")
 ```
 
+### Intelligence Features 🧠
+
+Extract structured knowledge from conversations with automatic fact extraction, entity recognition, and knowledge graph building:
+
+```python
+# Extract facts from text
+facts = client.extract_facts(
+    "John works at Google in San Francisco. He studied Computer Science at MIT.",
+    source="profile"
+)
+for fact in facts:
+    print(f"[{fact.category.value}] {fact.fact} (confidence: {fact.confidence:.2f})")
+
+# Extract entities and relationships
+entities = client.extract_entities("Elon Musk founded SpaceX in California")
+relationships = client.extract_relationships(text, entities)
+
+# Generate conversation summaries
+summary = client.summarize_conversation(
+    messages,
+    session_id="chat_001",
+    style=SummaryStyle.BULLET_POINTS
+)
+print(f"Summary: {summary.summary}")
+print(f"Topics: {summary.topics}")
+print(f"Sentiment: {summary.sentiment.value}")
+print(f"Action items: {summary.action_items}")
+
+# Build knowledge graph
+memory = client.remember("Marie Curie was a physicist who won two Nobel Prizes", "alice")
+enrichment = client.enrich_memory_with_intelligence(memory, add_to_graph=True)
+print(f"Extracted {len(enrichment['facts'])} facts, {len(enrichment['entities'])} entities")
+
+# Query knowledge graph
+memory_ids = client.get_entity_memories("person_marie_curie")
+timeline = client.get_entity_timeline("person_marie_curie")
+connections = client.get_entity_connections("person_marie_curie", max_distance=2)
+
+# Infer new knowledge from patterns
+inferred = client.infer_knowledge(user_id="alice")
+for fact in inferred:
+    print(f"{fact['fact']} (confidence: {fact['confidence']:.2f})")
+```
+
+**Key Features:**
+- **Fact Extraction** - Automatically extract structured facts (employment, education, skills, preferences, etc.)
+- **Entity Recognition** - Identify and track people, organizations, locations, dates, and more
+- **Relationship Extraction** - Discover connections between entities (works_at, located_in, studied_at)
+- **Session Summarization** - Generate summaries with key points, action items, and sentiment analysis
+- **Knowledge Graph** - Build rich graphs connecting memories, entities, facts, and topics
+- **Knowledge Inference** - Infer new facts from existing knowledge patterns
+
+See the [Intelligence Features Guide](docs/INTELLIGENCE_FEATURES.md) for comprehensive documentation and examples.
+
 ### Advanced Features
 
 ```python
@@ -412,17 +468,20 @@ python examples/09_graph_persistence_demo.py
 # Session management (hierarchical conversations, boundaries, summaries)
 python examples/10_session_management_demo.py
 
+# Intelligence features (fact extraction, entity recognition, summarization, knowledge graph)
+python examples/11_intelligence_features_demo.py
+
 # Semantic clustering & auto-categorization
-python examples/11_semantic_clustering_demo.py
+python examples/12_semantic_clustering_demo.py
 
 # Multi-agent memory management
-python examples/12_multiagent_demo.py
+python examples/13_multiagent_demo.py
 
 # Temporal reasoning (time-based queries, narratives, scheduling)
-python examples/13_temporal_reasoning_demo.py
+python examples/14_temporal_reasoning_demo.py
 
 # Cross-session insights (patterns, habits, preference drift, trends)
-python examples/14_cross_session_insights_demo.py
+python examples/15_cross_session_insights_demo.py
 
 # Production resilience (retry logic + structured logging)
 python examples/example_resilience.py
@@ -482,6 +541,7 @@ client = MemoryClient(config=config)
 
 - **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods and classes
 - **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples and use cases
+- **[Intelligence Features](docs/INTELLIGENCE_FEATURES.md)** - Fact extraction, entity recognition, summarization, and knowledge graphs
 - **[Configuration Guide](docs/CONFIGURATION.md)** - All configuration options, presets, and environment variables
 - **[Provider Setup](docs/PROVIDERS.md)** - Configure LLM providers (Ollama, OpenAI, Anthropic, Groq)
 
@@ -563,6 +623,7 @@ client = MemoryClient(config=config)
 - [x] Multi-agent support (agent-specific memory spaces, permissions, transfers)
 - [x] Temporal reasoning (time-based queries, narratives, timelines, event sequences, scheduling)
 - [x] Cross-session insights (pattern detection, behavioral changes, preference drift, habit tracking, trends)
+- [x] Intelligence features (fact extraction, entity recognition, session summarization, knowledge graph)
 
 **Planned:**
 
