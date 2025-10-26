@@ -664,6 +664,33 @@ for i, profile in enumerate(sorted_by_mentions[:10], 1):
     print(f"{i}. {profile.canonical_name} - {profile.mention_count} mentions")
 ```
 
+## Validation
+
+To verify that all intelligence features are properly installed and working, run the validation script:
+
+```bash
+python validate_intelligence_features.py
+```
+
+This script tests:
+- Module imports and dependencies
+- Fact extraction with sample text
+- Entity recognition and relationship extraction
+- Session summarization with multiple styles
+- Knowledge graph building and querying
+
+For detailed diagnostic output:
+
+```bash
+python validate_intelligence_features.py --verbose
+```
+
+The validation script provides:
+- ✓ Clear pass/fail indicators for each feature
+- Sample outputs demonstrating functionality
+- Detailed error messages if issues are detected
+- Setup verification without requiring a database connection
+
 ## See Also
 
 - [API Reference](API_REFERENCE.md) - Complete API documentation
