@@ -267,7 +267,7 @@ class TemporalAnalyzer:
                     "memory_type": memory.type.value,
                     "importance": memory.importance,
                     "tags": memory.tags,
-                }
+                },
             )
 
             # Extract participants, locations if using LLM
@@ -311,6 +311,7 @@ JSON:"""
 
             # Parse JSON response
             import json
+
             data = json.loads(response)
 
             if data.get("participants"):
@@ -421,9 +422,7 @@ JSON:"""
         logger.info(f"Found {len(sequences)} event sequences from {len(memories)} memories")
         return sequences
 
-    def calculate_time_decay(
-        self, memory: Memory, half_life_days: int = 30
-    ) -> float:
+    def calculate_time_decay(self, memory: Memory, half_life_days: int = 30) -> float:
         """Calculate time decay factor for a memory.
 
         Args:
@@ -480,10 +479,7 @@ JSON:"""
 
         self.scheduled_memories[scheduled.id] = scheduled
 
-        logger.info(
-            f"Scheduled memory for {user_id} at {scheduled_for} "
-            f"(recurrence: {recurrence})"
-        )
+        logger.info(f"Scheduled memory for {user_id} at {scheduled_for} (recurrence: {recurrence})")
         return scheduled
 
     def get_due_scheduled_memories(self) -> List[ScheduledMemory]:
@@ -547,9 +543,7 @@ JSON:"""
             metadata=original.metadata,
         )
 
-    def get_temporal_summary(
-        self, memories: List[Memory], user_id: str
-    ) -> Dict[str, Any]:
+    def get_temporal_summary(self, memories: List[Memory], user_id: str) -> Dict[str, Any]:
         """Generate temporal summary statistics.
 
         Args:

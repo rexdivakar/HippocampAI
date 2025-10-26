@@ -1,9 +1,10 @@
 """Tests for smart memory updates and semantic clustering features."""
 
 import pytest
+
 from hippocampai.models.memory import Memory, MemoryType
-from hippocampai.pipeline.smart_updater import SmartMemoryUpdater, UpdateDecision
-from hippocampai.pipeline.semantic_clustering import SemanticCategorizer, MemoryCluster
+from hippocampai.pipeline.semantic_clustering import MemoryCluster, SemanticCategorizer
+from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
 
 
 class TestSmartMemoryUpdater:
@@ -65,8 +66,7 @@ class TestSmartMemoryUpdater:
 
         # Similar but with more info - should merge
         decision = updater.should_update_memory(
-            existing,
-            "I love coffee and drink it every morning"
+            existing, "I love coffee and drink it every morning"
         )
         assert decision.action in ["merge", "update", "keep_both"]
 
@@ -214,9 +214,7 @@ class TestSemanticCategorizer:
         ]
 
         similar = categorizer.find_similar_memories(
-            query_memory,
-            existing_memories,
-            similarity_threshold=0.5
+            query_memory, existing_memories, similarity_threshold=0.5
         )
 
         # Should find at least the coffee-related memory
@@ -310,14 +308,14 @@ class TestSmartMemoryIntegration:
     def test_smart_update_on_similar_memory(self, memory_client, user_id):
         """Test smart update when storing similar memory."""
         # Store first memory
-        mem1 = memory_client.remember(
+        memory_client.remember(
             text="I love coffee",
             user_id=user_id,
             type="preference",
         )
 
         # Try to store very similar memory
-        mem2 = memory_client.remember(
+        memory_client.remember(
             text="I love coffee",
             user_id=user_id,
             type="preference",

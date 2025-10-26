@@ -8,19 +8,20 @@ This module provides:
 - Entity timeline tracking
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Set, Tuple
-from pydantic import BaseModel, Field
-from enum import Enum
-from collections import defaultdict
 import logging
 import re
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
 class EntityType(str, Enum):
     """Types of entities."""
+
     PERSON = "person"
     ORGANIZATION = "organization"
     LOCATION = "location"
@@ -36,6 +37,7 @@ class EntityType(str, Enum):
 
 class RelationType(str, Enum):
     """Types of relationships between entities."""
+
     WORKS_AT = "works_at"
     LOCATED_IN = "located_in"
     FOUNDED_BY = "founded_by"
@@ -49,6 +51,7 @@ class RelationType(str, Enum):
 
 class Entity(BaseModel):
     """Represents an extracted entity."""
+
     text: str = Field(..., description="Entity text as it appears")
     type: EntityType = Field(..., description="Entity type")
     confidence: float = Field(..., ge=0.0, le=1.0)
@@ -62,6 +65,7 @@ class Entity(BaseModel):
 
 class EntityRelationship(BaseModel):
     """Represents a relationship between two entities."""
+
     from_entity_id: str
     to_entity_id: str
     relation_type: RelationType
@@ -73,6 +77,7 @@ class EntityRelationship(BaseModel):
 
 class EntityProfile(BaseModel):
     """Complete profile of an entity with all known information."""
+
     entity_id: str
     canonical_name: str
     type: EntityType
@@ -109,75 +114,71 @@ class EntityRecognizer:
         """Build regex patterns for entity recognition."""
         return {
             EntityType.PERSON: [
-                r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b',  # First Last
-                r'\b((?:Mr|Mrs|Ms|Dr|Prof)\.?\s+[A-Z][a-z]+)\b',  # Title Name
+                r"\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b",  # First Last
+                r"\b((?:Mr|Mrs|Ms|Dr|Prof)\.?\s+[A-Z][a-z]+)\b",  # Title Name
             ],
             EntityType.ORGANIZATION: [
-                r'\b([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s+(?:Inc|Corp|LLC|Ltd|Company|University|College|Institute|Foundation))\b',
-                r'\b((?:Google|Microsoft|Amazon|Apple|Facebook|Meta|Tesla|Netflix|Uber|Airbnb|Spotify|GitHub|LinkedIn))\b',
+                r"\b([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s+(?:Inc|Corp|LLC|Ltd|Company|University|College|Institute|Foundation))\b",
+                r"\b((?:Google|Microsoft|Amazon|Apple|Facebook|Meta|Tesla|Netflix|Uber|Airbnb|Spotify|GitHub|LinkedIn))\b",
             ],
             EntityType.LOCATION: [
-                r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,?\s+(?:California|New York|Texas|Florida|Illinois|Washington|Massachusetts|Colorado|Oregon|Virginia))\b',
-                r'\b((?:San Francisco|New York City|Los Angeles|Chicago|Boston|Seattle|Austin|Denver|Portland|Miami|NYC))\b',
-                r'\b([A-Z][a-z]+\s+(?:City|State|Country|County|Province))\b',
+                r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,?\s+(?:California|New York|Texas|Florida|Illinois|Washington|Massachusetts|Colorado|Oregon|Virginia))\b",
+                r"\b((?:San Francisco|New York City|Los Angeles|Chicago|Boston|Seattle|Austin|Denver|Portland|Miami|NYC))\b",
+                r"\b([A-Z][a-z]+\s+(?:City|State|Country|County|Province))\b",
             ],
             EntityType.DATE: [
-                r'\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b',
-                r'\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b',
-                r'\b(\d{4})\b',  # Year only
-                r'\b((?:yesterday|today|tomorrow|last\s+week|next\s+month))\b',
+                r"\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b",
+                r"\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b",
+                r"\b(\d{4})\b",  # Year only
+                r"\b((?:yesterday|today|tomorrow|last\s+week|next\s+month))\b",
             ],
             EntityType.SKILL: [
-                r'\b(Python|Java|JavaScript|TypeScript|C\+\+|Ruby|Go|Rust|Swift|Kotlin|PHP|SQL|HTML|CSS)\b',
-                r'\b(machine\s+learning|artificial\s+intelligence|data\s+science|deep\s+learning|NLP|computer\s+vision)\b',
+                r"\b(Python|Java|JavaScript|TypeScript|C\+\+|Ruby|Go|Rust|Swift|Kotlin|PHP|SQL|HTML|CSS)\b",
+                r"\b(machine\s+learning|artificial\s+intelligence|data\s+science|deep\s+learning|NLP|computer\s+vision)\b",
             ],
             EntityType.PRODUCT: [
-                r'\b(iPhone|iPad|MacBook|Android|Windows|Linux|AWS|Azure|GCP)\b',
-            ]
+                r"\b(iPhone|iPad|MacBook|Android|Windows|Linux|AWS|Azure|GCP)\b",
+            ],
         }
 
     def _build_relationship_patterns(self) -> List[Dict[str, Any]]:
         """Build patterns for relationship extraction."""
         return [
             {
-                "pattern": r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:works?|working|employed)\s+(?:at|for)\s+([A-Z][A-Za-z\s&]+)',
+                "pattern": r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:works?|working|employed)\s+(?:at|for)\s+([A-Z][A-Za-z\s&]+)",
                 "relation": RelationType.WORKS_AT,
                 "from_group": 1,
                 "to_group": 2,
                 "from_type": EntityType.PERSON,
-                "to_type": EntityType.ORGANIZATION
+                "to_type": EntityType.ORGANIZATION,
             },
             {
-                "pattern": r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:lives?|living|based)\s+in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+                "pattern": r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:lives?|living|based)\s+in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
                 "relation": RelationType.LOCATED_IN,
                 "from_group": 1,
                 "to_group": 2,
                 "from_type": EntityType.PERSON,
-                "to_type": EntityType.LOCATION
+                "to_type": EntityType.LOCATION,
             },
             {
-                "pattern": r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:studied|graduated)\s+(?:at|from)\s+([A-Z][A-Za-z\s]+(?:University|College))',
+                "pattern": r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:studied|graduated)\s+(?:at|from)\s+([A-Z][A-Za-z\s]+(?:University|College))",
                 "relation": RelationType.STUDIED_AT,
                 "from_group": 1,
                 "to_group": 2,
                 "from_type": EntityType.PERSON,
-                "to_type": EntityType.ORGANIZATION
+                "to_type": EntityType.ORGANIZATION,
             },
             {
-                "pattern": r'\b([A-Z][A-Za-z\s]+)\s+(?:is\s+)?(?:located|based)\s+in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+                "pattern": r"\b([A-Z][A-Za-z\s]+)\s+(?:is\s+)?(?:located|based)\s+in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
                 "relation": RelationType.LOCATED_IN,
                 "from_group": 1,
                 "to_group": 2,
                 "from_type": EntityType.ORGANIZATION,
-                "to_type": EntityType.LOCATION
-            }
+                "to_type": EntityType.LOCATION,
+            },
         ]
 
-    def extract_entities(
-        self,
-        text: str,
-        context: Optional[Dict[str, Any]] = None
-    ) -> List[Entity]:
+    def extract_entities(self, text: str, context: Optional[Dict[str, Any]] = None) -> List[Entity]:
         """Extract entities from text.
 
         Args:
@@ -231,10 +232,7 @@ class EntityRecognizer:
                         confidence=0.80,  # Pattern-based confidence
                         entity_id=entity_id,
                         canonical_name=entity_text,
-                        metadata={
-                            "extraction_method": "pattern",
-                            "pattern": pattern
-                        }
+                        metadata={"extraction_method": "pattern", "pattern": pattern},
                     )
                     entities.append(entity)
 
@@ -261,17 +259,21 @@ Entities:"""
             response = self.llm.generate(prompt, max_tokens=300)
 
             entities = []
-            for line in response.strip().split('\n'):
-                if not line.strip() or not line.startswith('ENTITY:'):
+            for line in response.strip().split("\n"):
+                if not line.strip() or not line.startswith("ENTITY:"):
                     continue
 
-                parts = line.split('|')
+                parts = line.split("|")
                 if len(parts) < 2:
                     continue
 
-                entity_text = parts[0].replace('ENTITY:', '').strip()
-                type_str = parts[1].replace('TYPE:', '').strip().lower() if len(parts) > 1 else 'other'
-                confidence_str = parts[2].replace('CONFIDENCE:', '').strip() if len(parts) > 2 else '0.7'
+                entity_text = parts[0].replace("ENTITY:", "").strip()
+                type_str = (
+                    parts[1].replace("TYPE:", "").strip().lower() if len(parts) > 1 else "other"
+                )
+                confidence_str = (
+                    parts[2].replace("CONFIDENCE:", "").strip() if len(parts) > 2 else "0.7"
+                )
 
                 # Map type
                 entity_type = EntityType.OTHER
@@ -283,7 +285,7 @@ Entities:"""
                 # Parse confidence
                 try:
                     confidence = float(confidence_str)
-                except:
+                except (ValueError, TypeError):
                     confidence = 0.7
 
                 entity_id = self._generate_entity_id(entity_text, entity_type)
@@ -294,9 +296,7 @@ Entities:"""
                     confidence=min(max(confidence, 0.0), 1.0),
                     entity_id=entity_id,
                     canonical_name=entity_text,
-                    metadata={
-                        "extraction_method": "llm"
-                    }
+                    metadata={"extraction_method": "llm"},
                 )
                 entities.append(entity)
 
@@ -309,8 +309,8 @@ Entities:"""
     def _generate_entity_id(self, text: str, entity_type: EntityType) -> str:
         """Generate unique entity ID."""
         # Normalize text for ID
-        normalized = re.sub(r'\s+', '_', text.lower().strip())
-        normalized = re.sub(r'[^\w_]', '', normalized)
+        normalized = re.sub(r"\s+", "_", text.lower().strip())
+        normalized = re.sub(r"[^\w_]", "", normalized)
         return f"{entity_type.value}_{normalized}"
 
     def _deduplicate_entities(self, entities: List[Entity]) -> List[Entity]:
@@ -331,9 +331,7 @@ Entities:"""
         return unique_entities
 
     def extract_relationships(
-        self,
-        text: str,
-        entities: Optional[List[Entity]] = None
+        self, text: str, entities: Optional[List[Entity]] = None
     ) -> List[EntityRelationship]:
         """Extract relationships between entities.
 
@@ -364,17 +362,14 @@ Entities:"""
                     relation_type=pattern_info["relation"],
                     confidence=0.85,
                     context=match.group(0),
-                    extracted_from=text[:100]
+                    extracted_from=text[:100],
                 )
                 relationships.append(relationship)
 
         return relationships
 
     def _update_entity_profile(
-        self,
-        entity: Entity,
-        source_text: str,
-        context: Optional[Dict[str, Any]] = None
+        self, entity: Entity, source_text: str, context: Optional[Dict[str, Any]] = None
     ):
         """Update or create entity profile."""
         if entity.entity_id in self.entities:
@@ -392,7 +387,7 @@ Entities:"""
                 "text": entity.text,
                 "source": source_text[:200],
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "context": context or {}
+                "context": context or {},
             }
             profile.mentions.append(mention)
 
@@ -406,12 +401,14 @@ Entities:"""
                 first_seen=entity.first_seen,
                 last_seen=entity.last_seen,
                 mention_count=1,
-                mentions=[{
-                    "text": entity.text,
-                    "source": source_text[:200],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "context": context or {}
-                }]
+                mentions=[
+                    {
+                        "text": entity.text,
+                        "source": source_text[:200],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "context": context or {},
+                    }
+                ],
             )
             self.entities[entity.entity_id] = profile
 
@@ -423,10 +420,7 @@ Entities:"""
         return self.entities.get(entity_id)
 
     def search_entities(
-        self,
-        query: str,
-        entity_type: Optional[EntityType] = None,
-        min_mentions: int = 1
+        self, query: str, entity_type: Optional[EntityType] = None, min_mentions: int = 1
     ) -> List[EntityProfile]:
         """Search for entities.
 
@@ -451,8 +445,9 @@ Entities:"""
                 continue
 
             # Text matching
-            if (query_lower in profile.canonical_name.lower() or
-                any(query_lower in alias.lower() for alias in profile.aliases)):
+            if query_lower in profile.canonical_name.lower() or any(
+                query_lower in alias.lower() for alias in profile.aliases
+            ):
                 results.append(profile)
 
         # Sort by mention count
@@ -470,9 +465,7 @@ Entities:"""
         return timeline
 
     def get_related_entities(
-        self,
-        entity_id: str,
-        relation_type: Optional[RelationType] = None
+        self, entity_id: str, relation_type: Optional[RelationType] = None
     ) -> List[Tuple[str, RelationType]]:
         """Get entities related to a given entity.
 

@@ -1,19 +1,19 @@
 """Multi-agent manager for agent-specific memory spaces and permissions."""
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
-from collections import defaultdict
 
 from hippocampai.models.agent import (
     Agent,
+    AgentMemoryStats,
     AgentPermission,
     AgentRole,
     MemoryTransfer,
     MemoryVisibility,
     PermissionType,
     Run,
-    AgentMemoryStats,
 )
 from hippocampai.models.memory import Memory
 
@@ -154,9 +154,7 @@ class MultiAgentManager:
         """Get run by ID."""
         return self.runs.get(run_id)
 
-    def list_runs(
-        self, agent_id: Optional[str] = None, user_id: Optional[str] = None
-    ) -> List[Run]:
+    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Run]:
         """List runs, optionally filtered by agent or user."""
         runs = list(self.runs.values())
         if agent_id:
@@ -305,7 +303,10 @@ class MultiAgentManager:
         return False
 
     def filter_accessible_memories(
-        self, agent_id: str, memories: List[Memory], permission: PermissionType = PermissionType.READ
+        self,
+        agent_id: str,
+        memories: List[Memory],
+        permission: PermissionType = PermissionType.READ,
     ) -> List[Memory]:
         """Filter memories to only those accessible by agent."""
         return [m for m in memories if self.can_access_memory(agent_id, m, permission)]
@@ -386,9 +387,7 @@ class MultiAgentManager:
             AgentMemoryStats object
         """
         # Filter to agent's memories
-        agent_memories = [
-            m for m in memories if hasattr(m, "agent_id") and m.agent_id == agent_id
-        ]
+        agent_memories = [m for m in memories if hasattr(m, "agent_id") and m.agent_id == agent_id]
 
         # Count by visibility
         by_visibility = defaultdict(int)
@@ -437,9 +436,7 @@ class MultiAgentManager:
         if not agent:
             return
 
-        agent_memories = [
-            m for m in memories if hasattr(m, "agent_id") and m.agent_id == agent_id
-        ]
+        agent_memories = [m for m in memories if hasattr(m, "agent_id") and m.agent_id == agent_id]
 
         agent.total_memories = len(agent_memories)
         agent.private_memories = sum(

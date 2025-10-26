@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-import pytest
 from uuid import uuid4
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -22,10 +23,10 @@ if str(SRC) not in sys.path:
 def memory_client():
     """Create a MemoryClient instance for testing."""
     from hippocampai import MemoryClient
+
     test_id = uuid4().hex[:8]
     return MemoryClient(
-        collection_facts=f"test_facts_{test_id}",
-        collection_prefs=f"test_prefs_{test_id}"
+        collection_facts=f"test_facts_{test_id}", collection_prefs=f"test_prefs_{test_id}"
     )
 
 

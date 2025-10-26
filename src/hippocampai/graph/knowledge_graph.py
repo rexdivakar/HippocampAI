@@ -9,19 +9,19 @@ This module extends the memory graph with:
 """
 
 import logging
-from typing import List, Optional, Dict, Any, Set, Tuple
-from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 from hippocampai.graph.memory_graph import MemoryGraph, RelationType
-from hippocampai.pipeline.entity_recognition import Entity, EntityRelationship, EntityType
-from hippocampai.pipeline.fact_extraction import ExtractedFact, FactCategory
+from hippocampai.pipeline.entity_recognition import Entity, EntityRelationship
+from hippocampai.pipeline.fact_extraction import ExtractedFact
 
 logger = logging.getLogger(__name__)
 
 
 class NodeType(str, Enum):
     """Types of nodes in the knowledge graph."""
+
     MEMORY = "memory"
     ENTITY = "entity"
     FACT = "fact"
@@ -40,11 +40,7 @@ class KnowledgeGraph(MemoryGraph):
         self._fact_index: Dict[str, str] = {}  # fact_id -> node_id mapping
         self._topic_index: Dict[str, str] = {}  # topic -> node_id mapping
 
-    def add_entity(
-        self,
-        entity: Entity,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def add_entity(self, entity: Entity, metadata: Optional[Dict[str, Any]] = None) -> str:
         """Add an entity node to the graph.
 
         Args:
@@ -68,7 +64,7 @@ class KnowledgeGraph(MemoryGraph):
             first_seen=entity.first_seen.isoformat(),
             last_seen=entity.last_seen.isoformat(),
             mention_count=entity.mention_count,
-            **(metadata or {})
+            **(metadata or {}),
         )
 
         self._entity_index[entity.entity_id] = node_id
@@ -80,7 +76,7 @@ class KnowledgeGraph(MemoryGraph):
         self,
         fact: ExtractedFact,
         fact_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Add a fact node to the graph.
 
@@ -109,7 +105,7 @@ class KnowledgeGraph(MemoryGraph):
             temporal_type=fact.temporal_type.value,
             source=fact.source,
             extracted_at=fact.extracted_at.isoformat(),
-            **(metadata or {})
+            **(metadata or {}),
         )
 
         self._fact_index[fact_id] = node_id
@@ -133,10 +129,7 @@ class KnowledgeGraph(MemoryGraph):
         node_id = f"topic_{topic.lower().replace(' ', '_')}"
 
         self.graph.add_node(
-            node_id,
-            node_type=NodeType.TOPIC.value,
-            topic=topic,
-            **(metadata or {})
+            node_id, node_type=NodeType.TOPIC.value, topic=topic, **(metadata or {})
         )
 
         self._topic_index[topic] = node_id
@@ -149,7 +142,7 @@ class KnowledgeGraph(MemoryGraph):
         memory_id: str,
         entity_id: str,
         relation_type: RelationType = RelationType.RELATED_TO,
-        confidence: float = 0.9
+        confidence: float = 0.9,
     ) -> bool:
         """Link a memory to an entity.
 
@@ -172,15 +165,10 @@ class KnowledgeGraph(MemoryGraph):
             entity_node_id,
             relation_type,
             weight=confidence,
-            metadata={"edge_type": "memory_entity"}
+            metadata={"edge_type": "memory_entity"},
         )
 
-    def link_memory_to_fact(
-        self,
-        memory_id: str,
-        fact_id: str,
-        confidence: float = 0.9
-    ) -> bool:
+    def link_memory_to_fact(self, memory_id: str, fact_id: str, confidence: float = 0.9) -> bool:
         """Link a memory to a fact extracted from it.
 
         Args:
@@ -201,15 +189,10 @@ class KnowledgeGraph(MemoryGraph):
             fact_node_id,
             RelationType.SUPPORTS,
             weight=confidence,
-            metadata={"edge_type": "memory_fact"}
+            metadata={"edge_type": "memory_fact"},
         )
 
-    def link_fact_to_entity(
-        self,
-        fact_id: str,
-        entity_id: str,
-        confidence: float = 0.9
-    ) -> bool:
+    def link_fact_to_entity(self, fact_id: str, entity_id: str, confidence: float = 0.9) -> bool:
         """Link a fact to an entity it mentions.
 
         Args:
@@ -224,7 +207,7 @@ class KnowledgeGraph(MemoryGraph):
         entity_node_id = self._entity_index.get(entity_id)
 
         if not fact_node_id or not entity_node_id:
-            logger.warning(f"Fact or entity not found in graph")
+            logger.warning("Fact or entity not found in graph")
             return False
 
         return self.add_relationship(
@@ -232,13 +215,10 @@ class KnowledgeGraph(MemoryGraph):
             entity_node_id,
             RelationType.RELATED_TO,
             weight=confidence,
-            metadata={"edge_type": "fact_entity"}
+            metadata={"edge_type": "fact_entity"},
         )
 
-    def link_entities(
-        self,
-        relationship: EntityRelationship
-    ) -> bool:
+    def link_entities(self, relationship: EntityRelationship) -> bool:
         """Link two entities with a relationship.
 
         Args:
@@ -251,7 +231,7 @@ class KnowledgeGraph(MemoryGraph):
         to_node_id = self._entity_index.get(relationship.to_entity_id)
 
         if not from_node_id or not to_node_id:
-            logger.warning(f"One or both entities not found in graph")
+            logger.warning("One or both entities not found in graph")
             return False
 
         # Map entity relation types to graph relation types
@@ -263,10 +243,7 @@ class KnowledgeGraph(MemoryGraph):
             "manages": RelationType.RELATED_TO,
         }
 
-        relation_type = relation_mapping.get(
-            relationship.relation_type,
-            RelationType.RELATED_TO
-        )
+        relation_type = relation_mapping.get(relationship.relation_type, RelationType.RELATED_TO)
 
         return self.add_relationship(
             from_node_id,
@@ -276,16 +253,11 @@ class KnowledgeGraph(MemoryGraph):
             metadata={
                 "edge_type": "entity_entity",
                 "original_relation": relationship.relation_type,
-                "context": relationship.context
-            }
+                "context": relationship.context,
+            },
         )
 
-    def link_memory_to_topic(
-        self,
-        memory_id: str,
-        topic: str,
-        confidence: float = 0.8
-    ) -> bool:
+    def link_memory_to_topic(self, memory_id: str, topic: str, confidence: float = 0.8) -> bool:
         """Link a memory to a topic.
 
         Args:
@@ -306,7 +278,7 @@ class KnowledgeGraph(MemoryGraph):
             topic_node_id,
             RelationType.PART_OF,
             weight=confidence,
-            metadata={"edge_type": "memory_topic"}
+            metadata={"edge_type": "memory_topic"},
         )
 
     def get_entity_memories(self, entity_id: str) -> List[str]:
@@ -374,9 +346,7 @@ class KnowledgeGraph(MemoryGraph):
         return memories
 
     def find_entity_connections(
-        self,
-        entity_id: str,
-        max_distance: int = 2
+        self, entity_id: str, max_distance: int = 2
     ) -> Dict[str, List[Tuple[str, int]]]:
         """Find all entities connected to a given entity.
 
@@ -395,12 +365,11 @@ class KnowledgeGraph(MemoryGraph):
 
         # Use BFS to find connected entities
         import networkx as nx
+
         try:
             # Get all paths within max_distance
             paths = nx.single_source_shortest_path_length(
-                self.graph,
-                entity_node_id,
-                cutoff=max_distance
+                self.graph, entity_node_id, cutoff=max_distance
             )
 
             for target_node, distance in paths.items():
@@ -428,10 +397,7 @@ class KnowledgeGraph(MemoryGraph):
         return connections
 
     def get_knowledge_subgraph(
-        self,
-        center_id: str,
-        radius: int = 2,
-        include_types: Optional[List[NodeType]] = None
+        self, center_id: str, radius: int = 2, include_types: Optional[List[NodeType]] = None
     ) -> Dict[str, Any]:
         """Get a subgraph around a central node.
 
@@ -448,11 +414,10 @@ class KnowledgeGraph(MemoryGraph):
 
         # Get nodes within radius
         import networkx as nx
+
         try:
             nodes_in_radius = nx.single_source_shortest_path_length(
-                self.graph,
-                center_id,
-                cutoff=radius
+                self.graph, center_id, cutoff=radius
             )
 
             # Filter by type if specified
@@ -482,12 +447,7 @@ class KnowledgeGraph(MemoryGraph):
                 edge_data["target"] = target
                 edges.append(edge_data)
 
-            return {
-                "nodes": nodes,
-                "edges": edges,
-                "center": center_id,
-                "radius": radius
-            }
+            return {"nodes": nodes, "edges": edges, "center": center_id, "radius": radius}
 
         except Exception as e:
             logger.warning(f"Error building subgraph: {e}")
@@ -509,25 +469,31 @@ class KnowledgeGraph(MemoryGraph):
         timeline = []
 
         # Get all connected facts and memories
-        for neighbor in list(self.graph.predecessors(entity_node_id)) + list(self.graph.successors(entity_node_id)):
+        for neighbor in list(self.graph.predecessors(entity_node_id)) + list(
+            self.graph.successors(entity_node_id)
+        ):
             node_data = self.graph.nodes[neighbor]
             node_type = node_data.get("node_type")
 
             if node_type == NodeType.FACT.value:
-                timeline.append({
-                    "type": "fact",
-                    "id": node_data.get("fact_id"),
-                    "text": node_data.get("fact_text"),
-                    "timestamp": node_data.get("extracted_at"),
-                    "temporal": node_data.get("temporal"),
-                    "temporal_type": node_data.get("temporal_type")
-                })
+                timeline.append(
+                    {
+                        "type": "fact",
+                        "id": node_data.get("fact_id"),
+                        "text": node_data.get("fact_text"),
+                        "timestamp": node_data.get("extracted_at"),
+                        "temporal": node_data.get("temporal"),
+                        "temporal_type": node_data.get("temporal_type"),
+                    }
+                )
             elif node_type == NodeType.MEMORY.value:
-                timeline.append({
-                    "type": "memory",
-                    "id": neighbor,
-                    "timestamp": node_data.get("created_at"),
-                })
+                timeline.append(
+                    {
+                        "type": "memory",
+                        "id": neighbor,
+                        "timestamp": node_data.get("created_at"),
+                    }
+                )
 
         # Sort by timestamp
         timeline.sort(key=lambda x: x.get("timestamp", ""))
@@ -567,12 +533,14 @@ class KnowledgeGraph(MemoryGraph):
                             target_data = self.graph.nodes[org_target]
                             if target_data.get("node_type") == NodeType.ENTITY.value:
                                 location = target_data.get("text")
-                                inferred.append({
-                                    "entity_id": entity_id,
-                                    "fact": f"{self.graph.nodes[source].get('text', '')} likely located in {location}",
-                                    "confidence": 0.7,
-                                    "rule": "works_at_location_inference",
-                                    "supporting_facts": [source, target, org_target]
-                                })
+                                inferred.append(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{self.graph.nodes[source].get('text', '')} likely located in {location}",
+                                        "confidence": 0.7,
+                                        "rule": "works_at_location_inference",
+                                        "supporting_facts": [source, target, org_target],
+                                    }
+                                )
 
         return inferred

@@ -31,7 +31,7 @@ session = client.create_session(
     user_id=user_id,
     title="ML Project Discussion",
     tags=["work", "machine-learning"],
-    metadata={"project": "sentiment-analysis"}
+    metadata={"project": "sentiment-analysis"},
 )
 
 print(f"✓ Created session: {session.id}")
@@ -74,7 +74,7 @@ print("3. Session statistics")
 print("=" * 70)
 
 stats = client.get_session_statistics(session.id)
-print(f"\nSession Statistics:")
+print("\nSession Statistics:")
 print(f"  Messages: {stats['message_count']}")
 print(f"  Memories: {stats['memory_count']}")
 print(f"  Duration: {stats['duration_seconds']:.1f} seconds")
@@ -82,9 +82,9 @@ print(f"  Entities extracted: {stats['entity_count']}")
 print(f"  Facts extracted: {stats['fact_count']}")
 print(f"  Avg importance: {stats['avg_importance']:.2f}")
 
-if stats['top_entities']:
+if stats["top_entities"]:
     print("\n  Top entities:")
-    for entity in stats['top_entities']:
+    for entity in stats["top_entities"]:
         print(f"    - {entity['name']} ({entity['type']}): {entity['mentions']} mentions")
 
 # ============================================
@@ -96,7 +96,7 @@ print("=" * 70)
 
 summary = client.summarize_session(session.id)
 if summary:
-    print(f"\n✓ Summary generated:")
+    print("\n✓ Summary generated:")
     print(f"  {summary}")
 else:
     print("  ℹ LLM not available - summary not generated")
@@ -154,7 +154,7 @@ child_session = client.create_session(
     title="Deep Dive: Sarcasm Detection",
     parent_session_id=session.id,
     tags=["work", "deep-dive"],
-    metadata={"parent_project": "sentiment-analysis"}
+    metadata={"parent_project": "sentiment-analysis"},
 )
 
 print(f"✓ Created child session: {child_session.id}")
@@ -182,10 +182,7 @@ print("8. Automatic session boundary detection")
 print("=" * 70)
 
 # Create a new session for boundary detection demo
-boundary_session = client.create_session(
-    user_id=user_id,
-    title="Boundary Detection Demo"
-)
+boundary_session = client.create_session(user_id=user_id, title="Boundary Detection Demo")
 
 # Add some messages about one topic
 for msg in [
@@ -212,9 +209,9 @@ result = client.track_session_message(
 
 if result.id != boundary_session.id:
     print(f"✓ Boundary detected! New session created: {result.id[:8]}...")
-    print(f"  Previous session completed")
+    print("  Previous session completed")
 else:
-    print(f"  No boundary detected, continuing in same session")
+    print("  No boundary detected, continuing in same session")
 
 # ============================================
 # 9. SESSION SEARCH
@@ -224,9 +221,7 @@ print("9. Searching sessions by semantic similarity")
 print("=" * 70)
 
 search_results = client.search_sessions(
-    query="machine learning and tensorflow",
-    user_id=user_id,
-    k=5
+    query="machine learning and tensorflow", user_id=user_id, k=5
 )
 
 print(f"\n✓ Found {len(search_results)} relevant sessions:")
@@ -251,11 +246,7 @@ for sess in all_sessions:
     print(f"    {sess.message_count} messages, started {sess.started_at}")
 
 # Filter by status
-active_sessions = client.get_user_sessions(
-    user_id=user_id,
-    status=SessionStatus.ACTIVE,
-    limit=10
-)
+active_sessions = client.get_user_sessions(user_id=user_id, status=SessionStatus.ACTIVE, limit=10)
 print(f"\n✓ {len(active_sessions)} active sessions")
 
 # ============================================
@@ -267,7 +258,7 @@ print("=" * 70)
 
 completed = client.complete_session(
     session_id=session.id,
-    generate_summary=True  # Generate final summary
+    generate_summary=True,  # Generate final summary
 )
 
 if completed:
@@ -289,7 +280,7 @@ updated = client.update_session(
     session_id=child_session.id,
     title="Sarcasm Detection - Updated",
     tags=["work", "nlp", "sarcasm"],
-    metadata={"priority": "high", "reviewed": True}
+    metadata={"priority": "high", "reviewed": True},
 )
 
 if updated:

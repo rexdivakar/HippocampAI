@@ -1,10 +1,11 @@
 """Test intelligence features integration."""
 
 import pytest
+
 from hippocampai.client import MemoryClient
 from hippocampai.pipeline import (
-    FactCategory,
     EntityType,
+    FactCategory,
     SummaryStyle,
 )
 
@@ -113,7 +114,10 @@ class TestIntelligenceIntegration:
         """Test conversation summarization."""
         messages = [
             {"role": "user", "content": "I need help with Python programming"},
-            {"role": "assistant", "content": "I'd be happy to help! What specifically do you need?"},
+            {
+                "role": "assistant",
+                "content": "I'd be happy to help! What specifically do you need?",
+            },
             {"role": "user", "content": "I want to learn about data structures"},
             {"role": "assistant", "content": "Great! Let's start with lists and dictionaries"},
         ]
@@ -151,9 +155,7 @@ class TestIntelligenceIntegration:
 
     def test_rolling_summary(self, client):
         """Test rolling summary creation."""
-        messages = [
-            {"role": "user", "content": f"Message {i}"} for i in range(20)
-        ]
+        messages = [{"role": "user", "content": f"Message {i}"} for i in range(20)]
 
         summary = client.create_rolling_summary(messages, window_size=5)
 

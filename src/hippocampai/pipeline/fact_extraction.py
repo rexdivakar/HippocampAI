@@ -8,18 +8,20 @@ This module provides:
 - Integration with LLM for advanced extraction
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Set
-from pydantic import BaseModel, Field
-from enum import Enum
 import logging
 import re
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
 class FactCategory(str, Enum):
     """Categories for extracted facts."""
+
     EMPLOYMENT = "employment"
     OCCUPATION = "occupation"
     LOCATION = "location"
@@ -40,6 +42,7 @@ class FactCategory(str, Enum):
 
 class TemporalType(str, Enum):
     """Types of temporal information."""
+
     PRESENT = "present"
     PAST = "past"
     FUTURE = "future"
@@ -51,6 +54,7 @@ class TemporalType(str, Enum):
 
 class ExtractedFact(BaseModel):
     """Represents an extracted fact."""
+
     fact: str = Field(..., description="The extracted fact statement")
     category: FactCategory = Field(..., description="Category of the fact")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
@@ -83,106 +87,103 @@ class FactExtractionPipeline:
         return {
             FactCategory.EMPLOYMENT: [
                 {
-                    "pattern": r'\b(?:work|works|working|worked)\s+(?:at|for)\s+([A-Z][A-Za-z\s&]+)',
+                    "pattern": r"\b(?:work|works|working|worked)\s+(?:at|for)\s+([A-Z][A-Za-z\s&]+)",
                     "extract": lambda m: f"works at {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 },
                 {
-                    "pattern": r'\b(?:employed|employee)\s+(?:at|by)\s+([A-Z][A-Za-z\s&]+)',
+                    "pattern": r"\b(?:employed|employee)\s+(?:at|by)\s+([A-Z][A-Za-z\s&]+)",
                     "extract": lambda m: f"employed at {m.group(1).strip()}",
-                    "entity_group": 1
-                }
+                    "entity_group": 1,
+                },
             ],
             FactCategory.OCCUPATION: [
                 {
-                    "pattern": r'\b(?:I am|I\'m|is)\s+(?:a|an)\s+([a-z\s]+(?:engineer|developer|designer|manager|analyst|scientist|teacher|doctor|lawyer|consultant))',
+                    "pattern": r"\b(?:I am|I\'m|is)\s+(?:a|an)\s+([a-z\s]+(?:engineer|developer|designer|manager|analyst|scientist|teacher|doctor|lawyer|consultant))",
                     "extract": lambda m: f"is a {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 }
             ],
             FactCategory.LOCATION: [
                 {
-                    "pattern": r'\b(?:live|lives|living|lived)\s+in\s+([A-Z][A-Za-z\s]+)',
+                    "pattern": r"\b(?:live|lives|living|lived)\s+in\s+([A-Z][A-Za-z\s]+)",
                     "extract": lambda m: f"lives in {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 },
                 {
-                    "pattern": r'\b(?:from|based in)\s+([A-Z][A-Za-z\s]+)',
+                    "pattern": r"\b(?:from|based in)\s+([A-Z][A-Za-z\s]+)",
                     "extract": lambda m: f"from {m.group(1).strip()}",
-                    "entity_group": 1
-                }
+                    "entity_group": 1,
+                },
             ],
             FactCategory.EDUCATION: [
                 {
-                    "pattern": r'\b(?:studied|studying|study)\s+([a-z\s]+)\s+at\s+([A-Z][A-Za-z\s]+)',
+                    "pattern": r"\b(?:studied|studying|study)\s+([a-z\s]+)\s+at\s+([A-Z][A-Za-z\s]+)",
                     "extract": lambda m: f"studied {m.group(1).strip()} at {m.group(2).strip()}",
-                    "entity_group": 2
+                    "entity_group": 2,
                 },
                 {
-                    "pattern": r'\b(?:graduated|degree)\s+(?:from|in)\s+([A-Z][A-Za-z\s]+)',
+                    "pattern": r"\b(?:graduated|degree)\s+(?:from|in)\s+([A-Z][A-Za-z\s]+)",
                     "extract": lambda m: f"graduated from {m.group(1).strip()}",
-                    "entity_group": 1
-                }
+                    "entity_group": 1,
+                },
             ],
             FactCategory.SKILL: [
                 {
-                    "pattern": r'\b(?:know|knows|skilled in|proficient in|expert in)\s+([A-Za-z\s,]+)',
+                    "pattern": r"\b(?:know|knows|skilled in|proficient in|expert in)\s+([A-Za-z\s,]+)",
                     "extract": lambda m: f"skilled in {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 }
             ],
             FactCategory.PREFERENCE: [
                 {
-                    "pattern": r'\b(?:love|loves|like|likes|prefer|prefers|enjoy|enjoys)\s+([a-z\s]+)',
+                    "pattern": r"\b(?:love|loves|like|likes|prefer|prefers|enjoy|enjoys)\s+([a-z\s]+)",
                     "extract": lambda m: f"likes {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 }
             ],
             FactCategory.GOAL: [
                 {
-                    "pattern": r'\b(?:want to|plan to|planning to|goal is to|aiming to)\s+([a-z\s]+)',
+                    "pattern": r"\b(?:want to|plan to|planning to|goal is to|aiming to)\s+([a-z\s]+)",
                     "extract": lambda m: f"wants to {m.group(1).strip()}",
-                    "entity_group": 1
+                    "entity_group": 1,
                 }
-            ]
+            ],
         }
 
     def _build_entity_patterns(self) -> Dict[str, str]:
         """Build patterns for entity extraction."""
         return {
-            "PERSON": r'\b[A-Z][a-z]+\s+[A-Z][a-z]+\b',  # First Last name
-            "ORGANIZATION": r'\b(?:[A-Z][A-Za-z]*\s*)+(?:Inc|Corp|LLC|Ltd|Company|University|College)\b',
-            "LOCATION": r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:City|State|Country|Avenue|Street|Road))?\b',
-            "DATE": r'\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b'
+            "PERSON": r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b",  # First Last name
+            "ORGANIZATION": r"\b(?:[A-Z][A-Za-z]*\s*)+(?:Inc|Corp|LLC|Ltd|Company|University|College)\b",
+            "LOCATION": r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:City|State|Country|Avenue|Street|Road))?\b",
+            "DATE": r"\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b",
         }
 
     def _build_temporal_patterns(self) -> Dict[TemporalType, List[str]]:
         """Build patterns for temporal extraction."""
         return {
             TemporalType.PRESENT: [
-                r'\b(?:currently|now|today|these days|at present)\b',
-                r'\b(?:am|is|are)\b'
+                r"\b(?:currently|now|today|these days|at present)\b",
+                r"\b(?:am|is|are)\b",
             ],
             TemporalType.PAST: [
-                r'\b(?:was|were|had|used to|previously|formerly|in the past)\b',
-                r'\b(?:yesterday|last week|last month|last year|ago)\b'
+                r"\b(?:was|were|had|used to|previously|formerly|in the past)\b",
+                r"\b(?:yesterday|last week|last month|last year|ago)\b",
             ],
             TemporalType.FUTURE: [
-                r'\b(?:will|going to|planning to|next week|next month|next year|soon|tomorrow)\b'
+                r"\b(?:will|going to|planning to|next week|next month|next year|soon|tomorrow)\b"
             ],
             TemporalType.START_DATE: [
-                r'\b(?:started|began|joined|since)\s+(?:in\s+)?(\d{4}|[A-Z][a-z]+\s+\d{4})\b'
+                r"\b(?:started|began|joined|since)\s+(?:in\s+)?(\d{4}|[A-Z][a-z]+\s+\d{4})\b"
             ],
             TemporalType.END_DATE: [
-                r'\b(?:ended|finished|left|until)\s+(?:in\s+)?(\d{4}|[A-Z][a-z]+\s+\d{4})\b'
-            ]
+                r"\b(?:ended|finished|left|until)\s+(?:in\s+)?(\d{4}|[A-Z][a-z]+\s+\d{4})\b"
+            ],
         }
 
     def extract_facts(
-        self,
-        text: str,
-        source: str = "text",
-        user_id: Optional[str] = None
+        self, text: str, source: str = "text", user_id: Optional[str] = None
     ) -> List[ExtractedFact]:
         """Extract facts from text using pattern matching and LLM.
 
@@ -243,8 +244,8 @@ class FactExtractionPipeline:
                         metadata={
                             "extraction_method": "pattern",
                             "pattern": pattern,
-                            "match_position": (match.start(), match.end())
-                        }
+                            "match_position": (match.start(), match.end()),
+                        },
                     )
                     facts.append(fact)
 
@@ -262,24 +263,15 @@ class FactExtractionPipeline:
             for pattern in patterns:
                 if re.search(pattern, context, re.IGNORECASE):
                     # Try to extract specific date/time
-                    date_match = re.search(r'\b(\d{4})\b', context)
+                    date_match = re.search(r"\b(\d{4})\b", context)
                     temporal_value = date_match.group(1) if date_match else None
 
-                    return {
-                        "temporal": temporal_value,
-                        "temporal_type": temporal_type
-                    }
+                    return {"temporal": temporal_value, "temporal_type": temporal_type}
 
-        return {
-            "temporal": None,
-            "temporal_type": TemporalType.PRESENT
-        }
+        return {"temporal": None, "temporal_type": TemporalType.PRESENT}
 
     def _extract_facts_llm(
-        self,
-        text: str,
-        source: str,
-        user_id: Optional[str] = None
+        self, text: str, source: str, user_id: Optional[str] = None
     ) -> List[ExtractedFact]:
         """Extract facts using LLM."""
         if not self.llm:
@@ -303,19 +295,21 @@ Facts:"""
 
             # Parse LLM response
             facts = []
-            for line in response.strip().split('\n'):
-                if not line.strip() or not line.startswith('FACT:'):
+            for line in response.strip().split("\n"):
+                if not line.strip() or not line.startswith("FACT:"):
                     continue
 
                 # Parse fact components
-                parts = line.split('|')
+                parts = line.split("|")
                 if len(parts) < 2:
                     continue
 
-                fact_text = parts[0].replace('FACT:', '').strip()
-                category_str = parts[1].replace('CATEGORY:', '').strip().lower() if len(parts) > 1 else 'other'
-                entities_str = parts[2].replace('ENTITIES:', '').strip() if len(parts) > 2 else ''
-                temporal_str = parts[3].replace('TEMPORAL:', '').strip() if len(parts) > 3 else ''
+                fact_text = parts[0].replace("FACT:", "").strip()
+                category_str = (
+                    parts[1].replace("CATEGORY:", "").strip().lower() if len(parts) > 1 else "other"
+                )
+                entities_str = parts[2].replace("ENTITIES:", "").strip() if len(parts) > 2 else ""
+                temporal_str = parts[3].replace("TEMPORAL:", "").strip() if len(parts) > 3 else ""
 
                 # Map category
                 category = FactCategory.OTHER
@@ -325,15 +319,15 @@ Facts:"""
                         break
 
                 # Parse entities
-                entities = [e.strip() for e in entities_str.split(',') if e.strip()]
+                entities = [e.strip() for e in entities_str.split(",") if e.strip()]
 
                 # Determine temporal type
                 temporal_type = TemporalType.PRESENT
-                if any(word in temporal_str.lower() for word in ['past', 'was', 'were', 'ago']):
+                if any(word in temporal_str.lower() for word in ["past", "was", "were", "ago"]):
                     temporal_type = TemporalType.PAST
-                elif any(word in temporal_str.lower() for word in ['future', 'will', 'going to']):
+                elif any(word in temporal_str.lower() for word in ["future", "will", "going to"]):
                     temporal_type = TemporalType.FUTURE
-                elif 'start' in temporal_str.lower() or 'since' in temporal_str.lower():
+                elif "start" in temporal_str.lower() or "since" in temporal_str.lower():
                     temporal_type = TemporalType.START_DATE
 
                 fact = ExtractedFact(
@@ -344,10 +338,7 @@ Facts:"""
                     temporal=temporal_str if temporal_str else None,
                     temporal_type=temporal_type,
                     source=source,
-                    metadata={
-                        "extraction_method": "llm",
-                        "user_id": user_id
-                    }
+                    metadata={"extraction_method": "llm", "user_id": user_id},
                 )
                 facts.append(fact)
 
@@ -376,10 +367,7 @@ Facts:"""
         return unique_facts
 
     def extract_from_conversation(
-        self,
-        conversation: str,
-        user_id: str,
-        session_id: Optional[str] = None
+        self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> List[ExtractedFact]:
         """Extract facts from a conversation.
 
@@ -396,11 +384,7 @@ Facts:"""
 
         all_facts = []
         for i, turn in enumerate(turns):
-            facts = self.extract_facts(
-                text=turn,
-                source=f"conversation_turn_{i}",
-                user_id=user_id
-            )
+            facts = self.extract_facts(text=turn, source=f"conversation_turn_{i}", user_id=user_id)
 
             # Add conversation context to metadata
             for fact in facts:
@@ -423,24 +407,24 @@ Facts:"""
         turns = []
         current_turn = []
 
-        for line in conversation.split('\n'):
+        for line in conversation.split("\n"):
             line = line.strip()
             if not line:
                 continue
 
             # Check if new speaker
-            if line.startswith(('User:', 'Assistant:', 'System:')):
+            if line.startswith(("User:", "Assistant:", "System:")):
                 if current_turn:
-                    turns.append(' '.join(current_turn))
+                    turns.append(" ".join(current_turn))
                     current_turn = []
                 # Remove speaker marker
-                line = re.sub(r'^(?:User|Assistant|System):\s*', '', line)
+                line = re.sub(r"^(?:User|Assistant|System):\s*", "", line)
 
             if line:
                 current_turn.append(line)
 
         if current_turn:
-            turns.append(' '.join(current_turn))
+            turns.append(" ".join(current_turn))
 
         # If no speaker markers found, return as single turn
         return turns if turns else [conversation]

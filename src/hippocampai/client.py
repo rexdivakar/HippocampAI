@@ -10,23 +10,42 @@ from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.config import Config, get_config
 from hippocampai.embed.embedder import get_embedder
-from hippocampai.graph import MemoryGraph, RelationType
+from hippocampai.graph import RelationType
 from hippocampai.graph.knowledge_graph import KnowledgeGraph
+from hippocampai.models.agent import (
+    Agent,
+    AgentPermission,
+    AgentRole,
+    MemoryVisibility,
+    PermissionType,
+    Run,
+)
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
-from hippocampai.pipeline.fact_extraction import FactExtractionPipeline, ExtractedFact, FactCategory
-from hippocampai.pipeline.entity_recognition import EntityRecognizer, Entity, EntityRelationship, EntityType
-from hippocampai.pipeline.summarization import Summarizer, SessionSummary, SummaryStyle
 from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
+from hippocampai.multiagent import MultiAgentManager
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.entity_recognition import (
+    Entity,
+    EntityRecognizer,
+    EntityRelationship,
+    EntityType,
+)
 from hippocampai.pipeline.extractor import MemoryExtractor
+from hippocampai.pipeline.fact_extraction import ExtractedFact, FactExtractionPipeline
 from hippocampai.pipeline.importance import ImportanceScorer
+from hippocampai.pipeline.insights import (
+    BehaviorChange,
+    HabitScore,
+    InsightAnalyzer,
+    Pattern,
+    PreferenceDrift,
+    Trend,
+)
 from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
 from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
-from hippocampai.pipeline.temporal import TemporalAnalyzer, TimeRange, ScheduledMemory, Timeline
-from hippocampai.pipeline.insights import InsightAnalyzer, Pattern, BehaviorChange, PreferenceDrift, HabitScore, Trend
-from hippocampai.multiagent import MultiAgentManager
-from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
+from hippocampai.pipeline.summarization import SessionSummary, Summarizer, SummaryStyle
+from hippocampai.pipeline.temporal import ScheduledMemory, TemporalAnalyzer, Timeline, TimeRange
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.session import SessionManager
@@ -295,7 +314,9 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
             original_type = memory.type
             memory = self.categorizer.enrich_memory_with_categories(memory)
-            logger.info(f"Enrichment: {original_type} -> {memory.type} for text '{memory.text[:50]}'")
+            logger.info(
+                f"Enrichment: {original_type} -> {memory.type} for text '{memory.text[:50]}'"
+            )
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
 
             # Calculate size metrics
@@ -307,7 +328,9 @@ class MemoryClient:
             # Check for similar memories and decide on smart update
             self.telemetry.add_event(trace_id, "smart_update_check", status="in_progress")
             existing_memories = self.get_memories(user_id, limit=100)
-            similar = self.categorizer.find_similar_memories(memory, existing_memories, similarity_threshold=0.85)
+            similar = self.categorizer.find_similar_memories(
+                memory, existing_memories, similarity_threshold=0.85
+            )
 
             if similar:
                 # Found similar memory, use smart updater to decide action
@@ -324,13 +347,18 @@ class MemoryClient:
 
                 if decision.action == "skip":
                     # Update confidence of existing memory
-                    updated_existing = self.smart_updater.update_confidence(existing_memory, "reinforcement")
+                    updated_existing = self.smart_updater.update_confidence(
+                        existing_memory, "reinforcement"
+                    )
                     self.update_memory(
                         memory_id=existing_memory.id,
-                        importance=updated_existing.confidence * 10,  # Scale confidence to importance
+                        importance=updated_existing.confidence
+                        * 10,  # Scale confidence to importance
                     )
                     logger.info(f"Skipping similar memory: {decision.reason}")
-                    self.telemetry.end_trace(trace_id, status="skipped", result={"reason": decision.reason})
+                    self.telemetry.end_trace(
+                        trace_id, status="skipped", result={"reason": decision.reason}
+                    )
                     return existing_memory
 
                 elif decision.action == "update":
@@ -343,7 +371,9 @@ class MemoryClient:
                             tags=decision.merged_memory.tags,
                         )
                         logger.info(f"Updated existing memory: {decision.reason}")
-                        self.telemetry.end_trace(trace_id, status="updated", result={"reason": decision.reason})
+                        self.telemetry.end_trace(
+                            trace_id, status="updated", result={"reason": decision.reason}
+                        )
                         return decision.merged_memory
 
                 elif decision.action == "merge":
@@ -354,7 +384,9 @@ class MemoryClient:
                         logger.info(f"Merged memories: {decision.reason}")
                 # If action is "keep_both", continue with normal storage
             else:
-                self.telemetry.add_event(trace_id, "smart_update_check", status="success", action="new")
+                self.telemetry.add_event(
+                    trace_id, "smart_update_check", status="success", action="new"
+                )
 
             # Check duplicates (basic dedup as fallback)
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
@@ -1540,7 +1572,6 @@ class MemoryClient:
                 # Complete old session
                 self.complete_session(session_id)
                 # Create new session
-                old_session = self.session_manager.get_session(session_id)
                 new_session = self.session_manager.create_session(
                     user_id=user_id,
                     title=f"Session continued from {session_id[:8]}",
@@ -1564,9 +1595,7 @@ class MemoryClient:
 
         return session
 
-    def complete_session(
-        self, session_id: str, generate_summary: bool = True
-    ) -> Optional[Session]:
+    def complete_session(self, session_id: str, generate_summary: bool = True) -> Optional[Session]:
         """Complete a session and generate summary.
 
         Args:
@@ -1651,9 +1680,7 @@ class MemoryClient:
         """
         return self.session_manager.summarize_session(session_id, force)
 
-    def extract_session_facts(
-        self, session_id: str, force: bool = False
-    ) -> List:
+    def extract_session_facts(self, session_id: str, force: bool = False) -> List:
         """Extract key facts from session.
 
         Args:
@@ -1665,9 +1692,7 @@ class MemoryClient:
         """
         return self.session_manager.extract_session_facts(session_id, force)
 
-    def extract_session_entities(
-        self, session_id: str, force: bool = False
-    ) -> Dict[str, Any]:
+    def extract_session_entities(self, session_id: str, force: bool = False) -> Dict[str, Any]:
         """Extract entities from session.
 
         Args:
@@ -1718,7 +1743,9 @@ class MemoryClient:
 
         reconciled = self.smart_updater.reconcile_memories(memories, user_id)
 
-        logger.info(f"Reconciled {len(memories)} memories into {len(reconciled)} for user {user_id}")
+        logger.info(
+            f"Reconciled {len(memories)} memories into {len(reconciled)} for user {user_id}"
+        )
         return reconciled
 
     def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
@@ -1737,7 +1764,9 @@ class MemoryClient:
 
         clusters = self.categorizer.cluster_memories(memories, max_clusters=max_clusters)
 
-        logger.info(f"Clustered {len(memories)} memories into {len(clusters)} topics for user {user_id}")
+        logger.info(
+            f"Clustered {len(memories)} memories into {len(clusters)} topics for user {user_id}"
+        )
         return clusters
 
     def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
@@ -1752,7 +1781,9 @@ class MemoryClient:
         """
         return self.categorizer.suggest_tags(memory, max_tags=max_tags)
 
-    def refine_memory_quality(self, memory_id: str, context: Optional[str] = None) -> Optional[Memory]:
+    def refine_memory_quality(
+        self, memory_id: str, context: Optional[str] = None
+    ) -> Optional[Memory]:
         """Refine a memory's text quality using LLM.
 
         Args:
@@ -1883,9 +1914,7 @@ class MemoryClient:
         """Get run by ID."""
         return self.multiagent.get_run(run_id)
 
-    def list_runs(
-        self, agent_id: Optional[str] = None, user_id: Optional[str] = None
-    ) -> List[Run]:
+    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Run]:
         """List runs, optionally filtered by agent or user."""
         return self.multiagent.list_runs(agent_id, user_id)
 
@@ -2162,11 +2191,11 @@ class MemoryClient:
                 memories, None, start_time, end_time
             )
 
-        return self.temporal_analyzer.create_timeline(memories, user_id, title, start_time, end_time)
+        return self.temporal_analyzer.create_timeline(
+            memories, user_id, title, start_time, end_time
+        )
 
-    def analyze_event_sequences(
-        self, user_id: str, max_gap_hours: int = 24
-    ) -> List[List[Memory]]:
+    def analyze_event_sequences(self, user_id: str, max_gap_hours: int = 24) -> List[List[Memory]]:
         """Identify sequences of related events in memories.
 
         Args:
@@ -2868,7 +2897,7 @@ class MemoryClient:
             # Add entities
             for entity in entities:
                 try:
-                    entity_node_id = self.graph.add_entity(entity)
+                    self.graph.add_entity(entity)
                     # Link memory to entity
                     self.graph.link_memory_to_entity(memory.id, entity.entity_id)
                 except Exception as e:
@@ -2878,7 +2907,7 @@ class MemoryClient:
             for fact in facts:
                 try:
                     fact_id = f"fact_{hash(fact.fact) % 10**10}"
-                    fact_node_id = self.graph.add_fact(fact, fact_id)
+                    self.graph.add_fact(fact, fact_id)
                     # Link memory to fact
                     self.graph.link_memory_to_fact(memory.id, fact_id)
 

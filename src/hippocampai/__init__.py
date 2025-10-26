@@ -4,11 +4,33 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from hippocampai.models.agent import (
+    Agent,
+    AgentPermission,
+    AgentRole,
+    MemoryVisibility,
+    PermissionType,
+    Run,
+)
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
-from hippocampai.models.session import Session, SessionStatus, SessionSearchResult, SessionFact, Entity
-from hippocampai.models.agent import Agent, AgentRole, Run, AgentPermission, PermissionType, MemoryVisibility
-from hippocampai.pipeline.temporal import TimeRange, ScheduledMemory, Timeline, TemporalEvent
-from hippocampai.pipeline.insights import Pattern, BehaviorChange, PreferenceDrift, HabitScore, Trend, ChangeType as InsightChangeType
+from hippocampai.models.session import (
+    Entity,
+    Session,
+    SessionFact,
+    SessionSearchResult,
+    SessionStatus,
+)
+from hippocampai.pipeline.insights import (
+    BehaviorChange,
+    HabitScore,
+    Pattern,
+    PreferenceDrift,
+    Trend,
+)
+from hippocampai.pipeline.insights import (
+    ChangeType as InsightChangeType,
+)
+from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
 __version__ = "1.0.0"
 __all__ = [
@@ -65,12 +87,12 @@ __all__ = [
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.async_client import AsyncMemoryClient as AsyncMemoryClient
     from hippocampai.client import MemoryClient as MemoryClient
-    from hippocampai.enhanced_client import EnhancedMemoryClient as EnhancedMemoryClient
-    from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
     from hippocampai.config import Config as Config
     from hippocampai.config import get_config as get_config
+    from hippocampai.enhanced_client import EnhancedMemoryClient as EnhancedMemoryClient
     from hippocampai.graph import MemoryGraph as MemoryGraph
     from hippocampai.graph import RelationType as RelationType
+    from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
     from hippocampai.session import SessionManager as SessionManager
     from hippocampai.storage import MemoryKVStore as MemoryKVStore
     from hippocampai.telemetry import OperationType as OperationType
@@ -133,7 +155,9 @@ def __getattr__(name: str) -> Any:
     if name == "EnhancedMemoryClient":
         if _ENHANCED_MEMORY_CLIENT is None:
             try:
-                from hippocampai.enhanced_client import EnhancedMemoryClient as _ImportedEnhancedMemoryClient
+                from hippocampai.enhanced_client import (
+                    EnhancedMemoryClient as _ImportedEnhancedMemoryClient,
+                )
 
                 _ENHANCED_MEMORY_CLIENT = _ImportedEnhancedMemoryClient
             except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
@@ -147,7 +171,9 @@ def __getattr__(name: str) -> Any:
     if name == "OptimizedMemoryClient":
         if _OPTIMIZED_MEMORY_CLIENT is None:
             try:
-                from hippocampai.optimized_client import OptimizedMemoryClient as _ImportedOptimizedMemoryClient
+                from hippocampai.optimized_client import (
+                    OptimizedMemoryClient as _ImportedOptimizedMemoryClient,
+                )
 
                 _OPTIMIZED_MEMORY_CLIENT = _ImportedOptimizedMemoryClient
             except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
@@ -277,6 +303,7 @@ def __getattr__(name: str) -> Any:
     # Multi-agent manager
     if name == "MultiAgentManager":
         from hippocampai.multiagent import MultiAgentManager as _ImportedMultiAgentManager
+
         return _ImportedMultiAgentManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")

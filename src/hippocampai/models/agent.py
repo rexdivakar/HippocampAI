@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class MemoryVisibility(str, Enum):
     """Memory visibility levels for multi-agent systems."""
+
     PRIVATE = "private"  # Only accessible by owning agent
     SHARED = "shared"  # Accessible by agents with permission
     PUBLIC = "public"  # Accessible by all agents of the user
@@ -17,6 +18,7 @@ class MemoryVisibility(str, Enum):
 
 class AgentRole(str, Enum):
     """Agent role types."""
+
     ASSISTANT = "assistant"  # General assistant
     SPECIALIST = "specialist"  # Domain-specific agent
     COORDINATOR = "coordinator"  # Coordinates other agents
@@ -25,6 +27,7 @@ class AgentRole(str, Enum):
 
 class PermissionType(str, Enum):
     """Permission types for agent memory access."""
+
     READ = "read"
     WRITE = "write"
     SHARE = "share"

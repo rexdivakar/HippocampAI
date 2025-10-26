@@ -2,13 +2,13 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from hippocampai.models.agent import MemoryVisibility
+    pass
 
 
 class MemoryType(str, Enum):

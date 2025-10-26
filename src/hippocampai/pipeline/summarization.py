@@ -9,18 +9,20 @@ This module provides:
 - Different summary styles (concise, detailed, bullet points)
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
-from enum import Enum
 import logging
 import re
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
 class SummaryStyle(str, Enum):
     """Summary generation styles."""
+
     CONCISE = "concise"
     DETAILED = "detailed"
     BULLET_POINTS = "bullet_points"
@@ -30,6 +32,7 @@ class SummaryStyle(str, Enum):
 
 class SentimentType(str, Enum):
     """Sentiment types."""
+
     POSITIVE = "positive"
     NEGATIVE = "negative"
     NEUTRAL = "neutral"
@@ -38,6 +41,7 @@ class SentimentType(str, Enum):
 
 class SessionSummary(BaseModel):
     """Complete session summary with metadata."""
+
     session_id: str
     summary: str = Field(..., description="Main summary text")
     key_points: List[str] = Field(default_factory=list)
@@ -73,18 +77,18 @@ class Summarizer:
     def _build_action_patterns(self) -> List[str]:
         """Build patterns for action item detection."""
         return [
-            r'\b(?:need to|have to|must|should|will|going to)\s+([^.!?]+)',
-            r'\b(?:todo|to-do|task|action item):\s*([^.!?\n]+)',
-            r'\b(?:remember to|don\'t forget to)\s+([^.!?]+)',
-            r'\b(?:follow up on|check|review|prepare|send|schedule)\s+([^.!?]+)',
+            r"\b(?:need to|have to|must|should|will|going to)\s+([^.!?]+)",
+            r"\b(?:todo|to-do|task|action item):\s*([^.!?\n]+)",
+            r"\b(?:remember to|don\'t forget to)\s+([^.!?]+)",
+            r"\b(?:follow up on|check|review|prepare|send|schedule)\s+([^.!?]+)",
         ]
 
     def _build_question_patterns(self) -> List[str]:
         """Build patterns for question detection."""
         return [
-            r'\?',  # Simple question mark
-            r'\b(?:what|when|where|who|why|how|which)\b.*\?',  # Wh-questions
-            r'\b(?:do|does|did|can|could|would|should|is|are|was|were)\b.*\?',  # Yes/no questions
+            r"\?",  # Simple question mark
+            r"\b(?:what|when|where|who|why|how|which)\b.*\?",  # Wh-questions
+            r"\b(?:do|does|did|can|could|would|should|is|are|was|were)\b.*\?",  # Yes/no questions
         ]
 
     def _build_topic_keywords(self) -> Dict[str, List[str]]:
@@ -104,7 +108,7 @@ class Summarizer:
         messages: List[Dict[str, Any]],
         session_id: str,
         style: SummaryStyle = SummaryStyle.CONCISE,
-        entities: Optional[List[str]] = None
+        entities: Optional[List[str]] = None,
     ) -> SessionSummary:
         """Generate summary for a conversation session.
 
@@ -132,18 +136,9 @@ class Summarizer:
 
         # Generate main summary
         if self.llm:
-            summary_text = self._generate_summary_llm(
-                messages,
-                style,
-                key_points,
-                topics
-            )
+            summary_text = self._generate_summary_llm(messages, style, key_points, topics)
         else:
-            summary_text = self._generate_summary_template(
-                key_points,
-                topics,
-                style
-            )
+            summary_text = self._generate_summary_template(key_points, topics, style)
 
         # Calculate duration if timestamps available
         duration_minutes = self._calculate_duration(messages)
@@ -161,10 +156,7 @@ class Summarizer:
             duration_minutes=duration_minutes,
             message_count=len(messages),
             style=style,
-            metadata={
-                "has_llm": self.llm is not None,
-                "message_count": len(messages)
-            }
+            metadata={"has_llm": self.llm is not None, "message_count": len(messages)},
         )
 
     def _format_conversation(self, messages: List[Dict[str, Any]]) -> str:
@@ -186,11 +178,19 @@ class Summarizer:
             # Look for important statements
             # Sentences with specific keywords
             important_keywords = [
-                "important", "key", "main", "crucial", "essential",
-                "goal", "objective", "plan", "decision", "conclusion"
+                "important",
+                "key",
+                "main",
+                "crucial",
+                "essential",
+                "goal",
+                "objective",
+                "plan",
+                "decision",
+                "conclusion",
             ]
 
-            sentences = re.split(r'[.!?]+', content)
+            sentences = re.split(r"[.!?]+", content)
             for sentence in sentences:
                 sentence = sentence.strip()
                 if not sentence or len(sentence) < 10:
@@ -202,7 +202,7 @@ class Summarizer:
                 # Or if it's a longer, substantive sentence
                 elif len(sentence) > 50 and len(sentence.split()) > 8:
                     # Avoid questions
-                    if not sentence.endswith('?'):
+                    if not sentence.endswith("?"):
                         key_points.append(sentence)
 
         # Limit to most relevant
@@ -237,7 +237,7 @@ class Summarizer:
                 action = action.strip()
 
                 # Clean up action text
-                action = re.sub(r'\s+', ' ', action)
+                action = re.sub(r"\s+", " ", action)
 
                 if len(action) > 10 and action not in action_items:
                     action_items.append(action)
@@ -251,7 +251,7 @@ class Summarizer:
             if msg.get("role") == role:
                 content = msg.get("content", "")
                 # Simple question mark count
-                count += content.count('?')
+                count += content.count("?")
 
         return count
 
@@ -261,12 +261,30 @@ class Summarizer:
 
         # Simple keyword-based sentiment analysis
         positive_words = [
-            "great", "good", "excellent", "love", "happy", "amazing",
-            "fantastic", "wonderful", "perfect", "thanks", "appreciate"
+            "great",
+            "good",
+            "excellent",
+            "love",
+            "happy",
+            "amazing",
+            "fantastic",
+            "wonderful",
+            "perfect",
+            "thanks",
+            "appreciate",
         ]
         negative_words = [
-            "bad", "terrible", "awful", "hate", "sad", "disappointed",
-            "frustrated", "angry", "problem", "issue", "concern"
+            "bad",
+            "terrible",
+            "awful",
+            "hate",
+            "sad",
+            "disappointed",
+            "frustrated",
+            "angry",
+            "problem",
+            "issue",
+            "concern",
         ]
 
         positive_count = sum(1 for word in positive_words if word in text_lower)
@@ -290,9 +308,9 @@ class Summarizer:
                 try:
                     ts = msg["timestamp"]
                     if isinstance(ts, str):
-                        ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                        ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     timestamps.append(ts)
-                except:
+                except (KeyError, ValueError, TypeError, AttributeError):
                     pass
 
         if len(timestamps) >= 2:
@@ -306,7 +324,7 @@ class Summarizer:
         messages: List[Dict[str, Any]],
         style: SummaryStyle,
         key_points: List[str],
-        topics: List[str]
+        topics: List[str],
     ) -> str:
         """Generate summary using LLM."""
         conversation = self._format_conversation(messages)
@@ -315,17 +333,21 @@ class Summarizer:
         if style == SummaryStyle.CONCISE:
             style_instruction = "Write a concise 2-3 sentence summary."
         elif style == SummaryStyle.DETAILED:
-            style_instruction = "Write a detailed summary covering all main points (1-2 paragraphs)."
+            style_instruction = (
+                "Write a detailed summary covering all main points (1-2 paragraphs)."
+            )
         elif style == SummaryStyle.BULLET_POINTS:
             style_instruction = "Summarize in 5-7 bullet points."
         elif style == SummaryStyle.NARRATIVE:
             style_instruction = "Write a narrative summary as a story."
         else:  # EXECUTIVE
-            style_instruction = "Write an executive summary highlighting key decisions and outcomes."
+            style_instruction = (
+                "Write an executive summary highlighting key decisions and outcomes."
+            )
 
         prompt = f"""Summarize this conversation. {style_instruction}
 
-Topics discussed: {', '.join(topics) if topics else 'general'}
+Topics discussed: {", ".join(topics) if topics else "general"}
 
 Conversation:
 {conversation[:2000]}  # Limit context length
@@ -340,10 +362,7 @@ Summary:"""
             return self._generate_summary_template(key_points, topics, style)
 
     def _generate_summary_template(
-        self,
-        key_points: List[str],
-        topics: List[str],
-        style: SummaryStyle
+        self, key_points: List[str], topics: List[str], style: SummaryStyle
     ) -> str:
         """Generate summary using templates (fallback)."""
         if style == SummaryStyle.BULLET_POINTS:
@@ -363,7 +382,7 @@ Summary:"""
         self,
         messages: List[Dict[str, Any]],
         window_size: int = 10,
-        style: SummaryStyle = SummaryStyle.CONCISE
+        style: SummaryStyle = SummaryStyle.CONCISE,
     ) -> str:
         """Create rolling summary of recent messages.
 
@@ -379,19 +398,11 @@ Summary:"""
         recent = messages[-window_size:] if len(messages) > window_size else messages
 
         # Create summary
-        temp_summary = self.summarize_session(
-            recent,
-            session_id="rolling",
-            style=style
-        )
+        temp_summary = self.summarize_session(recent, session_id="rolling", style=style)
 
         return temp_summary.summary
 
-    def extract_insights(
-        self,
-        messages: List[Dict[str, Any]],
-        user_id: str
-    ) -> Dict[str, Any]:
+    def extract_insights(self, messages: List[Dict[str, Any]], user_id: str) -> Dict[str, Any]:
         """Extract insights from conversation.
 
         Args:
@@ -411,7 +422,7 @@ Summary:"""
             "action_items": self._extract_action_items(conversation),
             "key_decisions": [],
             "learning_points": [],
-            "patterns": []
+            "patterns": [],
         }
 
         # Extract decisions
@@ -421,7 +432,7 @@ Summary:"""
             for keyword in decision_keywords:
                 if keyword in content:
                     # Extract sentence containing decision
-                    sentences = re.split(r'[.!?]+', msg.get("content", ""))
+                    sentences = re.split(r"[.!?]+", msg.get("content", ""))
                     for sentence in sentences:
                         if keyword in sentence.lower():
                             insights["key_decisions"].append(sentence.strip())
@@ -433,7 +444,7 @@ Summary:"""
             content = msg.get("content", "").lower()
             for keyword in learning_keywords:
                 if keyword in content:
-                    sentences = re.split(r'[.!?]+', msg.get("content", ""))
+                    sentences = re.split(r"[.!?]+", msg.get("content", ""))
                     for sentence in sentences:
                         if keyword in sentence.lower():
                             insights["learning_points"].append(sentence.strip())

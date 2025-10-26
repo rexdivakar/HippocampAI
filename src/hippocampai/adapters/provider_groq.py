@@ -12,12 +12,7 @@ logger = logging.getLogger(__name__)
 class GroqLLM(BaseLLM):
     """Groq LLM adapter using OpenAI-compatible API."""
 
-    def __init__(
-        self,
-        api_key: str,
-        model: str,
-        base_url: str = "https://api.groq.com/openai/v1"
-    ):
+    def __init__(self, api_key: str, model: str, base_url: str = "https://api.groq.com/openai/v1"):
         """Initialize Groq LLM client.
 
         Args:
@@ -33,14 +28,9 @@ class GroqLLM(BaseLLM):
         try:
             from openai import OpenAI
         except ImportError:
-            raise ImportError(
-                "openai package required for Groq: pip install openai"
-            )
+            raise ImportError("openai package required for Groq: pip install openai")
 
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = model
         logger.info(f"Initialized Groq LLM: {model}")
 
@@ -61,18 +51,12 @@ class GroqLLM(BaseLLM):
 
     @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(
-        self,
-        messages: List[Dict[str, str]],
-        max_tokens: int = 512,
-        temperature: float = 0.0
+        self, messages: List[Dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
         """Chat completion (with automatic retry on transient failures)."""
         try:
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature
+                model=self.model, messages=messages, max_tokens=max_tokens, temperature=temperature
             )
             return response.choices[0].message.content
         except Exception as e:

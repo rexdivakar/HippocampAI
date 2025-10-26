@@ -30,7 +30,7 @@ class OptimizedMemoryClient:
         qdrant_url: str = "http://localhost:6333",
         enable_caching: bool = True,
         cache_size: int = 128,
-        **kwargs
+        **kwargs,
     ):
         """Initialize optimized memory client.
 
@@ -66,7 +66,7 @@ class OptimizedMemoryClient:
             qdrant_url=qdrant_url,
             allow_cloud=True,
             enable_telemetry=True,
-            **kwargs
+            **kwargs,
         )
 
         if not self.client.llm:
@@ -92,6 +92,7 @@ class OptimizedMemoryClient:
     def _get_api_key(provider: str) -> Optional[str]:
         """Get API key from environment."""
         import os
+
         env_vars = {"groq": "GROQ_API_KEY", "openai": "OPENAI_API_KEY"}
         env_var = env_vars.get(provider)
         return os.getenv(env_var) if env_var else None
@@ -100,6 +101,7 @@ class OptimizedMemoryClient:
     def _set_api_key_env(provider: str, api_key: str):
         """Set API key in environment."""
         import os
+
         env_vars = {"groq": "GROQ_API_KEY", "openai": "OPENAI_API_KEY"}
         env_var = env_vars.get(provider)
         if env_var:
@@ -183,7 +185,9 @@ class OptimizedMemoryClient:
             results = await client.remember_batch_async(memories, "user123")
         """
         tasks = [
-            self.remember_async(text=mem["text"], user_id=user_id, **{k: v for k, v in mem.items() if k != "text"})
+            self.remember_async(
+                text=mem["text"], user_id=user_id, **{k: v for k, v in mem.items() if k != "text"}
+            )
             for mem in memories
         ]
         return await asyncio.gather(*tasks)
@@ -230,9 +234,7 @@ class OptimizedMemoryClient:
         """
         # Run recall and extraction in parallel
         recall_task = self.recall_async(user_message, user_id, k)
-        extract_task = self.extract_from_conversation_async(
-            f"User: {user_message}", user_id
-        )
+        extract_task = self.extract_from_conversation_async(f"User: {user_message}", user_id)
 
         recall_results, extracted = await asyncio.gather(recall_task, extract_task)
         return recall_results, extracted
@@ -324,14 +326,33 @@ class OptimizedMemoryClient:
         """Create a new run for an agent."""
         return self.client.create_run(agent_id, user_id, name, metadata)
 
-    def grant_agent_permission(self, granter_agent_id: str, grantee_agent_id: str, permissions, memory_filters=None, expires_at=None):
+    def grant_agent_permission(
+        self,
+        granter_agent_id: str,
+        grantee_agent_id: str,
+        permissions,
+        memory_filters=None,
+        expires_at=None,
+    ):
         """Grant permission for one agent to access another's memories."""
-        return self.client.grant_agent_permission(granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at)
+        return self.client.grant_agent_permission(
+            granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at
+        )
 
-    def get_agent_memories(self, agent_id: str, requesting_agent_id=None, filters=None, limit: int = 100):
+    def get_agent_memories(
+        self, agent_id: str, requesting_agent_id=None, filters=None, limit: int = 100
+    ):
         """Get memories for an agent, respecting permissions."""
         return self.client.get_agent_memories(agent_id, requesting_agent_id, filters, limit)
 
-    def transfer_memory(self, memory_id: str, source_agent_id: str, target_agent_id: str, transfer_type: str = "copy"):
+    def transfer_memory(
+        self,
+        memory_id: str,
+        source_agent_id: str,
+        target_agent_id: str,
+        transfer_type: str = "copy",
+    ):
         """Transfer a memory from one agent to another."""
-        return self.client.transfer_memory(memory_id, source_agent_id, target_agent_id, transfer_type)
+        return self.client.transfer_memory(
+            memory_id, source_agent_id, target_agent_id, transfer_type
+        )
