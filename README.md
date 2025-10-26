@@ -98,6 +98,26 @@ LLM_MODEL=qwen2.5:7b-instruct
 python -c "from hippocampai import MemoryClient; MemoryClient()"
 ```
 
+### 5. Validate Installation (Optional)
+
+Verify that all intelligence features are working correctly:
+
+```bash
+python validate_intelligence_features.py
+```
+
+This will test:
+- Fact extraction pipeline
+- Entity recognition
+- Session summarization
+- Knowledge graph operations
+
+For detailed output, use `--verbose` flag:
+
+```bash
+python validate_intelligence_features.py --verbose
+```
+
 ---
 
 ## 💡 Basic Usage
