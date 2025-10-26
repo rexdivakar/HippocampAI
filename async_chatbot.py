@@ -17,8 +17,8 @@ Setup:
 3. Run: python async_chatbot.py
 """
 
-import asyncio
 import argparse
+import asyncio
 import time
 from datetime import datetime
 from typing import Optional
@@ -32,6 +32,7 @@ class AsyncChatbot:
     def __init__(self, provider: str = "groq", model: Optional[str] = None):
         """Initialize async chatbot."""
         self.provider = provider
+        self.model = model
         self.user_id = "user"
         self.client = None
         self.current_session = None
@@ -44,7 +45,7 @@ class AsyncChatbot:
         print(f"  ⚡ Async Chatbot with Optimized HippocampAI + {self.provider.upper()}")
         print("=" * 80)
 
-        print(f"\n📦 Initializing OptimizedMemoryClient...")
+        print("\n📦 Initializing OptimizedMemoryClient...")
         try:
             # Use executor to avoid blocking
             loop = asyncio.get_event_loop()
@@ -52,15 +53,15 @@ class AsyncChatbot:
                 None,
                 lambda: OptimizedMemoryClient(
                     provider=self.provider,
-                    model=model,
+                    model=self.model,
                     enable_caching=True,
-                    cache_size=128
-                )
+                    cache_size=128,
+                ),
             )
             print(f"   ✓ Provider: {self.provider}")
             print(f"   ✓ User ID: {self.user_id}")
-            print(f"   ✓ Caching: Enabled (128 entries)")
-            print(f"   ✓ Async: Enabled")
+            print("   ✓ Caching: Enabled (128 entries)")
+            print("   ✓ Async: Enabled")
         except Exception as e:
             print(f"   ❌ Failed: {e}")
             return False
@@ -72,8 +73,8 @@ class AsyncChatbot:
             lambda: self.client.create_session(
                 user_id=self.user_id,
                 title=f"Async Chat - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                tags=["chatbot", "async", "optimized"]
-            )
+                tags=["chatbot", "async", "optimized"],
+            ),
         )
         print(f"   ✓ Session ID: {self.current_session.id[:16]}...")
 
@@ -99,7 +100,7 @@ class AsyncChatbot:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: self.client.llm.chat(messages=messages, max_tokens=500, temperature=0.7)
+                lambda: self.client.llm.chat(messages=messages, max_tokens=500, temperature=0.7),
             )
 
             return response
@@ -127,17 +128,16 @@ class AsyncChatbot:
         # Build context
         context = ""
         if recall_results:
-            context = "[MEMORIES]\n" + "\n".join([
-                f"- {r.memory.text}" for r in recall_results[:3] if r.memory.text_length > 0
-            ])
+            context = "[MEMORIES]\n" + "\n".join(
+                [f"- {r.memory.text}" for r in recall_results[:3] if r.memory.text_length > 0]
+            )
 
         # Generate response
         response_task = self.generate_response(user_message, context)
 
         # Extract memories in parallel with response generation
         extract_task = self.client.extract_from_conversation_async(
-            f"User: {user_message}",
-            self.user_id
+            f"User: {user_message}", self.user_id
         )
 
         # Wait for both
@@ -175,7 +175,9 @@ class AsyncChatbot:
         await asyncio.gather(*tasks)
 
         batch_time = (time.time() - start_time) * 1000
-        print(f"\n✓ Batch completed in {batch_time:.2f}ms ({batch_time/len(messages):.2f}ms per message)")
+        print(
+            f"\n✓ Batch completed in {batch_time:.2f}ms ({batch_time / len(messages):.2f}ms per message)"
+        )
 
     async def show_stats(self):
         """Show statistics."""
@@ -188,17 +190,17 @@ class AsyncChatbot:
             None, lambda: self.client.get_memory_statistics(user_id=self.user_id)
         )
 
-        print(f"\n💾 Memory:")
+        print("\n💾 Memory:")
         print(f"   Total: {stats['total_memories']}")
         print(f"   Size: {stats['total_characters']} chars, {stats['total_tokens']} tokens")
 
-        print(f"\n💬 Conversation:")
+        print("\n💬 Conversation:")
         print(f"   Messages: {self.message_count}")
 
         # Cache stats
         cache_info = self.client.get_cache_info()
         if cache_info:
-            print(f"\n🔥 Cache:")
+            print("\n🔥 Cache:")
             print(f"   Hits: {cache_info.hits}")
             print(f"   Misses: {cache_info.misses}")
             print(f"   Size: {cache_info.currsize}/{cache_info.maxsize}")
@@ -224,26 +226,24 @@ class AsyncChatbot:
             try:
                 # Use executor for input (non-blocking)
                 loop = asyncio.get_event_loop()
-                user_input = await loop.run_in_executor(
-                    None, lambda: input("\n👤 You: ").strip()
-                )
+                user_input = await loop.run_in_executor(None, lambda: input("\n👤 You: ").strip())
 
                 if not user_input:
                     continue
 
-                if user_input.lower() in ['quit', 'exit']:
+                if user_input.lower() in ["quit", "exit"]:
                     await self.cleanup()
                     break
 
-                if user_input.lower() == 'stats':
+                if user_input.lower() == "stats":
                     await self.show_stats()
                     continue
 
-                if user_input.lower() == 'batch':
+                if user_input.lower() == "batch":
                     test_messages = [
                         "Hi, how are you?",
                         "Tell me about Python",
-                        "What's your favorite color?"
+                        "What's your favorite color?",
                     ]
                     await self.process_batch(test_messages)
                     continue
@@ -257,6 +257,7 @@ class AsyncChatbot:
             except Exception as e:
                 print(f"\n❌ Error: {e}")
                 import traceback
+
                 traceback.print_exc()
 
     async def cleanup(self):
@@ -272,10 +273,7 @@ async def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Async Chatbot")
     parser.add_argument(
-        "--provider",
-        choices=["groq", "openai"],
-        default="groq",
-        help="LLM provider"
+        "--provider", choices=["groq", "openai"], default="groq", help="LLM provider"
     )
     parser.add_argument("--model", help="Model name")
 

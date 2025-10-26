@@ -16,8 +16,9 @@ Features demonstrated:
 5. Analyzing long-term trends in behavior
 """
 
-from hippocampai import MemoryClient
 import time
+
+from hippocampai import MemoryClient
 
 
 def print_section(title: str):
@@ -66,10 +67,7 @@ def demo_behavior_changes(client: MemoryClient, user_id: str):
     print_section("2. BEHAVIORAL CHANGE TRACKING")
 
     print("📊 Tracking behavior changes (comparing last 30 days vs older)...")
-    changes = client.track_behavior_changes(
-        user_id=user_id,
-        comparison_days=30
-    )
+    changes = client.track_behavior_changes(user_id=user_id, comparison_days=30)
 
     print(f"\nFound {len(changes)} behavioral changes")
 
@@ -151,7 +149,7 @@ def demo_habit_detection(client: MemoryClient, user_id: str):
     print("🔄 Detecting habits from behavioral patterns...")
     habits = client.detect_habits(
         user_id=user_id,
-        min_occurrences=3  # Lower threshold for demo
+        min_occurrences=3,  # Lower threshold for demo
     )
 
     print(f"\nFound {len(habits)} potential habits")
@@ -171,7 +169,7 @@ def demo_habit_detection(client: MemoryClient, user_id: str):
 
             # Show a few occurrence timestamps
             if habit.occurrences:
-                print(f"   Recent occurrences:")
+                print("   Recent occurrences:")
                 for timestamp in habit.occurrences[-3:]:
                     print(f"     • {timestamp.strftime('%Y-%m-%d %H:%M')}")
 
@@ -202,10 +200,7 @@ def demo_trend_analysis(client: MemoryClient, user_id: str):
     print_section("5. LONG-TERM TREND ANALYSIS")
 
     print("📈 Analyzing long-term trends in behavior...")
-    trends = client.analyze_trends(
-        user_id=user_id,
-        window_days=30
-    )
+    trends = client.analyze_trends(user_id=user_id, window_days=30)
 
     print(f"\nFound {len(trends)} trends")
 
@@ -264,40 +259,34 @@ def create_diverse_memories(client: MemoryClient, user_id: str):
         ("Code review session", ["work", "development"]),
         ("Lunch break at noon", ["daily", "routine"]),
         ("Afternoon focus time for coding", ["work", "development"]),
-
         # Exercise patterns (habit forming)
         ("Morning run for 30 minutes", ["exercise", "health"]),
         ("Evening gym session", ["exercise", "health"]),
         ("Morning run again, feeling great", ["exercise", "health"]),
         ("Skipped gym today, too tired", ["exercise", "health"]),
         ("Back to morning runs, building consistency", ["exercise", "health"]),
-
         # Food preferences (showing drift)
         ("Had sushi for lunch, loved it", ["food", "preference"]),
         ("Tried Indian food, not my favorite", ["food", "preference"]),
         ("Sushi again, my go-to choice", ["food", "preference"]),
         ("Experimenting with vegan options", ["food", "preference"]),
         ("Really enjoying plant-based meals now", ["food", "preference"]),
-
         # Learning behaviors (showing trend)
         ("Started learning Python", ["learning", "tech"]),
         ("Python tutorial - day 2", ["learning", "tech"]),
         ("Building first Python project", ["learning", "tech"]),
         ("Python is becoming second nature", ["learning", "tech"]),
         ("Advanced Python concepts mastered", ["learning", "tech"]),
-
         # Social patterns
         ("Coffee with Sarah", ["social", "friends"]),
         ("Team lunch with colleagues", ["social", "work"]),
         ("Weekend brunch with friends", ["social", "friends"]),
         ("Coffee with Sarah again", ["social", "friends"]),
-
         # Goals and achievements
         ("Set goal to read 12 books this year", ["goals", "personal"]),
         ("Finished first book of the year", ["achievement", "reading"]),
         ("Started meditation practice", ["goals", "health"]),
         ("30 days of consistent meditation!", ["achievement", "health"]),
-
         # Project work (sequential pattern)
         ("Started project planning phase", ["work", "project"]),
         ("Completed requirements gathering", ["work", "project"]),

@@ -13,7 +13,7 @@ import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -196,9 +196,7 @@ class InsightAnalyzer:
         logger.info(f"Detected {len(patterns)} patterns for user {user_id}")
         return patterns
 
-    def _detect_recurring_patterns(
-        self, memories: List[Memory], user_id: str
-    ) -> List[Pattern]:
+    def _detect_recurring_patterns(self, memories: List[Memory], user_id: str) -> List[Pattern]:
         """Detect recurring patterns in memories."""
         patterns = []
 
@@ -252,9 +250,7 @@ class InsightAnalyzer:
 
         return patterns
 
-    def _detect_sequential_patterns(
-        self, memories: List[Memory], user_id: str
-    ) -> List[Pattern]:
+    def _detect_sequential_patterns(self, memories: List[Memory], user_id: str) -> List[Pattern]:
         """Detect sequential patterns (A followed by B)."""
         patterns = []
 
@@ -321,8 +317,12 @@ class InsightAnalyzer:
                     description=f"'{tag}' appears across multiple sessions",
                     confidence=min(len(sess_ids) / 5, 1.0),
                     occurrences=len(sess_ids),
-                    first_seen=min(m.created_at for s_id in sess_ids for m in session_memories[s_id]),
-                    last_seen=max(m.created_at for s_id in sess_ids for m in session_memories[s_id]),
+                    first_seen=min(
+                        m.created_at for s_id in sess_ids for m in session_memories[s_id]
+                    ),
+                    last_seen=max(
+                        m.created_at for s_id in sess_ids for m in session_memories[s_id]
+                    ),
                     session_ids=sess_ids,
                 )
                 patterns.append(pattern)
@@ -387,7 +387,7 @@ class InsightAnalyzer:
 
         # Find gained/lost preferences
         gained = new_keywords - old_keywords
-        lost = old_keywords - new_keywords
+        _lost = old_keywords - new_keywords  # Could be used to track lost preferences
 
         if gained:
             change = BehaviorChange(
@@ -593,7 +593,7 @@ class InsightAnalyzer:
                 recency = max(0, 1.0 - (days_since_last / 30))  # Decay over 30 days
 
                 # Overall habit score
-                habit_score = (consistency * 0.4 + (min(frequency / 20, 1.0)) * 0.4 + recency * 0.2)
+                habit_score = consistency * 0.4 + (min(frequency / 20, 1.0)) * 0.4 + recency * 0.2
 
                 # Determine status
                 if habit_score > 0.7 and recency > 0.7:
@@ -667,12 +667,12 @@ class InsightAnalyzer:
                 # Split into 3 periods
                 period_size = len(sorted_times) // 3
                 period1 = sorted_times[:period_size]
-                period2 = sorted_times[period_size:2*period_size]
-                period3 = sorted_times[2*period_size:]
+                period2 = sorted_times[period_size : 2 * period_size]
+                period3 = sorted_times[2 * period_size :]
 
                 # Count per period
                 count1 = len(period1)
-                count2 = len(period2)
+                _count2 = len(period2)  # Middle period, could be used for smoothing
                 count3 = len(period3)
 
                 # Determine trend direction

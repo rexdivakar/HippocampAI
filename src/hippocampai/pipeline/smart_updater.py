@@ -8,12 +8,12 @@ This module provides intelligent memory management including:
 - Quality refinement
 """
 
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Literal
 import logging
 import re
+from datetime import datetime, timezone
+from typing import Dict, List, Literal, Optional
 
-from hippocampai.models.memory import Memory, MemoryType
+from hippocampai.models.memory import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class UpdateDecision:
         action: Literal["merge", "update", "skip", "keep_both"],
         reason: str,
         merged_memory: Optional[Memory] = None,
-        confidence_adjustment: float = 0.0
+        confidence_adjustment: float = 0.0,
     ):
         self.action = action
         self.reason = reason
@@ -48,10 +48,7 @@ class SmartMemoryUpdater:
         self.similarity_threshold = similarity_threshold
 
     def should_update_memory(
-        self,
-        existing: Memory,
-        new_text: str,
-        new_metadata: Optional[Dict] = None
+        self, existing: Memory, new_text: str, new_metadata: Optional[Dict] = None
     ) -> UpdateDecision:
         """Decide whether to merge, update, skip, or keep both memories.
 
@@ -71,7 +68,7 @@ class SmartMemoryUpdater:
             return UpdateDecision(
                 action="skip",
                 reason="Memory already exists with high similarity",
-                confidence_adjustment=0.1  # Boost confidence (reinforcement)
+                confidence_adjustment=0.1,  # Boost confidence (reinforcement)
             )
 
         # Case 2: Very similar - update or merge
@@ -83,7 +80,7 @@ class SmartMemoryUpdater:
                 return UpdateDecision(
                     action="skip",
                     reason="Similar memory exists with comparable detail",
-                    confidence_adjustment=0.05
+                    confidence_adjustment=0.05,
                 )
 
         # Case 3: Related but different - check for conflicts
@@ -95,14 +92,11 @@ class SmartMemoryUpdater:
                 # Related but complementary - keep both
                 return UpdateDecision(
                     action="keep_both",
-                    reason="Memories are related but contain different information"
+                    reason="Memories are related but contain different information",
                 )
 
         # Case 4: Unrelated - keep both
-        return UpdateDecision(
-            action="keep_both",
-            reason="Memories are unrelated"
-        )
+        return UpdateDecision(action="keep_both", reason="Memories are unrelated")
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate similarity between two text strings.
@@ -118,8 +112,8 @@ class SmartMemoryUpdater:
             return 1.0
 
         # Tokenize
-        tokens1 = set(re.findall(r'\w+', t1))
-        tokens2 = set(re.findall(r'\w+', t2))
+        tokens1 = set(re.findall(r"\w+", t1))
+        tokens2 = set(re.findall(r"\w+", t2))
 
         if not tokens1 or not tokens2:
             return 0.0
@@ -140,10 +134,25 @@ class SmartMemoryUpdater:
         if similarity > 0.5:  # Lowered threshold for better detection
             # Simple negation keywords (using simpler patterns)
             negation_words = [
-                "don't", "dont", "doesn't", "doesnt", "didn't", "didnt",
-                "not", "no", "never", "no longer", "used to",
-                "changed", "different", "instead", "stopped",
-                "quit", "avoid", "dislike", "hate"
+                "don't",
+                "dont",
+                "doesn't",
+                "doesnt",
+                "didn't",
+                "didnt",
+                "not",
+                "no",
+                "never",
+                "no longer",
+                "used to",
+                "changed",
+                "different",
+                "instead",
+                "stopped",
+                "quit",
+                "avoid",
+                "dislike",
+                "hate",
             ]
 
             t1_has_neg = any(neg in t1_lower for neg in negation_words)
@@ -207,14 +216,14 @@ Do these statements contradict? Answer YES or NO:"""
             return UpdateDecision(
                 action="skip",
                 reason=f"Recent memory conflicts with new info (age: {age_days}d, conf: {existing.confidence:.2f})",
-                confidence_adjustment=-0.1  # Lower confidence due to conflict
+                confidence_adjustment=-0.1,  # Lower confidence due to conflict
             )
 
         # If existing memory is old or low confidence, update
         return UpdateDecision(
             action="update",
             reason=f"Updating with newer information (old age: {age_days}d, conf: {existing.confidence:.2f})",
-            merged_memory=self._create_updated_memory(existing, new_text)
+            merged_memory=self._create_updated_memory(existing, new_text),
         )
 
     def _decide_merge_or_update(self, existing: Memory, new_text: str) -> UpdateDecision:
@@ -224,7 +233,7 @@ Do these statements contradict? Answer YES or NO:"""
             return UpdateDecision(
                 action="update",
                 reason="New memory expands on existing memory",
-                merged_memory=self._create_updated_memory(existing, new_text)
+                merged_memory=self._create_updated_memory(existing, new_text),
             )
 
         # If existing contains new (new is subset)
@@ -232,7 +241,7 @@ Do these statements contradict? Answer YES or NO:"""
             return UpdateDecision(
                 action="skip",
                 reason="Existing memory already contains this information",
-                confidence_adjustment=0.05
+                confidence_adjustment=0.05,
             )
 
         # Otherwise merge
@@ -240,19 +249,17 @@ Do these statements contradict? Answer YES or NO:"""
         merged_memory = self._create_merged_memory(existing, merged_text)
 
         return UpdateDecision(
-            action="merge",
-            reason="Merging complementary information",
-            merged_memory=merged_memory
+            action="merge", reason="Merging complementary information", merged_memory=merged_memory
         )
 
     def _merge_texts(self, text1: str, text2: str) -> str:
         """Intelligently merge two text strings."""
         # Simple merge: combine unique sentences
-        sentences1 = set(s.strip() for s in text1.split('.') if s.strip())
-        sentences2 = set(s.strip() for s in text2.split('.') if s.strip())
+        sentences1 = set(s.strip() for s in text1.split(".") if s.strip())
+        sentences2 = set(s.strip() for s in text2.split(".") if s.strip())
 
         all_sentences = sentences1.union(sentences2)
-        return '. '.join(sorted(all_sentences, key=len, reverse=True)) + '.'
+        return ". ".join(sorted(all_sentences, key=len, reverse=True)) + "."
 
     def _create_updated_memory(self, existing: Memory, new_text: str) -> Memory:
         """Create updated version of memory."""
@@ -322,7 +329,7 @@ Refined memory:"""
     def update_confidence(
         self,
         memory: Memory,
-        interaction_type: Literal["access", "validation", "conflict", "reinforcement"]
+        interaction_type: Literal["access", "validation", "conflict", "reinforcement"],
     ) -> Memory:
         """Update memory confidence based on interactions.
 
@@ -354,11 +361,7 @@ Refined memory:"""
         updated.updated_at = datetime.now(timezone.utc)
         return updated
 
-    def reconcile_memories(
-        self,
-        memories: List[Memory],
-        user_id: str
-    ) -> List[Memory]:
+    def reconcile_memories(self, memories: List[Memory], user_id: str) -> List[Memory]:
         """Reconcile a group of related memories, resolving conflicts.
 
         Args:
@@ -375,11 +378,7 @@ Refined memory:"""
         processed = set()
 
         # Sort by confidence and recency
-        sorted_memories = sorted(
-            memories,
-            key=lambda m: (m.confidence, m.updated_at),
-            reverse=True
-        )
+        sorted_memories = sorted(memories, key=lambda m: (m.confidence, m.updated_at), reverse=True)
 
         for i, mem1 in enumerate(sorted_memories):
             if i in processed:
@@ -387,7 +386,7 @@ Refined memory:"""
 
             # Find conflicts with this memory
             has_conflict = False
-            for j, mem2 in enumerate(sorted_memories[i+1:], start=i+1):
+            for j, mem2 in enumerate(sorted_memories[i + 1 :], start=i + 1):
                 if j in processed:
                     continue
 

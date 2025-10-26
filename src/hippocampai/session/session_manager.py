@@ -116,9 +116,7 @@ Analysis:"""
 
             self.qdrant.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(
-                    size=self.embedder.dimension, distance=Distance.COSINE
-                ),
+                vectors_config=VectorParams(size=self.embedder.dimension, distance=Distance.COSINE),
             )
             logger.info(f"Created session collection '{self.collection_name}'")
 
@@ -316,9 +314,7 @@ Analysis:"""
 
         return None
 
-    def extract_session_facts(
-        self, session_id: str, force: bool = False
-    ) -> List[SessionFact]:
+    def extract_session_facts(self, session_id: str, force: bool = False) -> List[SessionFact]:
         """Extract key facts from session.
 
         Args:
@@ -414,9 +410,7 @@ Analysis:"""
                         entity_type=entity_data.get("type", "unknown"),
                     )
                 self._save_session(session)
-                logger.info(
-                    f"Extracted {len(session.entities)} entities from session {session_id}"
-                )
+                logger.info(f"Extracted {len(session.entities)} entities from session {session_id}")
                 return session.entities
         except Exception as e:
             logger.error(f"Failed to extract entities from session {session_id}: {e}")
@@ -434,7 +428,7 @@ Analysis:"""
             return {}
 
         # Simple patterns for common technologies and capitalized words
-        tech_pattern = r'\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b'
+        tech_pattern = r"\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b"
 
         for memory in memories:
             # Extract technology mentions
@@ -442,7 +436,7 @@ Analysis:"""
                 session.add_entity(match.group(0), "technology")
 
             # Extract capitalized words (potential names/products)
-            for match in re.finditer(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', memory.text):
+            for match in re.finditer(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b", memory.text):
                 if len(match.group(0).split()) <= 3:  # Limit to 3-word phrases
                     session.add_entity(match.group(0), "unknown")
 
@@ -452,7 +446,7 @@ Analysis:"""
     def _extract_and_update(self, session: Session, text: str):
         """Quick extraction from single message (lighter than full session extraction)."""
         # Simple entity extraction
-        tech_pattern = r'\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b'
+        tech_pattern = r"\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b"
         for match in re.finditer(tech_pattern, text):
             session.add_entity(match.group(0), "technology")
 
@@ -512,7 +506,7 @@ Analysis:"""
         """Simple topic change detection using entity overlap."""
         # Extract entities from new message
         new_entities = set()
-        tech_pattern = r'\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b'
+        tech_pattern = r"\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b"
         for match in re.finditer(tech_pattern, new_message):
             new_entities.add(match.group(0))
 

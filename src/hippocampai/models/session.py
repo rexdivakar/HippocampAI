@@ -86,9 +86,7 @@ class Session(BaseModel):
         if name in self.entities:
             self.entities[name].update_mention()
         else:
-            self.entities[name] = Entity(
-                name=name, type=entity_type, metadata=metadata or {}
-            )
+            self.entities[name] = Entity(name=name, type=entity_type, metadata=metadata or {})
 
     def add_fact(self, fact: str, confidence: float = 0.9, sources: Optional[List[str]] = None):
         """Add a fact to the session."""
@@ -127,9 +125,7 @@ class Session(BaseModel):
 
     def get_top_entities(self, limit: int = 5) -> List[Entity]:
         """Get most mentioned entities."""
-        sorted_entities = sorted(
-            self.entities.values(), key=lambda e: e.mentions, reverse=True
-        )
+        sorted_entities = sorted(self.entities.values(), key=lambda e: e.mentions, reverse=True)
         return sorted_entities[:limit]
 
     def get_high_confidence_facts(self, min_confidence: float = 0.8) -> List[SessionFact]:

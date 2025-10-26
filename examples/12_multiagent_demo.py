@@ -9,7 +9,8 @@ This example demonstrates:
 """
 
 import os
-from hippocampai import EnhancedMemoryClient, AgentRole, PermissionType, MemoryVisibility
+
+from hippocampai import AgentRole, EnhancedMemoryClient, MemoryVisibility, PermissionType
 
 # Get API key from environment
 api_key = os.getenv("GROQ_API_KEY")
@@ -34,7 +35,7 @@ research_agent = client.create_agent(
     name="Research Assistant",
     user_id=user_id,
     role=AgentRole.SPECIALIST,
-    description="Specialized in research and information gathering"
+    description="Specialized in research and information gathering",
 )
 print(f"✓ Created {research_agent.name} (role: {research_agent.role.value})")
 
@@ -42,7 +43,7 @@ writing_agent = client.create_agent(
     name="Writing Assistant",
     user_id=user_id,
     role=AgentRole.ASSISTANT,
-    description="Helps with writing and content creation"
+    description="Helps with writing and content creation",
 )
 print(f"✓ Created {writing_agent.name} (role: {writing_agent.role.value})")
 
@@ -50,7 +51,7 @@ coordinator = client.create_agent(
     name="Project Coordinator",
     user_id=user_id,
     role=AgentRole.COORDINATOR,
-    description="Coordinates between different agents"
+    description="Coordinates between different agents",
 )
 print(f"✓ Created {coordinator.name} (role: {coordinator.role.value})")
 
@@ -70,7 +71,7 @@ for text in research_memories:
         text=text,
         user_id=user_id,
         agent_id=research_agent.id,
-        visibility=MemoryVisibility.PRIVATE.value
+        visibility=MemoryVisibility.PRIVATE.value,
     )
     print(f"  [{research_agent.name}] {text[:50]}...")
 
@@ -86,7 +87,7 @@ for text in writing_memories:
         text=text,
         user_id=user_id,
         agent_id=writing_agent.id,
-        visibility=MemoryVisibility.PRIVATE.value
+        visibility=MemoryVisibility.PRIVATE.value,
     )
     print(f"  [{writing_agent.name}] {text[:50]}...")
 
@@ -95,9 +96,7 @@ print("-" * 70)
 
 # Create runs to organize memories within an agent
 run1 = client.create_run(
-    agent_id=research_agent.id,
-    user_id=user_id,
-    name="Python Research Session"
+    agent_id=research_agent.id, user_id=user_id, name="Python Research Session"
 )
 print(f"\n✓ Created run: {run1.name}")
 
@@ -109,12 +108,12 @@ for i, text in enumerate(["Python 3.12 released", "Type hints improved"], 1):
         user_id=user_id,
         agent_id=research_agent.id,
         run_id=run1.id,
-        visibility=MemoryVisibility.PRIVATE.value
+        visibility=MemoryVisibility.PRIVATE.value,
     )
     print(f"    {i}. {text}")
 
 client.complete_run(run1.id)
-print(f"  ✓ Run completed")
+print("  ✓ Run completed")
 
 print("\n4. MEMORY VISIBILITY LEVELS")
 print("-" * 70)
@@ -124,7 +123,7 @@ private_mem = client.remember(
     text="Research notes: Draft findings (confidential)",
     user_id=user_id,
     agent_id=research_agent.id,
-    visibility=MemoryVisibility.PRIVATE.value
+    visibility=MemoryVisibility.PRIVATE.value,
 )
 print(f"✓ PRIVATE memory: Only {research_agent.name} can access")
 
@@ -133,18 +132,18 @@ shared_mem = client.remember(
     text="Research summary: Key findings about Python",
     user_id=user_id,
     agent_id=research_agent.id,
-    visibility=MemoryVisibility.SHARED.value
+    visibility=MemoryVisibility.SHARED.value,
 )
-print(f"✓ SHARED memory: Requires permission to access")
+print("✓ SHARED memory: Requires permission to access")
 
 # Public: Accessible by all agents of same user
 public_mem = client.remember(
     text="Project deadline: Submit blog post by Friday",
     user_id=user_id,
     agent_id=coordinator.id,
-    visibility=MemoryVisibility.PUBLIC.value
+    visibility=MemoryVisibility.PUBLIC.value,
 )
-print(f"✓ PUBLIC memory: All agents can access")
+print("✓ PUBLIC memory: All agents can access")
 
 print("\n5. GRANTING PERMISSIONS")
 print("-" * 70)
@@ -153,15 +152,13 @@ print("-" * 70)
 permission = client.grant_agent_permission(
     granter_agent_id=research_agent.id,
     grantee_agent_id=writing_agent.id,
-    permissions={PermissionType.READ}
+    permissions={PermissionType.READ},
 )
 print(f"✓ Granted READ permission: {research_agent.name} → {writing_agent.name}")
 
 # Check permission
 has_permission = client.check_agent_permission(
-    writing_agent.id,
-    research_agent.id,
-    PermissionType.READ
+    writing_agent.id, research_agent.id, PermissionType.READ
 )
 print(f"  Can {writing_agent.name} read {research_agent.name}'s memories? {has_permission}")
 
@@ -178,8 +175,7 @@ for mem in own_memories[:3]:
 # Writing agent tries to access research agent's memories (filtered by permissions)
 print(f"\n→ {writing_agent.name} accessing {research_agent.name}'s memories:")
 accessible = client.get_agent_memories(
-    agent_id=research_agent.id,
-    requesting_agent_id=writing_agent.id
+    agent_id=research_agent.id, requesting_agent_id=writing_agent.id
 )
 print(f"  Accessible: {len(accessible)} memories (filtered by permissions)")
 for mem in accessible:
@@ -194,16 +190,16 @@ transfer = client.transfer_memory(
     memory_id=shared_mem.id,
     source_agent_id=research_agent.id,
     target_agent_id=writing_agent.id,
-    transfer_type="copy"
+    transfer_type="copy",
 )
 
 if transfer:
-    print(f"  ✓ Memory transferred successfully")
+    print("  ✓ Memory transferred successfully")
     print(f"    Transfer type: {transfer.transfer_type}")
     print(f"    Source: {transfer.source_agent_id[:8]}...")
     print(f"    Target: {transfer.target_agent_id[:8]}...")
 else:
-    print(f"  ✗ Transfer failed (permission denied)")
+    print("  ✗ Transfer failed (permission denied)")
 
 print("\n8. AGENT STATISTICS")
 print("-" * 70)
@@ -245,19 +241,18 @@ info = client.remember(
     text="Key insight: Python's simplicity makes it ideal for beginners",
     user_id=user_id,
     agent_id=research_agent.id,
-    visibility=MemoryVisibility.SHARED.value
+    visibility=MemoryVisibility.SHARED.value,
 )
-print(f"   ✓ Stored as SHARED memory")
+print("   ✓ Stored as SHARED memory")
 
 # Grant permission if not already granted
 print(f"\n2. Grant access to {writing_agent.name}...")
-print(f"   ✓ Permission already granted")
+print("   ✓ Permission already granted")
 
 # Writing agent accesses the information
 print(f"\n3. {writing_agent.name} retrieves shared information...")
 research_data = client.get_agent_memories(
-    agent_id=research_agent.id,
-    requesting_agent_id=writing_agent.id
+    agent_id=research_agent.id, requesting_agent_id=writing_agent.id
 )
 print(f"   ✓ Retrieved {len(research_data)} shared memories")
 
@@ -268,9 +263,9 @@ content = client.remember(
     user_id=user_id,
     agent_id=writing_agent.id,
     visibility=MemoryVisibility.PRIVATE.value,
-    tags=["blog", "draft", "python"]
+    tags=["blog", "draft", "python"],
 )
-print(f"   ✓ Draft created")
+print("   ✓ Draft created")
 
 # Coordinator tracks progress
 print(f"\n5. {coordinator.name} tracks progress...")
@@ -278,9 +273,9 @@ progress = client.remember(
     text="Project status: Research complete, writing in progress",
     user_id=user_id,
     agent_id=coordinator.id,
-    visibility=MemoryVisibility.PUBLIC.value
+    visibility=MemoryVisibility.PUBLIC.value,
 )
-print(f"   ✓ Status updated (PUBLIC - visible to all agents)")
+print("   ✓ Status updated (PUBLIC - visible to all agents)")
 
 print("\n" + "=" * 70)
 print("Multi-Agent Demo Completed!")

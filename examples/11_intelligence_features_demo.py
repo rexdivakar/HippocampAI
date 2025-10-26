@@ -12,7 +12,7 @@ Run with: python examples/11_intelligence_features_demo.py
 """
 
 from hippocampai import MemoryClient
-from hippocampai.pipeline import SummaryStyle, EntityType, FactCategory
+from hippocampai.pipeline import EntityType, SummaryStyle
 
 
 def print_section(title):
@@ -134,7 +134,7 @@ def demo_entity_tracking(client):
 
     if results:
         profile = results[0]
-        print(f"\n--- Entity Profile ---")
+        print("\n--- Entity Profile ---")
         print(f"Canonical name: {profile.canonical_name}")
         print(f"Type: {profile.type.value}")
         print(f"Mention count: {profile.mention_count}")
@@ -223,12 +223,12 @@ def demo_summarization(client):
     print(f"Questions answered: {summary.questions_answered}")
 
     if summary.action_items:
-        print(f"\nAction Items:")
+        print("\nAction Items:")
         for item in summary.action_items:
             print(f"  □ {item}")
 
     if summary.key_points:
-        print(f"\nKey Points:")
+        print("\nKey Points:")
         for point in summary.key_points[:3]:
             print(f"  • {point}")
 
@@ -292,7 +292,7 @@ def demo_knowledge_graph(client):
     print("\nEnriching memory with intelligence features...")
     enrichment = client.enrich_memory_with_intelligence(memory, add_to_graph=True)
 
-    print(f"\n--- Enrichment Results ---")
+    print("\n--- Enrichment Results ---")
     print(f"Facts extracted: {len(enrichment['facts'])}")
     print(f"Entities extracted: {len(enrichment['entities'])}")
     print(f"Relationships extracted: {len(enrichment['relationships'])}")
@@ -324,9 +324,7 @@ def demo_knowledge_graph(client):
 
         # Get connections
         connections = client.get_entity_connections(entity.entity_id, max_distance=2)
-        print(
-            f"Connected entities: {sum(len(entities) for entities in connections.values())}"
-        )
+        print(f"Connected entities: {sum(len(entities) for entities in connections.values())}")
 
         # Get timeline
         timeline = client.get_entity_timeline(entity.entity_id)
@@ -435,9 +433,7 @@ def main():
     demo_knowledge_inference(client)
 
     print_section("Demo Complete!")
-    print(
-        "\nAll intelligence features demonstrated successfully!"
-    )
+    print("\nAll intelligence features demonstrated successfully!")
     print("\nKey Takeaways:")
     print("  • Fact extraction automatically identifies structured information")
     print("  • Entity recognition tracks people, places, and organizations")

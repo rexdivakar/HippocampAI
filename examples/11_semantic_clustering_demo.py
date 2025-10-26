@@ -10,7 +10,11 @@ This example demonstrates:
 """
 
 import os
+from datetime import datetime, timezone
+
 from hippocampai import EnhancedMemoryClient, MemoryType
+from hippocampai.models.memory import Memory
+from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
 
 # Get API key from environment
 api_key = os.getenv("GROQ_API_KEY")
@@ -44,7 +48,7 @@ stored_memories = []
 for text in memories_data:
     memory = client.remember(text, user_id)
     stored_memories.append(memory)
-    print(f"• \"{text[:50]}...\"")
+    print(f'• "{text[:50]}..."')
     print(f"  Auto-tags: {memory.tags}")
     print(f"  Category: {memory.type.value}")
     print()
@@ -78,7 +82,7 @@ for i, cluster in enumerate(clusters, 1):
     print(f"{i}. Topic: '{cluster.topic.upper()}'")
     print(f"   Memories: {len(cluster.memories)}")
     print(f"   Common tags: {cluster.tags[:5]}")
-    print(f"   Examples:")
+    print("   Examples:")
     for mem in cluster.memories[:2]:  # Show first 2 memories
         print(f"     - {mem.text[:60]}...")
     print()
@@ -96,9 +100,6 @@ test_cases = [
 ]
 
 print("\nTesting auto-category assignment:\n")
-from hippocampai.models.memory import Memory
-from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
-from datetime import datetime, timezone
 
 categorizer = SemanticCategorizer()
 
@@ -111,11 +112,11 @@ for text, expected in test_cases:
         type=MemoryType.FACT,  # Start with wrong type
         created_at=datetime.now(timezone.utc),
         importance=0.5,
-        tags=[]
+        tags=[],
     )
 
     assigned_type = categorizer.assign_category(temp_memory)
-    print(f"Text: \"{text}\"")
+    print(f'Text: "{text}"')
     print(f"  {expected}")
     print(f"  Assigned: {assigned_type.value}")
     print()
@@ -124,12 +125,9 @@ print("\n4. SIMILAR MEMORY DETECTION")
 print("-" * 70)
 
 # Store a new memory
-new_memory = client.remember(
-    "I enjoy eating pizza at Italian places",
-    user_id
-)
+new_memory = client.remember("I enjoy eating pizza at Italian places", user_id)
 
-print(f"\nNew memory: \"{new_memory.text}\"\n")
+print(f'\nNew memory: "{new_memory.text}"\n')
 print("Finding similar existing memories...")
 
 # Get all memories and find similar ones
@@ -137,14 +135,14 @@ all_memories = client.get_memories(user_id, limit=100)
 similar = categorizer.find_similar_memories(
     new_memory,
     all_memories,
-    similarity_threshold=0.3  # Lower threshold to see more results
+    similarity_threshold=0.3,  # Lower threshold to see more results
 )
 
 if similar:
     print(f"\nFound {len(similar)} similar memories:\n")
     for mem, score in similar[:3]:  # Top 3
         print(f"• Similarity: {score:.2f}")
-        print(f"  \"{mem.text[:60]}...\"")
+        print(f'  "{mem.text[:60]}..."')
         print()
 else:
     print("No similar memories found")
@@ -188,7 +186,7 @@ print("-" * 70)
 # Get a memory without many tags
 sample_memory = stored_memories[0]
 
-print(f"\nMemory: \"{sample_memory.text}\"")
+print(f'\nMemory: "{sample_memory.text}"')
 print(f"Current tags: {sample_memory.tags}")
 
 # Suggest additional tags

@@ -32,11 +32,7 @@ print("-" * 60)
 
 # Store initial memory
 print("\n→ Storing: 'I love coffee'")
-mem1 = client.remember(
-    text="I love coffee",
-    user_id=user_id,
-    type="preference"
-)
+mem1 = client.remember(text="I love coffee", user_id=user_id, type="preference")
 print(f"  ✓ Stored with tags: {mem1.tags}")
 print(f"  ✓ Category: {mem1.type}")
 print(f"  ✓ Confidence: {mem1.confidence}")
@@ -44,20 +40,14 @@ print(f"  ✓ Confidence: {mem1.confidence}")
 # Try to store similar memory - should intelligently merge/update
 print("\n→ Storing similar: 'I really enjoy drinking coffee in the morning'")
 mem2 = client.remember(
-    text="I really enjoy drinking coffee in the morning",
-    user_id=user_id,
-    type="preference"
+    text="I really enjoy drinking coffee in the morning", user_id=user_id, type="preference"
 )
 print(f"  ✓ Action taken: {mem2.text}")
 print(f"  ✓ Tags: {mem2.tags}")
 
 # Store conflicting information - should detect and resolve
 print("\n→ Storing conflicting: 'I don't like coffee anymore'")
-mem3 = client.remember(
-    text="I don't like coffee anymore",
-    user_id=user_id,
-    type="preference"
-)
+mem3 = client.remember(text="I don't like coffee anymore", user_id=user_id, type="preference")
 print(f"  ✓ Conflict resolved: {mem3.text}")
 print(f"  ✓ Confidence: {mem3.confidence}")
 

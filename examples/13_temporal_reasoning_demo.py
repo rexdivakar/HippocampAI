@@ -19,9 +19,10 @@ Features demonstrated:
 7. Getting temporal summaries
 """
 
-from datetime import datetime, timedelta, timezone
-from hippocampai import MemoryClient, TimeRange
 import time
+from datetime import datetime, timedelta, timezone
+
+from hippocampai import MemoryClient, TimeRange
 
 
 def print_section(title: str):
@@ -38,8 +39,7 @@ def demo_time_range_queries(client: MemoryClient, user_id: str):
     # Get memories from last week
     print("📅 Retrieving memories from LAST_WEEK...")
     last_week_memories = client.get_memories_by_time_range(
-        user_id=user_id,
-        time_range=TimeRange.LAST_WEEK
+        user_id=user_id, time_range=TimeRange.LAST_WEEK
     )
     print(f"Found {len(last_week_memories)} memories from last week")
     for mem in last_week_memories[:3]:
@@ -47,17 +47,13 @@ def demo_time_range_queries(client: MemoryClient, user_id: str):
 
     # Get memories from today
     print("\n📅 Retrieving memories from TODAY...")
-    today_memories = client.get_memories_by_time_range(
-        user_id=user_id,
-        time_range=TimeRange.TODAY
-    )
+    today_memories = client.get_memories_by_time_range(user_id=user_id, time_range=TimeRange.TODAY)
     print(f"Found {len(today_memories)} memories from today")
 
     # Get memories from this month
     print("\n📅 Retrieving memories from THIS_MONTH...")
     this_month_memories = client.get_memories_by_time_range(
-        user_id=user_id,
-        time_range=TimeRange.THIS_MONTH
+        user_id=user_id, time_range=TimeRange.THIS_MONTH
     )
     print(f"Found {len(this_month_memories)} memories from this month")
 
@@ -72,16 +68,14 @@ def demo_custom_time_range(client: MemoryClient, user_id: str):
     end = datetime.now(timezone.utc)
 
     custom_memories = client.get_memories_by_time_range(
-        user_id=user_id,
-        start_time=start,
-        end_time=end
+        user_id=user_id, start_time=start, end_time=end
     )
     print(f"Found {len(custom_memories)} memories in custom range")
     print(f"Range: {start.strftime('%Y-%m-%d %H:%M')} to {end.strftime('%Y-%m-%d %H:%M')}")
 
     for mem in custom_memories[:5]:
         age = datetime.now(timezone.utc) - mem.created_at
-        print(f"  • {mem.text[:60]}... ({age.days} days, {age.seconds//3600} hours ago)")
+        print(f"  • {mem.text[:60]}... ({age.days} days, {age.seconds // 3600} hours ago)")
 
 
 def demo_chronological_narrative(client: MemoryClient, user_id: str):
@@ -90,9 +84,7 @@ def demo_chronological_narrative(client: MemoryClient, user_id: str):
 
     print("📖 Building narrative from last week's memories...")
     narrative = client.build_memory_narrative(
-        user_id=user_id,
-        time_range=TimeRange.LAST_WEEK,
-        title="My Week in Review"
+        user_id=user_id, time_range=TimeRange.LAST_WEEK, title="My Week in Review"
     )
 
     print("\nGenerated Narrative:")
@@ -107,14 +99,14 @@ def demo_memory_timeline(client: MemoryClient, user_id: str):
 
     print("🗓️  Creating timeline for last month...")
     timeline = client.create_memory_timeline(
-        user_id=user_id,
-        title="Last Month's Journey",
-        time_range=TimeRange.LAST_MONTH
+        user_id=user_id, title="Last Month's Journey", time_range=TimeRange.LAST_MONTH
     )
 
     print(f"\nTimeline: {timeline.title}")
     print(f"Events: {len(timeline.events)}")
-    print(f"Time span: {timeline.start_time.strftime('%Y-%m-%d')} to {timeline.end_time.strftime('%Y-%m-%d')}")
+    print(
+        f"Time span: {timeline.start_time.strftime('%Y-%m-%d')} to {timeline.end_time.strftime('%Y-%m-%d')}"
+    )
     print(f"Duration: {timeline.get_duration()}")
 
     print("\nTop Events:")
@@ -138,7 +130,9 @@ def demo_event_sequences(client: MemoryClient, user_id: str):
 
     for i, sequence in enumerate(sequences[:3], 1):
         print(f"\n  Sequence {i}: {len(sequence)} related events")
-        print(f"  Timespan: {sequence[0].created_at.strftime('%Y-%m-%d %H:%M')} to {sequence[-1].created_at.strftime('%Y-%m-%d %H:%M')}")
+        print(
+            f"  Timespan: {sequence[0].created_at.strftime('%Y-%m-%d %H:%M')} to {sequence[-1].created_at.strftime('%Y-%m-%d %H:%M')}"
+        )
         print("  Events:")
         for mem in sequence[:3]:
             print(f"    • {mem.text[:60]}...")
@@ -158,7 +152,7 @@ def demo_memory_scheduling(client: MemoryClient, user_id: str):
         user_id=user_id,
         scheduled_for=tomorrow,
         type="fact",
-        tags=["reminder", "work"]
+        tags=["reminder", "work"],
     )
     print(f"  ✓ Scheduled: {scheduled1.text}")
     print(f"    Due: {scheduled1.scheduled_for.strftime('%Y-%m-%d %H:%M')}")
@@ -176,7 +170,7 @@ def demo_memory_scheduling(client: MemoryClient, user_id: str):
         type="event",
         tags=["meeting", "daily"],
         recurrence="daily",
-        reminder_offset=15  # 15 minutes before
+        reminder_offset=15,  # 15 minutes before
     )
     print(f"  ✓ Scheduled: {scheduled2.text}")
     print(f"    Due: {scheduled2.scheduled_for.strftime('%Y-%m-%d %H:%M')}")
@@ -192,7 +186,7 @@ def demo_memory_scheduling(client: MemoryClient, user_id: str):
         scheduled_for=next_week,
         type="event",
         tags=["meeting", "weekly"],
-        recurrence="weekly"
+        recurrence="weekly",
     )
     print(f"  ✓ Scheduled: {scheduled3.text}")
     print(f"    Due: {scheduled3.scheduled_for.strftime('%Y-%m-%d %H:%M')}")
@@ -223,18 +217,18 @@ def demo_temporal_summary(client: MemoryClient, user_id: str):
     print(f"  First memory: {summary.get('first_memory', 'N/A')}")
     print(f"  Most recent: {summary.get('most_recent', 'N/A')}")
 
-    if 'peak_activity_hour' in summary:
+    if "peak_activity_hour" in summary:
         print(f"\n  Peak activity hour: {summary['peak_activity_hour']}:00")
 
-    if 'daily_distribution' in summary:
+    if "daily_distribution" in summary:
         print("\n  Daily distribution:")
-        for day, count in list(summary['daily_distribution'].items())[:7]:
-            bar = '█' * (count // 5) if count > 0 else ''
+        for day, count in list(summary["daily_distribution"].items())[:7]:
+            bar = "█" * (count // 5) if count > 0 else ""
             print(f"    {day}: {count:3d} {bar}")
 
-    if 'memory_type_distribution' in summary:
+    if "memory_type_distribution" in summary:
         print("\n  Memory type distribution:")
-        for mem_type, count in summary['memory_type_distribution'].items():
+        for mem_type, count in summary["memory_type_distribution"].items():
             print(f"    {mem_type}: {count}")
 
 
@@ -294,7 +288,9 @@ def create_sample_memories(client: MemoryClient, user_id: str):
         client.remember(text, user_id, tags=["monthly"])
         time.sleep(0.1)
 
-    print(f"✓ Created {len(today_memories) + len(yesterday_memories) + len(last_week_memories) + len(last_month_memories)} sample memories")
+    print(
+        f"✓ Created {len(today_memories) + len(yesterday_memories) + len(last_week_memories) + len(last_month_memories)} sample memories"
+    )
 
 
 def main():

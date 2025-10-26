@@ -8,10 +8,10 @@ This module provides:
 - Topic modeling and evolution
 """
 
-from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Set, Tuple
 import logging
 import re
+from collections import Counter, defaultdict
+from typing import Dict, List, Optional, Tuple
 
 from hippocampai.models.memory import Memory, MemoryType
 
@@ -34,7 +34,11 @@ class MemoryCluster:
 
         # Return tags that appear in multiple memories
         tag_counts = Counter(all_tags)
-        return [tag for tag, count in tag_counts.items() if count >= 2 or count / len(self.memories) > 0.5]
+        return [
+            tag
+            for tag, count in tag_counts.items()
+            if count >= 2 or count / len(self.memories) > 0.5
+        ]
 
     def add_memory(self, memory: Memory):
         """Add memory to cluster."""
@@ -55,7 +59,16 @@ class SemanticCategorizer:
 
         # Common topic keywords for basic categorization
         self.topic_keywords = {
-            "work": ["work", "job", "career", "office", "colleague", "project", "meeting", "deadline"],
+            "work": [
+                "work",
+                "job",
+                "career",
+                "office",
+                "colleague",
+                "project",
+                "meeting",
+                "deadline",
+            ],
             "personal": ["family", "friend", "hobby", "home", "personal", "relationship"],
             "health": ["health", "exercise", "fitness", "diet", "medical", "doctor", "wellness"],
             "food": ["food", "restaurant", "cuisine", "meal", "cooking", "eating", "drink"],
@@ -81,12 +94,12 @@ class SemanticCategorizer:
         suggested = set()
 
         # Extract keywords (nouns, important words)
-        words = re.findall(r'\b[a-z]{4,}\b', text_lower)
+        words = re.findall(r"\b[a-z]{4,}\b", text_lower)
         word_counts = Counter(words)
 
         # Add most common meaningful words
         for word, count in word_counts.most_common(3):
-            if word not in {'that', 'this', 'with', 'from', 'have', 'been', 'were', 'have'}:
+            if word not in {"that", "this", "with", "from", "have", "been", "were", "have"}:
                 suggested.add(word)
 
         # Add topic-based tags
@@ -116,7 +129,7 @@ Tags:"""
         try:
             response = self.llm.generate(prompt, max_tokens=30)
             # Parse comma-separated tags
-            tags = [tag.strip().lower() for tag in response.split(',')]
+            tags = [tag.strip().lower() for tag in response.split(",")]
             return [tag for tag in tags if tag and len(tag) < 20][:max_tags]
         except Exception as e:
             logger.warning(f"LLM tag suggestion failed: {e}")
@@ -137,25 +150,25 @@ Tags:"""
         # Note: Order matters - more specific patterns first
         category_patterns = {
             MemoryType.GOAL: [
-                r'\b(want to|plan to|planning to|goal|aim|trying to|working towards)\b',
-                r'\b(will|going to)\b',
+                r"\b(want to|plan to|planning to|goal|aim|trying to|working towards)\b",
+                r"\b(will|going to)\b",
             ],
             MemoryType.PREFERENCE: [
-                r'\b(love|like|prefer|enjoy|favorite|hate|dislike)\b',
-                r'\b(i want|i need|i wish)(?! to)\b',  # Exclude "want to" which is a goal
+                r"\b(love|like|prefer|enjoy|favorite|hate|dislike)\b",
+                r"\b(i want|i need|i wish)(?! to)\b",  # Exclude "want to" which is a goal
             ],
             MemoryType.FACT: [
-                r'\b(is|are|was|were|has|have)\b',
-                r'\b(work at|works at|working at|live in|lives in|living in)\b',
-                r'\b(name is|age is|from|born in)\b',
+                r"\b(is|are|was|were|has|have)\b",
+                r"\b(work at|works at|working at|live in|lives in|living in)\b",
+                r"\b(name is|age is|from|born in)\b",
             ],
             MemoryType.HABIT: [
-                r'\b(always|usually|often|regularly|every day|daily|weekly)\b',
-                r'\b(routine|habit|practice)\b',
+                r"\b(always|usually|often|regularly|every day|daily|weekly)\b",
+                r"\b(routine|habit|practice)\b",
             ],
             MemoryType.EVENT: [
-                r'\b(happened|occurred|went to|attended|visited)\b',
-                r'\b(yesterday|last week|last month|on)\b',
+                r"\b(happened|occurred|went to|attended|visited)\b",
+                r"\b(yesterday|last week|last month|on)\b",
             ],
         }
 
@@ -179,7 +192,9 @@ Tags:"""
 
         return memory.type
 
-    def _llm_assign_category(self, text: str, fallback: Optional[MemoryType] = MemoryType.FACT) -> Optional[MemoryType]:
+    def _llm_assign_category(
+        self, text: str, fallback: Optional[MemoryType] = MemoryType.FACT
+    ) -> Optional[MemoryType]:
         """Use LLM to assign category.
 
         Args:
@@ -210,10 +225,7 @@ Category (respond with only the category name):"""
         return fallback
 
     def find_similar_memories(
-        self,
-        memory: Memory,
-        existing_memories: List[Memory],
-        similarity_threshold: float = 0.7
+        self, memory: Memory, existing_memories: List[Memory], similarity_threshold: float = 0.7
     ) -> List[Tuple[Memory, float]]:
         """Find memories similar to the given memory.
 
@@ -229,21 +241,57 @@ Category (respond with only the category name):"""
 
         # Semantic keyword groups for better matching
         synonym_groups = [
-            {'love', 'like', 'enjoy', 'adore', 'prefer', 'fond'},
-            {'hate', 'dislike', 'detest', 'loathe'},
-            {'work', 'job', 'career', 'employment', 'position'},
-            {'want', 'need', 'desire', 'wish', 'goal'},
-            {'always', 'usually', 'often', 'regularly', 'frequently'},
+            {"love", "like", "enjoy", "adore", "prefer", "fond"},
+            {"hate", "dislike", "detest", "loathe"},
+            {"work", "job", "career", "employment", "position"},
+            {"want", "need", "desire", "wish", "goal"},
+            {"always", "usually", "often", "regularly", "frequently"},
         ]
 
         query_text = memory.text.lower()
-        query_tokens = set(re.findall(r'\w+', query_text))
+        query_tokens = set(re.findall(r"\w+", query_text))
 
         # Remove common stop words
-        stop_words = {'i', 'a', 'the', 'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
-                     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-                     'at', 'on', 'in', 'to', 'for', 'of', 'and', 'or', 'but', 'not', 'really',
-                     'very', 'quite', 'just', 'so', 'too', 'also'}
+        stop_words = {
+            "i",
+            "a",
+            "the",
+            "is",
+            "am",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "at",
+            "on",
+            "in",
+            "to",
+            "for",
+            "of",
+            "and",
+            "or",
+            "but",
+            "not",
+            "really",
+            "very",
+            "quite",
+            "just",
+            "so",
+            "too",
+            "also",
+        }
         query_tokens = query_tokens - stop_words
 
         for existing in existing_memories:
@@ -251,7 +299,7 @@ Category (respond with only the category name):"""
                 continue
 
             existing_text = existing.text.lower()
-            existing_tokens = set(re.findall(r'\w+', existing_text))
+            existing_tokens = set(re.findall(r"\w+", existing_text))
             existing_tokens = existing_tokens - stop_words
 
             if not query_tokens or not existing_tokens:
@@ -285,9 +333,7 @@ Category (respond with only the category name):"""
         return similar
 
     def cluster_memories(
-        self,
-        memories: List[Memory],
-        max_clusters: int = 10
+        self, memories: List[Memory], max_clusters: int = 10
     ) -> List[MemoryCluster]:
         """Cluster memories by semantic similarity.
 
@@ -310,10 +356,7 @@ Category (respond with only the category name):"""
             clusters[topic].append(memory)
 
         # Convert to MemoryCluster objects
-        cluster_objects = [
-            MemoryCluster(topic, mems)
-            for topic, mems in clusters.items()
-        ]
+        cluster_objects = [MemoryCluster(topic, mems) for topic, mems in clusters.items()]
 
         # Limit to max_clusters (merge smallest if needed)
         if len(cluster_objects) > max_clusters:
@@ -338,16 +381,14 @@ Category (respond with only the category name):"""
             return max(topic_scores.items(), key=lambda x: x[1])[0]
 
         # Extract most common noun as topic
-        words = re.findall(r'\b[a-z]{4,}\b', text_lower)
+        words = re.findall(r"\b[a-z]{4,}\b", text_lower)
         if words:
             return Counter(words).most_common(1)[0][0]
 
         return "general"
 
     def evolve_topics(
-        self,
-        old_clusters: List[MemoryCluster],
-        new_memories: List[Memory]
+        self, old_clusters: List[MemoryCluster], new_memories: List[Memory]
     ) -> List[MemoryCluster]:
         """Evolve topic clusters with new memories.
 
@@ -399,7 +440,9 @@ Category (respond with only the category name):"""
         # Apply the suggested type if it's different from current type
         # Pattern-based detection is more accurate than user-provided type
         if suggested_type != enriched.type:
-            logger.debug(f"Auto-correcting memory type: {enriched.type} -> {suggested_type} for text '{memory.text[:50]}'")
+            logger.debug(
+                f"Auto-correcting memory type: {enriched.type} -> {suggested_type} for text '{memory.text[:50]}'"
+            )
             enriched.type = suggested_type
 
         # Add suggested tags if none exist
@@ -416,9 +459,7 @@ Category (respond with only the category name):"""
         return enriched
 
     def detect_topic_shift(
-        self,
-        recent_memories: List[Memory],
-        window_size: int = 10
+        self, recent_memories: List[Memory], window_size: int = 10
     ) -> Optional[str]:
         """Detect if there's been a shift in conversation topics.
 
@@ -434,7 +475,11 @@ Category (respond with only the category name):"""
 
         # Get topics for recent window
         recent = recent_memories[-window_size:]
-        older = recent_memories[-window_size*2:-window_size] if len(recent_memories) >= window_size*2 else []
+        older = (
+            recent_memories[-window_size * 2 : -window_size]
+            if len(recent_memories) >= window_size * 2
+            else []
+        )
 
         recent_topics = [self._identify_topic(m.text) for m in recent]
         older_topics = [self._identify_topic(m.text) for m in older] if older else []

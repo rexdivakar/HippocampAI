@@ -1,11 +1,11 @@
 """Tests for multi-agent memory management."""
 
 import pytest
+
 from hippocampai.models.agent import (
     Agent,
     AgentPermission,
     AgentRole,
-    MemoryTransfer,
     MemoryVisibility,
     PermissionType,
     Run,
@@ -124,9 +124,7 @@ class TestMultiAgentManager:
         """Test creating an agent via manager."""
         manager = MultiAgentManager()
 
-        agent = manager.create_agent(
-            name="Test Agent", user_id="user1", role=AgentRole.ASSISTANT
-        )
+        agent = manager.create_agent(name="Test Agent", user_id="user1", role=AgentRole.ASSISTANT)
 
         assert agent.id in manager.agents
         assert manager.get_agent(agent.id) == agent
@@ -135,9 +133,9 @@ class TestMultiAgentManager:
         """Test listing agents."""
         manager = MultiAgentManager()
 
-        agent1 = manager.create_agent("Agent 1", "user1", AgentRole.ASSISTANT)
-        agent2 = manager.create_agent("Agent 2", "user1", AgentRole.SPECIALIST)
-        agent3 = manager.create_agent("Agent 3", "user2", AgentRole.COORDINATOR)
+        manager.create_agent("Agent 1", "user1", AgentRole.ASSISTANT)
+        manager.create_agent("Agent 2", "user1", AgentRole.SPECIALIST)
+        manager.create_agent("Agent 3", "user2", AgentRole.COORDINATOR)
 
         # List all
         all_agents = manager.list_agents()
@@ -196,9 +194,9 @@ class TestMultiAgentManager:
         agent1 = manager.create_agent("Agent 1", "user1", AgentRole.ASSISTANT)
         agent2 = manager.create_agent("Agent 2", "user1", AgentRole.SPECIALIST)
 
-        run1 = manager.create_run(agent1.id, "user1", name="Run 1")
-        run2 = manager.create_run(agent1.id, "user1", name="Run 2")
-        run3 = manager.create_run(agent2.id, "user1", name="Run 3")
+        manager.create_run(agent1.id, "user1", name="Run 1")
+        manager.create_run(agent1.id, "user1", name="Run 2")
+        manager.create_run(agent2.id, "user1", name="Run 3")
 
         # List all
         all_runs = manager.list_runs()
@@ -408,7 +406,9 @@ class TestMultiAgentManager:
                 user_id="user1",
                 type=MemoryType.FACT,
                 agent_id=agent1.id,
-                visibility=MemoryVisibility.PRIVATE.value if i % 2 == 0 else MemoryVisibility.PUBLIC.value,
+                visibility=MemoryVisibility.PRIVATE.value
+                if i % 2 == 0
+                else MemoryVisibility.PUBLIC.value,
             )
             for i in range(5)
         ]
@@ -464,7 +464,7 @@ class TestMultiAgentIntegration:
         agent2 = memory_client.create_agent("Agent 2", user_id, AgentRole.SPECIALIST)
 
         # Agent1 stores shared memory
-        mem = memory_client.remember(
+        memory_client.remember(
             text="Shared data",
             user_id=user_id,
             agent_id=agent1.id,
@@ -476,9 +476,7 @@ class TestMultiAgentIntegration:
         assert len(accessible) == 0
 
         # Grant permission
-        memory_client.grant_agent_permission(
-            agent1.id, agent2.id, {PermissionType.READ}
-        )
+        memory_client.grant_agent_permission(agent1.id, agent2.id, {PermissionType.READ})
 
         # Now agent2 can access
         accessible = memory_client.get_agent_memories(agent1.id, requesting_agent_id=agent2.id)
