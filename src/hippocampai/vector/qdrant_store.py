@@ -49,12 +49,19 @@ class QdrantStore:
         logger.info(f"Connected to Qdrant at {url}")
         self._ensure_collections()
 
-    def _ensure_collections(self):
-        """Create collections if they don't exist."""
-        for collection_name in [self.collection_facts, self.collection_prefs]:
-            if not self.client.collection_exists(collection_name):
+    def _ensure_collections(self, collection_name: Optional[str] = None):
+        """Create collections if they don't exist.
+        
+        Args:
+            collection_name: If provided, only ensure this specific collection exists.
+                           Otherwise, ensure both default collections exist.
+        """
+        collections_to_ensure = [collection_name] if collection_name else [self.collection_facts, self.collection_prefs]
+        
+        for coll_name in collections_to_ensure:
+            if not self.client.collection_exists(coll_name):
                 self.client.create_collection(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     vectors_config=VectorParams(size=self.dimension, distance=Distance.COSINE),
                     hnsw_config=HnswConfigDiff(m=self.hnsw_m, ef_construct=self.ef_construction),
                     optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
@@ -63,26 +70,31 @@ class QdrantStore:
 
                 # Create payload indices
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="user_id",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="type",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="tags",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
 
-                logger.info(f"Created collection: {collection_name}")
+                logger.info(f"Created collection: {coll_name}")
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
         """Insert or update a point (with automatic retry on transient failures)."""
+        # Ensure collection exists before upserting
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist. Creating it.")
+            self._ensure_collections(collection_name)
+        
         self.client.upsert(
             collection_name=collection_name,
             points=[
@@ -104,6 +116,12 @@ class QdrantStore:
         ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Vector similarity search (with automatic retry on transient failures)."""
+        # Ensure collection exists before querying
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist. Creating it.")
+            self._ensure_collections(collection_name)
+            return []
+
         query_filter = None
         if filters:
             conditions = []
@@ -145,6 +163,12 @@ class QdrantStore:
         self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Scroll through points (with automatic retry on transient failures)."""
+        # Ensure collection exists before querying
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist. Creating it.")
+            self._ensure_collections(collection_name)
+            return []
+
         query_filter = None
         if filters:
             conditions = []
@@ -178,11 +202,21 @@ class QdrantStore:
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def delete(self, collection_name: str, ids: List[str]):
         """Delete points by IDs (with automatic retry on transient failures)."""
+        # If collection doesn't exist, nothing to delete
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist. Skipping delete.")
+            return
+        
         self.client.delete(collection_name=collection_name, points_selector=ids)
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def get(self, collection_name: str, id: str) -> Optional[Dict[str, Any]]:
         """Get a single point by ID (with automatic retry on transient failures)."""
+        # If collection doesn't exist, nothing to get
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist.")
+            return None
+        
         try:
             result = self.client.retrieve(
                 collection_name=collection_name,
@@ -200,6 +234,11 @@ class QdrantStore:
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def update(self, collection_name: str, id: str, payload: Dict[str, Any]) -> bool:
         """Update payload of an existing point (with automatic retry on transient failures)."""
+        # If collection doesn't exist, can't update
+        if not self.client.collection_exists(collection_name):
+            logger.warning(f"Collection {collection_name} does not exist. Skipping update.")
+            return False
+        
         try:
             self.client.set_payload(
                 collection_name=collection_name,
