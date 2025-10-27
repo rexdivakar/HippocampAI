@@ -431,15 +431,22 @@ class MemoryManagementService:
         # Phase 1: Create Memory objects
         memory_objects = []
         for mem_data in memories:
-            memory = Memory(
-                text=mem_data["text"],
-                user_id=mem_data["user_id"],
-                session_id=mem_data.get("session_id"),
-                type=MemoryType(mem_data.get("type", "fact")),
-                importance=mem_data.get("importance"),
-                tags=mem_data.get("tags", []),
-                metadata=mem_data.get("metadata", {}),
-            )
+            # Build kwargs, only including optional fields if provided
+            mem_kwargs = {
+                "text": mem_data["text"],
+                "user_id": mem_data["user_id"],
+                "type": MemoryType(mem_data.get("type", "fact")),
+                "tags": mem_data.get("tags", []),
+                "metadata": mem_data.get("metadata", {}),
+            }
+
+            # Only include optional fields if they are provided
+            if "session_id" in mem_data:
+                mem_kwargs["session_id"] = mem_data["session_id"]
+            if "importance" in mem_data:
+                mem_kwargs["importance"] = mem_data["importance"]
+
+            memory = Memory(**mem_kwargs)
 
             # Handle TTL
             if mem_data.get("ttl_days"):

@@ -125,6 +125,89 @@ class QdrantStore:
                     logger.error(f"Error creating collection '{coll_name}': {e}")
                     raise
 
+    def ensure_collection(
+        self,
+        collection_name: str,
+        vector_size: Optional[int] = None,
+        distance: str = "Cosine",
+    ):
+        """
+        Public method to ensure a collection exists.
+
+        Args:
+            collection_name: Name of the collection to ensure exists
+            vector_size: Dimension of vectors (uses instance dimension if not provided)
+            distance: Distance metric (Cosine, Euclid, or Dot)
+        """
+        # Use instance dimension if not provided
+        dimension = vector_size if vector_size is not None else self.dimension
+
+        # Map string distance to Distance enum
+        distance_map = {
+            "Cosine": Distance.COSINE,
+            "cosine": Distance.COSINE,
+            "Euclid": Distance.EUCLID,
+            "euclid": Distance.EUCLID,
+            "Dot": Distance.DOT,
+            "dot": Distance.DOT,
+        }
+        dist_metric = distance_map.get(distance, Distance.COSINE)
+
+        try:
+            self.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=dimension, distance=dist_metric),
+                hnsw_config=HnswConfigDiff(m=self.hnsw_m, ef_construct=self.ef_construction),
+                optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
+                wal_config=WalConfigDiff(wal_capacity_mb=32),
+            )
+
+            # Create payload indices for 5-10x faster filtered queries
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="user_id",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="type",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="tags",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="importance",
+                field_schema=PayloadSchemaType.FLOAT,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="created_at",
+                field_schema=PayloadSchemaType.DATETIME,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="updated_at",
+                field_schema=PayloadSchemaType.DATETIME,
+            )
+
+            logger.info(
+                f"Created collection '{collection_name}' with 6 payload indices (user_id, type, tags, importance, created_at, updated_at)"
+            )
+
+            # Wait for collection to be fully ready
+            self._wait_for_collection_ready(collection_name)
+        except Exception as e:
+            # If collection already exists, log and continue
+            if "already exists" in str(e).lower():
+                logger.debug(f"Collection '{collection_name}' already exists, skipping creation")
+            else:
+                logger.error(f"Error creating collection '{collection_name}': {e}")
+                raise
+
     def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10):
         """Wait for collection to be fully initialized and queryable."""
         for attempt in range(max_attempts):
