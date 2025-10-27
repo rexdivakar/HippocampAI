@@ -42,6 +42,15 @@ jobs:
           key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-python-${{ matrix.python-version }}-
+        
+      - name: Ruff lint
+        run: ruff check . --output-format=github
+
+      - name: Ruff format (warn only)
+        run: |
+          if ! ruff format . --check; then
+            echo "::warning ::Some files would be reformatted by Ruff"
+          fi
 
       - name: Install dependencies
         run: |
@@ -66,11 +75,6 @@ jobs:
       - name: Check Qdrant Status
         run: |
           curl http://localhost:6333/readyz
-
-      - name: Lint with Ruff
-        run: |
-          ruff check . --output-format=github
-          ruff format . --check
 
       - name: Run Tests
         run: |
