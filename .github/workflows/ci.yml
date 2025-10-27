@@ -44,7 +44,7 @@ jobs:
             ${{ runner.os }}-python-${{ matrix.python-version }}-
         
       - name: Ruff lint
-        run: ruff check . --output-format=github
+        run: pip install ruff && ruff check . --output-format=github
 
       - name: Ruff format (warn only)
         run: |
