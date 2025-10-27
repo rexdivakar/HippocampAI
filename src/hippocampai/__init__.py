@@ -4,11 +4,39 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from hippocampai.models.agent import (
+    Agent,
+    AgentPermission,
+    AgentRole,
+    MemoryVisibility,
+    PermissionType,
+    Run,
+)
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.session import (
+    Entity,
+    Session,
+    SessionFact,
+    SessionSearchResult,
+    SessionStatus,
+)
+from hippocampai.pipeline.insights import (
+    BehaviorChange,
+    HabitScore,
+    Pattern,
+    PreferenceDrift,
+    Trend,
+)
+from hippocampai.pipeline.insights import (
+    ChangeType as InsightChangeType,
+)
+from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
 __version__ = "1.0.0"
 __all__ = [
     "MemoryClient",
+    "EnhancedMemoryClient",
+    "OptimizedMemoryClient",
     "AsyncMemoryClient",
     "Memory",
     "MemoryType",
@@ -17,6 +45,13 @@ __all__ = [
     "Config",
     "get_telemetry",
     "OperationType",
+    # Session management
+    "Session",
+    "SessionStatus",
+    "SessionSearchResult",
+    "SessionFact",
+    "Entity",
+    "SessionManager",
     # Advanced features
     "MemoryGraph",
     "RelationType",
@@ -27,6 +62,26 @@ __all__ = [
     "ChangeType",
     "ContextInjector",
     "inject_context",
+    # Multi-agent support
+    "Agent",
+    "AgentRole",
+    "Run",
+    "AgentPermission",
+    "PermissionType",
+    "MemoryVisibility",
+    "MultiAgentManager",
+    # Temporal reasoning
+    "TimeRange",
+    "ScheduledMemory",
+    "Timeline",
+    "TemporalEvent",
+    # Cross-session insights
+    "Pattern",
+    "BehaviorChange",
+    "PreferenceDrift",
+    "HabitScore",
+    "Trend",
+    "InsightChangeType",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
@@ -34,8 +89,11 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.client import MemoryClient as MemoryClient
     from hippocampai.config import Config as Config
     from hippocampai.config import get_config as get_config
+    from hippocampai.enhanced_client import EnhancedMemoryClient as EnhancedMemoryClient
     from hippocampai.graph import MemoryGraph as MemoryGraph
     from hippocampai.graph import RelationType as RelationType
+    from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
+    from hippocampai.session import SessionManager as SessionManager
     from hippocampai.storage import MemoryKVStore as MemoryKVStore
     from hippocampai.telemetry import OperationType as OperationType
     from hippocampai.telemetry import get_telemetry as get_telemetry
@@ -47,11 +105,14 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.versioning import MemoryVersionControl as MemoryVersionControl
 
 _MEMORY_CLIENT: Any | None = None
+_ENHANCED_MEMORY_CLIENT: Any | None = None
+_OPTIMIZED_MEMORY_CLIENT: Any | None = None
 _ASYNC_MEMORY_CLIENT: Any | None = None
 _CONFIG: Any | None = None
 _GET_CONFIG: Any | None = None
 _GET_TELEMETRY: Any | None = None
 _OPERATION_TYPE: Any | None = None
+_SESSION_MANAGER: Any | None = None
 _MEMORY_GRAPH: Any | None = None
 _RELATION_TYPE: Any | None = None
 _MEMORY_KV_STORE: Any | None = None
@@ -66,11 +127,14 @@ _INJECT_CONTEXT: Any | None = None
 def __getattr__(name: str) -> Any:
     global \
         _MEMORY_CLIENT, \
+        _ENHANCED_MEMORY_CLIENT, \
+        _OPTIMIZED_MEMORY_CLIENT, \
         _ASYNC_MEMORY_CLIENT, \
         _CONFIG, \
         _GET_CONFIG, \
         _GET_TELEMETRY, \
-        _OPERATION_TYPE
+        _OPERATION_TYPE, \
+        _SESSION_MANAGER
     global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
     global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
 
@@ -87,6 +151,38 @@ def __getattr__(name: str) -> Any:
                 ) from exc
 
         return _MEMORY_CLIENT
+
+    if name == "EnhancedMemoryClient":
+        if _ENHANCED_MEMORY_CLIENT is None:
+            try:
+                from hippocampai.enhanced_client import (
+                    EnhancedMemoryClient as _ImportedEnhancedMemoryClient,
+                )
+
+                _ENHANCED_MEMORY_CLIENT = _ImportedEnhancedMemoryClient
+            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
+                raise ModuleNotFoundError(
+                    "hippocampai.EnhancedMemoryClient requires optional dependencies. "
+                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
+                ) from exc
+
+        return _ENHANCED_MEMORY_CLIENT
+
+    if name == "OptimizedMemoryClient":
+        if _OPTIMIZED_MEMORY_CLIENT is None:
+            try:
+                from hippocampai.optimized_client import (
+                    OptimizedMemoryClient as _ImportedOptimizedMemoryClient,
+                )
+
+                _OPTIMIZED_MEMORY_CLIENT = _ImportedOptimizedMemoryClient
+            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
+                raise ModuleNotFoundError(
+                    "hippocampai.OptimizedMemoryClient requires optional dependencies. "
+                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
+                ) from exc
+
+        return _OPTIMIZED_MEMORY_CLIENT
 
     if name == "AsyncMemoryClient":
         if _ASYNC_MEMORY_CLIENT is None:
@@ -129,6 +225,14 @@ def __getattr__(name: str) -> Any:
 
             _OPERATION_TYPE = _ImportedOperationType
         return _OPERATION_TYPE
+
+    # Session management
+    if name == "SessionManager":
+        if _SESSION_MANAGER is None:
+            from hippocampai.session import SessionManager as _ImportedSessionManager
+
+            _SESSION_MANAGER = _ImportedSessionManager
+        return _SESSION_MANAGER
 
     # Advanced features
     if name == "MemoryGraph":
@@ -195,5 +299,11 @@ def __getattr__(name: str) -> Any:
 
             _INJECT_CONTEXT = _ImportedInjectContext
         return _INJECT_CONTEXT
+
+    # Multi-agent manager
+    if name == "MultiAgentManager":
+        from hippocampai.multiagent import MultiAgentManager as _ImportedMultiAgentManager
+
+        return _ImportedMultiAgentManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")

@@ -2,10 +2,13 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    pass
 
 
 class MemoryType(str, Enum):
@@ -33,6 +36,11 @@ class Memory(BaseModel):
     text_length: int = 0  # Character count
     token_count: int = 0  # Approximate token count
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    # Multi-agent support (optional for backward compatibility)
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    visibility: Optional[str] = None  # "private", "shared", "public"
 
     def collection_name(self, facts_col: str, prefs_col: str) -> str:
         """Route to appropriate collection."""
