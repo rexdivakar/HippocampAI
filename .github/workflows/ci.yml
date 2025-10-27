@@ -24,11 +24,6 @@ jobs:
           - 6333:6333
           - 6334:6334
 
-      ollama:
-        image: ollama/ollama:latest
-        ports:
-          - 11434:11434
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955   # v4.3.0
@@ -81,34 +76,13 @@ jobs:
         run: |
           curl http://localhost:6333/readyz
 
-      - name: Wait for Ollama to be ready and pull model
-        run: |
-          echo "Waiting for Ollama to be ready..."
-          for i in {1..30}; do
-            if curl -f http://localhost:11434/api/tags > /dev/null 2>&1; then
-              echo "Ollama is ready!"
-              break
-            fi
-            echo "Attempt $i/30: Ollama not ready yet, waiting..."
-            sleep 2
-          done
-
-          echo "Pulling lightweight Ollama model for CI: tinyllama..."
-          curl -X POST http://localhost:11434/api/pull -d '{"name": "tinyllama"}' --max-time 300
-
-          echo "Verifying model is available..."
-          curl http://localhost:11434/api/tags
-
       - name: Run Tests
         run: |
-          pytest -v --maxfail=1 --disable-warnings --cov=src --cov-report=term-missing
+          pytest -v --maxfail=2 --disable-warnings --cov=src --cov-report=term-missing
         env:
           QDRANT_HOST: localhost
           QDRANT_PORT: 6333
           QDRANT_URL: http://localhost:6333
-          LLM_PROVIDER: ollama
-          LLM_MODEL: tinyllama
-          LLM_BASE_URL: http://localhost:11434
 
   build:
     name: Build Package
