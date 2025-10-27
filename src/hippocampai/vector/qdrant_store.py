@@ -116,10 +116,9 @@ class QdrantStore:
         ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Vector similarity search (with automatic retry on transient failures)."""
-        # Ensure collection exists before querying
+        # If collection doesn't exist, return empty results without creating it.
         if not self.client.collection_exists(collection_name):
-            logger.warning(f"Collection {collection_name} does not exist. Creating it.")
-            self._ensure_collections(collection_name)
+            logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
             return []
 
         query_filter = None
@@ -163,10 +162,9 @@ class QdrantStore:
         self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Scroll through points (with automatic retry on transient failures)."""
-        # Ensure collection exists before querying
+        # If collection doesn't exist, return empty results without creating it.
         if not self.client.collection_exists(collection_name):
-            logger.warning(f"Collection {collection_name} does not exist. Creating it.")
-            self._ensure_collections(collection_name)
+            logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
             return []
 
         query_filter = None
