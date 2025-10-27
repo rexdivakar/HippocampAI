@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     Distance,
     FieldCondition,
@@ -59,7 +60,9 @@ class QdrantStore:
         collections_to_ensure = [collection_name] if collection_name else [self.collection_facts, self.collection_prefs]
         
         for coll_name in collections_to_ensure:
-            if not self.client.collection_exists(coll_name):
+            # Use idempotent create_collection to avoid race conditions
+            # If collection exists with same params, this is a no-op
+            try:
                 self.client.create_collection(
                     collection_name=coll_name,
                     vectors_config=VectorParams(size=self.dimension, distance=Distance.COSINE),
@@ -67,8 +70,7 @@ class QdrantStore:
                     optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
                     wal_config=WalConfigDiff(wal_capacity_mb=32),
                 )
-
-                # Create payload indices
+                # Collection was created, set up indices
                 self.client.create_payload_index(
                     collection_name=coll_name,
                     field_name="user_id",
@@ -84,8 +86,10 @@ class QdrantStore:
                     field_name="tags",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
-
-                logger.info(f"Created collection: {coll_name}")
+                logger.info(f"Created collection and indices: {coll_name}")
+            except Exception as e:
+                # Collection already exists or other error occurred
+                logger.debug(f"Collection {coll_name} creation skipped: {e}")
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
@@ -116,11 +120,6 @@ class QdrantStore:
         ef: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Vector similarity search (with automatic retry on transient failures)."""
-        # If collection doesn't exist, return empty results without creating it.
-        if not self.client.collection_exists(collection_name):
-            logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
-            return []
-
         query_filter = None
         if filters:
             conditions = []
@@ -146,27 +145,29 @@ class QdrantStore:
         search_params = SearchParams(hnsw_ef=hnsw_ef) if hnsw_ef else None
 
         # Use query_points instead of deprecated search
-        results = self.client.query_points(
-            collection_name=collection_name,
-            query=vector.tolist() if isinstance(vector, np.ndarray) else vector,
-            limit=limit,
-            query_filter=query_filter,
-            search_params=search_params,
-            with_payload=True,
-        ).points
-
-        return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
+        try:
+            results = self.client.query_points(
+                collection_name=collection_name,
+                query=vector.tolist() if isinstance(vector, np.ndarray) else vector,
+                limit=limit,
+                query_filter=query_filter,
+                search_params=search_params,
+                with_payload=True,
+            ).points
+            return [{"id": str(r.id), "score": r.score, "payload": r.payload} for r in results]
+        except UnexpectedResponse as e:
+            # Handle the specific case where the collection does not exist
+            if e.status_code == 404:
+                logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
+                return []
+            # Re-raise other unexpected errors
+            raise
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def scroll(
         self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Scroll through points (with automatic retry on transient failures)."""
-        # If collection doesn't exist, return empty results without creating it.
-        if not self.client.collection_exists(collection_name):
-            logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
-            return []
-
         query_filter = None
         if filters:
             conditions = []
@@ -187,15 +188,22 @@ class QdrantStore:
             if conditions:
                 query_filter = Filter(must=conditions)
 
-        results, _ = self.client.scroll(
-            collection_name=collection_name,
-            scroll_filter=query_filter,
-            limit=limit,
-            with_payload=True,
-            with_vectors=False,
-        )
-
-        return [{"id": str(r.id), "payload": r.payload} for r in results]
+        try:
+            results, _ = self.client.scroll(
+                collection_name=collection_name,
+                scroll_filter=query_filter,
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [{"id": str(r.id), "payload": r.payload} for r in results]
+        except UnexpectedResponse as e:
+            # Handle the specific case where the collection does not exist
+            if e.status_code == 404:
+                logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
+                return []
+            # Re-raise other unexpected errors
+            raise
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def delete(self, collection_name: str, ids: List[str]):
