@@ -64,7 +64,7 @@ services:
     networks:
       - hippocampai-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -120,6 +120,8 @@ services:
       - hippocampai-network
     volumes:
       - ./logs:/app/logs
+    healthcheck:
+      disable: true
     command: celery -A hippocampai.celery_app worker --loglevel=info --concurrency=4
 
   # Celery Beat for Scheduled Tasks
@@ -164,6 +166,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - celery_beat_data:/app/celerybeat-schedule
+    healthcheck:
+      disable: true
     command: celery -A hippocampai.celery_app beat --loglevel=info
 
   # Flower - Celery Monitoring UI
@@ -185,6 +189,12 @@ services:
       - celery-worker
     networks:
       - hippocampai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     command: celery -A hippocampai.celery_app flower --port=5555 --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
 
   # ==================== Storage Services ====================
@@ -208,10 +218,7 @@ services:
     networks:
       - hippocampai-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      disable: true
 
   # Redis Cache
   redis:
