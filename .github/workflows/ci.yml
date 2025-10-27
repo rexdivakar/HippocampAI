@@ -62,6 +62,10 @@ jobs:
           done
           echo "Qdrant failed to become ready"
           exit 1
+        
+      - name: Check Qdrant Status
+        run: |
+          curl http://localhost:6333/readyz
 
       - name: Lint with Ruff
         run: |
