@@ -71,13 +71,9 @@ class QdrantStore:
                     optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
                     wal_config=WalConfigDiff(wal_capacity_mb=32),
                 )
-<<<<<<< HEAD
-                # Collection was created, set up indices
-=======
 
                 # Create payload indices for 5-10x faster filtered queries
                 # Index user_id (KEYWORD for exact match)
->>>>>>> 3a21c38 (feat: Enhance QdrantStore with additional payload indices and implement bulk upsert functionality)
                 self.client.create_payload_index(
                     collection_name=coll_name,
                     field_name="user_id",
@@ -97,29 +93,37 @@ class QdrantStore:
                 )
                 # Index importance (FLOAT for range queries)
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="importance",
                     field_schema=PayloadSchemaType.FLOAT,
                 )
                 # Index created_at (DATETIME for date range filtering)
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="created_at",
                     field_schema=PayloadSchemaType.DATETIME,
                 )
                 # Index updated_at (DATETIME for update date filtering)
                 self.client.create_payload_index(
-                    collection_name=collection_name,
+                    collection_name=coll_name,
                     field_name="updated_at",
                     field_schema=PayloadSchemaType.DATETIME,
                 )
 
                 logger.info(
-                    f"Created collection '{collection_name}' with 6 payload indices (user_id, type, tags, importance, created_at, updated_at)"
+                    f"Created collection '{coll_name}' with 6 payload indices (user_id, type, tags, importance, created_at, updated_at)"
                 )
 
                 # Wait for collection to be fully ready (avoid race conditions in tests)
-                self._wait_for_collection_ready(collection_name)
+                self._wait_for_collection_ready(coll_name)
+            except Exception as e:
+                # If collection already exists with different params, log and continue
+                # This is idempotent behavior - we don't fail if collection exists
+                if "already exists" in str(e).lower():
+                    logger.debug(f"Collection '{coll_name}' already exists, skipping creation")
+                else:
+                    logger.error(f"Error creating collection '{coll_name}': {e}")
+                    raise
 
     def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10):
         """Wait for collection to be fully initialized and queryable."""
