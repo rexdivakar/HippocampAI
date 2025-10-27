@@ -25,12 +25,19 @@ if str(SRC) not in sys.path:
 def ensure_qdrant_collections():
     """Ensure test collections exist before any memory tests run."""
     client = QdrantClient(host="localhost", port=6333)
-    collection_name = "test_facts_advanced"
-    if not client.collection_exists(collection_name=collection_name):
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-        )
+
+    # Create both test collections needed for advanced features tests
+    test_collections = [
+        ("test_facts_advanced", 384),  # Default embed_dimension for BAAI/bge-small-en-v1.5
+        ("test_prefs_advanced", 384),
+    ]
+
+    for collection_name, vector_size in test_collections:
+        if not client.collection_exists(collection_name=collection_name):
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            )
     yield
 
 
