@@ -23,6 +23,22 @@ jobs:
         ports:
           - 6333:6333
           - 6334:6334
+        options: >-
+          --health-cmd="curl -fsS http://localhost:6333/readyz || exit 1"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=60
+
+      ollama:
+        # Pin to a specific tag; update as needed when you bump locally
+        image: ghcr.io/ollama/ollama:0.4.6
+        ports:
+          - 11434:11434
+        options: >-
+          --health-cmd="curl -fsS http://localhost:11434/api/tags || exit 1"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=60
 
     steps:
       - name: Checkout repository
@@ -51,21 +67,49 @@ jobs:
       - name: Wait for Qdrant to be ready
         run: |
           echo "Waiting for Qdrant to be ready..."
-          for i in {1..30}; do
-            if curl -f http://localhost:6333/healthz > /dev/null 2>&1; then
+          for i in {1..60}; do
+            if curl -fsS http://localhost:6333/readyz > /dev/null; then
               echo "Qdrant is ready!"
               curl -s http://localhost:6333/ | head -20
               exit 0
             fi
-            echo "Attempt $i/30: Qdrant not ready yet, waiting..."
+            echo "Attempt $i/60: Qdrant not ready yet, waiting..."
             sleep 2
           done
           echo "Qdrant failed to become ready"
           exit 1
-        
-      - name: Check Qdrant Status
+
+      - name: Wait for Ollama to be ready
         run: |
-          curl http://localhost:6333/readyz
+          echo "Waiting for Ollama to be ready..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:11434/api/tags > /dev/null; then
+              echo "Ollama is ready!"
+              break
+            fi
+            echo "Attempt $i/60: Ollama not ready yet, waiting..."
+            sleep 2
+          done
+
+      - name: Pull embedding model into Ollama
+        run: |
+          set -e
+          MODEL="nomic-embed-text"
+          echo "Pulling ${MODEL}..."
+          # Fire the pull; Ollama streams progress
+          curl -fsS -X POST http://localhost:11434/api/pull -d "{\"name\":\"${MODEL}\"}"
+          echo "Verifying model presence..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:11434/api/tags | grep -q "\"name\":\"${MODEL}\""; then
+              echo "Model ${MODEL} ready."
+              exit 0
+            fi
+            echo "Attempt $i/60: model not visible yet, waiting..."
+            sleep 2
+          done
+          echo "Model ${MODEL} failed to appear in /api/tags"
+          curl -s http://localhost:11434/api/tags || true
+          exit 1
 
       - name: Lint with Ruff
         run: |
@@ -79,6 +123,12 @@ jobs:
           QDRANT_HOST: localhost
           QDRANT_PORT: 6333
           QDRANT_URL: http://localhost:6333
+          # Make HippocampAI use local Ollama for embeddings/generation
+          HIPPOCAMP_PROVIDER: ollama
+          HIPPOCAMP_OLLAMA_BASE_URL: http://localhost:11434
+          HIPPOCAMP_EMBED_MODEL: nomic-embed-text
+          # Optional: if your code reads OLLAMA_HOST
+          OLLAMA_HOST: http://localhost:11434
 
   build:
     name: Build Package
