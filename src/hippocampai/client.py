@@ -2,20 +2,53 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Set
+from uuid import uuid4
 
+from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.config import Config, get_config
 from hippocampai.embed.embedder import get_embedder
-from hippocampai.graph import MemoryGraph, RelationType
+from hippocampai.graph import RelationType
+from hippocampai.graph.knowledge_graph import KnowledgeGraph
+from hippocampai.models.agent import (
+    Agent,
+    AgentPermission,
+    AgentRole,
+    MemoryVisibility,
+    PermissionType,
+    Run,
+)
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
+from hippocampai.multiagent import MultiAgentManager
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.entity_recognition import (
+    Entity,
+    EntityRecognizer,
+    EntityRelationship,
+    EntityType,
+)
 from hippocampai.pipeline.extractor import MemoryExtractor
+from hippocampai.pipeline.fact_extraction import ExtractedFact, FactExtractionPipeline
 from hippocampai.pipeline.importance import ImportanceScorer
+from hippocampai.pipeline.insights import (
+    BehaviorChange,
+    HabitScore,
+    InsightAnalyzer,
+    Pattern,
+    PreferenceDrift,
+    Trend,
+)
+from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
+from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
+from hippocampai.pipeline.summarization import SessionSummary, Summarizer, SummaryStyle
+from hippocampai.pipeline.temporal import ScheduledMemory, TemporalAnalyzer, Timeline, TimeRange
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
+from hippocampai.session import SessionManager
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
@@ -128,6 +161,12 @@ class MemoryClient:
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
                 self.llm = OpenAILLM(api_key=api_key, model=self.config.llm_model)
+        elif self.config.llm_provider == "groq" and self.config.allow_cloud:
+            import os
+
+            api_key = os.getenv("GROQ_API_KEY")
+            if api_key:
+                self.llm = GroqLLM(api_key=api_key, model=self.config.llm_model)
 
         # Pipeline
         self.extractor = MemoryExtractor(llm=self.llm, mode="hybrid")
@@ -136,12 +175,30 @@ class MemoryClient:
         )
         self.consolidator = MemoryConsolidator(llm=self.llm)
         self.scorer = ImportanceScorer(llm=self.llm)
+        self.smart_updater = SmartMemoryUpdater(llm=self.llm, similarity_threshold=0.85)
+        self.categorizer = SemanticCategorizer(llm=self.llm)
+        self.temporal_analyzer = TemporalAnalyzer(llm=self.llm)  # Temporal reasoning
+        self.insight_analyzer = InsightAnalyzer(llm=self.llm)  # Cross-session insights
+
+        # Intelligence modules
+        self.fact_extractor = FactExtractionPipeline(llm=self.llm)
+        self.entity_recognizer = EntityRecognizer(llm=self.llm)
+        self.summarizer = Summarizer(llm=self.llm)
 
         # Advanced Features
-        self.graph = MemoryGraph()
+        self.graph = KnowledgeGraph()  # Enhanced with entity and fact support
         self.version_control = MemoryVersionControl()
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
+        self.multiagent = MultiAgentManager()  # Multi-agent support
+
+        # Session Management
+        self.session_manager = SessionManager(
+            qdrant_store=self.qdrant,
+            embedder=self.embedder,
+            llm=self.llm,
+            collection_name="hippocampai_sessions",
+        )
 
         # Scheduler (optional)
         self.scheduler = None
@@ -150,7 +207,7 @@ class MemoryClient:
 
             self.scheduler = MemoryScheduler(client=self, config=self.config)
 
-        logger.info("MemoryClient initialized with advanced features")
+        logger.info("MemoryClient initialized with advanced features and session management")
 
     @classmethod
     def from_preset(cls, preset: PresetType, **overrides) -> "MemoryClient":
@@ -220,6 +277,9 @@ class MemoryClient:
         importance: Optional[float] = None,
         tags: Optional[List[str]] = None,
         ttl_days: Optional[int] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        visibility: Optional[str] = None,
     ) -> Memory:
         """Store a memory."""
         # Start telemetry trace
@@ -245,7 +305,19 @@ class MemoryClient:
                 importance=importance or self.scorer.score(text, type),
                 tags=tags or [],
                 expires_at=expires_at,
+                agent_id=agent_id,
+                run_id=run_id,
+                visibility=visibility or MemoryVisibility.PRIVATE.value,
             )
+
+            # Auto-enrich with semantic categorization
+            self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
+            original_type = memory.type
+            memory = self.categorizer.enrich_memory_with_categories(memory)
+            logger.info(
+                f"Enrichment: {original_type} -> {memory.type} for text '{memory.text[:50]}'"
+            )
+            self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
 
             # Calculate size metrics
             memory.calculate_size_metrics()
@@ -253,7 +325,70 @@ class MemoryClient:
             # Track size in telemetry
             self.telemetry.track_memory_size(memory.text_length, memory.token_count)
 
-            # Check duplicates
+            # Check for similar memories and decide on smart update
+            self.telemetry.add_event(trace_id, "smart_update_check", status="in_progress")
+            existing_memories = self.get_memories(user_id, limit=100)
+            similar = self.categorizer.find_similar_memories(
+                memory, existing_memories, similarity_threshold=0.85
+            )
+
+            if similar:
+                # Found similar memory, use smart updater to decide action
+                existing_memory = similar[0][0]  # Most similar memory
+                decision = self.smart_updater.should_update_memory(existing_memory, text)
+
+                self.telemetry.add_event(
+                    trace_id,
+                    "smart_update_check",
+                    status="success",
+                    action=decision.action,
+                    reason=decision.reason,
+                )
+
+                if decision.action == "skip":
+                    # Update confidence of existing memory
+                    updated_existing = self.smart_updater.update_confidence(
+                        existing_memory, "reinforcement"
+                    )
+                    self.update_memory(
+                        memory_id=existing_memory.id,
+                        importance=updated_existing.confidence
+                        * 10,  # Scale confidence to importance
+                    )
+                    logger.info(f"Skipping similar memory: {decision.reason}")
+                    self.telemetry.end_trace(
+                        trace_id, status="skipped", result={"reason": decision.reason}
+                    )
+                    return existing_memory
+
+                elif decision.action == "update":
+                    # Update existing memory
+                    if decision.merged_memory:
+                        self.update_memory(
+                            memory_id=existing_memory.id,
+                            text=decision.merged_memory.text,
+                            importance=decision.merged_memory.importance,
+                            tags=decision.merged_memory.tags,
+                        )
+                        logger.info(f"Updated existing memory: {decision.reason}")
+                        self.telemetry.end_trace(
+                            trace_id, status="updated", result={"reason": decision.reason}
+                        )
+                        return decision.merged_memory
+
+                elif decision.action == "merge":
+                    # Delete old, store merged
+                    if decision.merged_memory:
+                        self.delete_memory(existing_memory.id, user_id)
+                        memory = decision.merged_memory
+                        logger.info(f"Merged memories: {decision.reason}")
+                # If action is "keep_both", continue with normal storage
+            else:
+                self.telemetry.add_event(
+                    trace_id, "smart_update_check", status="success", action="new"
+                )
+
+            # Check duplicates (basic dedup as fallback)
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
             action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
@@ -265,7 +400,7 @@ class MemoryClient:
             )
 
             if action == "skip":
-                logger.info(f"Skipping duplicate memory: {memory.id}")
+                logger.info(f"Skipping duplicate memory: {memory.id}, type={memory.type}")
                 self.telemetry.end_trace(trace_id, status="skipped", result={"duplicate": True})
                 return memory
 
@@ -289,7 +424,7 @@ class MemoryClient:
                 trace_id, "vector_store", status="success", collection=collection
             )
 
-            logger.info(f"Stored memory: {memory.id}")
+            logger.info(f"Stored memory: {memory.id}, type={memory.type}")
             self.telemetry.end_trace(
                 trace_id,
                 status="success",
@@ -1330,3 +1465,1472 @@ class MemoryClient:
         except Exception as e:
             logger.error(f"Importance decay failed: {e}", exc_info=True)
             return updated_count
+
+    # === SESSION MANAGEMENT ===
+
+    def create_session(
+        self,
+        user_id: str,
+        title: Optional[str] = None,
+        parent_session_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Session:
+        """Create a new conversation session.
+
+        Args:
+            user_id: User ID
+            title: Optional session title
+            parent_session_id: Optional parent session for hierarchical sessions
+            metadata: Optional metadata
+            tags: Optional tags
+
+        Returns:
+            Created Session object
+        """
+        return self.session_manager.create_session(
+            user_id=user_id,
+            title=title,
+            parent_session_id=parent_session_id,
+            metadata=metadata,
+            tags=tags,
+        )
+
+    def get_session(self, session_id: str) -> Optional[Session]:
+        """Get session by ID.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Session object or None if not found
+        """
+        return self.session_manager.get_session(session_id)
+
+    def update_session(
+        self,
+        session_id: str,
+        title: Optional[str] = None,
+        summary: Optional[str] = None,
+        status: Optional[SessionStatus] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Optional[Session]:
+        """Update session fields.
+
+        Args:
+            session_id: Session ID
+            title: Optional new title
+            summary: Optional summary
+            status: Optional status
+            metadata: Optional metadata to merge
+            tags: Optional tags
+
+        Returns:
+            Updated Session or None if not found
+        """
+        return self.session_manager.update_session(
+            session_id=session_id,
+            title=title,
+            summary=summary,
+            status=status,
+            metadata=metadata,
+            tags=tags,
+        )
+
+    def track_session_message(
+        self,
+        session_id: str,
+        text: str,
+        user_id: str,
+        type: str = "fact",
+        importance: Optional[float] = None,
+        tags: Optional[List[str]] = None,
+        auto_boundary_detect: bool = True,
+    ) -> Optional[Session]:
+        """Track a message in a session and optionally detect boundaries.
+
+        Args:
+            session_id: Session ID
+            text: Message text
+            user_id: User ID
+            type: Memory type
+            importance: Optional importance score
+            tags: Optional tags
+            auto_boundary_detect: Whether to auto-detect session boundaries
+
+        Returns:
+            Updated Session or new Session if boundary detected
+        """
+        # Check for session boundary
+        if auto_boundary_detect:
+            boundary_detected, reason = self.session_manager.detect_session_boundary(
+                session_id, text
+            )
+            if boundary_detected:
+                logger.info(f"Session boundary detected: {reason}. Creating new session.")
+                # Complete old session
+                self.complete_session(session_id)
+                # Create new session
+                new_session = self.session_manager.create_session(
+                    user_id=user_id,
+                    title=f"Session continued from {session_id[:8]}",
+                    parent_session_id=session_id,
+                    metadata={"boundary_reason": reason, "previous_session": session_id},
+                )
+                session_id = new_session.id
+
+        # Store memory
+        memory = self.remember(
+            text=text,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            importance=importance,
+            tags=tags,
+        )
+
+        # Track in session
+        session = self.session_manager.track_message(session_id, memory, auto_extract=True)
+
+        return session
+
+    def complete_session(self, session_id: str, generate_summary: bool = True) -> Optional[Session]:
+        """Complete a session and generate summary.
+
+        Args:
+            session_id: Session ID
+            generate_summary: Whether to generate summary
+
+        Returns:
+            Completed Session or None
+        """
+        return self.session_manager.complete_session(session_id, generate_summary)
+
+    def search_sessions(
+        self,
+        query: str,
+        user_id: Optional[str] = None,
+        k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SessionSearchResult]:
+        """Search sessions by semantic similarity.
+
+        Args:
+            query: Search query
+            user_id: Optional user ID filter
+            k: Number of results
+            filters: Optional filters (status, tags, etc.)
+
+        Returns:
+            List of SessionSearchResult objects
+        """
+        return self.session_manager.search_sessions(query, user_id, k, filters)
+
+    def get_user_sessions(
+        self,
+        user_id: str,
+        status: Optional[SessionStatus] = None,
+        limit: int = 50,
+    ) -> List[Session]:
+        """Get sessions for a user.
+
+        Args:
+            user_id: User ID
+            status: Optional status filter
+            limit: Maximum results
+
+        Returns:
+            List of Session objects sorted by date
+        """
+        return self.session_manager.get_user_sessions(user_id, status, limit)
+
+    def get_session_memories(self, session_id: str, limit: int = 100) -> List[Memory]:
+        """Get all memories for a session.
+
+        Args:
+            session_id: Session ID
+            limit: Maximum number of memories
+
+        Returns:
+            List of Memory objects
+        """
+        return self.get_memories(user_id="*", filters={"session_id": session_id}, limit=limit)
+
+    def get_child_sessions(self, parent_session_id: str) -> List[Session]:
+        """Get child sessions of a parent session.
+
+        Args:
+            parent_session_id: Parent session ID
+
+        Returns:
+            List of child Session objects
+        """
+        return self.session_manager.get_child_sessions(parent_session_id)
+
+    def summarize_session(self, session_id: str, force: bool = False) -> Optional[str]:
+        """Generate summary for a session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-summarization
+
+        Returns:
+            Generated summary or None
+        """
+        return self.session_manager.summarize_session(session_id, force)
+
+    def extract_session_facts(self, session_id: str, force: bool = False) -> List:
+        """Extract key facts from session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-extraction
+
+        Returns:
+            List of SessionFact objects
+        """
+        return self.session_manager.extract_session_facts(session_id, force)
+
+    def extract_session_entities(self, session_id: str, force: bool = False) -> Dict[str, Any]:
+        """Extract entities from session.
+
+        Args:
+            session_id: Session ID
+            force: Force re-extraction
+
+        Returns:
+            Dictionary of entity_name -> Entity
+        """
+        return self.session_manager.extract_session_entities(session_id, force)
+
+    def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
+        """Get statistics for a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dictionary with session statistics
+        """
+        return self.session_manager.get_session_statistics(session_id)
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            True if deleted successfully
+        """
+        return self.session_manager.delete_session(session_id)
+
+    # === SMART MEMORY UPDATES & CLUSTERING ===
+
+    def reconcile_user_memories(self, user_id: str) -> List[Memory]:
+        """Reconcile and resolve conflicts in user's memories.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            List of reconciled memories
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        if not memories:
+            return []
+
+        reconciled = self.smart_updater.reconcile_memories(memories, user_id)
+
+        logger.info(
+            f"Reconciled {len(memories)} memories into {len(reconciled)} for user {user_id}"
+        )
+        return reconciled
+
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+        """Cluster user's memories by topics.
+
+        Args:
+            user_id: User ID
+            max_clusters: Maximum number of clusters
+
+        Returns:
+            List of MemoryCluster objects
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        if not memories:
+            return []
+
+        clusters = self.categorizer.cluster_memories(memories, max_clusters=max_clusters)
+
+        logger.info(
+            f"Clustered {len(memories)} memories into {len(clusters)} topics for user {user_id}"
+        )
+        return clusters
+
+    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+        """Suggest tags for a memory.
+
+        Args:
+            memory: Memory to suggest tags for
+            max_tags: Maximum number of tags
+
+        Returns:
+            List of suggested tags
+        """
+        return self.categorizer.suggest_tags(memory, max_tags=max_tags)
+
+    def refine_memory_quality(
+        self, memory_id: str, context: Optional[str] = None
+    ) -> Optional[Memory]:
+        """Refine a memory's text quality using LLM.
+
+        Args:
+            memory_id: Memory ID to refine
+            context: Optional context for refinement
+
+        Returns:
+            Refined memory or None if not found
+        """
+        # Fetch memory
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+
+                # Refine
+                refined = self.smart_updater.refine_memory(memory, context)
+
+                # Update if changed
+                if refined.text != memory.text:
+                    return self.update_memory(
+                        memory_id=memory_id,
+                        text=refined.text,
+                        importance=refined.importance,
+                    )
+
+                return memory
+
+        return None
+
+    def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Optional[str]:
+        """Detect if there's been a shift in conversation topics.
+
+        Args:
+            user_id: User ID
+            window_size: Number of recent memories to analyze
+
+        Returns:
+            New dominant topic if shift detected, None otherwise
+        """
+        recent_memories = self.get_memories(user_id, limit=window_size * 2)
+        if not recent_memories:
+            return None
+
+        # Sort by creation time
+        recent_memories.sort(key=lambda m: m.created_at)
+
+        return self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
+
+    # === MULTI-AGENT SUPPORT ===
+
+    def create_agent(
+        self,
+        name: str,
+        user_id: str,
+        role: AgentRole = AgentRole.ASSISTANT,
+        description: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Agent:
+        """Create a new agent with its own memory space.
+
+        Args:
+            name: Agent name
+            user_id: User ID owning the agent
+            role: Agent role (assistant, specialist, coordinator, observer)
+            description: Optional description
+            metadata: Optional metadata
+
+        Returns:
+            Created Agent object
+
+        Example:
+            >>> agent = client.create_agent("Research Assistant", "alice", role=AgentRole.SPECIALIST)
+        """
+        return self.multiagent.create_agent(name, user_id, role, description, metadata)
+
+    def get_agent(self, agent_id: str) -> Optional[Agent]:
+        """Get agent by ID."""
+        return self.multiagent.get_agent(agent_id)
+
+    def list_agents(self, user_id: Optional[str] = None) -> List[Agent]:
+        """List all agents, optionally filtered by user."""
+        return self.multiagent.list_agents(user_id)
+
+    def update_agent(
+        self,
+        agent_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        role: Optional[AgentRole] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        is_active: Optional[bool] = None,
+    ) -> Optional[Agent]:
+        """Update agent properties."""
+        return self.multiagent.update_agent(agent_id, name, description, role, metadata, is_active)
+
+    def delete_agent(self, agent_id: str) -> bool:
+        """Delete an agent and its associated data."""
+        return self.multiagent.delete_agent(agent_id)
+
+    def create_run(
+        self,
+        agent_id: str,
+        user_id: str,
+        name: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Run:
+        """Create a new run for an agent.
+
+        Runs organize memories in a User → Agent → Run hierarchy.
+
+        Args:
+            agent_id: Agent ID
+            user_id: User ID
+            name: Optional run name
+            metadata: Optional metadata
+
+        Returns:
+            Created Run object
+
+        Example:
+            >>> run = client.create_run(agent.id, "alice", name="Research Session 1")
+            >>> memory = client.remember("Key finding", "alice", agent_id=agent.id, run_id=run.id)
+        """
+        return self.multiagent.create_run(agent_id, user_id, name, metadata)
+
+    def get_run(self, run_id: str) -> Optional[Run]:
+        """Get run by ID."""
+        return self.multiagent.get_run(run_id)
+
+    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Run]:
+        """List runs, optionally filtered by agent or user."""
+        return self.multiagent.list_runs(agent_id, user_id)
+
+    def complete_run(self, run_id: str, status: str = "completed") -> Optional[Run]:
+        """Mark a run as completed."""
+        return self.multiagent.complete_run(run_id, status)
+
+    def grant_agent_permission(
+        self,
+        granter_agent_id: str,
+        grantee_agent_id: str,
+        permissions: Set[PermissionType],
+        memory_filters: Optional[Dict[str, Any]] = None,
+        expires_at: Optional[datetime] = None,
+    ) -> AgentPermission:
+        """Grant permission for one agent to access another's memories.
+
+        Args:
+            granter_agent_id: Agent granting permission
+            grantee_agent_id: Agent receiving permission
+            permissions: Set of permissions (READ, WRITE, SHARE, DELETE)
+            memory_filters: Optional filters for which memories to share
+            expires_at: Optional expiration datetime
+
+        Returns:
+            Created AgentPermission object
+
+        Example:
+            >>> # Allow agent2 to read agent1's memories
+            >>> perm = client.grant_agent_permission(
+            ...     agent1.id,
+            ...     agent2.id,
+            ...     {PermissionType.READ}
+            ... )
+        """
+        return self.multiagent.grant_permission(
+            granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at
+        )
+
+    def revoke_agent_permission(self, permission_id: str) -> bool:
+        """Revoke an agent permission."""
+        return self.multiagent.revoke_permission(permission_id)
+
+    def check_agent_permission(
+        self, agent_id: str, target_agent_id: str, permission: PermissionType
+    ) -> bool:
+        """Check if an agent has permission to access another agent's memories."""
+        return self.multiagent.check_permission(agent_id, target_agent_id, permission)
+
+    def list_agent_permissions(
+        self,
+        granter_agent_id: Optional[str] = None,
+        grantee_agent_id: Optional[str] = None,
+    ) -> List[AgentPermission]:
+        """List permissions, optionally filtered."""
+        return self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
+
+    def transfer_memory(
+        self,
+        memory_id: str,
+        source_agent_id: str,
+        target_agent_id: str,
+        transfer_type: str = "copy",
+    ) -> Optional[Any]:
+        """Transfer a memory from one agent to another.
+
+        Args:
+            memory_id: Memory ID to transfer
+            source_agent_id: Source agent ID
+            target_agent_id: Target agent ID
+            transfer_type: "copy", "move", or "share"
+
+        Returns:
+            MemoryTransfer record or None if not allowed
+
+        Example:
+            >>> # Copy a memory from agent1 to agent2
+            >>> transfer = client.transfer_memory(memory.id, agent1.id, agent2.id, "copy")
+        """
+        # Get the memory
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+
+                # Transfer
+                transfer = self.multiagent.transfer_memory(
+                    memory, source_agent_id, target_agent_id, transfer_type
+                )
+
+                if transfer and transfer_type in ["copy", "share"]:
+                    # Create copy for target agent
+                    copied = memory.model_copy(deep=True)
+                    copied.id = str(uuid4())
+                    copied.agent_id = target_agent_id
+                    copied.metadata["transferred_from"] = source_agent_id
+                    copied.metadata["transfer_type"] = transfer_type
+
+                    # Store copied memory
+                    collection = memory.collection_name(
+                        self.config.collection_facts, self.config.collection_prefs
+                    )
+                    vector = self.embedder.encode_single(copied.text)
+                    self.qdrant.upsert(
+                        collection_name=collection,
+                        id=copied.id,
+                        vector=vector,
+                        payload=copied.model_dump(mode="json"),
+                    )
+
+                    # If move, delete original
+                    if transfer_type == "move":
+                        self.delete_memory(memory_id, memory.user_id)
+
+                return transfer
+
+        return None
+
+    def get_agent_memories(
+        self,
+        agent_id: str,
+        requesting_agent_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 100,
+    ) -> List[Memory]:
+        """Get memories for an agent, respecting permissions.
+
+        Args:
+            agent_id: Agent whose memories to retrieve
+            requesting_agent_id: Agent requesting access (for permission check)
+            filters: Optional additional filters
+            limit: Maximum memories to return
+
+        Returns:
+            List of accessible Memory objects
+
+        Example:
+            >>> # Get agent1's own memories
+            >>> memories = client.get_agent_memories(agent1.id)
+            >>>
+            >>> # Get agent1's memories from agent2's perspective (filtered by permissions)
+            >>> memories = client.get_agent_memories(agent1.id, requesting_agent_id=agent2.id)
+        """
+        # Get agent to verify user_id
+        agent = self.multiagent.get_agent(agent_id)
+        if not agent:
+            return []
+
+        # Get all memories for the user
+        filters = filters or {}
+        filters["agent_id"] = agent_id
+        memories = self.get_memories(agent.user_id, filters=filters, limit=limit)
+
+        # Filter by permissions if requesting from another agent
+        if requesting_agent_id and requesting_agent_id != agent_id:
+            memories = self.multiagent.filter_accessible_memories(
+                requesting_agent_id, memories, PermissionType.READ
+            )
+
+        return memories
+
+    def get_agent_stats(self, agent_id: str) -> Optional[Any]:
+        """Get memory statistics for an agent.
+
+        Returns:
+            AgentMemoryStats object with detailed statistics
+        """
+        agent = self.multiagent.get_agent(agent_id)
+        if not agent:
+            return None
+
+        memories = self.get_memories(agent.user_id, limit=10000)
+        return self.multiagent.get_agent_stats(agent_id, memories)
+
+    # === TEMPORAL REASONING ===
+
+    def get_memories_by_time_range(
+        self,
+        user_id: str,
+        time_range: Optional[TimeRange] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 100,
+    ) -> List[Memory]:
+        """Get memories within a specific time range.
+
+        Args:
+            user_id: User ID
+            time_range: Predefined time range (e.g., LAST_WEEK, THIS_MONTH)
+            start_time: Custom start time (if time_range not specified)
+            end_time: Custom end time (if time_range not specified)
+            filters: Additional filters
+            limit: Maximum memories to return
+
+        Returns:
+            List of memories within time range
+
+        Example:
+            >>> # Get memories from last week
+            >>> memories = client.get_memories_by_time_range("alice", time_range=TimeRange.LAST_WEEK)
+            >>>
+            >>> # Get memories from custom date range
+            >>> from datetime import datetime, timedelta, timezone
+            >>> start = datetime.now(timezone.utc) - timedelta(days=7)
+            >>> end = datetime.now(timezone.utc)
+            >>> memories = client.get_memories_by_time_range("alice", start_time=start, end_time=end)
+        """
+        # Get all memories
+        all_memories = self.get_memories(user_id, filters=filters, limit=limit * 2)
+
+        # Filter by time range
+        filtered = self.temporal_analyzer.filter_by_time_range(
+            all_memories, time_range, start_time, end_time
+        )
+
+        return filtered[:limit]
+
+    def build_memory_narrative(
+        self, user_id: str, time_range: Optional[TimeRange] = None, title: Optional[str] = None
+    ) -> str:
+        """Build a chronological narrative from user's memories.
+
+        Args:
+            user_id: User ID
+            time_range: Optional time range filter
+            title: Optional narrative title
+
+        Returns:
+            Formatted chronological narrative
+
+        Example:
+            >>> narrative = client.build_memory_narrative("alice", TimeRange.LAST_MONTH, "My Month")
+            >>> print(narrative)
+        """
+        memories = self.get_memories(user_id, limit=1000)
+
+        if time_range:
+            memories = self.temporal_analyzer.filter_by_time_range(memories, time_range)
+
+        return self.temporal_analyzer.build_chronological_narrative(memories, title)
+
+    def create_memory_timeline(
+        self,
+        user_id: str,
+        title: str = "Memory Timeline",
+        time_range: Optional[TimeRange] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> Timeline:
+        """Create a timeline of user's memories.
+
+        Args:
+            user_id: User ID
+            title: Timeline title
+            time_range: Optional predefined time range
+            start_time: Optional custom start time
+            end_time: Optional custom end time
+
+        Returns:
+            Timeline object with temporal events
+
+        Example:
+            >>> timeline = client.create_memory_timeline("alice", "Last Week", TimeRange.LAST_WEEK)
+            >>> print(f"Timeline has {len(timeline.events)} events")
+            >>> print(f"Duration: {timeline.get_duration()}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+
+        if time_range:
+            memories = self.temporal_analyzer.filter_by_time_range(memories, time_range)
+        elif start_time and end_time:
+            memories = self.temporal_analyzer.filter_by_time_range(
+                memories, None, start_time, end_time
+            )
+
+        return self.temporal_analyzer.create_timeline(
+            memories, user_id, title, start_time, end_time
+        )
+
+    def analyze_event_sequences(self, user_id: str, max_gap_hours: int = 24) -> List[List[Memory]]:
+        """Identify sequences of related events in memories.
+
+        Args:
+            user_id: User ID
+            max_gap_hours: Maximum time gap to consider events related
+
+        Returns:
+            List of event sequences (each is a list of memories)
+
+        Example:
+            >>> sequences = client.analyze_event_sequences("alice", max_gap_hours=6)
+            >>> for i, seq in enumerate(sequences):
+            >>>     print(f"Sequence {i+1}: {len(seq)} related events")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        return self.temporal_analyzer.analyze_event_sequences(memories, max_gap_hours)
+
+    def schedule_memory(
+        self,
+        text: str,
+        user_id: str,
+        scheduled_for: datetime,
+        type: str = "fact",
+        tags: Optional[List[str]] = None,
+        recurrence: Optional[str] = None,
+        reminder_offset: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> ScheduledMemory:
+        """Schedule a memory for future creation.
+
+        Args:
+            text: Memory text
+            user_id: User ID
+            scheduled_for: When to create the memory
+            type: Memory type
+            tags: Optional tags
+            recurrence: Optional recurrence ("daily", "weekly", "monthly")
+            reminder_offset: Minutes before scheduled_for to trigger
+            metadata: Optional metadata
+
+        Returns:
+            ScheduledMemory object
+
+        Example:
+            >>> from datetime import datetime, timedelta, timezone
+            >>> tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+            >>> scheduled = client.schedule_memory(
+            >>>     "Follow up on project",
+            >>>     "alice",
+            >>>     tomorrow,
+            >>>     recurrence="daily"
+            >>> )
+        """
+        return self.temporal_analyzer.schedule_memory(
+            text=text,
+            user_id=user_id,
+            scheduled_for=scheduled_for,
+            type=MemoryType(type),
+            tags=tags,
+            recurrence=recurrence,
+            reminder_offset=reminder_offset,
+            metadata=metadata,
+        )
+
+    def get_due_scheduled_memories(self) -> List[ScheduledMemory]:
+        """Get scheduled memories that are due for creation.
+
+        Returns:
+            List of due scheduled memories
+
+        Example:
+            >>> due = client.get_due_scheduled_memories()
+            >>> for scheduled in due:
+            >>>     memory = client.remember(scheduled.text, scheduled.user_id)
+            >>>     client.trigger_scheduled_memory(scheduled.id)
+        """
+        return self.temporal_analyzer.get_due_scheduled_memories()
+
+    def trigger_scheduled_memory(self, scheduled_id: str) -> bool:
+        """Mark a scheduled memory as triggered.
+
+        Args:
+            scheduled_id: Scheduled memory ID
+
+        Returns:
+            True if triggered successfully
+        """
+        return self.temporal_analyzer.trigger_scheduled_memory(scheduled_id)
+
+    def get_temporal_summary(self, user_id: str) -> Dict[str, Any]:
+        """Get temporal statistics for user's memories.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Dictionary with temporal statistics
+
+        Example:
+            >>> stats = client.get_temporal_summary("alice")
+            >>> print(f"Time span: {stats['time_span_days']} days")
+            >>> print(f"Peak activity: {stats['peak_activity_hour']}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.temporal_analyzer.get_temporal_summary(memories, user_id)
+
+    # === CROSS-SESSION INSIGHTS ===
+
+    def detect_patterns(
+        self, user_id: str, session_ids: Optional[List[str]] = None
+    ) -> List[Pattern]:
+        """Detect behavioral patterns across memories and sessions.
+
+        Args:
+            user_id: User ID
+            session_ids: Optional list of session IDs to analyze
+
+        Returns:
+            List of detected patterns
+
+        Example:
+            >>> patterns = client.detect_patterns("alice")
+            >>> for pattern in patterns[:5]:
+            >>>     print(f"{pattern.pattern_type}: {pattern.description}")
+            >>>     print(f"  Confidence: {pattern.confidence:.2f}")
+            >>>     print(f"  Occurrences: {pattern.occurrences}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+
+        # Get sessions if IDs provided
+        sessions = None
+        if session_ids:
+            sessions = [self.session_manager.get_session(sid) for sid in session_ids]
+            sessions = [s for s in sessions if s is not None]
+
+        return self.insight_analyzer.detect_patterns(memories, user_id, sessions)
+
+    def track_behavior_changes(
+        self,
+        user_id: str,
+        comparison_days: int = 30,
+    ) -> List[BehaviorChange]:
+        """Track changes in user behavior between time periods.
+
+        Args:
+            user_id: User ID
+            comparison_days: Days to use for comparison (compares recent vs older)
+
+        Returns:
+            List of detected behavior changes
+
+        Example:
+            >>> changes = client.track_behavior_changes("alice", comparison_days=30)
+            >>> for change in changes:
+            >>>     print(f"{change.change_type.value}: {change.description}")
+            >>>     print(f"  Confidence: {change.confidence:.2f}")
+        """
+        all_memories = self.get_memories(user_id, limit=10000)
+
+        # Split into old and new periods
+        cutoff = datetime.now(timezone.utc) - timedelta(days=comparison_days)
+        old_memories = [m for m in all_memories if m.created_at < cutoff]
+        new_memories = [m for m in all_memories if m.created_at >= cutoff]
+
+        return self.insight_analyzer.track_behavior_changes(old_memories, new_memories, user_id)
+
+    def analyze_preference_drift(
+        self, user_id: str, category: Optional[str] = None
+    ) -> List[PreferenceDrift]:
+        """Analyze how user preferences have changed over time.
+
+        Args:
+            user_id: User ID
+            category: Optional category to filter
+
+        Returns:
+            List of preference drift analyses
+
+        Example:
+            >>> drifts = client.analyze_preference_drift("alice")
+            >>> for drift in drifts:
+            >>>     print(f"Category: {drift.category}")
+            >>>     print(f"  Original: {drift.original_preference}")
+            >>>     print(f"  Current: {drift.current_preference}")
+            >>>     print(f"  Drift score: {drift.drift_score:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
+
+    def detect_habits(self, user_id: str, min_occurrences: int = 5) -> List[HabitScore]:
+        """Detect and score potential habits from user's memories.
+
+        Args:
+            user_id: User ID
+            min_occurrences: Minimum occurrences to consider as habit
+
+        Returns:
+            List of habit scores (sorted by score)
+
+        Example:
+            >>> habits = client.detect_habits("alice", min_occurrences=5)
+            >>> for habit in habits[:3]:
+            >>>     print(f"Behavior: {habit.behavior}")
+            >>>     print(f"  Habit score: {habit.habit_score:.2f}")
+            >>>     print(f"  Status: {habit.status}")
+            >>>     print(f"  Frequency: {habit.frequency} times")
+            >>>     print(f"  Consistency: {habit.consistency:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
+
+    def analyze_trends(self, user_id: str, window_days: int = 30) -> List[Trend]:
+        """Analyze long-term trends in user behavior.
+
+        Args:
+            user_id: User ID
+            window_days: Analysis window in days
+
+        Returns:
+            List of trends
+
+        Example:
+            >>> trends = client.analyze_trends("alice", window_days=30)
+            >>> for trend in trends:
+            >>>     print(f"Category: {trend.category}")
+            >>>     print(f"  Trend: {trend.trend_type} ({trend.direction})")
+            >>>     print(f"  Strength: {trend.strength:.2f}")
+        """
+        memories = self.get_memories(user_id, limit=10000)
+        return self.insight_analyzer.analyze_trends(memories, user_id, window_days)
+
+    # === INTELLIGENCE FEATURES ===
+
+    def extract_facts(
+        self,
+        text: str,
+        source: str = "text",
+        user_id: Optional[str] = None,
+    ) -> List[ExtractedFact]:
+        """Extract structured facts from text.
+
+        Args:
+            text: Input text to extract facts from
+            source: Source identifier (e.g., "conversation", "document")
+            user_id: Optional user ID for context
+
+        Returns:
+            List of ExtractedFact objects
+
+        Example:
+            >>> facts = client.extract_facts(
+            ...     "John works at Google in San Francisco. He studied Computer Science at MIT.",
+            ...     source="profile"
+            ... )
+            >>> for fact in facts:
+            ...     print(f"{fact.category.value}: {fact.fact}")
+        """
+        return self.fact_extractor.extract_facts(text, source, user_id)
+
+    def extract_facts_from_conversation(
+        self,
+        conversation: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+    ) -> List[ExtractedFact]:
+        """Extract facts from a multi-turn conversation.
+
+        Args:
+            conversation: Full conversation text
+            user_id: User ID
+            session_id: Optional session ID
+
+        Returns:
+            List of ExtractedFact objects
+
+        Example:
+            >>> conversation = '''
+            ... User: I'm a software engineer at Tesla
+            ... Assistant: That's great! How long have you been there?
+            ... User: About 2 years now
+            ... '''
+            >>> facts = client.extract_facts_from_conversation(conversation, "alice")
+        """
+        return self.fact_extractor.extract_from_conversation(conversation, user_id, session_id)
+
+    def extract_entities(
+        self,
+        text: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[Entity]:
+        """Extract named entities from text.
+
+        Args:
+            text: Input text
+            context: Optional context (memory_id, user_id, etc.)
+
+        Returns:
+            List of Entity objects
+
+        Example:
+            >>> entities = client.extract_entities(
+            ...     "Elon Musk founded SpaceX in California in 2002"
+            ... )
+            >>> for entity in entities:
+            ...     print(f"{entity.type.value}: {entity.text}")
+        """
+        return self.entity_recognizer.extract_entities(text, context)
+
+    def extract_relationships(
+        self,
+        text: str,
+        entities: Optional[List[Entity]] = None,
+    ) -> List[EntityRelationship]:
+        """Extract relationships between entities.
+
+        Args:
+            text: Input text
+            entities: Previously extracted entities (optional)
+
+        Returns:
+            List of EntityRelationship objects
+
+        Example:
+            >>> relationships = client.extract_relationships(
+            ...     "Steve Jobs worked at Apple and lived in California"
+            ... )
+            >>> for rel in relationships:
+            ...     print(f"{rel.relation_type.value}: confidence {rel.confidence}")
+        """
+        return self.entity_recognizer.extract_relationships(text, entities)
+
+    def get_entity_profile(self, entity_id: str) -> Optional[Any]:
+        """Get complete profile for an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            EntityProfile object or None
+
+        Example:
+            >>> profile = client.get_entity_profile("person_john_doe")
+            >>> if profile:
+            ...     print(f"Name: {profile.canonical_name}")
+            ...     print(f"Mentions: {profile.mention_count}")
+            ...     print(f"Aliases: {profile.aliases}")
+        """
+        return self.entity_recognizer.get_entity_profile(entity_id)
+
+    def search_entities(
+        self,
+        query: str,
+        entity_type: Optional[EntityType] = None,
+        min_mentions: int = 1,
+    ) -> List[Any]:
+        """Search for entities by name.
+
+        Args:
+            query: Search query
+            entity_type: Optional entity type filter
+            min_mentions: Minimum number of mentions
+
+        Returns:
+            List of EntityProfile objects
+
+        Example:
+            >>> # Search for all people named "John"
+            >>> results = client.search_entities("john", entity_type=EntityType.PERSON)
+            >>>
+            >>> # Search for frequently mentioned entities
+            >>> results = client.search_entities("tesla", min_mentions=5)
+        """
+        return self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+
+    def summarize_conversation(
+        self,
+        messages: List[Dict[str, Any]],
+        session_id: str = "unknown",
+        style: SummaryStyle = SummaryStyle.CONCISE,
+        entities: Optional[List[str]] = None,
+    ) -> SessionSummary:
+        """Generate summary for a conversation.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            session_id: Session identifier
+            style: Summary style (concise, detailed, bullet_points, etc.)
+            entities: Pre-extracted entities (optional)
+
+        Returns:
+            SessionSummary object
+
+        Example:
+            >>> messages = [
+            ...     {"role": "user", "content": "I need help with Python"},
+            ...     {"role": "assistant", "content": "I'd be happy to help!"},
+            ... ]
+            >>> summary = client.summarize_conversation(
+            ...     messages,
+            ...     session_id="session_123",
+            ...     style=SummaryStyle.BULLET_POINTS
+            ... )
+            >>> print(summary.summary)
+            >>> print(f"Topics: {summary.topics}")
+            >>> print(f"Action items: {summary.action_items}")
+        """
+        return self.summarizer.summarize_session(messages, session_id, style, entities)
+
+    def create_rolling_summary(
+        self,
+        messages: List[Dict[str, Any]],
+        window_size: int = 10,
+        style: SummaryStyle = SummaryStyle.CONCISE,
+    ) -> str:
+        """Create rolling summary of recent messages.
+
+        Args:
+            messages: All messages
+            window_size: Number of recent messages to summarize
+            style: Summary style
+
+        Returns:
+            Summary text
+
+        Example:
+            >>> summary = client.create_rolling_summary(messages, window_size=5)
+        """
+        return self.summarizer.create_rolling_summary(messages, window_size, style)
+
+    def extract_conversation_insights(
+        self,
+        messages: List[Dict[str, Any]],
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """Extract insights from conversation.
+
+        Args:
+            messages: Conversation messages
+            user_id: User identifier
+
+        Returns:
+            Dictionary with insights including decisions, learning points, patterns
+
+        Example:
+            >>> insights = client.extract_conversation_insights(messages, "alice")
+            >>> print(f"Topics: {insights['topics']}")
+            >>> print(f"Sentiment: {insights['sentiment']}")
+            >>> print(f"Key decisions: {insights['key_decisions']}")
+        """
+        return self.summarizer.extract_insights(messages, user_id)
+
+    # === KNOWLEDGE GRAPH OPERATIONS ===
+
+    def add_entity_to_graph(
+        self,
+        entity: Entity,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Add an entity node to the knowledge graph.
+
+        Args:
+            entity: Entity object
+            metadata: Additional metadata
+
+        Returns:
+            Node ID for the entity
+
+        Example:
+            >>> entities = client.extract_entities("Steve Jobs founded Apple")
+            >>> for entity in entities:
+            ...     node_id = client.add_entity_to_graph(entity)
+        """
+        return self.graph.add_entity(entity, metadata)
+
+    def add_fact_to_graph(
+        self,
+        fact: ExtractedFact,
+        fact_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Add a fact node to the knowledge graph.
+
+        Args:
+            fact: ExtractedFact object
+            fact_id: Optional custom fact ID
+            metadata: Additional metadata
+
+        Returns:
+            Node ID for the fact
+
+        Example:
+            >>> facts = client.extract_facts("John works at Google")
+            >>> for fact in facts:
+            ...     node_id = client.add_fact_to_graph(fact)
+        """
+        return self.graph.add_fact(fact, fact_id, metadata)
+
+    def link_memory_to_entity(
+        self,
+        memory_id: str,
+        entity_id: str,
+        relation_type: RelationType = RelationType.RELATED_TO,
+        confidence: float = 0.9,
+    ) -> bool:
+        """Link a memory to an entity in the knowledge graph.
+
+        Args:
+            memory_id: Memory node ID
+            entity_id: Entity ID
+            relation_type: Type of relationship
+            confidence: Confidence score
+
+        Returns:
+            True if successful
+
+        Example:
+            >>> # Extract entities and link to memory
+            >>> entities = client.extract_entities(memory.text)
+            >>> for entity in entities:
+            ...     client.add_entity_to_graph(entity)
+            ...     client.link_memory_to_entity(memory.id, entity.entity_id)
+        """
+        return self.graph.link_memory_to_entity(memory_id, entity_id, relation_type, confidence)
+
+    def link_memory_to_fact(
+        self,
+        memory_id: str,
+        fact_id: str,
+        confidence: float = 0.9,
+    ) -> bool:
+        """Link a memory to a fact extracted from it.
+
+        Args:
+            memory_id: Memory node ID
+            fact_id: Fact ID
+            confidence: Confidence score
+
+        Returns:
+            True if successful
+        """
+        return self.graph.link_memory_to_fact(memory_id, fact_id, confidence)
+
+    def get_entity_memories(self, entity_id: str) -> List[str]:
+        """Get all memories mentioning an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of memory IDs
+
+        Example:
+            >>> memory_ids = client.get_entity_memories("person_john_doe")
+            >>> for mem_id in memory_ids:
+            ...     # Fetch and process memories
+            ...     pass
+        """
+        return self.graph.get_entity_memories(entity_id)
+
+    def get_entity_facts(self, entity_id: str) -> List[str]:
+        """Get all facts about an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of fact IDs
+
+        Example:
+            >>> fact_ids = client.get_entity_facts("organization_google")
+        """
+        return self.graph.get_entity_facts(entity_id)
+
+    def get_entity_connections(
+        self,
+        entity_id: str,
+        max_distance: int = 2,
+    ) -> Dict[str, List[tuple]]:
+        """Find all entities connected to a given entity.
+
+        Args:
+            entity_id: Source entity ID
+            max_distance: Maximum distance (hops) to search
+
+        Returns:
+            Dictionary mapping relation types to lists of (entity_id, distance) tuples
+
+        Example:
+            >>> connections = client.get_entity_connections("person_john_doe", max_distance=2)
+            >>> for relation_type, entities in connections.items():
+            ...     print(f"{relation_type}: {len(entities)} connected entities")
+        """
+        return self.graph.find_entity_connections(entity_id, max_distance)
+
+    def get_knowledge_subgraph(
+        self,
+        center_id: str,
+        radius: int = 2,
+        include_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Get a subgraph around a central node.
+
+        Args:
+            center_id: Central node ID (memory, entity, or fact)
+            radius: How many hops to include
+            include_types: Filter by node types (e.g., ["entity", "fact"])
+
+        Returns:
+            Subgraph data with nodes and edges
+
+        Example:
+            >>> subgraph = client.get_knowledge_subgraph("person_john_doe", radius=2)
+            >>> print(f"Nodes: {len(subgraph['nodes'])}")
+            >>> print(f"Edges: {len(subgraph['edges'])}")
+        """
+        from hippocampai.graph.knowledge_graph import NodeType
+
+        node_types = None
+        if include_types:
+            node_types = [NodeType(t) for t in include_types]
+
+        return self.graph.get_knowledge_subgraph(center_id, radius, node_types)
+
+    def get_entity_timeline(self, entity_id: str) -> List[Dict[str, Any]]:
+        """Get chronological timeline of facts and memories about an entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            List of timeline events sorted by time
+
+        Example:
+            >>> timeline = client.get_entity_timeline("person_john_doe")
+            >>> for event in timeline:
+            ...     print(f"{event['timestamp']}: {event['type']} - {event.get('text', '')}")
+        """
+        return self.graph.get_entity_timeline(entity_id)
+
+    def infer_knowledge(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Infer new facts from existing knowledge graph patterns.
+
+        Args:
+            user_id: Optional user ID to limit inference
+
+        Returns:
+            List of inferred facts with confidence scores
+
+        Example:
+            >>> inferred = client.infer_knowledge(user_id="alice")
+            >>> for fact in inferred:
+            ...     print(f"{fact['fact']} (confidence: {fact['confidence']:.2f})")
+            ...     print(f"  Rule: {fact['rule']}")
+        """
+        return self.graph.infer_new_facts(user_id)
+
+    def enrich_memory_with_intelligence(
+        self,
+        memory: Memory,
+        add_to_graph: bool = True,
+    ) -> Dict[str, Any]:
+        """Enrich a memory with facts, entities, and add to knowledge graph.
+
+        This is a convenience method that extracts facts and entities from a memory
+        and optionally adds them to the knowledge graph.
+
+        Args:
+            memory: Memory object to enrich
+            add_to_graph: Whether to add extracted information to knowledge graph
+
+        Returns:
+            Dictionary with extracted facts, entities, and relationships
+
+        Example:
+            >>> memory = client.remember("Steve Jobs founded Apple in California", "alice")
+            >>> enrichment = client.enrich_memory_with_intelligence(memory)
+            >>> print(f"Facts: {len(enrichment['facts'])}")
+            >>> print(f"Entities: {len(enrichment['entities'])}")
+            >>> print(f"Relationships: {len(enrichment['relationships'])}")
+        """
+        # Extract facts
+        facts = self.fact_extractor.extract_facts(
+            memory.text,
+            source=f"memory_{memory.id}",
+            user_id=memory.user_id,
+        )
+
+        # Extract entities
+        entities = self.entity_recognizer.extract_entities(
+            memory.text,
+            context={"memory_id": memory.id, "user_id": memory.user_id},
+        )
+
+        # Extract relationships
+        relationships = self.entity_recognizer.extract_relationships(memory.text, entities)
+
+        # Add to knowledge graph if requested
+        if add_to_graph:
+            # Add entities
+            for entity in entities:
+                try:
+                    self.graph.add_entity(entity)
+                    # Link memory to entity
+                    self.graph.link_memory_to_entity(memory.id, entity.entity_id)
+                except Exception as e:
+                    logger.warning(f"Failed to add entity to graph: {e}")
+
+            # Add facts
+            for fact in facts:
+                try:
+                    fact_id = f"fact_{hash(fact.fact) % 10**10}"
+                    self.graph.add_fact(fact, fact_id)
+                    # Link memory to fact
+                    self.graph.link_memory_to_fact(memory.id, fact_id)
+
+                    # Link facts to entities they mention
+                    for entity_name in fact.entities:
+                        # Try to find matching entity
+                        for entity in entities:
+                            if entity.text.lower() == entity_name.lower():
+                                self.graph.link_fact_to_entity(fact_id, entity.entity_id)
+                                break
+                except Exception as e:
+                    logger.warning(f"Failed to add fact to graph: {e}")
+
+            # Add entity relationships
+            for relationship in relationships:
+                try:
+                    self.graph.link_entities(relationship)
+                except Exception as e:
+                    logger.warning(f"Failed to add relationship to graph: {e}")
+
+        return {
+            "facts": facts,
+            "entities": entities,
+            "relationships": relationships,
+            "graph_updated": add_to_graph,
+        }

@@ -1,6 +1,7 @@
 """Qdrant vector store with HNSW tuning."""
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -86,17 +87,32 @@ class QdrantStore:
                     field_name="tags",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
-                logger.info(f"Created collection and indices: {coll_name}")
-            except UnexpectedResponse as e:
-                # Check if the error is "already exists", otherwise re-raise
-                if "already exists" in str(e).lower():
-                    logger.debug(f"Collection {coll_name} creation skipped: {e}")
-                else:
-                    logger.error(f"Failed to create collection {coll_name}: {e}")
-                    raise
+
+                logger.info(f"Created collection: {collection_name}")
+
+                # Wait for collection to be fully ready (avoid race conditions in tests)
+                self._wait_for_collection_ready(collection_name)
+
+    def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10):
+        """Wait for collection to be fully initialized and queryable."""
+        for attempt in range(max_attempts):
+            try:
+                # Try to get collection info to verify it's ready
+                info = self.client.get_collection(collection_name)
+                if info.status == "green":
+                    logger.debug(f"Collection {collection_name} is ready")
+                    return
+                logger.debug(f"Collection {collection_name} status: {info.status}, waiting...")
             except Exception as e:
-                logger.error(f"Unexpected error creating collection {coll_name}: {e}")
-                raise
+                logger.debug(f"Collection {collection_name} not ready (attempt {attempt + 1}): {e}")
+
+            if attempt < max_attempts - 1:
+                time.sleep(0.2)  # Short wait between attempts
+
+        logger.warning(
+            f"Collection {collection_name} may not be fully ready after {max_attempts} attempts"
+        )
+
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
         """Insert or update a point (with automatic retry on transient failures)."""
