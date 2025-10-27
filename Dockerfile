@@ -1,6 +1,6 @@
 # ==================== Multi-stage Build ====================
 # Stage 1: Builder
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
