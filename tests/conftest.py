@@ -7,6 +7,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -17,6 +19,19 @@ while str(ROOT) in sys.path:
 
 if str(SRC) not in sys.path:
     sys.path.append(str(SRC))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_qdrant_collections():
+    """Ensure test collections exist before any memory tests run."""
+    client = QdrantClient(host="localhost", port=6333)
+    collection_name = "test_facts_advanced"
+    if not client.collection_exists(collection_name=collection_name):
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+        )
+    yield
 
 
 @pytest.fixture
