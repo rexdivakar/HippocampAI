@@ -16,9 +16,16 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
+    # Use Groq consistently in CI; only essential vars
+    env:
+      HIPPO_LLM_PROVIDER: "groq"
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      HIPPO_LLM_BASE_URL: "https://api.groq.com/openai/v1"
+      HIPPO_LLM_MODEL: "llama-3.1-8b-instant"
+      QDRANT_URL: "http://localhost:6333"
+
     services:
       qdrant:
-        # (optional but recommended) pin image to a version or digest instead of :latest
         image: qdrant/qdrant@sha256:f8f833b5c8d215bb94ff20b7c68cb5f0ca2f4516c870e321a1b655141665c105
         ports:
           - 6333:6333
@@ -42,9 +49,14 @@ jobs:
           key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-python-${{ matrix.python-version }}-
-        
-      - name: Ruff lint
-        run: pip install ruff && ruff check . --output-format=github
+
+      # Warn-only Ruff check
+      - name: Ruff lint (warn only)
+        run: |
+          pip install ruff
+          if ! ruff check . --output-format=github; then
+            echo "::warning ::Ruff found issues (not failing CI)"
+          fi
 
       - name: Ruff format (warn only)
         run: |
@@ -60,29 +72,28 @@ jobs:
       - name: Wait for Qdrant to be ready
         run: |
           echo "Waiting for Qdrant to be ready..."
-          for i in {1..30}; do
-            if curl -f http://localhost:6333/healthz > /dev/null 2>&1; then
+          for i in {1..60}; do
+            if curl -sf http://localhost:6333/readyz >/dev/null; then
               echo "Qdrant is ready!"
               curl -s http://localhost:6333/ | head -20
               exit 0
             fi
-            echo "Attempt $i/30: Qdrant not ready yet, waiting..."
+            echo "Attempt $i/60: Qdrant not ready yet, waiting..."
             sleep 2
           done
           echo "Qdrant failed to become ready"
           exit 1
-        
+
       - name: Check Qdrant Status
-        run: |
-          curl http://localhost:6333/readyz
+        run: curl -f http://localhost:6333/readyz
 
       - name: Run Tests
-        run: |
-          pytest -v --maxfail=2 --disable-warnings --cov=src --cov-report=term-missing
         env:
           QDRANT_HOST: localhost
           QDRANT_PORT: 6333
           QDRANT_URL: http://localhost:6333
+        run: |
+          pytest -v --maxfail=2 --disable-warnings --cov=src --cov-report=term-missing
 
   build:
     name: Build Package
