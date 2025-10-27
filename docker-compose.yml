@@ -1,0 +1,203 @@
+version: '3.8'
+
+services:
+  # ==================== Core Services ====================
+
+  # HippocampAI FastAPI Application
+  hippocampai:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: hippocampai-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Qdrant
+      QDRANT_URL: http://qdrant:6333
+      COLLECTION_FACTS: hippocampai_facts
+      COLLECTION_PREFS: hippocampai_prefs
+
+      # Redis (with connection pooling)
+      REDIS_URL: redis://redis:6379
+      REDIS_DB: 0
+      REDIS_CACHE_TTL: 300
+      REDIS_MAX_CONNECTIONS: 100
+      REDIS_MIN_IDLE: 10
+
+      # LLM Configuration
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_MODEL: ${LLM_MODEL:-llama-3.1-8b-instant}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ALLOW_CLOUD: ${ALLOW_CLOUD:-true}
+
+      # Embeddings
+      EMBED_MODEL: ${EMBED_MODEL:-BAAI/bge-small-en-v1.5}
+      EMBED_QUANTIZED: ${EMBED_QUANTIZED:-false}
+      EMBED_BATCH_SIZE: ${EMBED_BATCH_SIZE:-32}
+
+      # Reranker
+      RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+
+      # HNSW Tuning
+      HNSW_M: 48
+      EF_CONSTRUCTION: 256
+
+      # Weights
+      WEIGHT_SIM: 0.4
+      WEIGHT_RERANK: 0.3
+      WEIGHT_RECENCY: 0.15
+      WEIGHT_IMPORTANCE: 0.15
+
+      # Background Tasks
+      ENABLE_BACKGROUND_TASKS: true
+      AUTO_DEDUP_ENABLED: true
+      AUTO_CONSOLIDATION_ENABLED: false
+      DEDUP_INTERVAL_HOURS: 24
+      CONSOLIDATION_INTERVAL_HOURS: 168
+      EXPIRATION_INTERVAL_HOURS: 1
+
+      # Monitoring
+      PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-true}
+
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+    command: uvicorn hippocampai.api.async_app:app --host 0.0.0.0 --port 8000 --workers 4
+
+  # ==================== Storage Services ====================
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: hippocampai-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      # Performance tuning
+      QDRANT__SERVICE__MAX_REQUEST_SIZE_MB: 32
+      QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: 4
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7.2-alpine
+    container_name: hippocampai-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --tcp-backlog 511
+      --timeout 300
+      --tcp-keepalive 300
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Monitoring Services ====================
+
+  # Prometheus Metrics Collection
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: hippocampai-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: hippocampai-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_DATABASE_TYPE: sqlite3
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ==================== Networks ====================
+networks:
+  hippocampai-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==================== Volumes ====================
+volumes:
+  qdrant_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

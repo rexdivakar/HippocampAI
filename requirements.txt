@@ -20,5 +20,11 @@ pydantic==2.12.3
 flask>=3.0.0
 flask-cors>=4.0.0
 
+# FastAPI & Async
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+redis>=5.0.0
+aioredis>=2.0.0
+
 # Tools & Utilities
 requests>=2.31.0
