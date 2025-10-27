@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import pytest_asyncio
 
 from hippocampai.config import Config
 from hippocampai.embed.embedder import Embedder
@@ -13,7 +14,7 @@ from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def redis_store():
     """Create Redis store for testing."""
     store = AsyncMemoryKVStore(redis_url="redis://localhost:6379", cache_ttl=60)
@@ -65,16 +66,16 @@ def reranker():
     return Reranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def service(qdrant_store, embedder, reranker, redis_store):
     """Create memory management service for testing."""
-    service = MemoryManagementService(
+    svc = MemoryManagementService(
         qdrant_store=qdrant_store,
         embedder=embedder,
         reranker=reranker,
         redis_store=redis_store,
     )
-    return service
+    yield svc
 
 
 # ============================================================================
