@@ -87,10 +87,16 @@ class QdrantStore:
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
                 logger.info(f"Created collection and indices: {coll_name}")
+            except UnexpectedResponse as e:
+                # Check if the error is "already exists", otherwise re-raise
+                if "already exists" in str(e).lower():
+                    logger.debug(f"Collection {coll_name} creation skipped: {e}")
+                else:
+                    logger.error(f"Failed to create collection {coll_name}: {e}")
+                    raise
             except Exception as e:
-                # Collection already exists or other error occurred
-                logger.debug(f"Collection {coll_name} creation skipped: {e}")
-
+                logger.error(f"Unexpected error creating collection {coll_name}: {e}")
+                raise
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
         """Insert or update a point (with automatic retry on transient failures)."""
