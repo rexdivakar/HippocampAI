@@ -1,10 +1,11 @@
 """Memory versioning and audit trail system."""
 
+import difflib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -173,7 +174,7 @@ class MemoryVersionControl:
         if not v1 or not v2:
             return None
 
-        diff = {"added": {}, "removed": {}, "changed": {}}
+        diff = {"added": {}, "removed": {}, "changed": {}, "text_diff": None}
 
         # Find added and changed
         for key, value in v2.data.items():
@@ -187,7 +188,41 @@ class MemoryVersionControl:
             if key not in v2.data:
                 diff["removed"][key] = v1.data[key]
 
+        # Generate text diff if text field changed
+        if "text" in diff["changed"]:
+            old_text = diff["changed"]["text"]["old"]
+            new_text = diff["changed"]["text"]["new"]
+            diff["text_diff"] = self._generate_text_diff(old_text, new_text)
+
         return diff
+
+    def _generate_text_diff(self, old_text: str, new_text: str) -> dict[str, Any]:
+        """
+        Generate a detailed text diff using difflib.
+
+        Returns:
+            Dictionary with unified diff and statistics
+        """
+        old_lines = old_text.splitlines(keepends=True)
+        new_lines = new_text.splitlines(keepends=True)
+
+        # Generate unified diff
+        diff_lines = list(
+            difflib.unified_diff(old_lines, new_lines, fromfile="old", tofile="new", lineterm="")
+        )
+
+        # Calculate statistics
+        added_lines = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
+        removed_lines = sum(1 for line in diff_lines if line.startswith("-") and not line.startswith("---"))
+
+        return {
+            "unified_diff": "\n".join(diff_lines),
+            "added_lines": added_lines,
+            "removed_lines": removed_lines,
+            "old_length": len(old_text),
+            "new_length": len(new_text),
+            "size_change": len(new_text) - len(old_text),
+        }
 
     def rollback(self, memory_id: str, version_number: int) -> Optional[dict[str, Any]]:
         """

@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-from typing import List, Tuple
 
 from sentence_transformers import CrossEncoder
 

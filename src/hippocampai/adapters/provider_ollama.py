@@ -1,7 +1,7 @@
 """Ollama LLM adapter."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 import httpx
 

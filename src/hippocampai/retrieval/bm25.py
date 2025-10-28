@@ -1,7 +1,6 @@
 """BM25 sparse retrieval."""
 
 import logging
-from typing import List, Tuple
 
 from rank_bm25 import BM25Okapi
 

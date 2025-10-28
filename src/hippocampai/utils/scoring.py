@@ -2,7 +2,6 @@
 
 import math
 from datetime import datetime
-from typing import Dict
 
 from hippocampai.utils.time import ensure_utc, now_utc
 

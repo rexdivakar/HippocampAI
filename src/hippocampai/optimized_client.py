@@ -11,7 +11,7 @@ This client provides:
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult

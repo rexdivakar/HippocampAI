@@ -10,7 +10,7 @@ This wrapper provides:
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult

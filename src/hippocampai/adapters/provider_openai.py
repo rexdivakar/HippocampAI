@@ -1,7 +1,7 @@
 """OpenAI LLM adapter."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.utils.retry import get_llm_retry_decorator

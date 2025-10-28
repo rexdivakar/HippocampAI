@@ -1,7 +1,7 @@
 """Context injection utilities for LLM prompts."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 from hippocampai.models.memory import Memory, RetrievalResult
 

@@ -7,7 +7,7 @@ for use in async applications and frameworks.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
