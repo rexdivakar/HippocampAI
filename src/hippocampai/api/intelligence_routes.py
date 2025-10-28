@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-from hippocampai.config import Config
+from hippocampai.config import get_config
 from hippocampai.models.memory import Memory
 from hippocampai.pipeline.entity_recognition import EntityRecognizer, EntityType, RelationType
 from hippocampai.pipeline.fact_extraction import FactExtractionPipeline
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/intelligence", tags=["intelligence"])
 
 # Initialize services
-config = Config.from_env()
+config = get_config()
 fact_extractor = FactExtractionPipeline()
 entity_recognizer = EntityRecognizer()
 relationship_mapper = RelationshipMapper()

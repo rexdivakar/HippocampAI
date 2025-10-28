@@ -143,6 +143,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include intelligence routes
+try:
+    from hippocampai.api.intelligence_routes import router as intelligence_router
+
+    app.include_router(intelligence_router)
+    logger.info("Intelligence routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load intelligence routes: {e}")
+
 
 # Dependency to get service
 async def get_service() -> MemoryManagementService:
