@@ -13,7 +13,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -49,8 +49,8 @@ class ScheduledMemory(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     triggered: bool = False
     triggered_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    tags: List[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
 
     # Temporal metadata
     recurrence: Optional[str] = None  # "daily", "weekly", "monthly"
@@ -65,10 +65,10 @@ class TemporalEvent(BaseModel):
     text: str
     timestamp: datetime
     event_type: str  # "action", "state_change", "milestone", etc.
-    participants: List[str] = Field(default_factory=list)
+    participants: list[str] = Field(default_factory=list)
     location: Optional[str] = None
     duration: Optional[int] = None  # in seconds
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Timeline(BaseModel):
@@ -77,10 +77,10 @@ class Timeline(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     title: str
-    events: List[TemporalEvent] = Field(default_factory=list)
+    events: list[TemporalEvent] = Field(default_factory=list)
     start_time: datetime
     end_time: datetime
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     def add_event(self, event: TemporalEvent):
         """Add event to timeline in chronological order."""
@@ -108,9 +108,9 @@ class TemporalAnalyzer:
             llm: Optional language model for advanced temporal analysis
         """
         self.llm = llm
-        self.scheduled_memories: Dict[str, ScheduledMemory] = {}
+        self.scheduled_memories: dict[str, ScheduledMemory] = {}
 
-    def parse_time_range(self, time_range: TimeRange) -> Tuple[datetime, datetime]:
+    def parse_time_range(self, time_range: TimeRange) -> tuple[datetime, datetime]:
         """Parse predefined time range to start and end datetimes.
 
         Args:
@@ -165,11 +165,11 @@ class TemporalAnalyzer:
 
     def filter_by_time_range(
         self,
-        memories: List[Memory],
+        memories: list[Memory],
         time_range: Optional[TimeRange] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Filter memories by time range.
 
         Args:
@@ -200,7 +200,7 @@ class TemporalAnalyzer:
         return filtered
 
     def build_chronological_narrative(
-        self, memories: List[Memory], title: Optional[str] = None
+        self, memories: list[Memory], title: Optional[str] = None
     ) -> str:
         """Build a chronological narrative from memories.
 
@@ -242,7 +242,7 @@ class TemporalAnalyzer:
 
         return "".join(narrative_parts)
 
-    def extract_temporal_events(self, memories: List[Memory]) -> List[TemporalEvent]:
+    def extract_temporal_events(self, memories: list[Memory]) -> list[TemporalEvent]:
         """Extract temporal events from memories.
 
         Args:
@@ -328,7 +328,7 @@ JSON:"""
 
     def create_timeline(
         self,
-        memories: List[Memory],
+        memories: list[Memory],
         user_id: str,
         title: str = "Memory Timeline",
         start_time: Optional[datetime] = None,
@@ -379,8 +379,8 @@ JSON:"""
         return timeline
 
     def analyze_event_sequences(
-        self, memories: List[Memory], max_gap_hours: int = 24
-    ) -> List[List[Memory]]:
+        self, memories: list[Memory], max_gap_hours: int = 24
+    ) -> list[list[Memory]]:
         """Identify sequences of related events.
 
         Args:
@@ -446,10 +446,10 @@ JSON:"""
         user_id: str,
         scheduled_for: datetime,
         type: MemoryType = MemoryType.FACT,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         recurrence: Optional[str] = None,
         reminder_offset: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ScheduledMemory:
         """Schedule a memory for future creation.
 
@@ -482,7 +482,7 @@ JSON:"""
         logger.info(f"Scheduled memory for {user_id} at {scheduled_for} (recurrence: {recurrence})")
         return scheduled
 
-    def get_due_scheduled_memories(self) -> List[ScheduledMemory]:
+    def get_due_scheduled_memories(self) -> list[ScheduledMemory]:
         """Get scheduled memories that are due.
 
         Returns:
@@ -543,7 +543,7 @@ JSON:"""
             metadata=original.metadata,
         )
 
-    def get_temporal_summary(self, memories: List[Memory], user_id: str) -> Dict[str, Any]:
+    def get_temporal_summary(self, memories: list[Memory], user_id: str) -> dict[str, Any]:
         """Generate temporal summary statistics.
 
         Args:

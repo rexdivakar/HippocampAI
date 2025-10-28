@@ -3,7 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -172,9 +172,9 @@ class MemoryCreate(BaseModel):
     session_id: Optional[str] = None
     type: str = "fact"
     importance: Optional[float] = Field(default=5.0, ge=0.0, le=10.0)
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
     ttl_days: Optional[int] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = None
     check_duplicate: bool = True
 
 
@@ -182,8 +182,8 @@ class MemoryUpdate(BaseModel):
     memory_id: str
     text: Optional[str] = None
     importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    tags: Optional[list[str]] = None
+    metadata: Optional[dict[str, Any]] = None
     expires_at: Optional[datetime] = None
 
 
@@ -194,11 +194,11 @@ class MemoryDelete(BaseModel):
 
 class MemoryQuery(BaseModel):
     user_id: str
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[dict[str, Any]] = None
     limit: int = Field(default=100, le=1000)
     # Advanced filtering
     memory_type: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
     importance_min: Optional[float] = Field(default=None, ge=0.0, le=10.0)
     importance_max: Optional[float] = Field(default=None, ge=0.0, le=10.0)
     created_after: Optional[datetime] = None
@@ -213,21 +213,21 @@ class RecallRequest(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     k: int = Field(default=5, ge=1, le=100)
-    filters: Optional[Dict[str, Any]] = None
-    custom_weights: Optional[Dict[str, float]] = None
+    filters: Optional[dict[str, Any]] = None
+    custom_weights: Optional[dict[str, float]] = None
 
 
 class BatchCreateRequest(BaseModel):
-    memories: List[MemoryCreate]
+    memories: list[MemoryCreate]
     check_duplicates: bool = True
 
 
 class BatchUpdateRequest(BaseModel):
-    updates: List[MemoryUpdate]
+    updates: list[MemoryUpdate]
 
 
 class BatchDeleteRequest(BaseModel):
-    memory_ids: List[str]
+    memory_ids: list[str]
     user_id: Optional[str] = None
 
 
@@ -358,7 +358,7 @@ async def delete_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/v1/memories/query", response_model=List[Memory])
+@app.post("/v1/memories/query", response_model=list[Memory])
 async def query_memories(
     request: MemoryQuery, service: MemoryManagementService = Depends(get_service)
 ):
@@ -389,7 +389,7 @@ async def query_memories(
 # ============================================================================
 
 
-@app.post("/v1/memories/batch", response_model=List[Memory], status_code=status.HTTP_201_CREATED)
+@app.post("/v1/memories/batch", response_model=list[Memory], status_code=status.HTTP_201_CREATED)
 async def batch_create_memories(
     request: BatchCreateRequest, service: MemoryManagementService = Depends(get_service)
 ):
@@ -405,7 +405,7 @@ async def batch_create_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.patch("/v1/memories/batch", response_model=List[Memory])
+@app.patch("/v1/memories/batch", response_model=list[Memory])
 async def batch_update_memories(
     request: BatchUpdateRequest, service: MemoryManagementService = Depends(get_service)
 ):
@@ -442,7 +442,7 @@ async def batch_delete_memories(
 # ============================================================================
 
 
-@app.post("/v1/memories/recall", response_model=List[RetrievalResult])
+@app.post("/v1/memories/recall", response_model=list[RetrievalResult])
 async def recall_memories(
     request: RecallRequest, service: MemoryManagementService = Depends(get_service)
 ):
@@ -467,7 +467,7 @@ async def recall_memories(
 # ============================================================================
 
 
-@app.post("/v1/memories/extract", response_model=List[Memory])
+@app.post("/v1/memories/extract", response_model=list[Memory])
 async def extract_from_conversation(
     request: ExtractRequest, service: MemoryManagementService = Depends(get_service)
 ):
@@ -604,13 +604,13 @@ async def remember(request: MemoryCreate, service: MemoryManagementService = Dep
     return await create_memory(request, service)
 
 
-@app.post("/v1/memories:recall", response_model=List[RetrievalResult])
+@app.post("/v1/memories:recall", response_model=list[RetrievalResult])
 async def recall(request: RecallRequest, service: MemoryManagementService = Depends(get_service)):
     """Legacy endpoint: Recall memories."""
     return await recall_memories(request, service)
 
 
-@app.post("/v1/memories:extract", response_model=List[Memory])
+@app.post("/v1/memories:extract", response_model=list[Memory])
 async def extract(request: ExtractRequest, service: MemoryManagementService = Depends(get_service)):
     """Legacy endpoint: Extract from conversation."""
     return await extract_from_conversation(request, service)

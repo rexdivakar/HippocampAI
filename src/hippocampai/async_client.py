@@ -25,7 +25,7 @@ class AsyncMemoryClient(MemoryClient):
         session_id: Optional[str] = None,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
     ) -> Memory:
         """Store a memory asynchronously.
@@ -53,8 +53,8 @@ class AsyncMemoryClient(MemoryClient):
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[RetrievalResult]:
+        filters: Optional[dict[str, Any]] = None,
+    ) -> list[RetrievalResult]:
         """Retrieve memories asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -73,8 +73,8 @@ class AsyncMemoryClient(MemoryClient):
         memory_id: str,
         text: Optional[str] = None,
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         expires_at: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """Update a memory asynchronously."""
@@ -99,16 +99,16 @@ class AsyncMemoryClient(MemoryClient):
     async def get_memories_async(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get memories asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.get_memories(user_id, filters, limit))
 
     async def extract_from_conversation_async(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Extract memories from conversation asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -118,10 +118,10 @@ class AsyncMemoryClient(MemoryClient):
 
     async def add_memories_async(
         self,
-        memories: List[Dict[str, Any]],
+        memories: list[dict[str, Any]],
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Batch add memories asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -129,13 +129,13 @@ class AsyncMemoryClient(MemoryClient):
         )
 
     async def delete_memories_async(
-        self, memory_ids: List[str], user_id: Optional[str] = None
+        self, memory_ids: list[str], user_id: Optional[str] = None
     ) -> int:
         """Batch delete memories asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.delete_memories(memory_ids, user_id))
 
-    async def get_memory_statistics_async(self, user_id: str) -> Dict[str, Any]:
+    async def get_memory_statistics_async(self, user_id: str) -> dict[str, Any]:
         """Get memory statistics asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.get_memory_statistics(user_id))

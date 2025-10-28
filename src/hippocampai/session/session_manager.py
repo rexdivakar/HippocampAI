@@ -100,7 +100,7 @@ Analysis:"""
         self.inactivity_threshold = timedelta(minutes=inactivity_threshold_minutes)
 
         # In-memory session cache
-        self.active_sessions: Dict[str, Session] = {}
+        self.active_sessions: dict[str, Session] = {}
 
         # Initialize collection
         self._initialize_collection()
@@ -125,8 +125,8 @@ Analysis:"""
         user_id: str,
         title: Optional[str] = None,
         parent_session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Session:
         """Create a new session.
 
@@ -192,8 +192,8 @@ Analysis:"""
         title: Optional[str] = None,
         summary: Optional[str] = None,
         status: Optional[SessionStatus] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Optional[Session]:
         """Update session fields.
 
@@ -314,7 +314,7 @@ Analysis:"""
 
         return None
 
-    def extract_session_facts(self, session_id: str, force: bool = False) -> List[SessionFact]:
+    def extract_session_facts(self, session_id: str, force: bool = False) -> list[SessionFact]:
         """Extract key facts from session.
 
         Args:
@@ -367,7 +367,7 @@ Analysis:"""
 
         return []
 
-    def extract_session_entities(self, session_id: str, force: bool = False) -> Dict[str, Entity]:
+    def extract_session_entities(self, session_id: str, force: bool = False) -> dict[str, Entity]:
         """Extract entities from session.
 
         Args:
@@ -417,7 +417,7 @@ Analysis:"""
 
         return {}
 
-    def _extract_entities_simple(self, session_id: str) -> Dict[str, Entity]:
+    def _extract_entities_simple(self, session_id: str) -> dict[str, Entity]:
         """Simple regex-based entity extraction fallback."""
         session = self.get_session(session_id)
         if not session:
@@ -455,7 +455,7 @@ Analysis:"""
         current_session_id: str,
         new_message: str,
         threshold: float = 0.7,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Detect if new message should start a new session.
 
         Args:
@@ -525,8 +525,8 @@ Analysis:"""
         query: str,
         user_id: Optional[str] = None,
         k: int = 10,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[SessionSearchResult]:
+        filters: Optional[dict[str, Any]] = None,
+    ) -> list[SessionSearchResult]:
         """Search sessions by semantic similarity.
 
         Args:
@@ -583,7 +583,7 @@ Analysis:"""
         user_id: str,
         status: Optional[SessionStatus] = None,
         limit: int = 50,
-    ) -> List[Session]:
+    ) -> list[Session]:
         """Get sessions for a user.
 
         Args:
@@ -613,7 +613,7 @@ Analysis:"""
             logger.error(f"Failed to get user sessions: {e}")
             return []
 
-    def get_child_sessions(self, parent_session_id: str) -> List[Session]:
+    def get_child_sessions(self, parent_session_id: str) -> list[Session]:
         """Get child sessions of a parent session.
 
         Args:
@@ -686,7 +686,7 @@ Analysis:"""
             payload=session.model_dump(mode="json"),
         )
 
-    def _get_session_memories(self, session_id: str) -> List[Memory]:
+    def _get_session_memories(self, session_id: str) -> list[Memory]:
         """Get all memories for a session.
 
         Note: This method queries Qdrant directly. For full integration,
@@ -734,7 +734,7 @@ Analysis:"""
             logger.error(f"Failed to delete session {session_id}: {e}")
             return False
 
-    def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
+    def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """Get statistics for a session.
 
         Args:

@@ -15,7 +15,7 @@ from hippocampai.vector.qdrant_store import QdrantStore
 logger = logging.getLogger(__name__)
 
 # Lazy initialization of services
-_services: Dict[str, Any] = {}
+_services: dict[str, Any] = {}
 
 
 def get_service() -> MemoryManagementService:
@@ -73,9 +73,9 @@ def create_memory_task(
     user_id: str,
     memory_type: str = "fact",
     importance: Optional[float] = None,
-    tags: Optional[List[str]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    tags: Optional[list[str]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Create a memory asynchronously via Celery.
 
@@ -126,9 +126,9 @@ def create_memory_task(
 @celery_app.task(name="hippocampai.tasks.batch_create_memories_task", bind=True, max_retries=3)
 def batch_create_memories_task(
     self,
-    memories: List[Dict[str, Any]],
+    memories: list[dict[str, Any]],
     check_duplicates: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Batch create memories asynchronously.
 
@@ -174,8 +174,8 @@ def recall_memories_task(
     query: str,
     user_id: str,
     k: int = 5,
-    filters: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
+    filters: Optional[dict[str, Any]] = None,
+) -> list[dict[str, Any]]:
     """
     Recall memories asynchronously.
 
@@ -226,8 +226,8 @@ def update_memory_task(
     self,
     memory_id: str,
     user_id: str,
-    updates: Dict[str, Any],
-) -> Dict[str, Any]:
+    updates: dict[str, Any],
+) -> dict[str, Any]:
     """
     Update a memory asynchronously.
 
@@ -307,7 +307,7 @@ def delete_memory_task(
 # ============================================================================
 
 @celery_app.task(name="hippocampai.tasks.deduplicate_all_memories", bind=True)
-def deduplicate_all_memories(self) -> Dict[str, int]:
+def deduplicate_all_memories(self) -> dict[str, int]:
     """
     Run deduplication across all users' memories.
 
@@ -336,7 +336,7 @@ def deduplicate_all_memories(self) -> Dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.consolidate_all_memories", bind=True)
-def consolidate_all_memories(self) -> Dict[str, int]:
+def consolidate_all_memories(self) -> dict[str, int]:
     """
     Run memory consolidation across all users.
 
@@ -362,7 +362,7 @@ def consolidate_all_memories(self) -> Dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.cleanup_expired_memories", bind=True)
-def cleanup_expired_memories(self) -> Dict[str, int]:
+def cleanup_expired_memories(self) -> dict[str, int]:
     """
     Clean up expired memories across all collections.
 
@@ -414,7 +414,7 @@ def cleanup_expired_memories(self) -> Dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.decay_memory_importance", bind=True)
-def decay_memory_importance(self) -> Dict[str, int]:
+def decay_memory_importance(self) -> dict[str, int]:
     """
     Apply importance decay to all memories based on their age.
 
@@ -441,7 +441,7 @@ def decay_memory_importance(self) -> Dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.create_collection_snapshots", bind=True)
-def create_collection_snapshots(self) -> Dict[str, str]:
+def create_collection_snapshots(self) -> dict[str, str]:
     """
     Create snapshots of all Qdrant collections.
 
@@ -474,7 +474,7 @@ def create_collection_snapshots(self) -> Dict[str, str]:
 # ============================================================================
 
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
-def health_check_task(self) -> Dict[str, bool]:
+def health_check_task(self) -> dict[str, bool]:
     """
     Perform health checks on all services.
 

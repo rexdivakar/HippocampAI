@@ -13,7 +13,7 @@ import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -48,9 +48,9 @@ class Pattern(BaseModel):
     occurrences: int
     first_seen: datetime
     last_seen: datetime
-    memory_ids: List[str] = Field(default_factory=list)
-    session_ids: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    memory_ids: list[str] = Field(default_factory=list)
+    session_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Temporal info
     frequency: Optional[str] = None  # "daily", "weekly", etc.
@@ -74,10 +74,10 @@ class BehaviorChange(BaseModel):
     change_magnitude: Optional[float] = None  # 0.0 to 1.0
 
     # Supporting evidence
-    evidence_memory_ids: List[str] = Field(default_factory=list)
-    evidence_session_ids: List[str] = Field(default_factory=list)
+    evidence_memory_ids: list[str] = Field(default_factory=list)
+    evidence_session_ids: list[str] = Field(default_factory=list)
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PreferenceDrift(BaseModel):
@@ -90,13 +90,13 @@ class PreferenceDrift(BaseModel):
     current_preference: str
     drift_score: float  # 0.0 (no drift) to 1.0 (complete change)
 
-    timeline: List[Tuple[datetime, str]] = Field(default_factory=list)
-    memory_ids: List[str] = Field(default_factory=list)
+    timeline: list[tuple[datetime, str]] = Field(default_factory=list)
+    memory_ids: list[str] = Field(default_factory=list)
 
     first_recorded: datetime
     last_updated: datetime
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class HabitScore(BaseModel):
@@ -116,13 +116,13 @@ class HabitScore(BaseModel):
     status: str  # "forming", "established", "breaking", "broken"
 
     # Evidence
-    occurrences: List[datetime] = Field(default_factory=list)
-    memory_ids: List[str] = Field(default_factory=list)
+    occurrences: list[datetime] = Field(default_factory=list)
+    memory_ids: list[str] = Field(default_factory=list)
 
     first_occurrence: datetime
     last_occurrence: datetime
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Trend(BaseModel):
@@ -136,14 +136,14 @@ class Trend(BaseModel):
     confidence: float
 
     # Trend data
-    data_points: List[Tuple[datetime, float]] = Field(default_factory=list)
+    data_points: list[tuple[datetime, float]] = Field(default_factory=list)
     direction: str  # "up", "down", "flat"
     strength: float  # 0.0 to 1.0
 
     start_time: datetime
     end_time: datetime
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class InsightAnalyzer:
@@ -161,10 +161,10 @@ class InsightAnalyzer:
 
     def detect_patterns(
         self,
-        memories: List[Memory],
+        memories: list[Memory],
         user_id: str,
-        sessions: Optional[List[Session]] = None,
-    ) -> List[Pattern]:
+        sessions: Optional[list[Session]] = None,
+    ) -> list[Pattern]:
         """Detect behavioral patterns across memories and sessions.
 
         Args:
@@ -196,7 +196,7 @@ class InsightAnalyzer:
         logger.info(f"Detected {len(patterns)} patterns for user {user_id}")
         return patterns
 
-    def _detect_recurring_patterns(self, memories: List[Memory], user_id: str) -> List[Pattern]:
+    def _detect_recurring_patterns(self, memories: list[Memory], user_id: str) -> list[Pattern]:
         """Detect recurring patterns in memories."""
         patterns = []
 
@@ -250,7 +250,7 @@ class InsightAnalyzer:
 
         return patterns
 
-    def _detect_sequential_patterns(self, memories: List[Memory], user_id: str) -> List[Pattern]:
+    def _detect_sequential_patterns(self, memories: list[Memory], user_id: str) -> list[Pattern]:
         """Detect sequential patterns (A followed by B)."""
         patterns = []
 
@@ -289,8 +289,8 @@ class InsightAnalyzer:
         return patterns
 
     def _detect_correlational_patterns(
-        self, memories: List[Memory], sessions: List[Session], user_id: str
-    ) -> List[Pattern]:
+        self, memories: list[Memory], sessions: list[Session], user_id: str
+    ) -> list[Pattern]:
         """Detect correlational patterns across sessions."""
         patterns = []
 
@@ -331,10 +331,10 @@ class InsightAnalyzer:
 
     def track_behavior_changes(
         self,
-        old_memories: List[Memory],
-        new_memories: List[Memory],
+        old_memories: list[Memory],
+        new_memories: list[Memory],
         user_id: str,
-    ) -> List[BehaviorChange]:
+    ) -> list[BehaviorChange]:
         """Track changes in user behavior between time periods.
 
         Args:
@@ -367,8 +367,8 @@ class InsightAnalyzer:
         return changes
 
     def _compare_preferences(
-        self, old_mems: List[Memory], new_mems: List[Memory], user_id: str
-    ) -> List[BehaviorChange]:
+        self, old_mems: list[Memory], new_mems: list[Memory], user_id: str
+    ) -> list[BehaviorChange]:
         """Compare preferences between time periods."""
         changes = []
 
@@ -404,8 +404,8 @@ class InsightAnalyzer:
         return changes
 
     def _compare_habits(
-        self, old_mems: List[Memory], new_mems: List[Memory], user_id: str
-    ) -> List[BehaviorChange]:
+        self, old_mems: list[Memory], new_mems: list[Memory], user_id: str
+    ) -> list[BehaviorChange]:
         """Compare habits between time periods."""
         changes = []
 
@@ -426,8 +426,8 @@ class InsightAnalyzer:
         return changes
 
     def _compare_goals(
-        self, old_mems: List[Memory], new_mems: List[Memory], user_id: str
-    ) -> List[BehaviorChange]:
+        self, old_mems: list[Memory], new_mems: list[Memory], user_id: str
+    ) -> list[BehaviorChange]:
         """Compare goals between time periods."""
         changes = []
 
@@ -449,8 +449,8 @@ class InsightAnalyzer:
         return changes
 
     def _compare_interests(
-        self, old_mems: List[Memory], new_mems: List[Memory], user_id: str
-    ) -> List[BehaviorChange]:
+        self, old_mems: list[Memory], new_mems: list[Memory], user_id: str
+    ) -> list[BehaviorChange]:
         """Compare interests based on tags."""
         changes = []
 
@@ -473,8 +473,8 @@ class InsightAnalyzer:
         return changes
 
     def analyze_preference_drift(
-        self, memories: List[Memory], user_id: str, category: Optional[str] = None
-    ) -> List[PreferenceDrift]:
+        self, memories: list[Memory], user_id: str, category: Optional[str] = None
+    ) -> list[PreferenceDrift]:
         """Analyze how preferences have changed over time.
 
         Args:
@@ -535,8 +535,8 @@ class InsightAnalyzer:
         return drifts
 
     def detect_habit_formation(
-        self, memories: List[Memory], user_id: str, min_occurrences: int = 5
-    ) -> List[HabitScore]:
+        self, memories: list[Memory], user_id: str, min_occurrences: int = 5
+    ) -> list[HabitScore]:
         """Detect and score potential habits.
 
         Args:
@@ -628,8 +628,8 @@ class InsightAnalyzer:
         return habit_scores
 
     def analyze_trends(
-        self, memories: List[Memory], user_id: str, window_days: int = 30
-    ) -> List[Trend]:
+        self, memories: list[Memory], user_id: str, window_days: int = 30
+    ) -> list[Trend]:
         """Analyze long-term trends in user behavior.
 
         Args:

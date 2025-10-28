@@ -28,12 +28,12 @@ class MemoryVersion:
     version_id: str
     memory_id: str
     version_number: int
-    data: Dict[str, Any]
+    data: dict[str, Any]
     created_at: datetime
     created_by: Optional[str] = None  # User/system that created this version
     change_summary: Optional[str] = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "version_id": self.version_id,
@@ -55,10 +55,10 @@ class AuditEntry:
     change_type: ChangeType = ChangeType.UPDATED
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
-    changes: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    changes: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "audit_id": self.audit_id,
@@ -82,13 +82,13 @@ class MemoryVersionControl:
             max_versions_per_memory: Maximum versions to keep per memory
         """
         self.max_versions = max_versions_per_memory
-        self._versions: Dict[str, List[MemoryVersion]] = {}  # memory_id -> versions
-        self._audit_trail: List[AuditEntry] = []
+        self._versions: dict[str, list[MemoryVersion]] = {}  # memory_id -> versions
+        self._audit_trail: list[AuditEntry] = []
 
     def create_version(
         self,
         memory_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         created_by: Optional[str] = None,
         change_summary: Optional[str] = None,
     ) -> MemoryVersion:
@@ -154,13 +154,13 @@ class MemoryVersionControl:
 
         return None
 
-    def get_version_history(self, memory_id: str) -> List[MemoryVersion]:
+    def get_version_history(self, memory_id: str) -> list[MemoryVersion]:
         """Get all versions of a memory."""
         return self._versions.get(memory_id, [])
 
     def compare_versions(
         self, memory_id: str, version1: int, version2: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Compare two versions of a memory.
 
@@ -189,7 +189,7 @@ class MemoryVersionControl:
 
         return diff
 
-    def rollback(self, memory_id: str, version_number: int) -> Optional[Dict[str, Any]]:
+    def rollback(self, memory_id: str, version_number: int) -> Optional[dict[str, Any]]:
         """
         Rollback to a previous version.
 
@@ -206,8 +206,8 @@ class MemoryVersionControl:
         memory_id: str,
         change_type: ChangeType,
         user_id: Optional[str] = None,
-        changes: Optional[Dict] = None,
-        metadata: Optional[Dict] = None,
+        changes: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> AuditEntry:
         """
         Add an audit trail entry.
@@ -240,7 +240,7 @@ class MemoryVersionControl:
         user_id: Optional[str] = None,
         change_type: Optional[ChangeType] = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """
         Get audit trail entries with optional filtering.
 
@@ -285,7 +285,7 @@ class MemoryVersionControl:
         logger.info(f"Cleared {cleared} old audit entries")
         return cleared
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get version control statistics."""
         total_versions = sum(len(versions) for versions in self._versions.values())
 

@@ -57,10 +57,10 @@ class MemoryClientExtensions:
 
     def add_memories(
         self,
-        memories: List[Dict[str, Any]],
+        memories: list[dict[str, Any]],
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Batch add multiple memories at once.
 
@@ -103,7 +103,7 @@ class MemoryClientExtensions:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             raise
 
-    def delete_memories(self, memory_ids: List[str], user_id: Optional[str] = None) -> int:
+    def delete_memories(self, memory_ids: list[str], user_id: Optional[str] = None) -> int:
         """
         Batch delete multiple memories.
 
@@ -172,9 +172,9 @@ class MemoryClientExtensions:
     def get_related_memories(
         self,
         memory_id: str,
-        relation_types: Optional[List[RelationType]] = None,
+        relation_types: Optional[list[RelationType]] = None,
         max_depth: int = 1,
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """
         Get memories related to a given memory.
 
@@ -191,7 +191,7 @@ class MemoryClientExtensions:
 
         return self.graph.get_related_memories(memory_id, relation_types, max_depth)
 
-    def get_memory_clusters(self, user_id: str) -> List[Set[str]]:
+    def get_memory_clusters(self, user_id: str) -> list[set[str]]:
         """
         Find clusters of related memories.
 
@@ -237,7 +237,7 @@ class MemoryClientExtensions:
         self,
         file_path: str,
         merge: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Import memory graph from a JSON file.
 
@@ -271,7 +271,7 @@ class MemoryClientExtensions:
 
     # === VERSION CONTROL ===
 
-    def get_memory_history(self, memory_id: str) -> List:
+    def get_memory_history(self, memory_id: str) -> list:
         """
         Get version history for a memory.
 
@@ -322,7 +322,7 @@ class MemoryClientExtensions:
         user_id: Optional[str] = None,
         change_type: Optional[ChangeType] = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """
         Get audit trail entries.
 
@@ -428,11 +428,11 @@ class MemoryClientExtensions:
     def get_memories_advanced(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         sort_by: str = "created_at",  # created_at, importance, access_count
         sort_order: str = "desc",
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Get memories with advanced filtering and sorting.
 

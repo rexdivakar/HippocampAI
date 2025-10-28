@@ -34,7 +34,7 @@ class Embedder:
         self.lock = threading.Lock()
         logger.info(f"Loaded embedder: {model_name}, quantized={quantized}")
 
-    def encode(self, texts: List[str]) -> np.ndarray:
+    def encode(self, texts: list[str]) -> np.ndarray:
         """Encode texts to embeddings."""
         if not texts:
             return np.array([])

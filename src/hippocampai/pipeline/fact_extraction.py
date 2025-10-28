@@ -12,7 +12,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -58,11 +58,11 @@ class ExtractedFact(BaseModel):
     fact: str = Field(..., description="The extracted fact statement")
     category: FactCategory = Field(..., description="Category of the fact")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    entities: List[str] = Field(default_factory=list, description="Entities mentioned")
+    entities: list[str] = Field(default_factory=list, description="Entities mentioned")
     temporal: Optional[str] = Field(None, description="Temporal information")
     temporal_type: TemporalType = Field(default=TemporalType.PRESENT)
     source: str = Field(..., description="Source of extraction (conversation, text, etc.)")
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     extracted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     quality_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Fact quality score")
     importance: float = Field(default=5.0, ge=0.0, le=10.0, description="Fact importance score")
@@ -95,7 +95,7 @@ class FactExtractionPipeline:
         self.entity_patterns = self._build_entity_patterns()
         self.temporal_patterns = self._build_temporal_patterns()
 
-    def _build_fact_patterns(self) -> Dict[FactCategory, List[Dict[str, Any]]]:
+    def _build_fact_patterns(self) -> dict[FactCategory, list[dict[str, Any]]]:
         """Build pattern matching rules for fact extraction."""
         return {
             FactCategory.EMPLOYMENT: [
@@ -164,7 +164,7 @@ class FactExtractionPipeline:
             ],
         }
 
-    def _build_entity_patterns(self) -> Dict[str, str]:
+    def _build_entity_patterns(self) -> dict[str, str]:
         """Build patterns for entity extraction."""
         return {
             "PERSON": r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b",  # First Last name
@@ -173,7 +173,7 @@ class FactExtractionPipeline:
             "DATE": r"\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b",
         }
 
-    def _build_temporal_patterns(self) -> Dict[TemporalType, List[str]]:
+    def _build_temporal_patterns(self) -> dict[TemporalType, list[str]]:
         """Build patterns for temporal extraction."""
         return {
             TemporalType.PRESENT: [
@@ -197,7 +197,7 @@ class FactExtractionPipeline:
 
     def extract_facts(
         self, text: str, source: str = "text", user_id: Optional[str] = None
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract facts from text using pattern matching and LLM.
 
         Args:
@@ -224,7 +224,7 @@ class FactExtractionPipeline:
 
         return facts
 
-    def _extract_facts_pattern_based(self, text: str, source: str) -> List[ExtractedFact]:
+    def _extract_facts_pattern_based(self, text: str, source: str) -> list[ExtractedFact]:
         """Extract facts using pattern matching."""
         facts = []
 
@@ -264,7 +264,7 @@ class FactExtractionPipeline:
 
         return facts
 
-    def _extract_temporal_info(self, text: str, start: int, end: int) -> Dict[str, Any]:
+    def _extract_temporal_info(self, text: str, start: int, end: int) -> dict[str, Any]:
         """Extract temporal information from context around a match."""
         # Look at context around the match (50 chars before and after)
         context_start = max(0, start - 50)
@@ -285,7 +285,7 @@ class FactExtractionPipeline:
 
     def _extract_facts_llm(
         self, text: str, source: str, user_id: Optional[str] = None
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract facts using LLM."""
         if not self.llm:
             return []
@@ -361,7 +361,7 @@ Facts:"""
             logger.warning(f"LLM fact extraction failed: {e}")
             return []
 
-    def _deduplicate_facts(self, facts: List[ExtractedFact]) -> List[ExtractedFact]:
+    def _deduplicate_facts(self, facts: list[ExtractedFact]) -> list[ExtractedFact]:
         """Remove duplicate or very similar facts."""
         if not facts:
             return []
@@ -381,7 +381,7 @@ Facts:"""
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract facts from a conversation.
 
         Args:
@@ -411,7 +411,7 @@ Facts:"""
 
         return all_facts
 
-    def _split_conversation(self, conversation: str) -> List[str]:
+    def _split_conversation(self, conversation: str) -> list[str]:
         """Split conversation into individual turns."""
         # Simple split by common patterns
         # Could be enhanced to parse structured formats (JSON, etc.)
@@ -442,7 +442,7 @@ Facts:"""
         # If no speaker markers found, return as single turn
         return turns if turns else [conversation]
 
-    def _link_related_facts(self, facts: List[ExtractedFact]) -> List[ExtractedFact]:
+    def _link_related_facts(self, facts: list[ExtractedFact]) -> list[ExtractedFact]:
         """Link related facts together."""
         # Group facts by entities
         entity_groups = {}
@@ -575,7 +575,7 @@ Facts:"""
 
         return final_confidence
 
-    def enrich_facts_with_quality_scores(self, facts: List[ExtractedFact]) -> List[ExtractedFact]:
+    def enrich_facts_with_quality_scores(self, facts: list[ExtractedFact]) -> list[ExtractedFact]:
         """Enrich facts with quality scores and enhanced confidence.
 
         Args:
@@ -606,7 +606,7 @@ Facts:"""
 
     def extract_facts_with_quality(
         self, text: str, source: str = "text", user_id: Optional[str] = None
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract facts and enrich with quality scores.
 
         Args:

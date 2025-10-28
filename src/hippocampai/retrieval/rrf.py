@@ -4,8 +4,8 @@ from typing import Dict, List, Set, Tuple
 
 
 def reciprocal_rank_fusion(
-    rankings: List[List[Tuple[str, float]]], k: int = 60, c: int = 60
-) -> List[Tuple[str, float]]:
+    rankings: list[list[tuple[str, float]]], k: int = 60, c: int = 60
+) -> list[tuple[str, float]]:
     """
     Fuse multiple ranked lists using RRF.
 
@@ -17,8 +17,8 @@ def reciprocal_rank_fusion(
     Returns:
         Fused ranking [(id, rrf_score), ...]
     """
-    rrf_scores: Dict[str, float] = {}
-    all_ids: Set[str] = set()
+    rrf_scores: dict[str, float] = {}
+    all_ids: set[str] = set()
 
     for ranking in rankings:
         for rank, (doc_id, _) in enumerate(ranking[:k], start=1):

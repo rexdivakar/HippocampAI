@@ -27,8 +27,8 @@ class HybridRetriever:
         top_k_qdrant: int = 200,
         top_k_final: int = 20,
         rrf_k: int = 60,
-        weights: Optional[Dict[str, float]] = None,
-        half_lives: Optional[Dict[str, int]] = None,
+        weights: Optional[dict[str, float]] = None,
+        half_lives: Optional[dict[str, int]] = None,
     ):
         self.qdrant = qdrant_store
         self.embedder = embedder
@@ -52,8 +52,8 @@ class HybridRetriever:
         # BM25 indices (in-memory, rebuilt periodically)
         self.bm25_facts: Optional[BM25Retriever] = None
         self.bm25_prefs: Optional[BM25Retriever] = None
-        self.corpus_facts: List[Tuple[str, str]] = []  # [(id, text), ...]
-        self.corpus_prefs: List[Tuple[str, str]] = []
+        self.corpus_facts: list[tuple[str, str]] = []  # [(id, text), ...]
+        self.corpus_prefs: list[tuple[str, str]] = []
 
     def rebuild_bm25(self, user_id: str):
         """Rebuild BM25 indices for a user."""
@@ -81,8 +81,8 @@ class HybridRetriever:
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict] = None,
-    ) -> List[RetrievalResult]:
+        filters: Optional[dict] = None,
+    ) -> list[RetrievalResult]:
         """
         Hybrid retrieval with two-stage ranking.
 

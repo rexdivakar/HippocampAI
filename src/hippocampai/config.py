@@ -85,7 +85,7 @@ class Config(BaseSettings):
     dedup_threshold: float = Field(default=0.88, validation_alias="DEDUP_THRESHOLD")
     consolidation_threshold: float = Field(default=0.85, validation_alias="CONSOLIDATION_THRESHOLD")
 
-    def get_weights(self) -> Dict[str, float]:
+    def get_weights(self) -> dict[str, float]:
         return {
             "sim": self.weight_sim,
             "rerank": self.weight_rerank,
@@ -93,7 +93,7 @@ class Config(BaseSettings):
             "importance": self.weight_importance,
         }
 
-    def get_half_lives(self) -> Dict[str, int]:
+    def get_half_lives(self) -> dict[str, int]:
         return {
             "preference": self.half_life_prefs,
             "goal": self.half_life_prefs,

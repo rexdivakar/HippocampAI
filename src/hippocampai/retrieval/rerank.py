@@ -20,8 +20,8 @@ class Reranker:
         logger.info(f"Loaded reranker: {model_name}")
 
     def rerank(
-        self, query: str, candidates: List[Tuple[str, str, float]], top_k: int = 20
-    ) -> List[Tuple[str, str, float, float]]:
+        self, query: str, candidates: list[tuple[str, str, float]], top_k: int = 20
+    ) -> list[tuple[str, str, float, float]]:
         """
         Rerank candidates using CrossEncoder.
 

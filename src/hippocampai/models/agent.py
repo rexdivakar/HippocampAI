@@ -42,7 +42,7 @@ class Agent(BaseModel):
     user_id: str
     role: AgentRole = AgentRole.ASSISTANT
     description: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = True
@@ -66,7 +66,7 @@ class Run(BaseModel):
     status: str = "active"  # active, completed, failed
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Run statistics
     memories_created: int = 0
@@ -79,8 +79,8 @@ class AgentPermission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     granter_agent_id: str  # Agent granting permission
     grantee_agent_id: str  # Agent receiving permission
-    permissions: Set[PermissionType] = Field(default_factory=lambda: {PermissionType.READ})
-    memory_filters: Optional[Dict[str, Any]] = None  # Optional filters (type, tags, etc.)
+    permissions: set[PermissionType] = Field(default_factory=lambda: {PermissionType.READ})
+    memory_filters: Optional[dict[str, Any]] = None  # Optional filters (type, tags, etc.)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     is_active: bool = True
@@ -105,7 +105,7 @@ class MemoryTransfer(BaseModel):
     target_agent_id: str
     transfer_type: str  # copy, move, share
     transferred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentMemoryStats(BaseModel):
@@ -113,8 +113,8 @@ class AgentMemoryStats(BaseModel):
 
     agent_id: str
     total_memories: int
-    memories_by_visibility: Dict[str, int]
-    memories_by_type: Dict[str, int]
-    memories_by_run: Dict[str, int]
-    shared_with_agents: List[str]
-    can_access_from_agents: List[str]
+    memories_by_visibility: dict[str, int]
+    memories_by_type: dict[str, int]
+    memories_by_run: dict[str, int]
+    shared_with_agents: list[str]
+    can_access_from_agents: list[str]

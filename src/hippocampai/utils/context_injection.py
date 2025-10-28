@@ -32,7 +32,7 @@ class ContextInjector:
     def inject_memories(
         self,
         prompt: str,
-        memories: List[Memory],
+        memories: list[Memory],
         position: str = "prefix",  # 'prefix' or 'suffix'
     ) -> str:
         """
@@ -59,7 +59,7 @@ class ContextInjector:
     def inject_retrieval_results(
         self,
         prompt: str,
-        results: List[RetrievalResult],
+        results: list[RetrievalResult],
         position: str = "prefix",
         include_scores: bool = False,
     ) -> str:
@@ -85,7 +85,7 @@ class ContextInjector:
         else:
             return f"{prompt}\n\n{context}"
 
-    def _format_memories(self, memories: List[Memory]) -> str:
+    def _format_memories(self, memories: list[Memory]) -> str:
         """Format memories into context string."""
         if self.template == "minimal":
             return self._format_minimal(memories)
@@ -94,7 +94,7 @@ class ContextInjector:
         else:
             return self._format_default(memories)
 
-    def _format_default(self, memories: List[Memory]) -> str:
+    def _format_default(self, memories: list[Memory]) -> str:
         """Default formatting template."""
         lines = ["## Relevant Context\n"]
 
@@ -113,11 +113,11 @@ class ContextInjector:
 
         return "\n".join(lines)
 
-    def _format_minimal(self, memories: List[Memory]) -> str:
+    def _format_minimal(self, memories: list[Memory]) -> str:
         """Minimal formatting - just the text."""
         return "Context: " + " | ".join([mem.text for mem in memories])
 
-    def _format_detailed(self, memories: List[Memory]) -> str:
+    def _format_detailed(self, memories: list[Memory]) -> str:
         """Detailed formatting with full metadata."""
         lines = ["## Relevant Context (Detailed)\n"]
 
@@ -138,7 +138,7 @@ class ContextInjector:
         return "\n".join(lines)
 
     def _format_retrieval_results(
-        self, results: List[RetrievalResult], include_scores: bool
+        self, results: list[RetrievalResult], include_scores: bool
     ) -> str:
         """Format retrieval results into context string."""
         lines = ["## Relevant Memories\n"]
@@ -156,8 +156,8 @@ class ContextInjector:
     def create_prompt_with_history(
         self,
         current_query: str,
-        conversation_history: List[Dict[str, str]],
-        memories: List[Memory],
+        conversation_history: list[dict[str, str]],
+        memories: list[Memory],
         max_history_turns: int = 5,
     ) -> str:
         """
@@ -204,7 +204,7 @@ class ContextInjector:
         """
         return len(text) // 4
 
-    def truncate_to_token_limit(self, memories: List[Memory], current_prompt: str) -> List[Memory]:
+    def truncate_to_token_limit(self, memories: list[Memory], current_prompt: str) -> list[Memory]:
         """
         Truncate memories to fit within token limit.
 
@@ -245,7 +245,7 @@ class ContextInjector:
 
 def inject_context(
     prompt: str,
-    memories: List[Memory],
+    memories: list[Memory],
     max_memories: Optional[int] = None,
     template: str = "default",
 ) -> str:
