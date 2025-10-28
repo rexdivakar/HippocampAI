@@ -25,7 +25,7 @@ class Entity(BaseModel):
     mentions: int = 1
     first_mentioned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_mentioned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     def update_mention(self):
         """Update mention count and timestamp."""
@@ -39,8 +39,8 @@ class SessionFact(BaseModel):
     fact: str
     confidence: float = 0.9
     extracted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    sources: List[str] = Field(default_factory=list)  # Memory IDs that support this fact
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    sources: list[str] = Field(default_factory=list)  # Memory IDs that support this fact
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Session(BaseModel):
@@ -54,17 +54,17 @@ class Session(BaseModel):
 
     # Hierarchy
     parent_session_id: Optional[str] = None
-    child_session_ids: List[str] = Field(default_factory=list)
+    child_session_ids: list[str] = Field(default_factory=list)
 
     # Tracking
     message_count: int = 0
     memory_count: int = 0
-    entities: Dict[str, Entity] = Field(default_factory=dict)  # entity_name -> Entity
-    facts: List[SessionFact] = Field(default_factory=list)
+    entities: dict[str, Entity] = Field(default_factory=dict)  # entity_name -> Entity
+    facts: list[SessionFact] = Field(default_factory=list)
 
     # Metadata
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    tags: List[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
 
     # Timestamps
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -81,14 +81,14 @@ class Session(BaseModel):
         self.last_activity_at = datetime.now(timezone.utc)
         self.message_count += 1
 
-    def add_entity(self, name: str, entity_type: str, metadata: Optional[Dict] = None):
+    def add_entity(self, name: str, entity_type: str, metadata: Optional[dict] = None):
         """Add or update an entity."""
         if name in self.entities:
             self.entities[name].update_mention()
         else:
             self.entities[name] = Entity(name=name, type=entity_type, metadata=metadata or {})
 
-    def add_fact(self, fact: str, confidence: float = 0.9, sources: Optional[List[str]] = None):
+    def add_fact(self, fact: str, confidence: float = 0.9, sources: Optional[list[str]] = None):
         """Add a fact to the session."""
         self.facts.append(
             SessionFact(
@@ -123,12 +123,12 @@ class Session(BaseModel):
         """Check if session is active."""
         return self.status == SessionStatus.ACTIVE
 
-    def get_top_entities(self, limit: int = 5) -> List[Entity]:
+    def get_top_entities(self, limit: int = 5) -> list[Entity]:
         """Get most mentioned entities."""
         sorted_entities = sorted(self.entities.values(), key=lambda e: e.mentions, reverse=True)
         return sorted_entities[:limit]
 
-    def get_high_confidence_facts(self, min_confidence: float = 0.8) -> List[SessionFact]:
+    def get_high_confidence_facts(self, min_confidence: float = 0.8) -> list[SessionFact]:
         """Get facts above confidence threshold."""
         return [f for f in self.facts if f.confidence >= min_confidence]
 
@@ -138,4 +138,4 @@ class SessionSearchResult(BaseModel):
 
     session: Session
     score: float
-    breakdown: Dict[str, float] = Field(default_factory=dict)
+    breakdown: dict[str, float] = Field(default_factory=dict)

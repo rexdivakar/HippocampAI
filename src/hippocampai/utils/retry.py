@@ -108,7 +108,7 @@ def get_llm_retry_decorator(
 
 
 def retry_on_exception(
-    exception_types: Tuple[Type[Exception], ...] = (Exception,),
+    exception_types: tuple[type[Exception], ...] = (Exception,),
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     min_wait: int = DEFAULT_MIN_WAIT,
     max_wait: int = DEFAULT_MAX_WAIT,

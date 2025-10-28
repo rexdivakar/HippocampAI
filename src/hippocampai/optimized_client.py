@@ -123,13 +123,13 @@ class OptimizedMemoryClient:
         """Store a memory (sync)."""
         return self.client.remember(text=text, user_id=user_id, **kwargs)
 
-    def recall(self, query: str, user_id: str, k: int = 5, **kwargs) -> List[RetrievalResult]:
+    def recall(self, query: str, user_id: str, k: int = 5, **kwargs) -> list[RetrievalResult]:
         """Retrieve relevant memories (sync, with optional caching)."""
         if self.enable_caching and not kwargs:  # Only cache simple queries
             return self._cached_recall(query, user_id, k)
         return self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
 
-    def extract_from_conversation(self, conversation: str, user_id: str, **kwargs) -> List[Memory]:
+    def extract_from_conversation(self, conversation: str, user_id: str, **kwargs) -> list[Memory]:
         """Extract memories from conversation (sync)."""
         return self.client.extract_from_conversation(
             conversation=conversation, user_id=user_id, **kwargs
@@ -145,7 +145,7 @@ class OptimizedMemoryClient:
 
     async def recall_async(
         self, query: str, user_id: str, k: int = 5, **kwargs
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Retrieve relevant memories (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -154,7 +154,7 @@ class OptimizedMemoryClient:
 
     async def extract_from_conversation_async(
         self, conversation: str, user_id: str, **kwargs
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Extract memories from conversation (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -166,8 +166,8 @@ class OptimizedMemoryClient:
 
     # Batch operations for performance
     async def remember_batch_async(
-        self, memories: List[Dict[str, Any]], user_id: str
-    ) -> List[Memory]:
+        self, memories: list[dict[str, Any]], user_id: str
+    ) -> list[Memory]:
         """Store multiple memories in parallel (async).
 
         Args:
@@ -192,13 +192,13 @@ class OptimizedMemoryClient:
         ]
         return await asyncio.gather(*tasks)
 
-    def remember_batch(self, memories: List[Dict[str, Any]], user_id: str) -> List[Memory]:
+    def remember_batch(self, memories: list[dict[str, Any]], user_id: str) -> list[Memory]:
         """Store multiple memories (sync wrapper for async batch)."""
         return asyncio.run(self.remember_batch_async(memories, user_id))
 
     async def recall_batch_async(
-        self, queries: List[str], user_id: str, k: int = 5
-    ) -> List[List[RetrievalResult]]:
+        self, queries: list[str], user_id: str, k: int = 5
+    ) -> list[list[RetrievalResult]]:
         """Recall multiple queries in parallel (async).
 
         Args:
@@ -213,8 +213,8 @@ class OptimizedMemoryClient:
         return await asyncio.gather(*tasks)
 
     def recall_batch(
-        self, queries: List[str], user_id: str, k: int = 5
-    ) -> List[List[RetrievalResult]]:
+        self, queries: list[str], user_id: str, k: int = 5
+    ) -> list[list[RetrievalResult]]:
         """Recall multiple queries (sync wrapper)."""
         return asyncio.run(self.recall_batch_async(queries, user_id, k))
 
@@ -240,15 +240,15 @@ class OptimizedMemoryClient:
         return recall_results, extracted
 
     # Utility methods
-    def get_memory_statistics(self, user_id: str) -> Dict[str, Any]:
+    def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory statistics (sync)."""
         return self.client.get_memory_statistics(user_id=user_id)
 
-    def get_memories(self, user_id: str, limit: int = 100, **kwargs) -> List[Memory]:
+    def get_memories(self, user_id: str, limit: int = 100, **kwargs) -> list[Memory]:
         """Get all memories (sync)."""
         return self.client.get_memories(user_id=user_id, limit=limit, **kwargs)
 
-    async def get_memories_async(self, user_id: str, limit: int = 100, **kwargs) -> List[Memory]:
+    async def get_memories_async(self, user_id: str, limit: int = 100, **kwargs) -> list[Memory]:
         """Get all memories (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(

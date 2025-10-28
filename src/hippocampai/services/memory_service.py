@@ -39,8 +39,8 @@ class MemoryManagementService:
         reranker: Reranker,
         redis_store: AsyncMemoryKVStore,
         llm: Optional[BaseLLM] = None,
-        weights: Optional[Dict[str, float]] = None,
-        half_lives: Optional[Dict[str, int]] = None,
+        weights: Optional[dict[str, float]] = None,
+        half_lives: Optional[dict[str, int]] = None,
         dedup_threshold: float = 0.88,
     ):
         """
@@ -90,8 +90,8 @@ class MemoryManagementService:
         user_id: str,
         session_id: Optional[str],
         k: int,
-        filters: Optional[Dict[str, Any]],
-        custom_weights: Optional[Dict[str, float]],
+        filters: Optional[dict[str, Any]],
+        custom_weights: Optional[dict[str, float]],
     ) -> str:
         """Generate a cache key for query results."""
         cache_data = {
@@ -113,9 +113,9 @@ class MemoryManagementService:
         session_id: Optional[str] = None,
         memory_type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         check_duplicate: bool = True,
     ) -> Memory:
         """
@@ -227,8 +227,8 @@ class MemoryManagementService:
         memory_id: str,
         text: Optional[str] = None,
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         expires_at: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """
@@ -323,10 +323,10 @@ class MemoryManagementService:
     async def get_memories(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
         memory_type: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         importance_min: Optional[float] = None,
         importance_max: Optional[float] = None,
         created_after: Optional[datetime] = None,
@@ -334,7 +334,7 @@ class MemoryManagementService:
         updated_after: Optional[datetime] = None,
         updated_before: Optional[datetime] = None,
         search_text: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Get memories for a user with advanced filtering.
 
@@ -412,9 +412,9 @@ class MemoryManagementService:
 
     async def batch_create_memories(
         self,
-        memories: List[Dict[str, Any]],
+        memories: list[dict[str, Any]],
         check_duplicates: bool = True,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Batch create multiple memories with parallel embeddings and bulk upsert (5-10x faster).
 
@@ -529,7 +529,7 @@ class MemoryManagementService:
         )
         return memory_objects
 
-    async def batch_update_memories(self, updates: List[Dict[str, Any]]) -> List[Optional[Memory]]:
+    async def batch_update_memories(self, updates: list[dict[str, Any]]) -> list[Optional[Memory]]:
         """
         Batch update multiple memories.
 
@@ -550,8 +550,8 @@ class MemoryManagementService:
         return updated_memories
 
     async def batch_delete_memories(
-        self, memory_ids: List[str], user_id: Optional[str] = None
-    ) -> Dict[str, bool]:
+        self, memory_ids: list[str], user_id: Optional[str] = None
+    ) -> dict[str, bool]:
         """
         Batch delete multiple memories.
 
@@ -577,9 +577,9 @@ class MemoryManagementService:
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-        custom_weights: Optional[Dict[str, float]] = None,
-    ) -> List[RetrievalResult]:
+        filters: Optional[dict[str, Any]] = None,
+        custom_weights: Optional[dict[str, float]] = None,
+    ) -> list[RetrievalResult]:
         """
         Recall memories using hybrid search with customizable weights.
         Results are cached for 60 seconds to improve performance on repeated queries.
@@ -638,7 +638,7 @@ class MemoryManagementService:
 
     async def deduplicate_user_memories(
         self, user_id: str, dry_run: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deduplicate memories for a user.
 
@@ -685,7 +685,7 @@ class MemoryManagementService:
         user_id: str,
         similarity_threshold: float = 0.85,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Consolidate similar memories for a user.
 
@@ -769,7 +769,7 @@ class MemoryManagementService:
         conversation: str,
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Extract memories from a conversation log.
 

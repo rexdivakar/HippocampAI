@@ -77,8 +77,8 @@ class MemoryClient:
         hnsw_M: Optional[int] = None,
         ef_construction: Optional[int] = None,
         ef_search: Optional[int] = None,
-        weights: Optional[Dict[str, float]] = None,
-        half_lives: Optional[Dict[str, int]] = None,
+        weights: Optional[dict[str, float]] = None,
+        half_lives: Optional[dict[str, int]] = None,
         allow_cloud: Optional[bool] = None,
         config: Optional[Config] = None,
         enable_telemetry: bool = True,
@@ -275,7 +275,7 @@ class MemoryClient:
         session_id: Optional[str] = None,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
@@ -441,8 +441,8 @@ class MemoryClient:
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[RetrievalResult]:
+        filters: Optional[dict[str, Any]] = None,
+    ) -> list[RetrievalResult]:
         """Retrieve memories."""
         # Start telemetry trace
         trace_id = self.telemetry.start_trace(
@@ -479,7 +479,7 @@ class MemoryClient:
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Extract memories from conversation."""
         # Start telemetry trace
         trace_id = self.telemetry.start_trace(
@@ -521,7 +521,7 @@ class MemoryClient:
             raise
 
     # Telemetry Access Methods
-    def get_telemetry_metrics(self) -> Dict[str, any]:
+    def get_telemetry_metrics(self) -> dict[str, any]:
         """Get telemetry metrics summary."""
         return self.telemetry.get_metrics_summary()
 
@@ -532,11 +532,11 @@ class MemoryClient:
         op_type = OperationType(operation) if operation else None
         return self.telemetry.get_recent_traces(limit=limit, operation=op_type)
 
-    def export_telemetry(self, trace_ids: Optional[List[str]] = None) -> List[Dict]:
+    def export_telemetry(self, trace_ids: Optional[list[str]] = None) -> list[dict]:
         """Export telemetry data for external analysis."""
         return self.telemetry.export_traces(trace_ids=trace_ids)
 
-    def get_memory_statistics(self, user_id: str) -> Dict[str, Any]:
+    def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory size and usage statistics for a user.
 
         Args:
@@ -573,7 +573,7 @@ class MemoryClient:
             "by_type": self._get_size_by_type(memories),
         }
 
-    def _get_size_by_type(self, memories: List[Memory]) -> Dict[str, Dict[str, Any]]:
+    def _get_size_by_type(self, memories: list[Memory]) -> dict[str, dict[str, Any]]:
         """Get size statistics grouped by memory type."""
         by_type = {}
         for mem in memories:
@@ -601,8 +601,8 @@ class MemoryClient:
         memory_id: str,
         text: Optional[str] = None,
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         expires_at: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """Update an existing memory."""
@@ -753,9 +753,9 @@ class MemoryClient:
     def get_memories(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get memories with advanced filtering (without semantic search).
 
         Args:
@@ -895,10 +895,10 @@ class MemoryClient:
 
     def add_memories(
         self,
-        memories: List[Dict[str, Any]],
+        memories: list[dict[str, Any]],
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Batch add multiple memories at once.
 
         Args:
@@ -940,7 +940,7 @@ class MemoryClient:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             raise
 
-    def delete_memories(self, memory_ids: List[str], user_id: Optional[str] = None) -> int:
+    def delete_memories(self, memory_ids: list[str], user_id: Optional[str] = None) -> int:
         """Batch delete multiple memories.
 
         Args:
@@ -1003,9 +1003,9 @@ class MemoryClient:
     def get_related_memories(
         self,
         memory_id: str,
-        relation_types: Optional[List[RelationType]] = None,
+        relation_types: Optional[list[RelationType]] = None,
         max_depth: int = 1,
-    ) -> List[tuple]:
+    ) -> list[tuple]:
         """Get memories related to a given memory.
 
         Args:
@@ -1018,7 +1018,7 @@ class MemoryClient:
         """
         return self.graph.get_related_memories(memory_id, relation_types, max_depth)
 
-    def get_memory_clusters(self, user_id: str) -> List[set]:
+    def get_memory_clusters(self, user_id: str) -> list[set]:
         """Find clusters of related memories.
 
         Args:
@@ -1048,7 +1048,7 @@ class MemoryClient:
         """
         return self.graph.export_to_json(file_path, user_id, indent)
 
-    def import_graph_from_json(self, file_path: str, merge: bool = True) -> Dict:
+    def import_graph_from_json(self, file_path: str, merge: bool = True) -> dict:
         """Import memory graph from a JSON file.
 
         Args:
@@ -1077,7 +1077,7 @@ class MemoryClient:
 
     # === VERSION CONTROL ===
 
-    def get_memory_history(self, memory_id: str) -> List:
+    def get_memory_history(self, memory_id: str) -> list:
         """Get version history for a memory.
 
         Args:
@@ -1118,7 +1118,7 @@ class MemoryClient:
         user_id: Optional[str] = None,
         change_type: Optional[ChangeType] = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """Get audit trail entries.
 
         Args:
@@ -1217,11 +1217,11 @@ class MemoryClient:
     def get_memories_advanced(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         sort_by: str = "created_at",  # created_at, importance, access_count
         sort_order: str = "desc",
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get memories with advanced filtering and sorting.
 
         Args:
@@ -1365,8 +1365,8 @@ class MemoryClient:
             return consolidated_count
 
     def _find_similar_clusters(
-        self, memories: List[Memory], threshold: float = 0.85
-    ) -> List[List[Memory]]:
+        self, memories: list[Memory], threshold: float = 0.85
+    ) -> list[list[Memory]]:
         """Find clusters of similar memories.
 
         Args:
@@ -1473,8 +1473,8 @@ class MemoryClient:
         user_id: str,
         title: Optional[str] = None,
         parent_session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Session:
         """Create a new conversation session.
 
@@ -1513,8 +1513,8 @@ class MemoryClient:
         title: Optional[str] = None,
         summary: Optional[str] = None,
         status: Optional[SessionStatus] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Optional[Session]:
         """Update session fields.
 
@@ -1545,7 +1545,7 @@ class MemoryClient:
         user_id: str,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         auto_boundary_detect: bool = True,
     ) -> Optional[Session]:
         """Track a message in a session and optionally detect boundaries.
@@ -1612,8 +1612,8 @@ class MemoryClient:
         query: str,
         user_id: Optional[str] = None,
         k: int = 10,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[SessionSearchResult]:
+        filters: Optional[dict[str, Any]] = None,
+    ) -> list[SessionSearchResult]:
         """Search sessions by semantic similarity.
 
         Args:
@@ -1632,7 +1632,7 @@ class MemoryClient:
         user_id: str,
         status: Optional[SessionStatus] = None,
         limit: int = 50,
-    ) -> List[Session]:
+    ) -> list[Session]:
         """Get sessions for a user.
 
         Args:
@@ -1645,7 +1645,7 @@ class MemoryClient:
         """
         return self.session_manager.get_user_sessions(user_id, status, limit)
 
-    def get_session_memories(self, session_id: str, limit: int = 100) -> List[Memory]:
+    def get_session_memories(self, session_id: str, limit: int = 100) -> list[Memory]:
         """Get all memories for a session.
 
         Args:
@@ -1657,7 +1657,7 @@ class MemoryClient:
         """
         return self.get_memories(user_id="*", filters={"session_id": session_id}, limit=limit)
 
-    def get_child_sessions(self, parent_session_id: str) -> List[Session]:
+    def get_child_sessions(self, parent_session_id: str) -> list[Session]:
         """Get child sessions of a parent session.
 
         Args:
@@ -1680,7 +1680,7 @@ class MemoryClient:
         """
         return self.session_manager.summarize_session(session_id, force)
 
-    def extract_session_facts(self, session_id: str, force: bool = False) -> List:
+    def extract_session_facts(self, session_id: str, force: bool = False) -> list:
         """Extract key facts from session.
 
         Args:
@@ -1692,7 +1692,7 @@ class MemoryClient:
         """
         return self.session_manager.extract_session_facts(session_id, force)
 
-    def extract_session_entities(self, session_id: str, force: bool = False) -> Dict[str, Any]:
+    def extract_session_entities(self, session_id: str, force: bool = False) -> dict[str, Any]:
         """Extract entities from session.
 
         Args:
@@ -1704,7 +1704,7 @@ class MemoryClient:
         """
         return self.session_manager.extract_session_entities(session_id, force)
 
-    def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
+    def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """Get statistics for a session.
 
         Args:
@@ -1728,7 +1728,7 @@ class MemoryClient:
 
     # === SMART MEMORY UPDATES & CLUSTERING ===
 
-    def reconcile_user_memories(self, user_id: str) -> List[Memory]:
+    def reconcile_user_memories(self, user_id: str) -> list[Memory]:
         """Reconcile and resolve conflicts in user's memories.
 
         Args:
@@ -1769,7 +1769,7 @@ class MemoryClient:
         )
         return clusters
 
-    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory.
 
         Args:
@@ -1841,7 +1841,7 @@ class MemoryClient:
         user_id: str,
         role: AgentRole = AgentRole.ASSISTANT,
         description: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Agent:
         """Create a new agent with its own memory space.
 
@@ -1864,7 +1864,7 @@ class MemoryClient:
         """Get agent by ID."""
         return self.multiagent.get_agent(agent_id)
 
-    def list_agents(self, user_id: Optional[str] = None) -> List[Agent]:
+    def list_agents(self, user_id: Optional[str] = None) -> list[Agent]:
         """List all agents, optionally filtered by user."""
         return self.multiagent.list_agents(user_id)
 
@@ -1874,7 +1874,7 @@ class MemoryClient:
         name: Optional[str] = None,
         description: Optional[str] = None,
         role: Optional[AgentRole] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         is_active: Optional[bool] = None,
     ) -> Optional[Agent]:
         """Update agent properties."""
@@ -1889,7 +1889,7 @@ class MemoryClient:
         agent_id: str,
         user_id: str,
         name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Run:
         """Create a new run for an agent.
 
@@ -1914,7 +1914,7 @@ class MemoryClient:
         """Get run by ID."""
         return self.multiagent.get_run(run_id)
 
-    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Run]:
+    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> list[Run]:
         """List runs, optionally filtered by agent or user."""
         return self.multiagent.list_runs(agent_id, user_id)
 
@@ -1926,8 +1926,8 @@ class MemoryClient:
         self,
         granter_agent_id: str,
         grantee_agent_id: str,
-        permissions: Set[PermissionType],
-        memory_filters: Optional[Dict[str, Any]] = None,
+        permissions: set[PermissionType],
+        memory_filters: Optional[dict[str, Any]] = None,
         expires_at: Optional[datetime] = None,
     ) -> AgentPermission:
         """Grant permission for one agent to access another's memories.
@@ -1968,7 +1968,7 @@ class MemoryClient:
         self,
         granter_agent_id: Optional[str] = None,
         grantee_agent_id: Optional[str] = None,
-    ) -> List[AgentPermission]:
+    ) -> list[AgentPermission]:
         """List permissions, optionally filtered."""
         return self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
 
@@ -2037,9 +2037,9 @@ class MemoryClient:
         self,
         agent_id: str,
         requesting_agent_id: Optional[str] = None,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get memories for an agent, respecting permissions.
 
         Args:
@@ -2097,9 +2097,9 @@ class MemoryClient:
         time_range: Optional[TimeRange] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get memories within a specific time range.
 
         Args:
@@ -2195,7 +2195,7 @@ class MemoryClient:
             memories, user_id, title, start_time, end_time
         )
 
-    def analyze_event_sequences(self, user_id: str, max_gap_hours: int = 24) -> List[List[Memory]]:
+    def analyze_event_sequences(self, user_id: str, max_gap_hours: int = 24) -> list[list[Memory]]:
         """Identify sequences of related events in memories.
 
         Args:
@@ -2219,10 +2219,10 @@ class MemoryClient:
         user_id: str,
         scheduled_for: datetime,
         type: str = "fact",
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         recurrence: Optional[str] = None,
         reminder_offset: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ScheduledMemory:
         """Schedule a memory for future creation.
 
@@ -2260,7 +2260,7 @@ class MemoryClient:
             metadata=metadata,
         )
 
-    def get_due_scheduled_memories(self) -> List[ScheduledMemory]:
+    def get_due_scheduled_memories(self) -> list[ScheduledMemory]:
         """Get scheduled memories that are due for creation.
 
         Returns:
@@ -2285,7 +2285,7 @@ class MemoryClient:
         """
         return self.temporal_analyzer.trigger_scheduled_memory(scheduled_id)
 
-    def get_temporal_summary(self, user_id: str) -> Dict[str, Any]:
+    def get_temporal_summary(self, user_id: str) -> dict[str, Any]:
         """Get temporal statistics for user's memories.
 
         Args:
@@ -2305,8 +2305,8 @@ class MemoryClient:
     # === CROSS-SESSION INSIGHTS ===
 
     def detect_patterns(
-        self, user_id: str, session_ids: Optional[List[str]] = None
-    ) -> List[Pattern]:
+        self, user_id: str, session_ids: Optional[list[str]] = None
+    ) -> list[Pattern]:
         """Detect behavioral patterns across memories and sessions.
 
         Args:
@@ -2337,7 +2337,7 @@ class MemoryClient:
         self,
         user_id: str,
         comparison_days: int = 30,
-    ) -> List[BehaviorChange]:
+    ) -> list[BehaviorChange]:
         """Track changes in user behavior between time periods.
 
         Args:
@@ -2364,7 +2364,7 @@ class MemoryClient:
 
     def analyze_preference_drift(
         self, user_id: str, category: Optional[str] = None
-    ) -> List[PreferenceDrift]:
+    ) -> list[PreferenceDrift]:
         """Analyze how user preferences have changed over time.
 
         Args:
@@ -2385,7 +2385,7 @@ class MemoryClient:
         memories = self.get_memories(user_id, limit=10000)
         return self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
 
-    def detect_habits(self, user_id: str, min_occurrences: int = 5) -> List[HabitScore]:
+    def detect_habits(self, user_id: str, min_occurrences: int = 5) -> list[HabitScore]:
         """Detect and score potential habits from user's memories.
 
         Args:
@@ -2407,7 +2407,7 @@ class MemoryClient:
         memories = self.get_memories(user_id, limit=10000)
         return self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
 
-    def analyze_trends(self, user_id: str, window_days: int = 30) -> List[Trend]:
+    def analyze_trends(self, user_id: str, window_days: int = 30) -> list[Trend]:
         """Analyze long-term trends in user behavior.
 
         Args:
@@ -2434,7 +2434,7 @@ class MemoryClient:
         text: str,
         source: str = "text",
         user_id: Optional[str] = None,
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract structured facts from text.
 
         Args:
@@ -2460,7 +2460,7 @@ class MemoryClient:
         conversation: str,
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[ExtractedFact]:
+    ) -> list[ExtractedFact]:
         """Extract facts from a multi-turn conversation.
 
         Args:
@@ -2484,8 +2484,8 @@ class MemoryClient:
     def extract_entities(
         self,
         text: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> List[Entity]:
+        context: Optional[dict[str, Any]] = None,
+    ) -> list[Entity]:
         """Extract named entities from text.
 
         Args:
@@ -2507,8 +2507,8 @@ class MemoryClient:
     def extract_relationships(
         self,
         text: str,
-        entities: Optional[List[Entity]] = None,
-    ) -> List[EntityRelationship]:
+        entities: Optional[list[Entity]] = None,
+    ) -> list[EntityRelationship]:
         """Extract relationships between entities.
 
         Args:
@@ -2550,7 +2550,7 @@ class MemoryClient:
         query: str,
         entity_type: Optional[EntityType] = None,
         min_mentions: int = 1,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Search for entities by name.
 
         Args:
@@ -2572,10 +2572,10 @@ class MemoryClient:
 
     def summarize_conversation(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         session_id: str = "unknown",
         style: SummaryStyle = SummaryStyle.CONCISE,
-        entities: Optional[List[str]] = None,
+        entities: Optional[list[str]] = None,
     ) -> SessionSummary:
         """Generate summary for a conversation.
 
@@ -2606,7 +2606,7 @@ class MemoryClient:
 
     def create_rolling_summary(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         window_size: int = 10,
         style: SummaryStyle = SummaryStyle.CONCISE,
     ) -> str:
@@ -2627,9 +2627,9 @@ class MemoryClient:
 
     def extract_conversation_insights(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Extract insights from conversation.
 
         Args:
@@ -2652,7 +2652,7 @@ class MemoryClient:
     def add_entity_to_graph(
         self,
         entity: Entity,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Add an entity node to the knowledge graph.
 
@@ -2674,7 +2674,7 @@ class MemoryClient:
         self,
         fact: ExtractedFact,
         fact_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Add a fact node to the knowledge graph.
 
@@ -2738,7 +2738,7 @@ class MemoryClient:
         """
         return self.graph.link_memory_to_fact(memory_id, fact_id, confidence)
 
-    def get_entity_memories(self, entity_id: str) -> List[str]:
+    def get_entity_memories(self, entity_id: str) -> list[str]:
         """Get all memories mentioning an entity.
 
         Args:
@@ -2755,7 +2755,7 @@ class MemoryClient:
         """
         return self.graph.get_entity_memories(entity_id)
 
-    def get_entity_facts(self, entity_id: str) -> List[str]:
+    def get_entity_facts(self, entity_id: str) -> list[str]:
         """Get all facts about an entity.
 
         Args:
@@ -2773,7 +2773,7 @@ class MemoryClient:
         self,
         entity_id: str,
         max_distance: int = 2,
-    ) -> Dict[str, List[tuple]]:
+    ) -> dict[str, list[tuple]]:
         """Find all entities connected to a given entity.
 
         Args:
@@ -2794,8 +2794,8 @@ class MemoryClient:
         self,
         center_id: str,
         radius: int = 2,
-        include_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        include_types: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """Get a subgraph around a central node.
 
         Args:
@@ -2819,7 +2819,7 @@ class MemoryClient:
 
         return self.graph.get_knowledge_subgraph(center_id, radius, node_types)
 
-    def get_entity_timeline(self, entity_id: str) -> List[Dict[str, Any]]:
+    def get_entity_timeline(self, entity_id: str) -> list[dict[str, Any]]:
         """Get chronological timeline of facts and memories about an entity.
 
         Args:
@@ -2835,7 +2835,7 @@ class MemoryClient:
         """
         return self.graph.get_entity_timeline(entity_id)
 
-    def infer_knowledge(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def infer_knowledge(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
         """Infer new facts from existing knowledge graph patterns.
 
         Args:
@@ -2856,7 +2856,7 @@ class MemoryClient:
         self,
         memory: Memory,
         add_to_graph: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Enrich a memory with facts, entities, and add to knowledge graph.
 
         This is a convenience method that extracts facts and entities from a memory

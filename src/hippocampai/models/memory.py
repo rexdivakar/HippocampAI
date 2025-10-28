@@ -28,14 +28,14 @@ class Memory(BaseModel):
     type: MemoryType
     importance: float = Field(default=5.0, ge=0.0, le=10.0)
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None  # TTL support
     access_count: int = 0
     text_length: int = 0  # Character count
     token_count: int = 0  # Approximate token count
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Multi-agent support (optional for backward compatibility)
     agent_id: Optional[str] = None
@@ -68,7 +68,7 @@ class Memory(BaseModel):
 class RetrievalResult(BaseModel):
     memory: Memory
     score: float
-    breakdown: Dict[str, float] = Field(default_factory=dict)
+    breakdown: dict[str, float] = Field(default_factory=dict)
 
 
 class RetrievalQuery(BaseModel):
@@ -76,4 +76,4 @@ class RetrievalQuery(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     k: int = 5
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[dict[str, Any]] = None

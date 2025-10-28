@@ -136,7 +136,7 @@ class EnhancedMemoryClient:
         session_id: Optional[str] = None,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
     ) -> Memory:
         """Store a memory."""
@@ -156,8 +156,8 @@ class EnhancedMemoryClient:
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[RetrievalResult]:
+        filters: Optional[dict[str, Any]] = None,
+    ) -> list[RetrievalResult]:
         """Retrieve relevant memories."""
         return self.client.recall(
             query=query,
@@ -169,7 +169,7 @@ class EnhancedMemoryClient:
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Extract and store memories from conversation."""
         return self.client.extract_from_conversation(
             conversation=conversation,
@@ -177,16 +177,16 @@ class EnhancedMemoryClient:
             session_id=session_id,
         )
 
-    def get_memory_statistics(self, user_id: str) -> Dict[str, Any]:
+    def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory usage statistics."""
         return self.client.get_memory_statistics(user_id=user_id)
 
     def get_memories(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Get all memories for a user."""
         return self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
 
@@ -199,8 +199,8 @@ class EnhancedMemoryClient:
         memory_id: str,
         text: Optional[str] = None,
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Optional[Memory]:
         """Update a memory."""
         return self.client.update_memory(
@@ -217,8 +217,8 @@ class EnhancedMemoryClient:
         user_id: str,
         title: Optional[str] = None,
         parent_session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
     ):
         """Create a conversation session."""
         return self.client.create_session(
@@ -236,7 +236,7 @@ class EnhancedMemoryClient:
         user_id: str,
         type: str = "fact",
         importance: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         auto_boundary_detect: bool = False,
     ):
         """Track a message in a session."""
@@ -262,7 +262,7 @@ class EnhancedMemoryClient:
         query: str,
         user_id: Optional[str] = None,
         k: int = 10,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
     ):
         """Search sessions semantically."""
         return self.client.search_sessions(
@@ -273,7 +273,7 @@ class EnhancedMemoryClient:
         )
 
     # Telemetry
-    def get_telemetry_metrics(self) -> Dict[str, Any]:
+    def get_telemetry_metrics(self) -> dict[str, Any]:
         """Get telemetry metrics."""
         return self.client.get_telemetry_metrics()
 
@@ -287,7 +287,7 @@ class EnhancedMemoryClient:
         return self.client.llm
 
     # Smart memory updates and clustering
-    def reconcile_user_memories(self, user_id: str) -> List[Memory]:
+    def reconcile_user_memories(self, user_id: str) -> list[Memory]:
         """Reconcile and resolve conflicts in user's memories."""
         return self.client.reconcile_user_memories(user_id=user_id)
 
@@ -295,7 +295,7 @@ class EnhancedMemoryClient:
         """Cluster user's memories by topics."""
         return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
 
-    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+    def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory."""
         return self.client.suggest_memory_tags(memory=memory, max_tags=max_tags)
 
@@ -316,7 +316,7 @@ class EnhancedMemoryClient:
         user_id: str,
         role=None,
         description: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ):
         """Create a new agent with its own memory space."""
         return self.client.create_agent(name, user_id, role, description, metadata)
@@ -334,7 +334,7 @@ class EnhancedMemoryClient:
         agent_id: str,
         user_id: str,
         name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ):
         """Create a new run for an agent."""
         return self.client.create_run(agent_id, user_id, name, metadata)
@@ -344,7 +344,7 @@ class EnhancedMemoryClient:
         granter_agent_id: str,
         grantee_agent_id: str,
         permissions,
-        memory_filters: Optional[Dict[str, Any]] = None,
+        memory_filters: Optional[dict[str, Any]] = None,
         expires_at: Optional[Any] = None,
     ):
         """Grant permission for one agent to access another's memories."""
@@ -356,7 +356,7 @@ class EnhancedMemoryClient:
         self,
         agent_id: str,
         requesting_agent_id: Optional[str] = None,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
     ):
         """Get memories for an agent, respecting permissions."""

@@ -13,7 +13,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -44,10 +44,10 @@ class SessionSummary(BaseModel):
 
     session_id: str
     summary: str = Field(..., description="Main summary text")
-    key_points: List[str] = Field(default_factory=list)
-    entities_mentioned: List[str] = Field(default_factory=list)
-    topics: List[str] = Field(default_factory=list)
-    action_items: List[str] = Field(default_factory=list)
+    key_points: list[str] = Field(default_factory=list)
+    entities_mentioned: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+    action_items: list[str] = Field(default_factory=list)
     questions_asked: int = 0
     questions_answered: int = 0
     sentiment: SentimentType = SentimentType.NEUTRAL
@@ -55,7 +55,7 @@ class SessionSummary(BaseModel):
     message_count: int = 0
     style: SummaryStyle = SummaryStyle.CONCISE
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Summarizer:
@@ -74,7 +74,7 @@ class Summarizer:
         self.question_patterns = self._build_question_patterns()
         self.topic_keywords = self._build_topic_keywords()
 
-    def _build_action_patterns(self) -> List[str]:
+    def _build_action_patterns(self) -> list[str]:
         """Build patterns for action item detection."""
         return [
             r"\b(?:need to|have to|must|should|will|going to)\s+([^.!?]+)",
@@ -83,7 +83,7 @@ class Summarizer:
             r"\b(?:follow up on|check|review|prepare|send|schedule)\s+([^.!?]+)",
         ]
 
-    def _build_question_patterns(self) -> List[str]:
+    def _build_question_patterns(self) -> list[str]:
         """Build patterns for question detection."""
         return [
             r"\?",  # Simple question mark
@@ -91,7 +91,7 @@ class Summarizer:
             r"\b(?:do|does|did|can|could|would|should|is|are|was|were)\b.*\?",  # Yes/no questions
         ]
 
-    def _build_topic_keywords(self) -> Dict[str, List[str]]:
+    def _build_topic_keywords(self) -> dict[str, list[str]]:
         """Build keywords for topic identification."""
         return {
             "work": ["work", "job", "career", "project", "meeting", "deadline", "task"],
@@ -105,10 +105,10 @@ class Summarizer:
 
     def summarize_session(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         session_id: str,
         style: SummaryStyle = SummaryStyle.CONCISE,
-        entities: Optional[List[str]] = None,
+        entities: Optional[list[str]] = None,
     ) -> SessionSummary:
         """Generate summary for a conversation session.
 
@@ -159,7 +159,7 @@ class Summarizer:
             metadata={"has_llm": self.llm is not None, "message_count": len(messages)},
         )
 
-    def _format_conversation(self, messages: List[Dict[str, Any]]) -> str:
+    def _format_conversation(self, messages: list[dict[str, Any]]) -> str:
         """Format messages into conversation text."""
         lines = []
         for msg in messages:
@@ -168,7 +168,7 @@ class Summarizer:
             lines.append(f"{role.capitalize()}: {content}")
         return "\n".join(lines)
 
-    def _extract_key_points(self, messages: List[Dict[str, Any]]) -> List[str]:
+    def _extract_key_points(self, messages: list[dict[str, Any]]) -> list[str]:
         """Extract key points from conversation."""
         key_points = []
 
@@ -208,7 +208,7 @@ class Summarizer:
         # Limit to most relevant
         return key_points[:5]
 
-    def _identify_topics(self, text: str) -> List[str]:
+    def _identify_topics(self, text: str) -> list[str]:
         """Identify main topics discussed."""
         text_lower = text.lower()
         topics = []
@@ -226,7 +226,7 @@ class Summarizer:
 
         return topics
 
-    def _extract_action_items(self, text: str) -> List[str]:
+    def _extract_action_items(self, text: str) -> list[str]:
         """Extract action items and tasks."""
         action_items = []
 
@@ -244,7 +244,7 @@ class Summarizer:
 
         return action_items[:10]  # Limit to 10
 
-    def _count_questions(self, messages: List[Dict[str, Any]], role: str) -> int:
+    def _count_questions(self, messages: list[dict[str, Any]], role: str) -> int:
         """Count questions asked by a specific role."""
         count = 0
         for msg in messages:
@@ -299,7 +299,7 @@ class Summarizer:
         else:
             return SentimentType.NEUTRAL
 
-    def _calculate_duration(self, messages: List[Dict[str, Any]]) -> Optional[int]:
+    def _calculate_duration(self, messages: list[dict[str, Any]]) -> Optional[int]:
         """Calculate conversation duration in minutes."""
         timestamps = []
 
@@ -321,10 +321,10 @@ class Summarizer:
 
     def _generate_summary_llm(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         style: SummaryStyle,
-        key_points: List[str],
-        topics: List[str],
+        key_points: list[str],
+        topics: list[str],
     ) -> str:
         """Generate summary using LLM."""
         conversation = self._format_conversation(messages)
@@ -362,7 +362,7 @@ Summary:"""
             return self._generate_summary_template(key_points, topics, style)
 
     def _generate_summary_template(
-        self, key_points: List[str], topics: List[str], style: SummaryStyle
+        self, key_points: list[str], topics: list[str], style: SummaryStyle
     ) -> str:
         """Generate summary using templates (fallback)."""
         if style == SummaryStyle.BULLET_POINTS:
@@ -380,7 +380,7 @@ Summary:"""
 
     def create_rolling_summary(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         window_size: int = 10,
         style: SummaryStyle = SummaryStyle.CONCISE,
     ) -> str:
@@ -402,7 +402,7 @@ Summary:"""
 
         return temp_summary.summary
 
-    def extract_insights(self, messages: List[Dict[str, Any]], user_id: str) -> Dict[str, Any]:
+    def extract_insights(self, messages: list[dict[str, Any]], user_id: str) -> dict[str, Any]:
         """Extract insights from conversation.
 
         Args:

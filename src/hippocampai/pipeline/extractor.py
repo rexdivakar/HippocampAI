@@ -3,7 +3,7 @@
 import json
 import logging
 import re
-from typing import List, Optional
+from typing import Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.models.memory import Memory, MemoryType
@@ -60,7 +60,7 @@ Extract memories as JSON array:"""
 
     def extract(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Extract memories from conversation."""
         if self.mode == "llm" and self.llm:
             return self._extract_llm(conversation, user_id, session_id)
@@ -76,7 +76,7 @@ Extract memories as JSON array:"""
 
     def _extract_heuristic(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Simple regex-based extraction with improved patterns."""
         memories = []
         conv_lower = conversation.lower()
@@ -113,7 +113,7 @@ Extract memories as JSON array:"""
 
     def _extract_llm(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """LLM-based extraction with robust JSON parsing."""
         if not self.llm:
             return []

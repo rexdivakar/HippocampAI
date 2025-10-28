@@ -39,7 +39,7 @@ class TraceEvent:
     operation: OperationType
     timestamp: datetime
     duration_ms: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     status: str = "success"  # success, error, skipped
     error: Optional[str] = None
 
@@ -55,9 +55,9 @@ class MemoryTrace:
     start_time: datetime
     end_time: Optional[datetime] = None
     duration_ms: Optional[float] = None
-    events: List[TraceEvent] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    result: Optional[Dict[str, Any]] = None
+    events: list[TraceEvent] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    result: Optional[dict[str, Any]] = None
     status: str = "in_progress"
 
 
@@ -66,8 +66,8 @@ class MemoryTelemetry:
 
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
-        self.traces: Dict[str, MemoryTrace] = {}
-        self.metrics: Dict[str, List[float]] = {
+        self.traces: dict[str, MemoryTrace] = {}
+        self.metrics: dict[str, list[float]] = {
             "remember_duration": [],
             "recall_duration": [],
             "extract_duration": [],
@@ -131,7 +131,7 @@ class MemoryTelemetry:
         logger.debug(f"Added event '{event_name}' to trace {trace_id}")
 
     def end_trace(
-        self, trace_id: str, status: str = "success", result: Optional[Dict[str, Any]] = None
+        self, trace_id: str, status: str = "success", result: Optional[dict[str, Any]] = None
     ) -> Optional[MemoryTrace]:
         """End a trace and record metrics."""
         if not self.enabled or not trace_id or trace_id not in self.traces:
@@ -157,7 +157,7 @@ class MemoryTelemetry:
 
     def get_recent_traces(
         self, limit: int = 10, operation: Optional[OperationType] = None
-    ) -> List[MemoryTrace]:
+    ) -> list[MemoryTrace]:
         """Get recent traces, optionally filtered by operation."""
         traces = list(self.traces.values())
 
@@ -176,7 +176,7 @@ class MemoryTelemetry:
         self.metrics["memory_size_chars"].append(float(text_length))
         self.metrics["memory_size_tokens"].append(float(token_count))
 
-    def get_metrics_summary(self) -> Dict[str, Any]:
+    def get_metrics_summary(self) -> dict[str, Any]:
         """Get summary statistics for all metrics."""
         summary = {}
 
@@ -215,7 +215,7 @@ class MemoryTelemetry:
         return len(old_traces)
 
     @staticmethod
-    def _percentile(values: List[float], p: int) -> float:
+    def _percentile(values: list[float], p: int) -> float:
         """Calculate percentile."""
         if not values:
             return 0.0
@@ -224,7 +224,7 @@ class MemoryTelemetry:
         index = int((p / 100) * len(sorted_values))
         return sorted_values[min(index, len(sorted_values) - 1)]
 
-    def export_traces(self, trace_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    def export_traces(self, trace_ids: Optional[list[str]] = None) -> list[dict[str, Any]]:
         """Export traces in a format suitable for external tools (e.g., OpenTelemetry)."""
         if trace_ids:
             traces_to_export = [self.traces[tid] for tid in trace_ids if tid in self.traces]

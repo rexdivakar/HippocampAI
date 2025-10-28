@@ -95,7 +95,7 @@ class AsyncRedisKVStore:
         await self.connect()
         return await self._client.exists(key) > 0
 
-    async def keys(self, pattern: str = "*") -> List[str]:
+    async def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
         await self.connect()
         keys = await self._client.keys(pattern)
@@ -187,7 +187,7 @@ class AsyncMemoryKVStore:
         """Generate key for tag index."""
         return f"tag:{tag}:memories"
 
-    async def set_memory(self, memory_id: str, memory_data: Dict):
+    async def set_memory(self, memory_id: str, memory_data: dict):
         """Store memory data."""
         key = self._memory_key(memory_id)
         await self.backend.set(key, memory_data, ttl_seconds=self.cache_ttl)
@@ -202,7 +202,7 @@ class AsyncMemoryKVStore:
         for tag in tags:
             await self.backend.sadd(self._tag_key(tag), memory_id)
 
-    async def get_memory(self, memory_id: str) -> Optional[Dict]:
+    async def get_memory(self, memory_id: str) -> Optional[dict]:
         """Retrieve memory data by ID."""
         key = self._memory_key(memory_id)
         return await self.backend.get(key)
@@ -228,19 +228,19 @@ class AsyncMemoryKVStore:
 
         return deleted
 
-    async def get_user_memories(self, user_id: str) -> List[str]:
+    async def get_user_memories(self, user_id: str) -> list[str]:
         """Get all memory IDs for a user."""
         key = self._user_memories_key(user_id)
         memory_ids = await self.backend.smembers(key)
         return list(memory_ids)
 
-    async def get_memories_by_tag(self, tag: str) -> List[str]:
+    async def get_memories_by_tag(self, tag: str) -> list[str]:
         """Get all memory IDs with a specific tag."""
         key = self._tag_key(tag)
         memory_ids = await self.backend.smembers(key)
         return list(memory_ids)
 
-    async def batch_set_memories(self, memories: List[tuple[str, Dict]]):
+    async def batch_set_memories(self, memories: list[tuple[str, dict]]):
         """Batch store multiple memories."""
         pipe = await self.backend.pipeline()
         for memory_id, memory_data in memories:
@@ -260,7 +260,7 @@ class AsyncMemoryKVStore:
 
         await pipe.execute()
 
-    async def batch_delete_memories(self, memory_ids: List[str]):
+    async def batch_delete_memories(self, memory_ids: list[str]):
         """Batch delete multiple memories."""
         pipe = await self.backend.pipeline()
         for memory_id in memory_ids:
@@ -288,7 +288,7 @@ class AsyncMemoryKVStore:
         memory_ids = await self.get_user_memories(user_id)
         await self.batch_delete_memories(memory_ids)
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """Get store statistics."""
         all_keys = await self.backend.keys("*")
         return {

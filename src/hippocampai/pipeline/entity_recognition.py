@@ -12,7 +12,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -66,7 +66,7 @@ class Entity(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     entity_id: str = Field(..., description="Unique entity identifier")
     canonical_name: Optional[str] = Field(None, description="Normalized entity name")
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     first_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     mention_count: int = Field(default=1)
@@ -90,11 +90,11 @@ class EntityProfile(BaseModel):
     entity_id: str
     canonical_name: str
     type: EntityType
-    aliases: Set[str] = Field(default_factory=set)
-    attributes: Dict[str, Any] = Field(default_factory=dict)
-    relationships: List[EntityRelationship] = Field(default_factory=list)
-    mentions: List[Dict[str, Any]] = Field(default_factory=list)
-    timeline: List[Dict[str, Any]] = Field(default_factory=list)
+    aliases: set[str] = Field(default_factory=set)
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    relationships: list[EntityRelationship] = Field(default_factory=list)
+    mentions: list[dict[str, Any]] = Field(default_factory=list)
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
     first_seen: datetime
     last_seen: datetime
     mention_count: int = 0
@@ -112,14 +112,14 @@ class EntityRecognizer:
         self.llm = llm
 
         # Entity storage
-        self.entities: Dict[str, EntityProfile] = {}
-        self.entity_index: Dict[str, str] = {}  # text -> entity_id mapping
+        self.entities: dict[str, EntityProfile] = {}
+        self.entity_index: dict[str, str] = {}  # text -> entity_id mapping
 
         # Build recognition patterns
         self.entity_patterns = self._build_entity_patterns()
         self.relationship_patterns = self._build_relationship_patterns()
 
-    def _build_entity_patterns(self) -> Dict[EntityType, List[str]]:
+    def _build_entity_patterns(self) -> dict[EntityType, list[str]]:
         """Build regex patterns for entity recognition."""
         return {
             EntityType.PERSON: [
@@ -180,7 +180,7 @@ class EntityRecognizer:
             ],
         }
 
-    def _build_relationship_patterns(self) -> List[Dict[str, Any]]:
+    def _build_relationship_patterns(self) -> list[dict[str, Any]]:
         """Build patterns for relationship extraction."""
         return [
             {
@@ -217,7 +217,7 @@ class EntityRecognizer:
             },
         ]
 
-    def extract_entities(self, text: str, context: Optional[Dict[str, Any]] = None) -> List[Entity]:
+    def extract_entities(self, text: str, context: Optional[dict[str, Any]] = None) -> list[Entity]:
         """Extract entities from text.
 
         Args:
@@ -247,7 +247,7 @@ class EntityRecognizer:
 
         return entities
 
-    def _extract_entities_pattern_based(self, text: str) -> List[Entity]:
+    def _extract_entities_pattern_based(self, text: str) -> list[Entity]:
         """Extract entities using regex patterns."""
         entities = []
 
@@ -280,7 +280,7 @@ class EntityRecognizer:
 
         return entities
 
-    def _extract_entities_llm(self, text: str) -> List[Entity]:
+    def _extract_entities_llm(self, text: str) -> list[Entity]:
         """Extract entities using LLM."""
         if not self.llm:
             return []
@@ -355,7 +355,7 @@ Entities:"""
         normalized = re.sub(r"[^\w_]", "", normalized)
         return f"{entity_type.value}_{normalized}"
 
-    def _deduplicate_entities(self, entities: List[Entity]) -> List[Entity]:
+    def _deduplicate_entities(self, entities: list[Entity]) -> list[Entity]:
         """Remove duplicate entities."""
         seen = {}
         unique_entities = []
@@ -373,8 +373,8 @@ Entities:"""
         return unique_entities
 
     def extract_relationships(
-        self, text: str, entities: Optional[List[Entity]] = None
-    ) -> List[EntityRelationship]:
+        self, text: str, entities: Optional[list[Entity]] = None
+    ) -> list[EntityRelationship]:
         """Extract relationships between entities.
 
         Args:
@@ -411,7 +411,7 @@ Entities:"""
         return relationships
 
     def _update_entity_profile(
-        self, entity: Entity, source_text: str, context: Optional[Dict[str, Any]] = None
+        self, entity: Entity, source_text: str, context: Optional[dict[str, Any]] = None
     ):
         """Update or create entity profile."""
         if entity.entity_id in self.entities:
@@ -463,7 +463,7 @@ Entities:"""
 
     def search_entities(
         self, query: str, entity_type: Optional[EntityType] = None, min_mentions: int = 1
-    ) -> List[EntityProfile]:
+    ) -> list[EntityProfile]:
         """Search for entities.
 
         Args:
@@ -496,7 +496,7 @@ Entities:"""
         results.sort(key=lambda p: p.mention_count, reverse=True)
         return results
 
-    def get_entity_timeline(self, entity_id: str) -> List[Dict[str, Any]]:
+    def get_entity_timeline(self, entity_id: str) -> list[dict[str, Any]]:
         """Get chronological timeline of entity mentions."""
         profile = self.get_entity_profile(entity_id)
         if not profile:
@@ -508,7 +508,7 @@ Entities:"""
 
     def get_related_entities(
         self, entity_id: str, relation_type: Optional[RelationType] = None
-    ) -> List[Tuple[str, RelationType]]:
+    ) -> list[tuple[str, RelationType]]:
         """Get entities related to a given entity.
 
         Args:
@@ -656,7 +656,7 @@ Entities:"""
 
     def find_similar_entities(
         self, entity_text: str, entity_type: EntityType, threshold: float = 0.8
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """Find entities similar to the given text.
 
         Args:
@@ -702,7 +702,7 @@ Entities:"""
 
         return unique_similar
 
-    def get_entity_statistics(self) -> Dict[str, Any]:
+    def get_entity_statistics(self) -> dict[str, Any]:
         """Get statistics about recognized entities.
 
         Returns:

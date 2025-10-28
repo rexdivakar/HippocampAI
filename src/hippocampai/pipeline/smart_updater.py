@@ -11,7 +11,7 @@ This module provides intelligent memory management including:
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Dict, List, Literal, Optional
+from typing import Literal, Optional
 
 from hippocampai.models.memory import Memory
 
@@ -48,7 +48,7 @@ class SmartMemoryUpdater:
         self.similarity_threshold = similarity_threshold
 
     def should_update_memory(
-        self, existing: Memory, new_text: str, new_metadata: Optional[Dict] = None
+        self, existing: Memory, new_text: str, new_metadata: Optional[dict] = None
     ) -> UpdateDecision:
         """Decide whether to merge, update, skip, or keep both memories.
 
@@ -361,7 +361,7 @@ Refined memory:"""
         updated.updated_at = datetime.now(timezone.utc)
         return updated
 
-    def reconcile_memories(self, memories: List[Memory], user_id: str) -> List[Memory]:
+    def reconcile_memories(self, memories: list[Memory], user_id: str) -> list[Memory]:
         """Reconcile a group of related memories, resolving conflicts.
 
         Args:

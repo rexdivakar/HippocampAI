@@ -11,7 +11,7 @@ This module provides:
 import logging
 import re
 from collections import Counter, defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from hippocampai.models.memory import Memory, MemoryType
 
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class MemoryCluster:
     """Represents a cluster of semantically similar memories."""
 
-    def __init__(self, topic: str, memories: List[Memory]):
+    def __init__(self, topic: str, memories: list[Memory]):
         self.topic = topic
         self.memories = memories
         self.tags = self._extract_common_tags()
 
-    def _extract_common_tags(self) -> List[str]:
+    def _extract_common_tags(self) -> list[str]:
         """Extract tags common across memories in cluster."""
         all_tags = []
         for mem in self.memories:
@@ -80,7 +80,7 @@ class SemanticCategorizer:
             "finance": ["money", "bank", "payment", "budget", "invest", "financial", "cost"],
         }
 
-    def suggest_tags(self, memory: Memory, max_tags: int = 5) -> List[str]:
+    def suggest_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory based on content analysis.
 
         Args:
@@ -117,7 +117,7 @@ class SemanticCategorizer:
 
         return list(suggested)[:max_tags]
 
-    def _llm_suggest_tags(self, text: str, max_tags: int = 3) -> List[str]:
+    def _llm_suggest_tags(self, text: str, max_tags: int = 3) -> list[str]:
         """Use LLM to suggest tags."""
         prompt = f"""Generate {max_tags} relevant tags (single words or short phrases) for this text.
 Return only the tags, comma-separated, no explanations.
@@ -225,8 +225,8 @@ Category (respond with only the category name):"""
         return fallback
 
     def find_similar_memories(
-        self, memory: Memory, existing_memories: List[Memory], similarity_threshold: float = 0.7
-    ) -> List[Tuple[Memory, float]]:
+        self, memory: Memory, existing_memories: list[Memory], similarity_threshold: float = 0.7
+    ) -> list[tuple[Memory, float]]:
         """Find memories similar to the given memory.
 
         Args:
@@ -333,8 +333,8 @@ Category (respond with only the category name):"""
         return similar
 
     def cluster_memories(
-        self, memories: List[Memory], max_clusters: int = 10
-    ) -> List[MemoryCluster]:
+        self, memories: list[Memory], max_clusters: int = 10
+    ) -> list[MemoryCluster]:
         """Cluster memories by semantic similarity.
 
         Args:
@@ -348,7 +348,7 @@ Category (respond with only the category name):"""
             return []
 
         # Simple topic-based clustering using keywords
-        clusters: Dict[str, List[Memory]] = defaultdict(list)
+        clusters: dict[str, list[Memory]] = defaultdict(list)
 
         for memory in memories:
             # Assign to topic based on content
@@ -388,8 +388,8 @@ Category (respond with only the category name):"""
         return "general"
 
     def evolve_topics(
-        self, old_clusters: List[MemoryCluster], new_memories: List[Memory]
-    ) -> List[MemoryCluster]:
+        self, old_clusters: list[MemoryCluster], new_memories: list[Memory]
+    ) -> list[MemoryCluster]:
         """Evolve topic clusters with new memories.
 
         Args:
@@ -459,7 +459,7 @@ Category (respond with only the category name):"""
         return enriched
 
     def detect_topic_shift(
-        self, recent_memories: List[Memory], window_size: int = 10
+        self, recent_memories: list[Memory], window_size: int = 10
     ) -> Optional[str]:
         """Detect if there's been a shift in conversation topics.
 
@@ -501,8 +501,8 @@ Category (respond with only the category name):"""
         return None
 
     def hierarchical_cluster_memories(
-        self, memories: List[Memory], min_cluster_size: int = 2
-    ) -> Dict[str, Any]:
+        self, memories: list[Memory], min_cluster_size: int = 2
+    ) -> dict[str, Any]:
         """Perform hierarchical clustering on memories.
 
         Args:
@@ -567,7 +567,7 @@ Category (respond with only the category name):"""
 
         return {"clusters": result_clusters, "hierarchy": cluster_similarities}
 
-    def _build_similarity_matrix(self, memories: List[Memory]) -> List[List[float]]:
+    def _build_similarity_matrix(self, memories: list[Memory]) -> list[list[float]]:
         """Build pairwise similarity matrix for memories."""
         n = len(memories)
         matrix = [[0.0] * n for _ in range(n)]
@@ -584,7 +584,7 @@ Category (respond with only the category name):"""
         return matrix
 
     def _compute_cluster_similarity(
-        self, cluster1: List[int], cluster2: List[int], similarity_matrix: List[List[float]]
+        self, cluster1: list[int], cluster2: list[int], similarity_matrix: list[list[float]]
     ) -> float:
         """Compute similarity between two clusters (average linkage)."""
         similarities = []
@@ -594,7 +594,7 @@ Category (respond with only the category name):"""
 
         return sum(similarities) / len(similarities) if similarities else 0.0
 
-    def _compute_cohesion(self, cluster: List[int], similarity_matrix: List[List[float]]) -> float:
+    def _compute_cohesion(self, cluster: list[int], similarity_matrix: list[list[float]]) -> float:
         """Compute cohesion score for a cluster."""
         if len(cluster) <= 1:
             return 1.0
@@ -606,7 +606,7 @@ Category (respond with only the category name):"""
 
         return sum(similarities) / len(similarities) if similarities else 0.0
 
-    def compute_cluster_quality_metrics(self, cluster: MemoryCluster) -> Dict[str, float]:
+    def compute_cluster_quality_metrics(self, cluster: MemoryCluster) -> dict[str, float]:
         """Compute quality metrics for a memory cluster.
 
         Args:
@@ -663,7 +663,7 @@ Category (respond with only the category name):"""
         }
 
     def optimize_cluster_count(
-        self, memories: List[Memory], min_k: int = 2, max_k: int = 15
+        self, memories: list[Memory], min_k: int = 2, max_k: int = 15
     ) -> int:
         """Determine optimal number of clusters using elbow method.
 

@@ -201,7 +201,7 @@ services:
 
   # Qdrant Vector Database
   qdrant:
-    image: qdrant/qdrant:v1.7.4
+    image: qdrant/qdrant:v1.15.1
     container_name: hippocampai-qdrant
     restart: unless-stopped
     ports:

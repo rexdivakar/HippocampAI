@@ -12,7 +12,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,19 +43,19 @@ class ScoredRelationship(BaseModel):
     co_occurrence_count: int = Field(default=0, description="Number of times entities co-occur")
     first_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    contexts: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    contexts: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelationshipCluster(BaseModel):
     """A cluster of related entities."""
 
     cluster_id: str
-    entities: List[str] = Field(default_factory=list)
-    relationships: List[ScoredRelationship] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=list)
+    relationships: list[ScoredRelationship] = Field(default_factory=list)
     cluster_type: str = Field(default="general")
     cohesion_score: float = Field(default=0.0, ge=0.0, le=1.0)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelationshipPath(BaseModel):
@@ -63,7 +63,7 @@ class RelationshipPath(BaseModel):
 
     from_entity: str
     to_entity: str
-    path: List[Tuple[str, RelationType, str]] = Field(
+    path: list[tuple[str, RelationType, str]] = Field(
         default_factory=list, description="List of (entity, relation_type, entity) tuples"
     )
     path_length: int
@@ -73,14 +73,14 @@ class RelationshipPath(BaseModel):
 class RelationshipNetwork(BaseModel):
     """Complete relationship network analysis."""
 
-    entities: List[str] = Field(default_factory=list)
-    relationships: List[ScoredRelationship] = Field(default_factory=list)
-    clusters: List[RelationshipCluster] = Field(default_factory=list)
-    central_entities: List[Tuple[str, float]] = Field(
+    entities: list[str] = Field(default_factory=list)
+    relationships: list[ScoredRelationship] = Field(default_factory=list)
+    clusters: list[RelationshipCluster] = Field(default_factory=list)
+    central_entities: list[tuple[str, float]] = Field(
         default_factory=list, description="(entity_id, centrality_score)"
     )
     network_density: float = Field(default=0.0, ge=0.0, le=1.0)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelationshipMapper:
@@ -89,13 +89,13 @@ class RelationshipMapper:
     def __init__(self):
         """Initialize relationship mapper."""
         # Relationship storage: (from_entity, to_entity, relation_type) -> ScoredRelationship
-        self.relationships: Dict[Tuple[str, str, RelationType], ScoredRelationship] = {}
+        self.relationships: dict[tuple[str, str, RelationType], ScoredRelationship] = {}
 
         # Co-occurrence matrix: (entity1, entity2) -> count
-        self.co_occurrences: Dict[Tuple[str, str], int] = defaultdict(int)
+        self.co_occurrences: dict[tuple[str, str], int] = defaultdict(int)
 
         # Entity to relationships index
-        self.entity_relationships: Dict[str, List[ScoredRelationship]] = defaultdict(list)
+        self.entity_relationships: dict[str, list[ScoredRelationship]] = defaultdict(list)
 
     def add_relationship(
         self,
@@ -228,7 +228,7 @@ class RelationshipMapper:
         entity_id: str,
         relation_type: Optional[RelationType] = None,
         min_strength: float = 0.0,
-    ) -> List[ScoredRelationship]:
+    ) -> list[ScoredRelationship]:
         """Get all relationships for an entity.
 
         Args:
@@ -344,7 +344,7 @@ class RelationshipMapper:
 
         return centrality
 
-    def detect_relationship_clusters(self, min_cluster_size: int = 2) -> List[RelationshipCluster]:
+    def detect_relationship_clusters(self, min_cluster_size: int = 2) -> list[RelationshipCluster]:
         """Detect clusters of strongly related entities.
 
         Args:
@@ -354,7 +354,7 @@ class RelationshipMapper:
             List of relationship clusters
         """
         # Build adjacency list for strong relationships
-        adjacency: Dict[str, Set[str]] = defaultdict(set)
+        adjacency: dict[str, set[str]] = defaultdict(set)
 
         for rel in self.relationships.values():
             if rel.strength_score >= 0.5:  # Only consider moderate+ relationships
@@ -365,7 +365,7 @@ class RelationshipMapper:
         visited = set()
         clusters = []
 
-        def dfs(node: str, cluster: Set[str]):
+        def dfs(node: str, cluster: set[str]):
             visited.add(node)
             cluster.add(node)
             for neighbor in adjacency.get(node, set()):
@@ -374,7 +374,7 @@ class RelationshipMapper:
 
         for entity in adjacency.keys():
             if entity not in visited:
-                cluster_entities: Set[str] = set()
+                cluster_entities: set[str] = set()
                 dfs(entity, cluster_entities)
 
                 if len(cluster_entities) >= min_cluster_size:
@@ -455,7 +455,7 @@ class RelationshipMapper:
 
     def get_co_occurring_entities(
         self, entity_id: str, min_occurrences: int = 2
-    ) -> List[Tuple[str, int]]:
+    ) -> list[tuple[str, int]]:
         """Get entities that frequently co-occur with the given entity.
 
         Args:
@@ -481,7 +481,7 @@ class RelationshipMapper:
 
         return co_occurring
 
-    def get_relationship_statistics(self) -> Dict[str, Any]:
+    def get_relationship_statistics(self) -> dict[str, Any]:
         """Get statistics about relationships.
 
         Returns:
@@ -515,7 +515,7 @@ class RelationshipMapper:
 
         return stats
 
-    def export_for_visualization(self) -> Dict[str, Any]:
+    def export_for_visualization(self) -> dict[str, Any]:
         """Export network data in a format suitable for visualization.
 
         Returns:

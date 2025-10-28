@@ -10,7 +10,7 @@ This module provides REST API endpoints for:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -51,24 +51,24 @@ class FactExtractionRequest(BaseModel):
 class FactExtractionResponse(BaseModel):
     """Response for fact extraction."""
 
-    facts: List[Dict[str, Any]]
+    facts: list[dict[str, Any]]
     count: int
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class EntityExtractionRequest(BaseModel):
     """Request for entity extraction."""
 
     text: str = Field(..., description="Text to extract entities from")
-    context: Optional[Dict[str, Any]] = Field(None, description="Context metadata")
+    context: Optional[dict[str, Any]] = Field(None, description="Context metadata")
 
 
 class EntityExtractionResponse(BaseModel):
     """Response for entity extraction."""
 
-    entities: List[Dict[str, Any]]
+    entities: list[dict[str, Any]]
     count: int
-    statistics: Dict[str, Any] = Field(default_factory=dict)
+    statistics: dict[str, Any] = Field(default_factory=dict)
 
 
 class EntitySearchRequest(BaseModel):
@@ -83,21 +83,21 @@ class RelationshipAnalysisRequest(BaseModel):
     """Request for relationship analysis."""
 
     text: str = Field(..., description="Text to extract relationships from")
-    entity_ids: Optional[List[str]] = Field(None, description="Specific entities to analyze")
+    entity_ids: Optional[list[str]] = Field(None, description="Specific entities to analyze")
 
 
 class RelationshipAnalysisResponse(BaseModel):
     """Response for relationship analysis."""
 
-    relationships: List[Dict[str, Any]]
-    network: Dict[str, Any]
-    visualization_data: Dict[str, Any]
+    relationships: list[dict[str, Any]]
+    network: dict[str, Any]
+    visualization_data: dict[str, Any]
 
 
 class SemanticClusteringRequest(BaseModel):
     """Request for semantic clustering."""
 
-    memories: List[Dict[str, Any]] = Field(..., description="Memories to cluster")
+    memories: list[dict[str, Any]] = Field(..., description="Memories to cluster")
     max_clusters: int = Field(default=10, description="Maximum number of clusters")
     hierarchical: bool = Field(default=False, description="Use hierarchical clustering")
 
@@ -105,15 +105,15 @@ class SemanticClusteringRequest(BaseModel):
 class SemanticClusteringResponse(BaseModel):
     """Response for semantic clustering."""
 
-    clusters: List[Dict[str, Any]]
+    clusters: list[dict[str, Any]]
     count: int
-    quality_metrics: Dict[str, Any] = Field(default_factory=dict)
+    quality_metrics: dict[str, Any] = Field(default_factory=dict)
 
 
 class TemporalAnalyticsRequest(BaseModel):
     """Request for temporal analytics."""
 
-    memories: List[Dict[str, Any]] = Field(..., description="Memories to analyze")
+    memories: list[dict[str, Any]] = Field(..., description="Memories to analyze")
     analysis_type: str = Field(..., description="Type: peak_activity, patterns, trends, clusters")
     time_window_days: int = Field(default=30, description="Analysis time window")
     timezone_offset: int = Field(default=0, description="Timezone offset in hours")
@@ -122,8 +122,8 @@ class TemporalAnalyticsRequest(BaseModel):
 class TemporalAnalyticsResponse(BaseModel):
     """Response for temporal analytics."""
 
-    analysis: Dict[str, Any]
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    analysis: dict[str, Any]
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ==================== Fact Extraction Endpoints ====================
@@ -192,7 +192,7 @@ async def extract_entities(request: EntityExtractionRequest):
         )
 
 
-@router.post("/entities:search", response_model=Dict[str, Any])
+@router.post("/entities:search", response_model=dict[str, Any])
 async def search_entities(request: EntitySearchRequest):
     """Search for entities by query string.
 
@@ -219,7 +219,7 @@ async def search_entities(request: EntitySearchRequest):
         )
 
 
-@router.get("/entities/{entity_id}", response_model=Dict[str, Any])
+@router.get("/entities/{entity_id}", response_model=dict[str, Any])
 async def get_entity_profile(entity_id: str):
     """Get complete profile for an entity.
 
@@ -291,7 +291,7 @@ async def analyze_relationships(request: RelationshipAnalysisRequest):
         )
 
 
-@router.get("/relationships/{entity_id}", response_model=Dict[str, Any])
+@router.get("/relationships/{entity_id}", response_model=dict[str, Any])
 async def get_entity_relationships(
     entity_id: str,
     relation_type: Optional[str] = None,
@@ -328,7 +328,7 @@ async def get_entity_relationships(
         )
 
 
-@router.get("/relationships:network", response_model=Dict[str, Any])
+@router.get("/relationships:network", response_model=dict[str, Any])
 async def get_relationship_network():
     """Get complete relationship network analysis.
 
@@ -433,8 +433,8 @@ async def cluster_memories(request: SemanticClusteringRequest):
         )
 
 
-@router.post("/clustering:optimize", response_model=Dict[str, Any])
-async def optimize_cluster_count(request: Dict[str, Any]):
+@router.post("/clustering:optimize", response_model=dict[str, Any])
+async def optimize_cluster_count(request: dict[str, Any]):
     """Determine optimal number of clusters using elbow method.
 
     Analyzes different cluster counts to find the optimal balance between
@@ -539,8 +539,8 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
         )
 
 
-@router.post("/temporal:peak-times", response_model=Dict[str, Any])
-async def get_peak_times(request: Dict[str, Any]):
+@router.post("/temporal:peak-times", response_model=dict[str, Any])
+async def get_peak_times(request: dict[str, Any]):
     """Get peak activity times for memories.
 
     Returns detailed breakdown of activity by hour, day of week, and time period.
@@ -568,7 +568,7 @@ async def get_peak_times(request: Dict[str, Any]):
 # ==================== Health Check ====================
 
 
-@router.get("/health", response_model=Dict[str, str])
+@router.get("/health", response_model=dict[str, str])
 async def health_check():
     """Health check endpoint for intelligence services."""
     return {

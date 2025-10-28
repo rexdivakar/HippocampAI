@@ -36,11 +36,11 @@ class KnowledgeGraph(MemoryGraph):
         super().__init__()
 
         # Additional indices for entities and facts
-        self._entity_index: Dict[str, str] = {}  # entity_id -> node_id mapping
-        self._fact_index: Dict[str, str] = {}  # fact_id -> node_id mapping
-        self._topic_index: Dict[str, str] = {}  # topic -> node_id mapping
+        self._entity_index: dict[str, str] = {}  # entity_id -> node_id mapping
+        self._fact_index: dict[str, str] = {}  # fact_id -> node_id mapping
+        self._topic_index: dict[str, str] = {}  # topic -> node_id mapping
 
-    def add_entity(self, entity: Entity, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def add_entity(self, entity: Entity, metadata: Optional[dict[str, Any]] = None) -> str:
         """Add an entity node to the graph.
 
         Args:
@@ -76,7 +76,7 @@ class KnowledgeGraph(MemoryGraph):
         self,
         fact: ExtractedFact,
         fact_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Add a fact node to the graph.
 
@@ -113,7 +113,7 @@ class KnowledgeGraph(MemoryGraph):
 
         return node_id
 
-    def add_topic(self, topic: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def add_topic(self, topic: str, metadata: Optional[dict[str, Any]] = None) -> str:
         """Add a topic node to the graph.
 
         Args:
@@ -281,7 +281,7 @@ class KnowledgeGraph(MemoryGraph):
             metadata={"edge_type": "memory_topic"},
         )
 
-    def get_entity_memories(self, entity_id: str) -> List[str]:
+    def get_entity_memories(self, entity_id: str) -> list[str]:
         """Get all memories mentioning an entity.
 
         Args:
@@ -303,7 +303,7 @@ class KnowledgeGraph(MemoryGraph):
 
         return memories
 
-    def get_entity_facts(self, entity_id: str) -> List[str]:
+    def get_entity_facts(self, entity_id: str) -> list[str]:
         """Get all facts about an entity.
 
         Args:
@@ -324,7 +324,7 @@ class KnowledgeGraph(MemoryGraph):
 
         return facts
 
-    def get_topic_memories(self, topic: str) -> List[str]:
+    def get_topic_memories(self, topic: str) -> list[str]:
         """Get all memories about a topic.
 
         Args:
@@ -347,7 +347,7 @@ class KnowledgeGraph(MemoryGraph):
 
     def find_entity_connections(
         self, entity_id: str, max_distance: int = 2
-    ) -> Dict[str, List[Tuple[str, int]]]:
+    ) -> dict[str, list[tuple[str, int]]]:
         """Find all entities connected to a given entity.
 
         Args:
@@ -397,8 +397,8 @@ class KnowledgeGraph(MemoryGraph):
         return connections
 
     def get_knowledge_subgraph(
-        self, center_id: str, radius: int = 2, include_types: Optional[List[NodeType]] = None
-    ) -> Dict[str, Any]:
+        self, center_id: str, radius: int = 2, include_types: Optional[list[NodeType]] = None
+    ) -> dict[str, Any]:
         """Get a subgraph around a central node.
 
         Args:
@@ -453,7 +453,7 @@ class KnowledgeGraph(MemoryGraph):
             logger.warning(f"Error building subgraph: {e}")
             return {"nodes": [], "edges": []}
 
-    def get_entity_timeline(self, entity_id: str) -> List[Dict[str, Any]]:
+    def get_entity_timeline(self, entity_id: str) -> list[dict[str, Any]]:
         """Get chronological timeline of facts and memories about an entity.
 
         Args:
@@ -500,7 +500,7 @@ class KnowledgeGraph(MemoryGraph):
 
         return timeline
 
-    def infer_new_facts(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def infer_new_facts(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
         """Infer new facts from existing knowledge graph patterns.
 
         Args:

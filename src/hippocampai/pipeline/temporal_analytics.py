@@ -13,7 +13,7 @@ import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -60,10 +60,10 @@ class PeakActivityAnalysis(BaseModel):
     peak_hour: int = Field(..., description="Hour of day with most activity (0-23)")
     peak_day: DayOfWeek = Field(..., description="Day of week with most activity")
     peak_time_period: TimeOfDay = Field(..., description="Time period with most activity")
-    hourly_distribution: Dict[int, int] = Field(default_factory=dict)
-    daily_distribution: Dict[str, int] = Field(default_factory=dict)
-    time_period_distribution: Dict[str, int] = Field(default_factory=dict)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    hourly_distribution: dict[int, int] = Field(default_factory=dict)
+    daily_distribution: dict[str, int] = Field(default_factory=dict)
+    time_period_distribution: dict[str, int] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TemporalPattern(BaseModel):
@@ -73,7 +73,7 @@ class TemporalPattern(BaseModel):
     description: str = Field(..., description="Human-readable pattern description")
     frequency: float = Field(..., description="Pattern frequency (times per period)")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Pattern confidence")
-    occurrences: List[datetime] = Field(default_factory=list)
+    occurrences: list[datetime] = Field(default_factory=list)
     next_predicted: Optional[datetime] = Field(None, description="Next predicted occurrence")
     regularity_score: float = Field(..., ge=0.0, le=1.0, description="How regular the pattern is")
 
@@ -87,7 +87,7 @@ class TrendAnalysis(BaseModel):
     strength: float = Field(..., ge=0.0, le=1.0, description="Trend strength")
     change_rate: float = Field(..., description="Rate of change (units per day)")
     current_value: float = Field(..., description="Current metric value")
-    historical_values: List[Tuple[datetime, float]] = Field(default_factory=list)
+    historical_values: list[tuple[datetime, float]] = Field(default_factory=list)
     forecast: Optional[float] = Field(None, description="Forecasted value for next period")
 
 
@@ -99,7 +99,7 @@ class PeriodicityAnalysis(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Detection confidence")
     amplitude: float = Field(..., description="Pattern amplitude")
     phase_offset: float = Field(..., description="Phase offset from reference")
-    examples: List[datetime] = Field(default_factory=list)
+    examples: list[datetime] = Field(default_factory=list)
 
 
 class TemporalCluster(BaseModel):
@@ -109,10 +109,10 @@ class TemporalCluster(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_hours: float
-    memories: List[Memory] = Field(default_factory=list)
+    memories: list[Memory] = Field(default_factory=list)
     density: float = Field(..., ge=0.0, description="Temporal density of memories")
     dominant_type: Optional[MemoryType] = Field(None)
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class TemporalAnalytics:
@@ -123,7 +123,7 @@ class TemporalAnalytics:
         pass
 
     def analyze_peak_activity(
-        self, memories: List[Memory], timezone_offset: int = 0
+        self, memories: list[Memory], timezone_offset: int = 0
     ) -> PeakActivityAnalysis:
         """Analyze peak activity times.
 
@@ -142,9 +142,9 @@ class TemporalAnalytics:
             )
 
         # Extract timestamps with timezone adjustment
-        hourly_counts: Dict[int, int] = defaultdict(int)
-        daily_counts: Dict[str, int] = defaultdict(int)
-        period_counts: Dict[str, int] = defaultdict(int)
+        hourly_counts: dict[int, int] = defaultdict(int)
+        daily_counts: dict[str, int] = defaultdict(int)
+        period_counts: dict[str, int] = defaultdict(int)
 
         for memory in memories:
             # Adjust for timezone
@@ -199,8 +199,8 @@ class TemporalAnalytics:
             return TimeOfDay.LATE_NIGHT
 
     def detect_temporal_patterns(
-        self, memories: List[Memory], min_occurrences: int = 3
-    ) -> List[TemporalPattern]:
+        self, memories: list[Memory], min_occurrences: int = 3
+    ) -> list[TemporalPattern]:
         """Detect recurring temporal patterns.
 
         Args:
@@ -235,11 +235,11 @@ class TemporalAnalytics:
         return patterns
 
     def _detect_daily_pattern(
-        self, memories: List[Memory], min_occurrences: int
+        self, memories: list[Memory], min_occurrences: int
     ) -> Optional[TemporalPattern]:
         """Detect daily recurring pattern."""
         # Group by hour of day
-        hour_occurrences: Dict[int, List[datetime]] = defaultdict(list)
+        hour_occurrences: dict[int, list[datetime]] = defaultdict(list)
 
         for memory in memories:
             hour = memory.created_at.hour
@@ -284,11 +284,11 @@ class TemporalAnalytics:
         return None
 
     def _detect_weekly_pattern(
-        self, memories: List[Memory], min_occurrences: int
+        self, memories: list[Memory], min_occurrences: int
     ) -> Optional[TemporalPattern]:
         """Detect weekly recurring pattern."""
         # Group by day of week
-        dow_occurrences: Dict[int, List[datetime]] = defaultdict(list)
+        dow_occurrences: dict[int, list[datetime]] = defaultdict(list)
 
         for memory in memories:
             dow = memory.created_at.weekday()  # 0=Monday, 6=Sunday
@@ -337,8 +337,8 @@ class TemporalAnalytics:
         return None
 
     def _detect_interval_patterns(
-        self, memories: List[Memory], min_occurrences: int
-    ) -> List[TemporalPattern]:
+        self, memories: list[Memory], min_occurrences: int
+    ) -> list[TemporalPattern]:
         """Detect custom interval patterns."""
         if len(memories) < min_occurrences:
             return []
@@ -356,7 +356,7 @@ class TemporalAnalytics:
             return []
 
         # Find common intervals (cluster intervals)
-        interval_groups: Dict[float, List[int]] = defaultdict(list)
+        interval_groups: dict[float, list[int]] = defaultdict(list)
 
         for i, interval in enumerate(intervals):
             # Round to nearest hour for grouping
@@ -412,7 +412,7 @@ class TemporalAnalytics:
         return patterns
 
     def analyze_trends(
-        self, memories: List[Memory], time_window_days: int = 30, metric: str = "activity"
+        self, memories: list[Memory], time_window_days: int = 30, metric: str = "activity"
     ) -> TrendAnalysis:
         """Analyze trends over time.
 
@@ -449,7 +449,7 @@ class TemporalAnalytics:
             return self._analyze_activity_trend(recent_memories, time_window_days)
 
     def _analyze_activity_trend(
-        self, memories: List[Memory], time_window_days: int
+        self, memories: list[Memory], time_window_days: int
     ) -> TrendAnalysis:
         """Analyze activity trend (memories per day)."""
         if not memories:
@@ -463,7 +463,7 @@ class TemporalAnalytics:
             )
 
         # Group by day
-        daily_counts: Dict[str, int] = defaultdict(int)
+        daily_counts: dict[str, int] = defaultdict(int)
         for memory in memories:
             date_str = memory.created_at.date().isoformat()
             daily_counts[date_str] += 1
@@ -531,11 +531,11 @@ class TemporalAnalytics:
         )
 
     def _analyze_importance_trend(
-        self, memories: List[Memory], time_window_days: int
+        self, memories: list[Memory], time_window_days: int
     ) -> TrendAnalysis:
         """Analyze importance trend over time."""
         # Group by week and compute average importance
-        weekly_importance: Dict[str, List[float]] = defaultdict(list)
+        weekly_importance: dict[str, list[float]] = defaultdict(list)
 
         for memory in memories:
             # Get week number
@@ -587,11 +587,11 @@ class TemporalAnalytics:
         )
 
     def _analyze_type_diversity_trend(
-        self, memories: List[Memory], time_window_days: int
+        self, memories: list[Memory], time_window_days: int
     ) -> TrendAnalysis:
         """Analyze memory type diversity trend."""
         # Group by week and count unique types
-        weekly_types: Dict[str, Set[MemoryType]] = defaultdict(set)
+        weekly_types: dict[str, set[MemoryType]] = defaultdict(set)
 
         for memory in memories:
             week = memory.created_at.isocalendar()[1]
@@ -641,8 +641,8 @@ class TemporalAnalytics:
         )
 
     def cluster_by_time(
-        self, memories: List[Memory], max_gap_hours: float = 24.0
-    ) -> List[TemporalCluster]:
+        self, memories: list[Memory], max_gap_hours: float = 24.0
+    ) -> list[TemporalCluster]:
         """Cluster memories by temporal proximity.
 
         Args:
@@ -686,7 +686,7 @@ class TemporalAnalytics:
         return clusters
 
     def _create_temporal_cluster(
-        self, memories: List[Memory], cluster_idx: int
+        self, memories: list[Memory], cluster_idx: int
     ) -> TemporalCluster:
         """Create a temporal cluster from memories."""
         start_time = memories[0].created_at

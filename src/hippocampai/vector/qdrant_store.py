@@ -40,7 +40,7 @@ class QdrantStore:
         ef_construction: int = 256,
         ef_search: int = 128,
     ):
-        self.client = QdrantClient(url=url)
+        self.client = QdrantClient(url=url, timeout=60.0)
         self.collection_facts = collection_facts
         self.collection_prefs = collection_prefs
         self.dimension = dimension
@@ -229,7 +229,7 @@ class QdrantStore:
         )
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: Dict[str, Any]):
+    def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: dict[str, Any]):
         """Insert or update a point (with automatic retry on transient failures)."""
         # Ensure collection exists before upserting (idempotent)
         self._ensure_collections(collection_name)
@@ -249,9 +249,9 @@ class QdrantStore:
     def bulk_upsert(
         self,
         collection_name: str,
-        ids: List[str],
-        vectors: List[np.ndarray],
-        payloads: List[Dict[str, Any]],
+        ids: list[str],
+        vectors: list[np.ndarray],
+        payloads: list[dict[str, Any]],
     ):
         """
         Bulk insert or update multiple points (3-5x faster than individual upserts).
@@ -286,9 +286,9 @@ class QdrantStore:
         collection_name: str,
         vector: np.ndarray,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         ef: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Vector similarity search (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
@@ -335,8 +335,8 @@ class QdrantStore:
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def scroll(
-        self, collection_name: str, filters: Optional[Dict[str, Any]] = None, limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        self, collection_name: str, filters: Optional[dict[str, Any]] = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """Scroll through points (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
@@ -376,7 +376,7 @@ class QdrantStore:
             raise
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def delete(self, collection_name: str, ids: List[str]):
+    def delete(self, collection_name: str, ids: list[str]):
         """Delete points by IDs (with automatic retry on transient failures)."""
         # If collection doesn't exist, nothing to delete
         if not self.client.collection_exists(collection_name):
@@ -386,7 +386,7 @@ class QdrantStore:
         self.client.delete(collection_name=collection_name, points_selector=ids)
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def get(self, collection_name: str, id: str) -> Optional[Dict[str, Any]]:
+    def get(self, collection_name: str, id: str) -> Optional[dict[str, Any]]:
         """Get a single point by ID (with automatic retry on transient failures)."""
         # If collection doesn't exist, nothing to get
         if not self.client.collection_exists(collection_name):
@@ -408,7 +408,7 @@ class QdrantStore:
             return None
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def update(self, collection_name: str, id: str, payload: Dict[str, Any]) -> bool:
+    def update(self, collection_name: str, id: str, payload: dict[str, Any]) -> bool:
         """Update payload of an existing point (with automatic retry on transient failures)."""
         # If collection doesn't exist, can't update
         if not self.client.collection_exists(collection_name):

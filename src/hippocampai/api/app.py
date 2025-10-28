@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
@@ -46,7 +46,7 @@ class RememberRequest(BaseModel):
     session_id: Optional[str] = None
     type: str = "fact"
     importance: Optional[float] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
     ttl_days: Optional[int] = None
 
 
@@ -55,7 +55,7 @@ class RecallRequest(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     k: int = 5
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[dict[str, Any]] = None
 
 
 class ExtractRequest(BaseModel):
@@ -68,8 +68,8 @@ class UpdateMemoryRequest(BaseModel):
     memory_id: str
     text: Optional[str] = None
     importance: Optional[float] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    tags: Optional[list[str]] = None
+    metadata: Optional[dict[str, Any]] = None
     expires_at: Optional[datetime] = None
 
 
@@ -80,7 +80,7 @@ class DeleteMemoryRequest(BaseModel):
 
 class GetMemoriesRequest(BaseModel):
     user_id: str
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[dict[str, Any]] = None
     limit: int = 100
 
 
@@ -114,7 +114,7 @@ def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/v1/memories:recall", response_model=List[RetrievalResult])
+@app.post("/v1/memories:recall", response_model=list[RetrievalResult])
 def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_client)):
     """Retrieve memories."""
     try:
@@ -131,7 +131,7 @@ def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_cli
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/v1/memories:extract", response_model=List[Memory])
+@app.post("/v1/memories:extract", response_model=list[Memory])
 def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)):
     """Extract memories from conversation."""
     try:
@@ -186,7 +186,7 @@ def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/v1/memories:get", response_model=List[Memory])
+@app.post("/v1/memories:get", response_model=list[Memory])
 def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)):
     """Get memories with advanced filtering."""
     try:

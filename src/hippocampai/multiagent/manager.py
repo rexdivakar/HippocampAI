@@ -25,10 +25,10 @@ class MultiAgentManager:
 
     def __init__(self):
         """Initialize multi-agent manager."""
-        self.agents: Dict[str, Agent] = {}
-        self.runs: Dict[str, Run] = {}
-        self.permissions: Dict[str, AgentPermission] = {}
-        self.transfers: List[MemoryTransfer] = []
+        self.agents: dict[str, Agent] = {}
+        self.runs: dict[str, Run] = {}
+        self.permissions: dict[str, AgentPermission] = {}
+        self.transfers: list[MemoryTransfer] = []
 
     # === AGENT MANAGEMENT ===
 
@@ -38,7 +38,7 @@ class MultiAgentManager:
         user_id: str,
         role: AgentRole = AgentRole.ASSISTANT,
         description: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Agent:
         """Create a new agent.
 
@@ -68,7 +68,7 @@ class MultiAgentManager:
         """Get agent by ID."""
         return self.agents.get(agent_id)
 
-    def list_agents(self, user_id: Optional[str] = None) -> List[Agent]:
+    def list_agents(self, user_id: Optional[str] = None) -> list[Agent]:
         """List all agents, optionally filtered by user."""
         agents = list(self.agents.values())
         if user_id:
@@ -81,7 +81,7 @@ class MultiAgentManager:
         name: Optional[str] = None,
         description: Optional[str] = None,
         role: Optional[AgentRole] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         is_active: Optional[bool] = None,
     ) -> Optional[Agent]:
         """Update agent properties."""
@@ -126,7 +126,7 @@ class MultiAgentManager:
         agent_id: str,
         user_id: str,
         name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Run:
         """Create a new run for an agent.
 
@@ -154,7 +154,7 @@ class MultiAgentManager:
         """Get run by ID."""
         return self.runs.get(run_id)
 
-    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Run]:
+    def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> list[Run]:
         """List runs, optionally filtered by agent or user."""
         runs = list(self.runs.values())
         if agent_id:
@@ -179,8 +179,8 @@ class MultiAgentManager:
         self,
         granter_agent_id: str,
         grantee_agent_id: str,
-        permissions: Set[PermissionType],
-        memory_filters: Optional[Dict[str, Any]] = None,
+        permissions: set[PermissionType],
+        memory_filters: Optional[dict[str, Any]] = None,
         expires_at: Optional[datetime] = None,
     ) -> AgentPermission:
         """Grant permission for one agent to access another's memories.
@@ -251,7 +251,7 @@ class MultiAgentManager:
         self,
         granter_agent_id: Optional[str] = None,
         grantee_agent_id: Optional[str] = None,
-    ) -> List[AgentPermission]:
+    ) -> list[AgentPermission]:
         """List permissions, optionally filtered."""
         perms = list(self.permissions.values())
 
@@ -305,9 +305,9 @@ class MultiAgentManager:
     def filter_accessible_memories(
         self,
         agent_id: str,
-        memories: List[Memory],
+        memories: list[Memory],
         permission: PermissionType = PermissionType.READ,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Filter memories to only those accessible by agent."""
         return [m for m in memories if self.can_access_memory(agent_id, m, permission)]
 
@@ -359,7 +359,7 @@ class MultiAgentManager:
 
     def get_transfer_history(
         self, agent_id: Optional[str] = None, memory_id: Optional[str] = None
-    ) -> List[MemoryTransfer]:
+    ) -> list[MemoryTransfer]:
         """Get memory transfer history."""
         transfers = self.transfers
 
@@ -376,7 +376,7 @@ class MultiAgentManager:
 
     # === STATISTICS ===
 
-    def get_agent_stats(self, agent_id: str, memories: List[Memory]) -> AgentMemoryStats:
+    def get_agent_stats(self, agent_id: str, memories: list[Memory]) -> AgentMemoryStats:
         """Get memory statistics for an agent.
 
         Args:
@@ -430,7 +430,7 @@ class MultiAgentManager:
             can_access_from_agents=list(can_access_from),
         )
 
-    def update_agent_memory_counts(self, agent_id: str, memories: List[Memory]):
+    def update_agent_memory_counts(self, agent_id: str, memories: list[Memory]):
         """Update agent's memory counts."""
         agent = self.agents.get(agent_id)
         if not agent:

@@ -1,6 +1,6 @@
 """FastAPI routes for Celery task management and async operations."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -33,7 +33,7 @@ class TaskStatusResponse(BaseModel):
     status: str  # PENDING, STARTED, SUCCESS, FAILURE, RETRY
     result: Optional[Any] = None
     error: Optional[str] = None
-    progress: Optional[Dict[str, Any]] = None
+    progress: Optional[dict[str, Any]] = None
 
 
 class MemoryCreateRequest(BaseModel):
@@ -42,13 +42,13 @@ class MemoryCreateRequest(BaseModel):
     user_id: str
     memory_type: str = "fact"
     importance: Optional[float] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    tags: Optional[list[str]] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 class BatchMemoryCreateRequest(BaseModel):
     """Request to batch create memories via Celery."""
-    memories: List[Dict[str, Any]]
+    memories: list[dict[str, Any]]
     check_duplicates: bool = True
 
 
@@ -57,14 +57,14 @@ class MemoryRecallRequest(BaseModel):
     query: str
     user_id: str
     k: int = 5
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[dict[str, Any]] = None
 
 
 class MemoryUpdateRequest(BaseModel):
     """Request to update a memory via Celery."""
     memory_id: str
     user_id: str
-    updates: Dict[str, Any]
+    updates: dict[str, Any]
 
 
 class MemoryDeleteRequest(BaseModel):
