@@ -83,12 +83,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns additional `text_diff` field with unified diff and statistics
   - Backward compatible: existing code continues to work
 
-### Fixed
-
-- Removed 68 unused import statements across the codebase (ruff auto-fix)
-- Updated all type hints to modern Python 3.9+ style (`dict` instead of `Dict`, etc.)
-- Fixed import sorting and PEP8 compliance issues
-
 ### Documentation
 
 - Added `docs/SEARCH_ENHANCEMENTS_GUIDE.md` - Complete guide to search features (350 lines)
