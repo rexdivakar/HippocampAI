@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder

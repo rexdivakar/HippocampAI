@@ -5,7 +5,6 @@ transient failures in external services (Qdrant, LLM providers, etc).
 """
 
 import logging
-from typing import Tuple, Type
 
 from tenacity import (
     before_sleep_log,

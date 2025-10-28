@@ -11,7 +11,7 @@ This module extends the MemoryClient with additional capabilities:
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 from hippocampai.graph import MemoryGraph, RelationType
 from hippocampai.models.memory import Memory

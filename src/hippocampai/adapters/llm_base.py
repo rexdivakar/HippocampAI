@@ -1,7 +1,7 @@
 """Base LLM adapter interface."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Optional
 
 
 class BaseLLM(ABC):

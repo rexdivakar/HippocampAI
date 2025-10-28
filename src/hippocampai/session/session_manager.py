@@ -3,7 +3,7 @@
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder

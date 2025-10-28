@@ -1,6 +1,5 @@
 """Reciprocal Rank Fusion."""
 
-from typing import Dict, List, Set, Tuple
 
 
 def reciprocal_rank_fusion(

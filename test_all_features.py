@@ -1,5 +1,8 @@
 """Comprehensive test of all HippocampAI features."""
 
+# ruff: noqa: E402
+# Imports are placed inline for demonstration purposes in this test script
+
 import sys
 
 sys.path.insert(0, 'src')
