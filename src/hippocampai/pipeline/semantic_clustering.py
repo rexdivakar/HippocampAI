@@ -11,7 +11,7 @@ This module provides:
 import logging
 import re
 from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from hippocampai.models.memory import Memory, MemoryType
 
@@ -499,3 +499,214 @@ Category (respond with only the category name):"""
                 return recent_dominant
 
         return None
+
+    def hierarchical_cluster_memories(
+        self, memories: List[Memory], min_cluster_size: int = 2
+    ) -> Dict[str, Any]:
+        """Perform hierarchical clustering on memories.
+
+        Args:
+            memories: List of memories to cluster
+            min_cluster_size: Minimum memories per cluster
+
+        Returns:
+            Hierarchical clustering result with tree structure
+        """
+        if not memories:
+            return {"clusters": [], "hierarchy": {}}
+
+        # Build similarity matrix
+        similarity_matrix = self._build_similarity_matrix(memories)
+
+        # Perform hierarchical clustering using simple agglomerative approach
+        clusters = [[i] for i in range(len(memories))]  # Start with singleton clusters
+        cluster_similarities = []
+
+        while len(clusters) > 1:
+            # Find most similar pair of clusters
+            max_sim = -1
+            merge_i, merge_j = -1, -1
+
+            for i in range(len(clusters)):
+                for j in range(i + 1, len(clusters)):
+                    # Compute average similarity between clusters (average linkage)
+                    sim = self._compute_cluster_similarity(
+                        clusters[i], clusters[j], similarity_matrix
+                    )
+                    if sim > max_sim:
+                        max_sim = sim
+                        merge_i, merge_j = i, j
+
+            # Stop if no good merges left
+            if max_sim < 0.3:  # Similarity threshold
+                break
+
+            # Merge clusters
+            merged = clusters[merge_i] + clusters[merge_j]
+            cluster_similarities.append((merged, max_sim))
+
+            # Remove old clusters and add merged
+            clusters = [c for idx, c in enumerate(clusters) if idx not in [merge_i, merge_j]]
+            clusters.append(merged)
+
+        # Build result structure
+        result_clusters = []
+        for cluster_indices in clusters:
+            if len(cluster_indices) >= min_cluster_size:
+                cluster_memories = [memories[i] for i in cluster_indices]
+                topic = self._identify_topic(" ".join([m.text for m in cluster_memories]))
+
+                result_clusters.append(
+                    {
+                        "topic": topic,
+                        "memories": cluster_memories,
+                        "size": len(cluster_memories),
+                        "cohesion": self._compute_cohesion(cluster_indices, similarity_matrix),
+                    }
+                )
+
+        return {"clusters": result_clusters, "hierarchy": cluster_similarities}
+
+    def _build_similarity_matrix(self, memories: List[Memory]) -> List[List[float]]:
+        """Build pairwise similarity matrix for memories."""
+        n = len(memories)
+        matrix = [[0.0] * n for _ in range(n)]
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                similar = self.find_similar_memories(
+                    memories[i], [memories[j]], similarity_threshold=0.0
+                )
+                sim = similar[0][1] if similar else 0.0
+                matrix[i][j] = sim
+                matrix[j][i] = sim
+
+        return matrix
+
+    def _compute_cluster_similarity(
+        self, cluster1: List[int], cluster2: List[int], similarity_matrix: List[List[float]]
+    ) -> float:
+        """Compute similarity between two clusters (average linkage)."""
+        similarities = []
+        for i in cluster1:
+            for j in cluster2:
+                similarities.append(similarity_matrix[i][j])
+
+        return sum(similarities) / len(similarities) if similarities else 0.0
+
+    def _compute_cohesion(self, cluster: List[int], similarity_matrix: List[List[float]]) -> float:
+        """Compute cohesion score for a cluster."""
+        if len(cluster) <= 1:
+            return 1.0
+
+        similarities = []
+        for i in range(len(cluster)):
+            for j in range(i + 1, len(cluster)):
+                similarities.append(similarity_matrix[cluster[i]][cluster[j]])
+
+        return sum(similarities) / len(similarities) if similarities else 0.0
+
+    def compute_cluster_quality_metrics(self, cluster: MemoryCluster) -> Dict[str, float]:
+        """Compute quality metrics for a memory cluster.
+
+        Args:
+            cluster: Memory cluster to evaluate
+
+        Returns:
+            Dictionary of quality metrics
+        """
+        memories = cluster.memories
+
+        if not memories:
+            return {
+                "cohesion": 0.0,
+                "separation": 0.0,
+                "silhouette": 0.0,
+                "diversity": 0.0,
+                "temporal_density": 0.0,
+            }
+
+        # Cohesion: average pairwise similarity within cluster
+        if len(memories) > 1:
+            similarities = []
+            for i in range(len(memories)):
+                similar = self.find_similar_memories(
+                    memories[i], memories[i + 1 :], similarity_threshold=0.0
+                )
+                similarities.extend([sim for _, sim in similar])
+            cohesion = sum(similarities) / len(similarities) if similarities else 1.0
+        else:
+            cohesion = 1.0
+
+        # Diversity: variety of memory types and tags
+        types = set(m.type for m in memories)
+        all_tags = set()
+        for m in memories:
+            all_tags.update(m.tags)
+        diversity = (len(types) / len(MemoryType)) * 0.5 + (min(len(all_tags), 10) / 10) * 0.5
+
+        # Temporal density: how closely memories are clustered in time
+        if len(memories) > 1:
+            timestamps = [m.created_at.timestamp() for m in memories]
+            time_span = max(timestamps) - min(timestamps)
+            # Normalize to 0-1 (1 = all within 1 day, 0 = spread over 1 year)
+            temporal_density = max(0.0, 1.0 - (time_span / (365 * 24 * 3600)))
+        else:
+            temporal_density = 1.0
+
+        return {
+            "cohesion": cohesion,
+            "diversity": diversity,
+            "temporal_density": temporal_density,
+            "size": len(memories),
+            "tag_count": len(all_tags),
+        }
+
+    def optimize_cluster_count(
+        self, memories: List[Memory], min_k: int = 2, max_k: int = 15
+    ) -> int:
+        """Determine optimal number of clusters using elbow method.
+
+        Args:
+            memories: Memories to cluster
+            min_k: Minimum number of clusters
+            max_k: Maximum number of clusters
+
+        Returns:
+            Optimal number of clusters
+        """
+        if len(memories) < min_k:
+            return len(memories)
+
+        # Try different cluster counts and compute average cohesion
+        cohesion_scores = []
+
+        for k in range(min_k, min(max_k + 1, len(memories) + 1)):
+            clusters = self.cluster_memories(memories, max_clusters=k)
+
+            # Compute average cohesion
+            total_cohesion = 0
+            for cluster in clusters:
+                metrics = self.compute_cluster_quality_metrics(cluster)
+                total_cohesion += metrics["cohesion"] * len(cluster.memories)
+
+            avg_cohesion = total_cohesion / len(memories) if memories else 0
+            cohesion_scores.append((k, avg_cohesion))
+
+        # Find elbow point (where adding more clusters doesn't help much)
+        if len(cohesion_scores) < 2:
+            return min_k
+
+        # Look for biggest improvement drop
+        improvements = []
+        for i in range(1, len(cohesion_scores)):
+            improvement = cohesion_scores[i][1] - cohesion_scores[i - 1][1]
+            improvements.append((cohesion_scores[i][0], improvement))
+
+        # Find where improvement drops below threshold
+        for k, improvement in improvements:
+            if improvement < 0.05:  # Diminishing returns threshold
+                return k - 1
+
+        # If no clear elbow, return middle value
+        return (min_k + max_k) // 2

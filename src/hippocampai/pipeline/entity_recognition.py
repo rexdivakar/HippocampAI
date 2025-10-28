@@ -32,6 +32,15 @@ class EntityType(str, Enum):
     EVENT = "event"
     SKILL = "skill"
     TOPIC = "topic"
+    EMAIL = "email"
+    PHONE = "phone"
+    URL = "url"
+    LANGUAGE = "language"
+    FRAMEWORK = "framework"
+    TOOL = "tool"
+    INDUSTRY = "industry"
+    DEGREE = "degree"
+    CERTIFICATION = "certification"
     OTHER = "other"
 
 
@@ -139,6 +148,36 @@ class EntityRecognizer:
             EntityType.PRODUCT: [
                 r"\b(iPhone|iPad|MacBook|Android|Windows|Linux|AWS|Azure|GCP)\b",
             ],
+            EntityType.EMAIL: [
+                r"\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b",
+            ],
+            EntityType.PHONE: [
+                r"\b(\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})\b",
+                r"\b(\d{3}-\d{3}-\d{4})\b",
+            ],
+            EntityType.URL: [
+                r"\b(https?://[^\s]+)\b",
+                r"\b(www\.[^\s]+\.[a-z]{2,})\b",
+            ],
+            EntityType.LANGUAGE: [
+                r"\b(Python|Java|JavaScript|TypeScript|C\+\+|C#|Ruby|Go|Rust|Swift|Kotlin|PHP|Scala|R|MATLAB|Perl|Shell|Bash)\b",
+            ],
+            EntityType.FRAMEWORK: [
+                r"\b(React|Angular|Vue|Django|Flask|FastAPI|Spring|Express|Rails|Laravel|TensorFlow|PyTorch|Keras|Scikit-learn)\b",
+            ],
+            EntityType.TOOL: [
+                r"\b(Docker|Kubernetes|Git|Jenkins|GitHub|GitLab|Jira|Confluence|VS Code|IntelliJ|Eclipse|PyCharm|Postman|Tableau|PowerBI)\b",
+            ],
+            EntityType.INDUSTRY: [
+                r"\b(Finance|Healthcare|Technology|Education|Retail|Manufacturing|Consulting|Banking|Insurance|Real\s+Estate|E-commerce|Gaming)\b",
+            ],
+            EntityType.DEGREE: [
+                r"\b((?:Bachelor|Master|PhD|Doctorate|Associate)\s+(?:of\s+)?(?:Science|Arts|Engineering|Business|Medicine)?)\b",
+                r"\b(B\.?S\.?|M\.?S\.?|Ph\.?D\.?|M\.?B\.?A\.?|B\.?A\.?)\b",
+            ],
+            EntityType.CERTIFICATION: [
+                r"\b(AWS\s+Certified|Google\s+Cloud\s+Professional|Microsoft\s+Certified|Cisco\s+Certified|PMP|Scrum\s+Master|CFA|CPA)\b",
+            ],
         }
 
     def _build_relationship_patterns(self) -> List[Dict[str, Any]]:
@@ -223,15 +262,18 @@ class EntityRecognizer:
                     if not entity_text or len(entity_text) < 2:
                         continue
 
+                    # Normalize to canonical name
+                    canonical_name = self.normalize_entity_name(entity_text, entity_type)
+
                     # Generate entity ID
-                    entity_id = self._generate_entity_id(entity_text, entity_type)
+                    entity_id = self._generate_entity_id(canonical_name, entity_type)
 
                     entity = Entity(
                         text=entity_text,
                         type=entity_type,
                         confidence=0.80,  # Pattern-based confidence
                         entity_id=entity_id,
-                        canonical_name=entity_text,
+                        canonical_name=canonical_name,
                         metadata={"extraction_method": "pattern", "pattern": pattern},
                     )
                     entities.append(entity)
@@ -492,3 +534,206 @@ Entities:"""
                 related.append((rel.from_entity_id, rel.relation_type))
 
         return related
+
+    def normalize_entity_name(self, text: str, entity_type: EntityType) -> str:
+        """Normalize entity name to canonical form.
+
+        Args:
+            text: Entity text
+            entity_type: Entity type
+
+        Returns:
+            Normalized canonical name
+        """
+        # Remove extra whitespace
+        canonical = " ".join(text.split())
+
+        # Type-specific normalization
+        if entity_type == EntityType.PERSON:
+            # Remove titles
+            canonical = re.sub(r"^(?:Mr|Mrs|Ms|Dr|Prof)\.?\s+", "", canonical, flags=re.IGNORECASE)
+            # Title case
+            canonical = canonical.title()
+
+        elif entity_type == EntityType.ORGANIZATION:
+            # Standardize common abbreviations
+            canonical = canonical.replace("Inc.", "Inc")
+            canonical = canonical.replace("Corp.", "Corp")
+            canonical = canonical.replace("Ltd.", "Ltd")
+
+        elif entity_type == EntityType.LOCATION:
+            # Standardize location names
+            canonical = canonical.replace("NYC", "New York City")
+            canonical = canonical.replace("SF", "San Francisco")
+            canonical = canonical.replace("LA", "Los Angeles")
+
+        elif entity_type == EntityType.EMAIL:
+            # Lowercase emails
+            canonical = canonical.lower()
+
+        elif entity_type == EntityType.URL:
+            # Remove trailing slashes, normalize protocol
+            canonical = canonical.rstrip("/")
+            canonical = canonical.replace("http://", "https://")
+
+        elif entity_type == EntityType.PHONE:
+            # Remove all non-digit characters except +
+            digits = re.sub(r"[^\d+]", "", canonical)
+            canonical = digits
+
+        elif entity_type in [EntityType.SKILL, EntityType.LANGUAGE, EntityType.FRAMEWORK, EntityType.TOOL]:
+            # Keep original casing for tech terms
+            pass
+
+        return canonical.strip()
+
+    def resolve_entity_aliases(self, entity_text: str) -> Optional[str]:
+        """Resolve entity text to canonical entity ID using aliases.
+
+        Args:
+            entity_text: Entity text to resolve
+
+        Returns:
+            Entity ID if found, None otherwise
+        """
+        # Direct lookup
+        text_lower = entity_text.lower()
+        if text_lower in self.entity_index:
+            return self.entity_index[text_lower]
+
+        # Check aliases
+        for profile in self.entities.values():
+            if entity_text in profile.aliases or entity_text == profile.canonical_name:
+                return profile.entity_id
+
+        return None
+
+    def merge_entities(self, entity_id_1: str, entity_id_2: str) -> Optional[str]:
+        """Merge two entity profiles into one.
+
+        Args:
+            entity_id_1: First entity ID (will be kept)
+            entity_id_2: Second entity ID (will be merged into first)
+
+        Returns:
+            Merged entity ID
+        """
+        profile_1 = self.get_entity_profile(entity_id_1)
+        profile_2 = self.get_entity_profile(entity_id_2)
+
+        if not profile_1 or not profile_2:
+            return None
+
+        # Merge aliases
+        profile_1.aliases.update(profile_2.aliases)
+
+        # Merge attributes
+        profile_1.attributes.update(profile_2.attributes)
+
+        # Merge relationships
+        profile_1.relationships.extend(profile_2.relationships)
+
+        # Merge mentions
+        profile_1.mentions.extend(profile_2.mentions)
+
+        # Update mention count
+        profile_1.mention_count += profile_2.mention_count
+
+        # Update timestamps
+        profile_1.first_seen = min(profile_1.first_seen, profile_2.first_seen)
+        profile_1.last_seen = max(profile_1.last_seen, profile_2.last_seen)
+
+        # Remove second entity
+        del self.entities[entity_id_2]
+
+        # Update index to point to merged entity
+        for alias in profile_2.aliases:
+            self.entity_index[alias.lower()] = entity_id_1
+
+        logger.info(f"Merged entity {entity_id_2} into {entity_id_1}")
+
+        return entity_id_1
+
+    def find_similar_entities(
+        self, entity_text: str, entity_type: EntityType, threshold: float = 0.8
+    ) -> List[Tuple[str, float]]:
+        """Find entities similar to the given text.
+
+        Args:
+            entity_text: Entity text to match
+            entity_type: Entity type
+            threshold: Similarity threshold (0.0-1.0)
+
+        Returns:
+            List of (entity_id, similarity_score) tuples
+        """
+        from difflib import SequenceMatcher
+
+        similar = []
+        text_lower = entity_text.lower()
+
+        for profile in self.entities.values():
+            if profile.type != entity_type:
+                continue
+
+            # Check canonical name similarity
+            similarity = SequenceMatcher(None, text_lower, profile.canonical_name.lower()).ratio()
+
+            if similarity >= threshold:
+                similar.append((profile.entity_id, similarity))
+
+            # Check alias similarity
+            for alias in profile.aliases:
+                alias_similarity = SequenceMatcher(None, text_lower, alias.lower()).ratio()
+                if alias_similarity >= threshold and alias_similarity > similarity:
+                    similarity = alias_similarity
+                    similar.append((profile.entity_id, similarity))
+
+        # Sort by similarity (highest first)
+        similar.sort(key=lambda x: x[1], reverse=True)
+
+        # Remove duplicates (keep highest score)
+        seen = set()
+        unique_similar = []
+        for entity_id, score in similar:
+            if entity_id not in seen:
+                seen.add(entity_id)
+                unique_similar.append((entity_id, score))
+
+        return unique_similar
+
+    def get_entity_statistics(self) -> Dict[str, Any]:
+        """Get statistics about recognized entities.
+
+        Returns:
+            Dictionary of statistics
+        """
+        stats = {
+            "total_entities": len(self.entities),
+            "by_type": {},
+            "top_mentioned": [],
+            "total_relationships": 0,
+        }
+
+        # Count by type
+        for profile in self.entities.values():
+            entity_type = profile.type.value
+            stats["by_type"][entity_type] = stats["by_type"].get(entity_type, 0) + 1
+            stats["total_relationships"] += len(profile.relationships)
+
+        # Top mentioned entities
+        top_entities = sorted(
+            self.entities.values(), key=lambda p: p.mention_count, reverse=True
+        )[:10]
+
+        stats["top_mentioned"] = [
+            {
+                "entity_id": p.entity_id,
+                "canonical_name": p.canonical_name,
+                "type": p.type.value,
+                "mention_count": p.mention_count,
+            }
+            for p in top_entities
+        ]
+
+        return stats
