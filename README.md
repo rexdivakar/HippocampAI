@@ -17,6 +17,20 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 
 ---
 
+## 📚 Documentation
+
+Complete documentation is available in the [docs/](docs/) folder:
+
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Advanced Intelligence APIs](docs/ADVANCED_INTELLIGENCE_API.md)** - Fact extraction, entity recognition, relationships
+- **[Complete API Reference](docs/API_COMPLETE_REFERENCE.md)** - All REST API endpoints with examples
+- **[Core Memory Operations](docs/CORE_MEMORY_OPERATIONS.md)** - Store, retrieve, manage memories
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Configure HippocampAI
+- **[Examples](docs/EXAMPLES.md)** - Code examples and recipes
+- **[Full Documentation Index](docs/README.md)** - Browse all documentation
+
+---
+
 ## ✨ Why HippocampAI
 
 - **Persistent personalization** – store preferences, facts, goals, habits, and events per user with importance scoring and decay

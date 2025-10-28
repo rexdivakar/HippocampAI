@@ -64,6 +64,19 @@ class ExtractedFact(BaseModel):
     source: str = Field(..., description="Source of extraction (conversation, text, etc.)")
     metadata: Dict[str, Any] = Field(default_factory=dict)
     extracted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    quality_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Fact quality score")
+    importance: float = Field(default=5.0, ge=0.0, le=10.0, description="Fact importance score")
+
+
+class FactQualityMetrics(BaseModel):
+    """Quality metrics for extracted facts."""
+
+    specificity: float = Field(..., ge=0.0, le=1.0, description="How specific the fact is")
+    verifiability: float = Field(..., ge=0.0, le=1.0, description="How verifiable the fact is")
+    completeness: float = Field(..., ge=0.0, le=1.0, description="How complete the fact is")
+    clarity: float = Field(..., ge=0.0, le=1.0, description="How clear the fact is")
+    relevance: float = Field(..., ge=0.0, le=1.0, description="How relevant the fact is")
+    overall_quality: float = Field(..., ge=0.0, le=1.0, description="Overall quality score")
 
 
 class FactExtractionPipeline:
@@ -446,5 +459,171 @@ Facts:"""
                 fact_ids = [f.fact for f in related_facts]
                 for fact in related_facts:
                     fact.metadata["related_facts"] = [f for f in fact_ids if f != fact.fact]
+
+        return facts
+
+    def compute_fact_quality(self, fact: ExtractedFact) -> FactQualityMetrics:
+        """Compute quality metrics for an extracted fact.
+
+        Args:
+            fact: The extracted fact to evaluate
+
+        Returns:
+            Quality metrics for the fact
+        """
+        # Specificity: longer facts with more entities are more specific
+        specificity = min(1.0, (len(fact.fact.split()) / 20.0) + (len(fact.entities) * 0.2))
+
+        # Verifiability: facts with entities, temporal info, and specific categories are more verifiable
+        verifiability = 0.0
+        if fact.entities:
+            verifiability += 0.4
+        if fact.temporal:
+            verifiability += 0.3
+        if fact.category not in [FactCategory.OTHER, FactCategory.OPINION]:
+            verifiability += 0.3
+
+        # Completeness: check if fact has all expected components
+        completeness = 0.0
+        completeness += 0.3 if fact.fact else 0.0
+        completeness += 0.2 if fact.entities else 0.0
+        completeness += 0.2 if fact.category != FactCategory.OTHER else 0.0
+        completeness += 0.15 if fact.temporal else 0.0
+        completeness += 0.15 if fact.confidence >= 0.7 else 0.0
+
+        # Clarity: based on sentence structure and length (not too short, not too long)
+        fact_length = len(fact.fact.split())
+        clarity = 1.0
+        if fact_length < 3:
+            clarity = 0.5  # Too short
+        elif fact_length > 30:
+            clarity = 0.7  # Too long
+        else:
+            clarity = 1.0
+
+        # Relevance: based on category importance and confidence
+        relevance_weights = {
+            FactCategory.EMPLOYMENT: 0.9,
+            FactCategory.OCCUPATION: 0.9,
+            FactCategory.EDUCATION: 0.85,
+            FactCategory.SKILL: 0.85,
+            FactCategory.GOAL: 0.8,
+            FactCategory.RELATIONSHIP: 0.75,
+            FactCategory.PREFERENCE: 0.7,
+            FactCategory.HABIT: 0.7,
+            FactCategory.EVENT: 0.75,
+            FactCategory.LOCATION: 0.65,
+            FactCategory.OPINION: 0.5,
+            FactCategory.OTHER: 0.3,
+        }
+        relevance = relevance_weights.get(fact.category, 0.5) * fact.confidence
+
+        # Overall quality: weighted average
+        overall_quality = (
+            specificity * 0.2
+            + verifiability * 0.25
+            + completeness * 0.25
+            + clarity * 0.15
+            + relevance * 0.15
+        )
+
+        return FactQualityMetrics(
+            specificity=specificity,
+            verifiability=verifiability,
+            completeness=completeness,
+            clarity=clarity,
+            relevance=relevance,
+            overall_quality=overall_quality,
+        )
+
+    def compute_enhanced_confidence(self, fact: ExtractedFact, quality: FactQualityMetrics) -> float:
+        """Compute enhanced confidence score based on multiple factors.
+
+        Args:
+            fact: The extracted fact
+            quality: Quality metrics for the fact
+
+        Returns:
+            Enhanced confidence score (0.0-1.0)
+        """
+        # Start with base confidence
+        confidence = fact.confidence
+
+        # Boost confidence based on quality metrics
+        quality_boost = quality.overall_quality * 0.15
+
+        # Boost confidence if multiple entities are present
+        entity_boost = min(0.1, len(fact.entities) * 0.03)
+
+        # Boost confidence if temporal information is present
+        temporal_boost = 0.05 if fact.temporal else 0.0
+
+        # Boost confidence for high-value categories
+        category_boost = 0.0
+        if fact.category in [
+            FactCategory.EMPLOYMENT,
+            FactCategory.OCCUPATION,
+            FactCategory.EDUCATION,
+            FactCategory.SKILL,
+        ]:
+            category_boost = 0.05
+
+        # Compute final confidence
+        final_confidence = min(
+            1.0, confidence + quality_boost + entity_boost + temporal_boost + category_boost
+        )
+
+        return final_confidence
+
+    def enrich_facts_with_quality_scores(self, facts: List[ExtractedFact]) -> List[ExtractedFact]:
+        """Enrich facts with quality scores and enhanced confidence.
+
+        Args:
+            facts: List of extracted facts
+
+        Returns:
+            Facts with quality scores and enhanced confidence
+        """
+        enriched_facts = []
+
+        for fact in facts:
+            # Compute quality metrics
+            quality = self.compute_fact_quality(fact)
+
+            # Compute enhanced confidence
+            enhanced_confidence = self.compute_enhanced_confidence(fact, quality)
+
+            # Update fact
+            fact.quality_score = quality.overall_quality
+            fact.confidence = enhanced_confidence
+
+            # Add quality metrics to metadata
+            fact.metadata["quality_metrics"] = quality.model_dump()
+
+            enriched_facts.append(fact)
+
+        return enriched_facts
+
+    def extract_facts_with_quality(
+        self, text: str, source: str = "text", user_id: Optional[str] = None
+    ) -> List[ExtractedFact]:
+        """Extract facts and enrich with quality scores.
+
+        Args:
+            text: Input text to extract facts from
+            source: Source identifier
+            user_id: Optional user ID for context
+
+        Returns:
+            List of enriched extracted facts
+        """
+        # Extract facts
+        facts = self.extract_facts(text, source, user_id)
+
+        # Enrich with quality scores
+        facts = self.enrich_facts_with_quality_scores(facts)
+
+        # Sort by quality score (highest first)
+        facts.sort(key=lambda f: f.quality_score, reverse=True)
 
         return facts
