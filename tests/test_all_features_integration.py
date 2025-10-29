@@ -8,7 +8,7 @@ import asyncio
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -18,12 +18,16 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from hippocampai.models.retrieval import RetrievalResult  # noqa: E402
+from qdrant_client import models  # noqa: E402
+
 from hippocampai.adapters.llm_base import BaseLLM  # noqa: E402
 from hippocampai.adapters.provider_groq import GroqLLM  # noqa: E402
 from hippocampai.adapters.provider_ollama import OllamaLLM  # noqa: E402
 from hippocampai.adapters.provider_openai import OpenAILLM  # noqa: E402
 from hippocampai.config import get_config  # noqa: E402
 from hippocampai.embed.embedder import Embedder  # noqa: E402
+from hippocampai.models.memory import Memory  # noqa: E402
 from hippocampai.retrieval.rerank import Reranker  # noqa: E402
 from hippocampai.services.memory_service import MemoryManagementService  # noqa: E402
 from hippocampai.storage.redis_store import AsyncMemoryKVStore  # noqa: E402
@@ -40,27 +44,29 @@ class Colors:
     END = "\033[0m"
 
 
-def print_test(name):
+def print_test(name: str) -> None:
     """Print test name."""
     print(f"\n{Colors.BLUE}{Colors.BOLD}Testing: {name}{Colors.END}")
 
 
-def print_success(message):
+def print_success(message: str) -> None:
     """Print success message."""
     print(f"{Colors.GREEN}✅ {message}{Colors.END}")
 
 
-def print_error(message):
+def print_error(message: str) -> None:
     """Print error message."""
     print(f"{Colors.RED}❌ {message}{Colors.END}")
 
 
-def print_warning(message):
+def print_warning(message: str) -> None:
     """Print warning message."""
     print(f"{Colors.YELLOW}⚠️  {message}{Colors.END}")
 
 
-async def test_service_initialization():
+async def test_service_initialization() -> tuple[
+    MemoryManagementService, AsyncMemoryKVStore, QdrantStore
+]:
     """Test 1: Service initialization."""
     print_test("Service Initialization")
 
@@ -77,8 +83,6 @@ async def test_service_initialization():
 
         # Ensure collections (they're created automatically, but we can check/create manually)
         try:
-            from qdrant_client import models
-
             qdrant.client.create_collection(
                 collection_name="test_integration_facts",
                 vectors_config=models.VectorParams(size=384, distance=models.Distance.COSINE),
@@ -153,7 +157,7 @@ async def test_service_initialization():
         raise
 
 
-async def test_crud_operations(service):
+async def test_crud_operations(service: MemoryManagementService) -> Memory:
     """Test 2: CRUD operations."""
     print_test("CRUD Operations")
 
@@ -197,7 +201,7 @@ async def test_crud_operations(service):
     return memory
 
 
-async def test_batch_operations(service):
+async def test_batch_operations(service: MemoryManagementService) -> list[Memory]:
     """Test 3: Batch operations."""
     print_test("Batch Operations")
 
@@ -233,7 +237,7 @@ async def test_batch_operations(service):
     return created[:5]  # Return first 5
 
 
-async def test_advanced_filtering(service):
+async def test_advanced_filtering(service: MemoryManagementService) -> list[Memory]:
     """Test 4: Advanced filtering (NEW feature)."""
     print_test("Advanced Filtering (Date Range, Importance, Text Search)")
 
@@ -292,7 +296,7 @@ async def test_advanced_filtering(service):
     return [mem1, mem2]
 
 
-async def test_hybrid_search(service):
+async def test_hybrid_search(service: MemoryManagementService) -> list[RetrievalResult]:
     """Test 5: Hybrid search with custom weights."""
     print_test("Hybrid Search with Custom Weights")
 
@@ -335,7 +339,7 @@ async def test_hybrid_search(service):
     return results
 
 
-async def test_deduplication(service):
+async def test_deduplication(service: MemoryManagementService) -> dict[str, Any]:
     """Test 6: Deduplication."""
     print_test("Deduplication")
 
@@ -366,7 +370,7 @@ async def test_deduplication(service):
     return result
 
 
-async def test_consolidation(service):
+async def test_consolidation(service: MemoryManagementService) -> dict[str, Any]:
     """Test 7: Consolidation (uses Groq if configured)."""
     print_test("Consolidation with Groq LLM")
 
@@ -409,7 +413,7 @@ async def test_consolidation(service):
     return result
 
 
-async def test_ttl_and_expiration(service):
+async def test_ttl_and_expiration(service: MemoryManagementService) -> None:
     """Test 8: TTL and expiration."""
     print_test("TTL and Expiration")
 
@@ -440,7 +444,7 @@ async def test_ttl_and_expiration(service):
         print_warning("Expired memory still exists")
 
 
-async def test_redis_caching(service):
+async def test_redis_caching(service: MemoryManagementService) -> None:
     """Test 9: Redis caching."""
     print_test("Redis Caching Performance")
 
@@ -473,7 +477,7 @@ async def test_redis_caching(service):
     print_success(f"Redis stats: {stats}")
 
 
-async def test_background_tasks(service):
+async def test_background_tasks(service: MemoryManagementService) -> None:
     """Test 10: Background tasks."""
     print_test("Background Tasks (would run in production)")
 
@@ -486,7 +490,9 @@ async def test_background_tasks(service):
     print_success("Background task features documented")
 
 
-async def cleanup(service, redis_store, qdrant):
+async def cleanup(
+    service: MemoryManagementService, redis_store: AsyncMemoryKVStore, qdrant: QdrantStore
+) -> None:
     """Cleanup test data."""
     print_test("Cleanup")
 
@@ -511,7 +517,7 @@ async def cleanup(service, redis_store, qdrant):
         print_warning(f"Cleanup error (non-critical): {e}")
 
 
-async def main():
+async def main() -> None:
     """Run all integration tests."""
     print(f"\n{Colors.BOLD}{'=' * 70}")
     print("COMPREHENSIVE INTEGRATION TESTS")

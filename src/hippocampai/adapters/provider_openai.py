@@ -1,7 +1,7 @@
 """OpenAI LLM adapter."""
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.utils.retry import get_llm_retry_decorator
@@ -39,14 +39,18 @@ class OpenAILLM(BaseLLM):
 
     @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(
-        self, messages: list[dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
+        self, messages: list[dict[str, Any]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
         """Chat completion (with automatic retry on transient failures)."""
         try:
             response = self.client.chat.completions.create(
-                model=self.model, messages=messages, max_tokens=max_tokens, temperature=temperature
+                model=self.model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,  # type: ignore
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            return content if content is not None else ""
         except Exception as e:
             logger.error(f"OpenAI chat failed: {e}")
             return ""
