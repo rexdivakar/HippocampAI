@@ -150,9 +150,7 @@ def demo_relationship_mapping():
 
     print("\nRelationship strength distribution:")
     for rel in network.relationships[:5]:
-        print(
-            f"  - {rel.from_entity_id} --[{rel.relation_type.value}]--> {rel.to_entity_id}"
-        )
+        print(f"  - {rel.from_entity_id} --[{rel.relation_type.value}]--> {rel.to_entity_id}")
         print(f"    Strength: {rel.strength_score:.2f} ({rel.strength_level.value})")
         print(f"    Co-occurrences: {rel.co_occurrence_count}")
 
@@ -348,9 +346,7 @@ def demo_temporal_analytics():
     if activity_trend.forecast:
         print(f"  Forecast (next period): {activity_trend.forecast:.2f}")
 
-    importance_trend = analytics.analyze_trends(
-        memories, time_window_days=30, metric="importance"
-    )
+    importance_trend = analytics.analyze_trends(memories, time_window_days=30, metric="importance")
 
     print("\nImportance Trend:")
     print(f"  Direction: {importance_trend.direction.value}")
