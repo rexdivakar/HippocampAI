@@ -171,9 +171,7 @@ async def extract_entities(request: EntityExtractionRequest):
     products, emails, URLs, frameworks, certifications, and more.
     """
     try:
-        entities = entity_recognizer.extract_entities(
-            text=request.text, context=request.context
-        )
+        entities = entity_recognizer.extract_entities(text=request.text, context=request.context)
 
         # Get statistics
         stats = entity_recognizer.get_entity_statistics()
@@ -243,9 +241,7 @@ async def get_entity_profile(entity_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get entity profile: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # ==================== Relationship Mapping Endpoints ====================
@@ -323,9 +319,7 @@ async def get_entity_relationships(
 
     except Exception as e:
         logger.error(f"Failed to get entity relationships: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get("/relationships:network", response_model=dict[str, Any])
@@ -348,9 +342,7 @@ async def get_relationship_network():
 
     except Exception as e:
         logger.error(f"Failed to get relationship network: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # ==================== Semantic Clustering Endpoints ====================
@@ -381,9 +373,7 @@ async def cluster_memories(request: SemanticClusteringRequest):
                 # Create MemoryCluster object
                 from hippocampai.pipeline.semantic_clustering import MemoryCluster
 
-                cluster = MemoryCluster(
-                    topic=cluster_data["topic"], memories=cluster_memories
-                )
+                cluster = MemoryCluster(topic=cluster_data["topic"], memories=cluster_memories)
                 metrics = semantic_categorizer.compute_cluster_quality_metrics(cluster)
                 quality_metrics[f"cluster_{i}"] = metrics
 
@@ -392,9 +382,7 @@ async def cluster_memories(request: SemanticClusteringRequest):
                 count=len(clusters),
                 quality_metrics={
                     "per_cluster": quality_metrics,
-                    "hierarchy": [
-                        {"size": len(h[0]), "similarity": h[1]} for h in hierarchy
-                    ],
+                    "hierarchy": [{"size": len(h[0]), "similarity": h[1]} for h in hierarchy],
                 },
             )
         else:
@@ -445,9 +433,7 @@ async def optimize_cluster_count(request: dict[str, Any]):
         min_k = request.get("min_k", 2)
         max_k = request.get("max_k", 15)
 
-        optimal_k = semantic_categorizer.optimize_cluster_count(
-            memories, min_k=min_k, max_k=max_k
-        )
+        optimal_k = semantic_categorizer.optimize_cluster_count(memories, min_k=min_k, max_k=max_k)
 
         return {
             "optimal_cluster_count": optimal_k,
@@ -457,9 +443,7 @@ async def optimize_cluster_count(request: dict[str, Any]):
 
     except Exception as e:
         logger.error(f"Cluster optimization failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # ==================== Temporal Analytics Endpoints ====================
@@ -560,9 +544,7 @@ async def get_peak_times(request: dict[str, Any]):
 
     except Exception as e:
         logger.error(f"Peak time analysis failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # ==================== Health Check ====================

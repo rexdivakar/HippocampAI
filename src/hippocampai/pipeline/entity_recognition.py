@@ -581,7 +581,12 @@ Entities:"""
             digits = re.sub(r"[^\d+]", "", canonical)
             canonical = digits
 
-        elif entity_type in [EntityType.SKILL, EntityType.LANGUAGE, EntityType.FRAMEWORK, EntityType.TOOL]:
+        elif entity_type in [
+            EntityType.SKILL,
+            EntityType.LANGUAGE,
+            EntityType.FRAMEWORK,
+            EntityType.TOOL,
+        ]:
             # Keep original casing for tech terms
             pass
 
@@ -722,9 +727,9 @@ Entities:"""
             stats["total_relationships"] += len(profile.relationships)
 
         # Top mentioned entities
-        top_entities = sorted(
-            self.entities.values(), key=lambda p: p.mention_count, reverse=True
-        )[:10]
+        top_entities = sorted(self.entities.values(), key=lambda p: p.mention_count, reverse=True)[
+            :10
+        ]
 
         stats["top_mentioned"] = [
             {

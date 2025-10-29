@@ -66,6 +66,7 @@ def get_service() -> MemoryManagementService:
 # Memory Operation Tasks
 # ============================================================================
 
+
 @celery_app.task(name="hippocampai.tasks.create_memory_task", bind=True, max_retries=3)
 def create_memory_task(
     self,
@@ -306,6 +307,7 @@ def delete_memory_task(
 # Scheduled Maintenance Tasks
 # ============================================================================
 
+
 @celery_app.task(name="hippocampai.tasks.deduplicate_all_memories", bind=True)
 def deduplicate_all_memories(self) -> dict[str, int]:
     """
@@ -390,13 +392,17 @@ def cleanup_expired_memories(self) -> dict[str, int]:
                     expired_ids = []
                     for result in results:
                         expires_at = result.get("payload", {}).get("expires_at")
-                        if expires_at and datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
+                        if expires_at and datetime.fromisoformat(expires_at) < datetime.now(
+                            timezone.utc
+                        ):
                             expired_ids.append(result["id"])
 
                     if expired_ids:
                         service.qdrant.delete(collection, expired_ids)
                         count += len(expired_ids)
-                        logger.info(f"Deleted {len(expired_ids)} expired memories from {collection}")
+                        logger.info(
+                            f"Deleted {len(expired_ids)} expired memories from {collection}"
+                        )
 
                 except Exception as e:
                     logger.error(f"Error cleaning up {collection}: {e}")
@@ -405,7 +411,9 @@ def cleanup_expired_memories(self) -> dict[str, int]:
 
         stats = asyncio.run(_cleanup())
 
-        logger.info(f"Task {self.request.id}: Cleanup completed - {stats['deleted']} memories deleted")
+        logger.info(
+            f"Task {self.request.id}: Cleanup completed - {stats['deleted']} memories deleted"
+        )
         return stats
 
     except Exception as exc:
@@ -473,6 +481,7 @@ def create_collection_snapshots(self) -> dict[str, str]:
 # Utility Tasks
 # ============================================================================
 
+
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
 def health_check_task(self) -> dict[str, bool]:
     """
@@ -501,6 +510,7 @@ def health_check_task(self) -> dict[str, bool]:
         if service.redis:
             try:
                 import asyncio
+
                 asyncio.run(service.redis.backend.ping())
                 health["redis"] = True
             except Exception as e:

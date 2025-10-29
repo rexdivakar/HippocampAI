@@ -1,7 +1,6 @@
 """Reciprocal Rank Fusion."""
 
 
-
 def reciprocal_rank_fusion(
     rankings: list[list[tuple[str, float]]], k: int = 60, c: int = 60
 ) -> list[tuple[str, float]]:

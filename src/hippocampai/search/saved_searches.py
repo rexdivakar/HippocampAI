@@ -168,9 +168,7 @@ class SavedSearchManager:
         search = self._searches.get(search_id)
         if search:
             search.increment_usage()
-            logger.debug(
-                f"Executed saved search '{search.name}' (use count: {search.use_count})"
-            )
+            logger.debug(f"Executed saved search '{search.name}' (use count: {search.use_count})")
         return search
 
     def get_most_used(self, user_id: str, limit: int = 10) -> list[SavedSearch]:

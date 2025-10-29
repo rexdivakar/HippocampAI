@@ -6,6 +6,78 @@ All notable changes to HippocampAI will be documented in this file.
 
 ### Added
 
+#### Unified Memory Client (Latest)
+
+- **NEW**: UnifiedMemoryClient supporting both local and remote modes
+  - Single interface for direct connection (local) or HTTP API (remote)
+  - Switch between modes with one parameter: `mode="local"` or `mode="remote"`
+  - Complete feature parity across both backends
+  - Local mode: Direct connection to Qdrant/Redis/Ollama (5-15ms latency)
+  - Remote mode: HTTP API via FastAPI (20-50ms latency, multi-language support)
+  - Full type hints and comprehensive error handling
+  - Backend abstraction layer (BaseBackend, LocalBackend, RemoteBackend)
+  - Documentation: `UNIFIED_CLIENT_GUIDE.md`, `UNIFIED_CLIENT_USAGE.md`
+
+#### Search & Retrieval Enhancements
+
+- **Hybrid Search Modes**: Choose between vector-only, keyword-only, or hybrid search strategies
+  - `SearchMode.HYBRID`: Combines vector and keyword search with RRF fusion (default)
+  - `SearchMode.VECTOR_ONLY`: Semantic vector search only (20% faster)
+  - `SearchMode.KEYWORD_ONLY`: BM25 keyword search only (30% faster)
+  - New `search_mode` parameter in `HybridRetriever.retrieve()` method
+
+- **Reranking Control**: Enable or disable CrossEncoder reranking for performance tuning
+  - New `enable_reranking` parameter (default: `True`)
+  - Disabling reranking reduces latency by ~50% with medium accuracy
+  - Useful for background tasks and bulk operations
+
+- **Score Breakdowns**: Detailed scoring transparency for each retrieved memory
+  - New `enable_score_breakdown` parameter (default: `True`)
+  - Breakdown includes: similarity, reranking, recency, importance, final score
+  - Additional metadata: search_mode used, reranking_enabled status
+
+- **Saved Searches**: Save frequently used queries with all parameters
+  - New `SavedSearchManager` class for managing saved searches
+  - Track usage statistics (use count, last used timestamp)
+  - Tag-based organization and search
+  - Full CRUD operations (create, read, update, delete)
+  - Statistics and analytics (most used, total uses, etc.)
+
+- **Search Suggestions**: Auto-suggest queries based on user search history
+  - New `SearchSuggestionEngine` class with autocomplete support
+  - Frequency-based suggestions with confidence scoring
+  - Prefix-based autocomplete for real-time suggestions
+  - Popular and recent query tracking
+  - Configurable history retention (default: 90 days)
+
+#### Versioning & History Features
+
+- **Enhanced Version Control with Diffs**: Detailed text diff support
+  - Enhanced `MemoryVersionControl.compare_versions()` with text diff generation
+  - Unified diff format using Python's `difflib`
+  - Diff statistics: added/removed lines, size change
+  - Version history tracking with change summaries
+  - Configurable max versions per memory (default: 10)
+
+- **Audit Logs**: Complete audit trail of all memory operations
+  - Track all operations: created, updated, deleted, accessed, relationship changes
+  - Filter audit trail by memory_id, user_id, or change_type
+  - Automatic cleanup of old audit entries
+  - Export audit entries to dictionary format
+  - Statistics: total entries, entries by type, etc.
+
+- **Retention Policies**: Automatic memory cleanup with smart preservation
+  - New `RetentionPolicyManager` class for policy management
+  - Smart preservation rules based on:
+    - Memory age (retention_days)
+    - Importance threshold (min_importance)
+    - Access count (min_access_count)
+    - Protected tags (tags_to_preserve)
+  - Dry run mode for testing policies
+  - Expiring memories warning system
+  - Per-user and global policies
+  - Statistics and reporting
+
 #### Memory Management API
 
 - **NEW**: Comprehensive Memory Management Service with advanced features

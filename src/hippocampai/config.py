@@ -1,6 +1,5 @@
 """Configuration with env var overrides."""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

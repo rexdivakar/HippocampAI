@@ -336,9 +336,7 @@ for entry in audit_trail:
     print(f"  • {entry.change_type.value} at {entry.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
 
 # Filter by change type
-updates_only = version_control.get_audit_trail(
-    memory_id="mem_001", change_type=ChangeType.UPDATED
-)
+updates_only = version_control.get_audit_trail(memory_id="mem_001", change_type=ChangeType.UPDATED)
 print(f"✓ Update entries only: {len(updates_only)}")
 
 # Version control statistics
