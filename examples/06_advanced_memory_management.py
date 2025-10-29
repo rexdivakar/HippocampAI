@@ -8,12 +8,12 @@ This example demonstrates all the new high-priority features:
 5. Memory TTL and automatic expiration
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from hippocampai import MemoryClient
 
 
-def main():
+def main() -> None:
     # Initialize client
     client = MemoryClient()
     user_id = "demo_user"
@@ -74,10 +74,11 @@ def main():
         tags=["beverages", "coffee", "morning", "dietary"],
         importance=9.0,  # Increased importance
     )
-    print("✓ Updated coffee preference with new details")
-    print(f"  New text: {updated_coffee.text}")
-    print(f"  New tags: {updated_coffee.tags}")
-    print(f"  New importance: {updated_coffee.importance}")
+    if updated_coffee:
+        print("✓ Updated coffee preference with new details")
+        print(f"  New text: {updated_coffee.text}")
+        print(f"  New tags: {updated_coffee.tags}")
+        print(f"  New importance: {updated_coffee.importance}")
 
     # 3. Get memories with advanced filtering
     print("\n3. Retrieving memories with filters...")
@@ -145,7 +146,7 @@ def main():
     print("\n✓ Memory TTL status:")
     for mem in all_memories:
         if mem.expires_at:
-            days_until_expiry = (mem.expires_at - datetime.utcnow()).days
+            days_until_expiry = (mem.expires_at - datetime.now(timezone.utc)).days
             print(f"  - {mem.text[:40]}...")
             print(f"    Expires in {days_until_expiry} days ({mem.expires_at.date()})")
         else:
@@ -155,7 +156,7 @@ def main():
     print("\n✓ Marking temporary note as expired...")
     client.update_memory(
         memory_id=temp_note.id,
-        expires_at=datetime.utcnow() - timedelta(hours=1),  # Already expired
+        expires_at=datetime.now(timezone.utc) - timedelta(hours=1),  # Already expired
     )
 
     # Get memories without expired ones (default)
@@ -192,7 +193,7 @@ def main():
     metrics = client.get_telemetry_metrics()
     print("\n✓ Operation metrics:")
     for operation, stats in metrics.items():
-        if stats and "count" in stats:
+        if stats and isinstance(stats, dict) and "count" in stats:
             print(f"  {operation}:")
             print(f"    Count: {stats['count']}")
             print(f"    Avg duration: {stats['avg']:.2f}ms")
@@ -218,7 +219,7 @@ def main():
         print(f"    Tags: {', '.join(mem.tags)}")
         print(f"    Importance: {mem.importance}/10")
         if mem.expires_at:
-            days_left = (mem.expires_at - datetime.utcnow()).days
+            days_left = (mem.expires_at - datetime.now(timezone.utc)).days
             print(f"    Expires in: {days_left} days")
 
     print("\n" + "=" * 60)

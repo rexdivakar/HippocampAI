@@ -536,7 +536,9 @@ Facts:"""
             overall_quality=overall_quality,
         )
 
-    def compute_enhanced_confidence(self, fact: ExtractedFact, quality: FactQualityMetrics) -> float:
+    def compute_enhanced_confidence(
+        self, fact: ExtractedFact, quality: FactQualityMetrics
+    ) -> float:
         """Compute enhanced confidence score based on multiple factors.
 
         Args:

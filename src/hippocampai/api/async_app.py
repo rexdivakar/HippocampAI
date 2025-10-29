@@ -231,6 +231,14 @@ class BatchDeleteRequest(BaseModel):
     user_id: Optional[str] = None
 
 
+class BatchGetRequest(BaseModel):
+    memory_ids: list[str]
+
+
+class AnalyticsRequest(BaseModel):
+    user_id: str
+
+
 class ExtractRequest(BaseModel):
     conversation: str
     user_id: str
@@ -258,6 +266,7 @@ class ExpireRequest(BaseModel):
 
 
 @app.get("/healthz")
+@app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "service": "hippocampai", "version": "2.0.0"}
@@ -437,6 +446,23 @@ async def batch_delete_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v1/memories/batch/get", response_model=list[Memory])
+async def batch_get_memories(
+    request: BatchGetRequest, service: MemoryManagementService = Depends(get_service)
+):
+    """Batch get multiple memories by IDs."""
+    try:
+        memories = []
+        for memory_id in request.memory_ids:
+            memory = await service.get_memory(memory_id)
+            if memory:
+                memories.append(memory)
+        return memories
+    except Exception as e:
+        logger.error(f"Batch get failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # Retrieval & Search
 # ============================================================================
@@ -538,6 +564,73 @@ async def expire_memories(
         return {"success": True, "expired_count": expired_count}
     except Exception as e:
         logger.error(f"Expire failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/memories/cleanup")
+async def cleanup_expired_memories(service: MemoryManagementService = Depends(get_service)):
+    """Cleanup expired memories (alias for expire endpoint)."""
+    try:
+        expired_count = await service.expire_memories(user_id=None)
+        return {"success": True, "deleted_count": expired_count}
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/memories/analytics")
+async def get_memory_analytics(
+    user_id: str, service: MemoryManagementService = Depends(get_service)
+):
+    """Get analytics for user's memories."""
+    try:
+        # Get all memories for user
+        memories = await service.get_memories(user_id=user_id, filters={}, limit=10000)
+
+        if not memories:
+            return {
+                "total_memories": 0,
+                "avg_importance": 0.0,
+                "top_tags": [],
+                "top_entities": [],
+                "memory_types": {},
+            }
+
+        # Calculate analytics
+        total = len(memories)
+        avg_importance = sum(m.importance for m in memories) / total if total > 0 else 0.0
+
+        # Count tags
+        tag_counts: dict[str, int] = {}
+        for memory in memories:
+            for tag in memory.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Count entities
+        entity_counts: dict[str, int] = {}
+        for memory in memories:
+            if memory.entities:
+                for entity_type, entities in memory.entities.items():
+                    for entity in entities:
+                        entity_counts[entity] = entity_counts.get(entity, 0) + 1
+        top_entities = sorted(entity_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Count memory types
+        type_counts: dict[str, int] = {}
+        for memory in memories:
+            mem_type = memory.memory_type.value if memory.memory_type else "unknown"
+            type_counts[mem_type] = type_counts.get(mem_type, 0) + 1
+
+        return {
+            "total_memories": total,
+            "avg_importance": round(avg_importance, 2),
+            "top_tags": [{"tag": tag, "count": count} for tag, count in top_tags],
+            "top_entities": [{"entity": entity, "count": count} for entity, count in top_entities],
+            "memory_types": type_counts,
+        }
+    except Exception as e:
+        logger.error(f"Analytics failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

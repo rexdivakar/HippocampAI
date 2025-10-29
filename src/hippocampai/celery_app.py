@@ -26,42 +26,35 @@ celery_app.conf.update(
     task_default_queue="default",
     task_default_exchange="default",
     task_default_routing_key="default",
-
     # Task execution settings
     task_acks_late=os.getenv("CELERY_TASK_ACKS_LATE", "true").lower() == "true",
     worker_prefetch_multiplier=int(os.getenv("CELERY_WORKER_PREFETCH_MULTIPLIER", "4")),
     worker_max_tasks_per_child=int(os.getenv("CELERY_WORKER_MAX_TASKS_PER_CHILD", "1000")),
-
     # Task time limits
     task_soft_time_limit=300,  # 5 minutes
     task_time_limit=600,  # 10 minutes
-
     # Result backend settings
     result_expires=3600,  # Results expire after 1 hour
     result_persistent=True,
     result_compression="gzip",
-
     # Serialization
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-
     # Timezone
     timezone="UTC",
     enable_utc=True,
-
     # Task result format
     result_extended=True,
-
     # Worker settings
     worker_disable_rate_limits=False,
     worker_log_format="[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
     worker_task_log_format="[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s",
-
     # Beat scheduler settings (for periodic tasks)
     beat_scheduler="celery.beat:PersistentScheduler",
     beat_schedule_filename="/app/logs/celerybeat-schedule.db",
 )
+
 
 # Scheduled tasks configuration
 def get_beat_schedule():
@@ -116,6 +109,7 @@ def get_beat_schedule():
     }
 
     return schedule
+
 
 # Update beat schedule
 celery_app.conf.beat_schedule = get_beat_schedule()

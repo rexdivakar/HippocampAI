@@ -23,8 +23,8 @@ class SearchSuggestionEngine:
         """
         self.min_frequency = min_frequency
         self.history_days = history_days
-        self._query_history: dict[str, list[tuple[str, datetime]]] = (
-            defaultdict(list)
+        self._query_history: dict[str, list[tuple[str, datetime]]] = defaultdict(
+            list
         )  # user_id -> [(query, timestamp)]
         self._query_frequencies: dict[str, Counter] = defaultdict(
             Counter
@@ -71,9 +71,7 @@ class SearchSuggestionEngine:
         # Filter by prefix if provided
         if prefix:
             prefix_lower = prefix.strip().lower()
-            filtered = {
-                q: freq for q, freq in frequencies.items() if q.startswith(prefix_lower)
-            }
+            filtered = {q: freq for q, freq in frequencies.items() if q.startswith(prefix_lower)}
         else:
             filtered = dict(frequencies)
 

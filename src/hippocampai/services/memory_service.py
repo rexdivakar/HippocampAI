@@ -161,18 +161,24 @@ class MemoryManagementService:
                 logger.info(f"Skipping duplicate memory: {memory.id}")
                 # Return existing memory
                 existing_id = duplicate_ids[0]
-                return await self.get_memory(existing_id)
+                existing_memory = await self.get_memory(existing_id)
+                if existing_memory is None:
+                    raise ValueError(f"Duplicate memory {existing_id} not found")
+                return existing_memory
 
             elif action == "update":
                 logger.info(f"Updating existing memory: {duplicate_ids[0]}")
                 # Update the first duplicate
                 existing_id = duplicate_ids[0]
-                return await self.update_memory(
+                updated_memory = await self.update_memory(
                     memory_id=existing_id,
                     text=text,
                     importance=memory.importance,
                     tags=memory.tags,
                 )
+                if updated_memory is None:
+                    raise ValueError(f"Failed to update memory {existing_id}")
+                return updated_memory
 
         # Store in vector database
         collection = memory.collection_name(

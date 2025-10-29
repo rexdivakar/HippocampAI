@@ -7,13 +7,38 @@
 
 HippocampAI turns raw conversations into a curated long-term memory vault for your AI assistants. It extracts, scores, deduplicates, stores, and retrieves user memories so agents can stay personal, consistent, and context-aware across sessions.
 
-- **Plug-and-play** `MemoryClient` API with built-in pipelines for extraction, dedupe, consolidation, and importance decay
-- **Hybrid retrieval** that fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
-- **Self-hosted first** — works fully offline via Qdrant + Ollama or in the cloud via OpenAI with the same code paths
-- **Production-ready** — automatic retry logic, structured JSON logging, request tracing, telemetry, typed models, and scheduled jobs
-- **Fully customizable** — every component (extraction, retrieval, scoring) is extensible without vendor lock-in
+## 🎯 NEW: Unified Memory Client
 
-**Current Release:** v1.0.0 — first major stable release of HippocampAI.
+**One interface, multiple backends!** The new `UnifiedMemoryClient` works with both local (direct) and remote (API) modes with the same code:
+
+```python
+from hippocampai import UnifiedMemoryClient
+
+# Local mode - direct connection (fastest)
+client = UnifiedMemoryClient(mode="local")
+
+# Remote mode - API connection (multi-language support)
+client = UnifiedMemoryClient(mode="remote", api_url="http://localhost:8000")
+
+# Either way, same API!
+memory = client.remember("User prefers dark mode", user_id="user123")
+results = client.recall("UI preferences", user_id="user123")
+```
+
+📚 **[Read the Unified Client Guide](docs/UNIFIED_CLIENT_GUIDE.md)** | **[Complete Usage Examples](docs/UNIFIED_CLIENT_USAGE.md)** | **[What's New](docs/WHATS_NEW_UNIFIED_CLIENT.md)**
+
+---
+
+## ✨ Key Features
+
+- **Unified Interface** — Same Python library works for local and remote deployments
+- **Plug-and-play** — Built-in pipelines for extraction, dedupe, consolidation, and importance decay
+- **Hybrid retrieval** — Fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
+- **Self-hosted first** — Works fully offline via Qdrant + Ollama or in the cloud via OpenAI
+- **Production-ready** — Automatic retry logic, structured JSON logging, request tracing, telemetry, and typed models
+- **Fully customizable** — Every component is extensible without vendor lock-in
+
+**Current Release:** v1.0.0 — first major stable release with Unified Memory Client.
 
 ---
 
@@ -21,13 +46,25 @@ HippocampAI turns raw conversations into a curated long-term memory vault for yo
 
 Complete documentation is available in the [docs/](docs/) folder:
 
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
-- **[Advanced Intelligence APIs](docs/ADVANCED_INTELLIGENCE_API.md)** - Fact extraction, entity recognition, relationships
-- **[Complete API Reference](docs/API_COMPLETE_REFERENCE.md)** - All REST API endpoints with examples
-- **[Core Memory Operations](docs/CORE_MEMORY_OPERATIONS.md)** - Store, retrieve, manage memories
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Configure HippocampAI
-- **[Examples](docs/EXAMPLES.md)** - Code examples and recipes
-- **[Full Documentation Index](docs/README.md)** - Browse all documentation
+### 🚀 Getting Started
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Complete setup and first steps (essential reading)
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Configure Qdrant, Redis, LLMs, and embeddings
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and component architecture
+
+### 🎯 Unified Memory Client
+- **[Unified Client Guide](docs/UNIFIED_CLIENT_GUIDE.md)** - Conceptual overview and when to use each mode
+- **[Unified Client Usage](docs/UNIFIED_CLIENT_USAGE.md)** - Complete API reference and examples
+- **[What's New](docs/WHATS_NEW_UNIFIED_CLIENT.md)** - Latest updates and migration guide
+
+### 📖 Core Documentation
+- **[Complete API Reference](docs/API_COMPLETE_REFERENCE.md)** - Full REST API documentation
+- **[Advanced Intelligence API](docs/ADVANCED_INTELLIGENCE_API.md)** - Fact extraction, entities, relationships
+- **[Features Overview](docs/FEATURES.md)** - Complete feature documentation
+- **[Search Enhancements](docs/SEARCH_ENHANCEMENTS_GUIDE.md)** - Hybrid search, saved searches
+- **[Deployment Guide](docs/DEPLOYMENT_AND_USAGE_GUIDE.md)** - Production deployment
+
+### 📚 More Documentation
+- **[Full Documentation Index](docs/README.md)** - Browse all 26+ documentation files
 
 ---
 
@@ -592,10 +629,10 @@ client = MemoryClient(config=config)
 
 ### Developer Resources
 
-- **[Package Summary](docs/PACKAGE_SUMMARY.md)** - Technical overview of the package architecture and structure
 - **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Implementation details of core features and components
-- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to HippocampAI
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to HippocampAI
 - **[Changelog](docs/CHANGELOG.md)** - Version history, updates, and breaking changes
+- **[Full Documentation Index](docs/README.md)** - Complete documentation navigation
 
 ---
 
@@ -680,7 +717,7 @@ Apache 2.0 — See [LICENSE](LICENSE) for details.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [contributing guidelines](docs/CONTRIBUTING.md) for details.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)

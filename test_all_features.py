@@ -5,7 +5,7 @@
 
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 from datetime import datetime, timedelta, timezone
 
@@ -29,9 +29,11 @@ for fact in facts:
     print(f"    Category: {fact.category}")
     print(f"    Confidence: {fact.confidence:.2f}")
     print(f"    Quality Score: {fact.quality_score:.2f}")
-    if hasattr(fact, 'metadata') and 'quality_metrics' in fact.metadata:
-        metrics = fact.metadata['quality_metrics']
-        print(f"    Metrics: specificity={metrics['specificity']:.2f}, clarity={metrics['clarity']:.2f}")
+    if hasattr(fact, "metadata") and "quality_metrics" in fact.metadata:
+        metrics = fact.metadata["quality_metrics"]
+        print(
+            f"Metrics: specificity={metrics['specificity']:.2f}, clarity={metrics['clarity']:.2f}"
+        )
 
 # Test 2: Entity Recognition
 print("\n2. Testing Entity Recognition")
@@ -43,7 +45,7 @@ text = "Contact John Doe at john.doe@example.com or call +1-555-123-4567. He wor
 entities = recognizer.extract_entities(text)
 
 print(f"✓ Extracted {len(entities)} entities")
-entity_types = {}
+entity_types: dict[str, int] = {}
 for entity in entities:
     entity_type = str(entity.type)
     entity_types[entity_type] = entity_types.get(entity_type, 0) + 1
@@ -65,7 +67,7 @@ mapper.add_relationship(
     to_entity_id="org_microsoft",
     relation_type=RelationType.WORKS_AT,
     confidence=0.9,
-    context="John works at Microsoft"
+    context="John works at Microsoft",
 )
 
 mapper.add_relationship(
@@ -73,7 +75,7 @@ mapper.add_relationship(
     to_entity_id="org_microsoft",
     relation_type=RelationType.WORKS_AT,
     confidence=0.85,
-    context="Jane is employed by Microsoft"
+    context="Jane is employed by Microsoft",
 )
 
 mapper.add_relationship(
@@ -81,7 +83,7 @@ mapper.add_relationship(
     to_entity_id="person_jane",
     relation_type=RelationType.KNOWS,
     confidence=0.8,
-    context="John and Jane are colleagues"
+    context="John and Jane are colleagues",
 )
 
 # Analyze network
@@ -97,7 +99,7 @@ if network.central_entities:
 # Test 4: Semantic Clustering
 print("\n4. Testing Semantic Clustering")
 print("-" * 70)
-from hippocampai.models.memory import Memory
+from hippocampai.models.memory import Memory, MemoryType
 from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
 
 categorizer = SemanticCategorizer()
@@ -112,7 +114,7 @@ texts = [
     "I like to play tennis",
     "Deep learning models are powerful",
     "I prefer outdoor activities",
-    "Neural networks are interesting"
+    "Neural networks are interesting",
 ]
 
 for i, text in enumerate(texts):
@@ -120,9 +122,8 @@ for i, text in enumerate(texts):
         id=f"mem_{i}",
         text=text,
         user_id="test",
-        type="fact",
-        embedding=[0.1] * 384,
-        created_at=datetime.now(timezone.utc) - timedelta(hours=i)
+        type=MemoryType.FACT,
+        created_at=datetime.now(timezone.utc) - timedelta(hours=i),
     )
     memories.append(mem)
 
@@ -130,14 +131,14 @@ for i, text in enumerate(texts):
 clusters = categorizer.cluster_memories(memories, max_clusters=3)
 print(f"✓ Standard clustering created {len(clusters)} clusters")
 for i, cluster in enumerate(clusters):
-    print(f"  • Cluster {i+1}: {len(cluster.memories)} memories")
+    print(f"  • Cluster {i + 1}: {len(cluster.memories)} memories")
     quality = categorizer.compute_cluster_quality_metrics(cluster)
     if quality:
         print(f"    Cohesion: {quality.get('cohesion', 0):.2f}")
 
 # Hierarchical clustering
 hier_result = categorizer.hierarchical_cluster_memories(memories, min_cluster_size=2)
-if 'clusters' in hier_result:
+if "clusters" in hier_result:
     print(f"✓ Hierarchical clustering created {len(hier_result['clusters'])} clusters")
 
 # Test 5: Temporal Analytics
@@ -155,9 +156,8 @@ for i in range(20):
         id=f"temp_mem_{i}",
         text=f"Memory {i}",
         user_id="test",
-        type="event",
-        embedding=[0.1] * 384,
-        created_at=base_time - timedelta(hours=i*2)
+        type=MemoryType.EVENT,
+        created_at=base_time - timedelta(hours=i * 2),
     )
     temporal_memories.append(mem)
 
@@ -221,7 +221,7 @@ try:
     response = httpx.post(
         "http://localhost:8000/v1/intelligence/facts:extract",
         json={"text": "I am a software engineer", "with_quality": True},
-        timeout=10.0
+        timeout=10.0,
     )
     if response.status_code == 200:
         data = response.json()
@@ -268,7 +268,7 @@ test_results = {
     "Temporal Analytics": "✓ PASS",
     "Memory Client": "✓ PASS",
     "REST API": "✓ PASS",
-    "Intelligence Pipeline": "✓ PASS"
+    "Intelligence Pipeline": "✓ PASS",
 }
 
 for test, result in test_results.items():
