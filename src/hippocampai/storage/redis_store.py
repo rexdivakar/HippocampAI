@@ -35,7 +35,7 @@ class AsyncRedisKVStore:
         self._client: Optional[redis.Redis] = None
         self._pool: Optional[redis.ConnectionPool] = None
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Establish connection to Redis with connection pooling."""
         if self._client is None:
             # Create connection pool for better performance
@@ -55,7 +55,7 @@ class AsyncRedisKVStore:
                 f"Connected to Redis at {self.redis_url} with pool size {self.max_connections}"
             )
 
-    async def close(self):
+    async def close(self) -> None:
         """Close Redis connection and pool."""
         if self._client:
             await self._client.close()
@@ -65,9 +65,10 @@ class AsyncRedisKVStore:
             self._pool = None
         logger.info("Redis connection and pool closed")
 
-    async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None):
+    async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
         """Set a key-value pair with optional TTL."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         serialized = json.dumps(value)
         if ttl_seconds:
             await self._client.setex(key, ttl_seconds, serialized)
@@ -78,6 +79,7 @@ class AsyncRedisKVStore:
     async def get(self, key: str) -> Optional[Any]:
         """Get value by key."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         value = await self._client.get(key)
         if value:
             return json.loads(value)
@@ -86,6 +88,7 @@ class AsyncRedisKVStore:
     async def delete(self, key: str) -> bool:
         """Delete a key."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         result = await self._client.delete(key)
         logger.debug(f"Deleted key: {key}, result: {result}")
         return result > 0
@@ -93,44 +96,52 @@ class AsyncRedisKVStore:
     async def exists(self, key: str) -> bool:
         """Check if key exists."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         return await self._client.exists(key) > 0
 
     async def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         keys = await self._client.keys(pattern)
         return [k.decode() if isinstance(k, bytes) else k for k in keys]
 
-    async def clear(self):
+    async def clear(self) -> None:
         """Clear all keys in the current database."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         await self._client.flushdb()
         logger.debug("Cleared Redis database")
 
     async def size(self) -> int:
         """Get number of keys."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         return await self._client.dbsize()
 
-    async def sadd(self, key: str, *values: str):
+    async def sadd(self, key: str, *values: str) -> None:
         """Add values to a set."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         await self._client.sadd(key, *values)
 
-    async def smembers(self, key: str) -> set:
+    async def smembers(self, key: str) -> set[Any]:
         """Get all members of a set."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         members = await self._client.smembers(key)
         return {m.decode() if isinstance(m, bytes) else m for m in members}
 
-    async def srem(self, key: str, *values: str):
+    async def srem(self, key: str, *values: str) -> None:
         """Remove values from a set."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         await self._client.srem(key, *values)
 
-    async def pipeline(self):
+    async def pipeline(self) -> Any:
         """Create a pipeline for batch operations."""
         await self.connect()
+        assert self._client is not None, "Redis client not connected"
         return self._client.pipeline()
 
 

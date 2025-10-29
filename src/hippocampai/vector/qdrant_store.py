@@ -40,7 +40,7 @@ class QdrantStore:
         ef_construction: int = 256,
         ef_search: int = 128,
     ):
-        self.client = QdrantClient(url=url, timeout=60.0)
+        self.client = QdrantClient(url=url, timeout=60)
         self.collection_facts = collection_facts
         self.collection_prefs = collection_prefs
         self.dimension = dimension
@@ -53,13 +53,15 @@ class QdrantStore:
 
     def _ensure_collections(self, collection_name: Optional[str] = None):
         """Create collections if they don't exist.
-        
+
         Args:
             collection_name: If provided, only ensure this specific collection exists.
                            Otherwise, ensure both default collections exist.
         """
-        collections_to_ensure = [collection_name] if collection_name else [self.collection_facts, self.collection_prefs]
-        
+        collections_to_ensure = (
+            [collection_name] if collection_name else [self.collection_facts, self.collection_prefs]
+        )
+
         for coll_name in collections_to_ensure:
             # Use idempotent create_collection to avoid race conditions
             # If collection exists with same params, this is a no-op
@@ -233,7 +235,7 @@ class QdrantStore:
         """Insert or update a point (with automatic retry on transient failures)."""
         # Ensure collection exists before upserting (idempotent)
         self._ensure_collections(collection_name)
-        
+
         self.client.upsert(
             collection_name=collection_name,
             points=[
@@ -328,7 +330,9 @@ class QdrantStore:
         except UnexpectedResponse as e:
             # Handle the specific case where the collection does not exist
             if e.status_code == 404:
-                logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
+                logger.warning(
+                    f"Collection {collection_name} does not exist. Returning empty list."
+                )
                 return []
             # Re-raise other unexpected errors
             raise
@@ -370,20 +374,26 @@ class QdrantStore:
         except UnexpectedResponse as e:
             # Handle the specific case where the collection does not exist
             if e.status_code == 404:
-                logger.warning(f"Collection {collection_name} does not exist. Returning empty list.")
+                logger.warning(
+                    f"Collection {collection_name} does not exist. Returning empty list."
+                )
                 return []
             # Re-raise other unexpected errors
             raise
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def delete(self, collection_name: str, ids: list[str]):
+    def delete(self, collection_name: str, ids: list[str]) -> None:
         """Delete points by IDs (with automatic retry on transient failures)."""
         # If collection doesn't exist, nothing to delete
         if not self.client.collection_exists(collection_name):
             logger.warning(f"Collection {collection_name} does not exist. Skipping delete.")
             return
-        
-        self.client.delete(collection_name=collection_name, points_selector=ids)
+
+        from qdrant_client.models import PointIdsList
+
+        self.client.delete(
+            collection_name=collection_name, points_selector=PointIdsList(points=ids)
+        )
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def get(self, collection_name: str, id: str) -> Optional[dict[str, Any]]:
@@ -392,7 +402,7 @@ class QdrantStore:
         if not self.client.collection_exists(collection_name):
             logger.warning(f"Collection {collection_name} does not exist.")
             return None
-        
+
         try:
             result = self.client.retrieve(
                 collection_name=collection_name,
@@ -414,7 +424,7 @@ class QdrantStore:
         if not self.client.collection_exists(collection_name):
             logger.warning(f"Collection {collection_name} does not exist. Skipping update.")
             return False
-        
+
         try:
             self.client.set_payload(
                 collection_name=collection_name,
@@ -429,4 +439,6 @@ class QdrantStore:
     def create_snapshot(self, collection_name: str) -> str:
         """Create collection snapshot."""
         result = self.client.create_snapshot(collection_name=collection_name)
+        if result is None or not hasattr(result, "name"):
+            raise ValueError(f"Failed to create snapshot for {collection_name}")
         return result.name
