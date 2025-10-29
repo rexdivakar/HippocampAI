@@ -35,6 +35,7 @@ from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeli
 __version__ = "1.0.0"
 __all__ = [
     "MemoryClient",
+    "UnifiedMemoryClient",  # New: Supports both local and remote modes
     "EnhancedMemoryClient",
     "OptimizedMemoryClient",
     "AsyncMemoryClient",
@@ -97,6 +98,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.storage import MemoryKVStore as MemoryKVStore
     from hippocampai.telemetry import OperationType as OperationType
     from hippocampai.telemetry import get_telemetry as get_telemetry
+    from hippocampai.unified_client import UnifiedMemoryClient as UnifiedMemoryClient
     from hippocampai.utils.context_injection import ContextInjector as ContextInjector
     from hippocampai.utils.context_injection import inject_context as inject_context
     from hippocampai.versioning import AuditEntry as AuditEntry
@@ -105,6 +107,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.versioning import MemoryVersionControl as MemoryVersionControl
 
 _MEMORY_CLIENT: Any | None = None
+_UNIFIED_MEMORY_CLIENT: Any | None = None
 _ENHANCED_MEMORY_CLIENT: Any | None = None
 _OPTIMIZED_MEMORY_CLIENT: Any | None = None
 _ASYNC_MEMORY_CLIENT: Any | None = None
@@ -127,6 +130,7 @@ _INJECT_CONTEXT: Any | None = None
 def __getattr__(name: str) -> Any:
     global \
         _MEMORY_CLIENT, \
+        _UNIFIED_MEMORY_CLIENT, \
         _ENHANCED_MEMORY_CLIENT, \
         _OPTIMIZED_MEMORY_CLIENT, \
         _ASYNC_MEMORY_CLIENT, \
@@ -137,6 +141,15 @@ def __getattr__(name: str) -> Any:
         _SESSION_MANAGER
     global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
     global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
+
+    if name == "UnifiedMemoryClient":
+        if _UNIFIED_MEMORY_CLIENT is None:
+            from hippocampai.unified_client import (
+                UnifiedMemoryClient as _ImportedUnifiedMemoryClient,
+            )
+
+            _UNIFIED_MEMORY_CLIENT = _ImportedUnifiedMemoryClient
+        return _UNIFIED_MEMORY_CLIENT
 
     if name == "MemoryClient":
         if _MEMORY_CLIENT is None:
