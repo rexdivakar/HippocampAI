@@ -95,7 +95,9 @@ class PeriodicityAnalysis(BaseModel):
     """Analysis of periodic patterns."""
 
     period_hours: float = Field(..., description="Detected period in hours")
-    period_label: str = Field(..., description="Human-readable period (hourly, daily, weekly, etc.)")
+    period_label: str = Field(
+        ..., description="Human-readable period (hourly, daily, weekly, etc.)"
+    )
     confidence: float = Field(..., ge=0.0, le=1.0, description="Detection confidence")
     amplitude: float = Field(..., description="Pattern amplitude")
     phase_offset: float = Field(..., description="Phase offset from reference")
@@ -263,7 +265,7 @@ class TemporalAnalytics:
                     if intervals:
                         mean_interval = sum(intervals) / len(intervals)
                         variance = sum((x - mean_interval) ** 2 for x in intervals) / len(intervals)
-                        regularity = max(0.0, 1.0 - (variance / (24 ** 2)))  # Normalize by day
+                        regularity = max(0.0, 1.0 - (variance / (24**2)))  # Normalize by day
                     else:
                         regularity = 1.0
 
@@ -313,7 +315,7 @@ class TemporalAnalytics:
                     if intervals:
                         mean_interval = sum(intervals) / len(intervals)
                         variance = sum((x - mean_interval) ** 2 for x in intervals) / len(intervals)
-                        regularity = max(0.0, 1.0 - (variance / (7 ** 2)))
+                        regularity = max(0.0, 1.0 - (variance / (7**2)))
                     else:
                         regularity = 1.0
 
@@ -546,7 +548,9 @@ class TemporalAnalytics:
 
         # Compute averages
         sorted_weeks = sorted(weekly_importance.keys())
-        values = [sum(weekly_importance[week]) / len(weekly_importance[week]) for week in sorted_weeks]
+        values = [
+            sum(weekly_importance[week]) / len(weekly_importance[week]) for week in sorted_weeks
+        ]
 
         if not values:
             return TrendAnalysis(
@@ -685,9 +689,7 @@ class TemporalAnalytics:
 
         return clusters
 
-    def _create_temporal_cluster(
-        self, memories: list[Memory], cluster_idx: int
-    ) -> TemporalCluster:
+    def _create_temporal_cluster(self, memories: list[Memory], cluster_idx: int) -> TemporalCluster:
         """Create a temporal cluster from memories."""
         start_time = memories[0].created_at
         end_time = memories[-1].created_at

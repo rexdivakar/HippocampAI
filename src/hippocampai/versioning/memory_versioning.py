@@ -212,8 +212,12 @@ class MemoryVersionControl:
         )
 
         # Calculate statistics
-        added_lines = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
-        removed_lines = sum(1 for line in diff_lines if line.startswith("-") and not line.startswith("---"))
+        added_lines = sum(
+            1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
+        )
+        removed_lines = sum(
+            1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+        )
 
         return {
             "unified_diff": "\n".join(diff_lines),

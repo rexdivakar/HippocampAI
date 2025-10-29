@@ -20,8 +20,10 @@ router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 # Request/Response Models
 # ============================================================================
 
+
 class TaskSubmitResponse(BaseModel):
     """Response when a task is submitted."""
+
     task_id: str
     status: str
     message: str
@@ -29,6 +31,7 @@ class TaskSubmitResponse(BaseModel):
 
 class TaskStatusResponse(BaseModel):
     """Response for task status check."""
+
     task_id: str
     status: str  # PENDING, STARTED, SUCCESS, FAILURE, RETRY
     result: Optional[Any] = None
@@ -38,6 +41,7 @@ class TaskStatusResponse(BaseModel):
 
 class MemoryCreateRequest(BaseModel):
     """Request to create a memory via Celery."""
+
     text: str
     user_id: str
     memory_type: str = "fact"
@@ -48,12 +52,14 @@ class MemoryCreateRequest(BaseModel):
 
 class BatchMemoryCreateRequest(BaseModel):
     """Request to batch create memories via Celery."""
+
     memories: list[dict[str, Any]]
     check_duplicates: bool = True
 
 
 class MemoryRecallRequest(BaseModel):
     """Request to recall memories via Celery."""
+
     query: str
     user_id: str
     k: int = 5
@@ -62,6 +68,7 @@ class MemoryRecallRequest(BaseModel):
 
 class MemoryUpdateRequest(BaseModel):
     """Request to update a memory via Celery."""
+
     memory_id: str
     user_id: str
     updates: dict[str, Any]
@@ -69,6 +76,7 @@ class MemoryUpdateRequest(BaseModel):
 
 class MemoryDeleteRequest(BaseModel):
     """Request to delete a memory via Celery."""
+
     memory_id: str
     user_id: str
 
@@ -76,6 +84,7 @@ class MemoryDeleteRequest(BaseModel):
 # ============================================================================
 # Task Submission Endpoints
 # ============================================================================
+
 
 @router.post("/memory/create", response_model=TaskSubmitResponse)
 async def submit_create_memory_task(request: MemoryCreateRequest):
@@ -194,6 +203,7 @@ async def submit_delete_memory_task(request: MemoryDeleteRequest):
 # Task Status & Management Endpoints
 # ============================================================================
 
+
 @router.get("/status/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str):
     """
@@ -295,6 +305,7 @@ async def get_queue_info():
 # ============================================================================
 # Scheduled Task Management
 # ============================================================================
+
 
 @router.get("/scheduled")
 async def list_scheduled_tasks():

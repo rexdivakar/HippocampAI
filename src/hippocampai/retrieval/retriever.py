@@ -134,7 +134,9 @@ class HybridRetriever:
                     collection_name=collection,
                     vector=query_vector,
                     limit=self.top_k_qdrant,
-                    filters={"user_id": user_id} if not filters else {**filters, "user_id": user_id},
+                    filters={"user_id": user_id}
+                    if not filters
+                    else {**filters, "user_id": user_id},
                 )
                 vector_ranking = [(r["id"], r["score"]) for r in vector_results]
 
@@ -142,10 +144,14 @@ class HybridRetriever:
             if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY]:
                 if collection == self.qdrant.collection_facts and self.bm25_facts:
                     bm25_results = self.bm25_facts.search(query, top_k=self.top_k_qdrant)
-                    bm25_ranking = [(self.corpus_facts[idx][0], score) for idx, score in bm25_results]
+                    bm25_ranking = [
+                        (self.corpus_facts[idx][0], score) for idx, score in bm25_results
+                    ]
                 elif collection == self.qdrant.collection_prefs and self.bm25_prefs:
                     bm25_results = self.bm25_prefs.search(query, top_k=self.top_k_qdrant)
-                    bm25_ranking = [(self.corpus_prefs[idx][0], score) for idx, score in bm25_results]
+                    bm25_ranking = [
+                        (self.corpus_prefs[idx][0], score) for idx, score in bm25_results
+                    ]
 
             # Fusion based on search mode
             if search_mode == SearchMode.HYBRID and vector_ranking and bm25_ranking:

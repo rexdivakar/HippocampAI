@@ -209,8 +209,8 @@ python examples/10_memory_management_api.py
 
 Once the server is running, visit:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: <http://localhost:8000/docs>
+- **ReDoc**: <http://localhost:8000/redoc>
 
 ### Manual Testing with cURL
 
@@ -468,10 +468,7 @@ curl http://localhost:6333/collections/hippocampai_facts/snapshots/{snapshot_nam
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/your-org/HippocampAI/issues
-- Documentation: https://docs.hippocampai.io
-- Email: support@hippocampai.io
 
-## License
-
-MIT License - See LICENSE file for details
+- GitHub Issues: <https://github.com/your-org/HippocampAI/issues>
+- Documentation: <https://docs.hippocampai.io>
+- Email: <support@hippocampai.io>

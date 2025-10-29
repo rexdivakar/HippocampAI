@@ -268,7 +268,11 @@ class RelationshipMapper:
         """
         if from_entity == to_entity:
             return RelationshipPath(
-                from_entity=from_entity, to_entity=to_entity, path=[], path_length=0, path_strength=1.0
+                from_entity=from_entity,
+                to_entity=to_entity,
+                path=[],
+                path_length=0,
+                path_strength=1.0,
             )
 
         # BFS to find shortest path
@@ -424,9 +428,7 @@ class RelationshipMapper:
         clusters = self.detect_relationship_clusters()
 
         # Compute centrality for all entities
-        central_entities = [
-            (entity, self.compute_entity_centrality(entity)) for entity in entities
-        ]
+        central_entities = [(entity, self.compute_entity_centrality(entity)) for entity in entities]
         central_entities.sort(key=lambda x: x[1], reverse=True)
 
         # Compute network density
