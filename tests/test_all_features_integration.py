@@ -560,7 +560,7 @@ async def main() -> None:
         await test_redis_caching(service)
 
         # Test 10: Background tasks info
-        await test_background_tasks(service)
+        test_background_tasks(service)
 
         # Success!
         print(f"\n{Colors.GREEN}{Colors.BOLD}{'=' * 70}")

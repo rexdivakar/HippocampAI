@@ -78,7 +78,7 @@ class Memory(BaseModel):
 class RetrievalResult(BaseModel):
     memory: Memory
     score: float
-    breakdown: dict[str, float] = Field(default_factory=dict)
+    breakdown: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievalQuery(BaseModel):
