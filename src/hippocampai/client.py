@@ -361,7 +361,7 @@ class MemoryClient:
                     )
                     return existing_memory
 
-                elif decision.action == "update":
+                if decision.action == "update":
                     # Update existing memory
                     if decision.merged_memory:
                         self.update_memory(
@@ -521,7 +521,7 @@ class MemoryClient:
             raise
 
     # Telemetry Access Methods
-    def get_telemetry_metrics(self) -> dict[str, any]:
+    def get_telemetry_metrics(self) -> dict[str, Any]:
         """Get telemetry metrics summary."""
         return self.telemetry.get_metrics_summary()
 
@@ -628,7 +628,7 @@ class MemoryClient:
                     break
                 self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="not_found")
 
-            if not memory_data:
+            if not memory_data or collection is None:
                 logger.warning(f"Memory {memory_id} not found")
                 self.telemetry.end_trace(trace_id, status="error", result={"error": "not_found"})
                 return None
@@ -740,10 +740,9 @@ class MemoryClient:
                     trace_id, status="success", result={"memory_id": memory_id}
                 )
                 return True
-            else:
-                logger.warning(f"Memory {memory_id} not found")
-                self.telemetry.end_trace(trace_id, status="error", result={"error": "not_found"})
-                return False
+            logger.warning(f"Memory {memory_id} not found")
+            self.telemetry.end_trace(trace_id, status="error", result={"error": "not_found"})
+            return False
 
         except Exception as e:
             logger.error(f"Failed to delete memory {memory_id}: {e}")

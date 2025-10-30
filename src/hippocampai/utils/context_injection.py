@@ -53,8 +53,7 @@ class ContextInjector:
 
         if position == "prefix":
             return f"{context}\n\n{prompt}"
-        else:
-            return f"{prompt}\n\n{context}"
+        return f"{prompt}\n\n{context}"
 
     def inject_retrieval_results(
         self,
@@ -82,17 +81,15 @@ class ContextInjector:
 
         if position == "prefix":
             return f"{context}\n\n{prompt}"
-        else:
-            return f"{prompt}\n\n{context}"
+        return f"{prompt}\n\n{context}"
 
     def _format_memories(self, memories: list[Memory]) -> str:
         """Format memories into context string."""
         if self.template == "minimal":
             return self._format_minimal(memories)
-        elif self.template == "detailed":
+        if self.template == "detailed":
             return self._format_detailed(memories)
-        else:
-            return self._format_default(memories)
+        return self._format_default(memories)
 
     def _format_default(self, memories: list[Memory]) -> str:
         """Default formatting template."""

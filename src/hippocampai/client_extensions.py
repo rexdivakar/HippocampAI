@@ -11,14 +11,19 @@ This module extends the MemoryClient with additional capabilities:
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from hippocampai.graph import MemoryGraph, RelationType
-from hippocampai.models.memory import Memory
+from hippocampai.models.memory import Memory, RetrievalResult
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
+
+if TYPE_CHECKING:
+    from hippocampai.config import Config
+    from hippocampai.telemetry import MemoryTelemetry
+    from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,52 @@ class MemoryClientExtensions:
     This class is designed to be mixed into MemoryClient to add advanced features
     without bloating the main client file.
     """
+
+    # Type hints for attributes from parent class (MemoryClient)
+    if TYPE_CHECKING:
+        telemetry: "MemoryTelemetry"
+        config: "Config"
+        qdrant: "QdrantStore"
+
+        def remember(
+            self,
+            text: str,
+            user_id: str,
+            session_id: Optional[str] = None,
+            type: str = "fact",
+            importance: Optional[float] = None,
+            tags: Optional[list[str]] = None,
+            ttl_days: Optional[int] = None,
+        ) -> Memory: ...
+
+        def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool: ...
+
+        def update_memory(
+            self,
+            memory_id: str,
+            text: Optional[str] = None,
+            importance: Optional[float] = None,
+            tags: Optional[list[str]] = None,
+            metadata: Optional[dict[str, Any]] = None,
+            expires_at: Optional[Any] = None,
+        ) -> Optional[Memory]: ...
+
+        def recall(
+            self,
+            query: str,
+            user_id: str,
+            session_id: Optional[str] = None,
+            k: int = 5,
+            filters: Optional[dict[str, Any]] = None,
+        ) -> list["RetrievalResult"]: ...
+
+        def get_memories(
+            self,
+            user_id: str,
+            session_id: Optional[str] = None,
+            limit: int = 100,
+            filters: Optional[dict[str, Any]] = None,
+        ) -> list[Memory]: ...
 
     def __init_extensions__(self, enable_graph: bool = True, enable_versioning: bool = True):
         """
@@ -447,7 +498,9 @@ class MemoryClientExtensions:
             List of Memory objects
         """
         # Get base memories
-        memories = self.get_memories(user_id, filters, limit=limit * 2)  # Get more for sorting
+        memories = self.get_memories(
+            user_id, session_id=None, limit=limit * 2, filters=filters
+        )  # Get more for sorting
 
         # Apply metadata filters if provided
         if filters and "metadata" in filters:

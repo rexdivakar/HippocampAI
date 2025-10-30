@@ -2,13 +2,10 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    pass
 
 
 class MemoryType(str, Enum):
@@ -41,6 +38,19 @@ class Memory(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     visibility: Optional[str] = None  # "private", "shared", "public"
+
+    # Graph features (optional)
+    entities: Optional[dict[str, list[str]]] = None
+    facts: Optional[list[str]] = None
+    relationships: Optional[list[dict[str, Any]]] = None
+    embedding: Optional[list[float]] = None
+    rank: Optional[float] = None
+
+    # Alias for backward compatibility
+    @property
+    def memory_type(self) -> MemoryType:
+        """Alias for type field for backward compatibility."""
+        return self.type
 
     def collection_name(self, facts_col: str, prefs_col: str) -> str:
         """Route to appropriate collection."""

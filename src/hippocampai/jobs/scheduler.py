@@ -56,13 +56,11 @@ class JobScheduler:
         """Apply importance decay (daily)."""
         logger.info("Running importance decay job")
         # Placeholder: implement decay logic
-        pass
 
     def consolidate_memories(self):
         """Consolidate similar memories (weekly)."""
         logger.info("Running consolidation job")
         # Placeholder: implement consolidation logic
-        pass
 
     def create_snapshots(self):
         """Create Qdrant snapshots (hourly)."""

@@ -76,24 +76,22 @@ class SmartMemoryUpdater:
             # Check if new info adds value
             if len(new_text) > len(existing.text) * 1.2:  # 20% more content
                 return self._decide_merge_or_update(existing, new_text)
-            else:
-                return UpdateDecision(
-                    action="skip",
-                    reason="Similar memory exists with comparable detail",
-                    confidence_adjustment=0.05,
-                )
+            return UpdateDecision(
+                action="skip",
+                reason="Similar memory exists with comparable detail",
+                confidence_adjustment=0.05,
+            )
 
         # Case 3: Related but different - check for conflicts
         if similarity > 0.6:
             conflict = self._detect_conflict(existing.text, new_text)
             if conflict:
                 return self._resolve_conflict(existing, new_text)
-            else:
-                # Related but complementary - keep both
-                return UpdateDecision(
-                    action="keep_both",
-                    reason="Memories are related but contain different information",
-                )
+            # Related but complementary - keep both
+            return UpdateDecision(
+                action="keep_both",
+                reason="Memories are related but contain different information",
+            )
 
         # Case 4: Unrelated - keep both
         return UpdateDecision(action="keep_both", reason="Memories are unrelated")
@@ -195,6 +193,8 @@ Statement 2: {text2}
 
 Do these statements contradict? Answer YES or NO:"""
 
+        if self.llm is None:
+            return False
         try:
             response = self.llm.generate(prompt, max_tokens=10)
             return "yes" in response.lower()

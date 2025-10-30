@@ -385,33 +385,32 @@ async def cluster_memories(request: SemanticClusteringRequest):
                     "hierarchy": [{"size": len(h[0]), "similarity": h[1]} for h in hierarchy],
                 },
             )
-        else:
-            cluster_objects = semantic_categorizer.cluster_memories(
-                memories, max_clusters=request.max_clusters
-            )
+        cluster_objects = semantic_categorizer.cluster_memories(
+            memories, max_clusters=request.max_clusters
+        )
 
-            # Convert to dicts and compute metrics
-            clusters = []
-            quality_metrics = {}
+        # Convert to dicts and compute metrics
+        clusters = []
+        quality_metrics = {}
 
-            for i, cluster in enumerate(cluster_objects):
-                cluster_dict = {
-                    "topic": cluster.topic,
-                    "memories": [mem.model_dump() for mem in cluster.memories],
-                    "tags": cluster.tags,
-                    "size": len(cluster.memories),
-                }
-                clusters.append(cluster_dict)
+        for i, cluster in enumerate(cluster_objects):
+            cluster_dict = {
+                "topic": cluster.topic,
+                "memories": [mem.model_dump() for mem in cluster.memories],
+                "tags": cluster.tags,
+                "size": len(cluster.memories),
+            }
+            clusters.append(cluster_dict)
 
-                # Compute quality metrics
-                metrics = semantic_categorizer.compute_cluster_quality_metrics(cluster)
-                quality_metrics[f"cluster_{i}"] = metrics
+            # Compute quality metrics
+            metrics = semantic_categorizer.compute_cluster_quality_metrics(cluster)
+            quality_metrics[f"cluster_{i}"] = metrics
 
-            return SemanticClusteringResponse(
-                clusters=clusters,
-                count=len(clusters),
-                quality_metrics={"per_cluster": quality_metrics},
-            )
+        return SemanticClusteringResponse(
+            clusters=clusters,
+            count=len(clusters),
+            quality_metrics={"per_cluster": quality_metrics},
+        )
 
     except Exception as e:
         logger.error(f"Semantic clustering failed: {e}")
@@ -471,7 +470,7 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
                 metadata={"analysis_type": "peak_activity"},
             )
 
-        elif request.analysis_type == "patterns":
+        if request.analysis_type == "patterns":
             patterns = temporal_analytics.detect_temporal_patterns(memories)
             return TemporalAnalyticsResponse(
                 analysis={
@@ -481,7 +480,7 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
                 metadata={"analysis_type": "patterns"},
             )
 
-        elif request.analysis_type == "trends":
+        if request.analysis_type == "trends":
             activity_trend = temporal_analytics.analyze_trends(
                 memories, time_window_days=request.time_window_days, metric="activity"
             )
@@ -497,7 +496,7 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
                 metadata={"analysis_type": "trends", "time_window_days": request.time_window_days},
             )
 
-        elif request.analysis_type == "clusters":
+        if request.analysis_type == "clusters":
             clusters = temporal_analytics.cluster_by_time(memories)
             return TemporalAnalyticsResponse(
                 analysis={
@@ -507,11 +506,10 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
                 metadata={"analysis_type": "clusters"},
             )
 
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unknown analysis type: {request.analysis_type}",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown analysis type: {request.analysis_type}",
+        )
 
     except HTTPException:
         raise

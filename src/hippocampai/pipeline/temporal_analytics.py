@@ -122,7 +122,6 @@ class TemporalAnalytics:
 
     def __init__(self):
         """Initialize temporal analytics."""
-        pass
 
     def analyze_peak_activity(
         self, memories: list[Memory], timezone_offset: int = 0
@@ -189,16 +188,15 @@ class TemporalAnalytics:
         """Convert hour to time period."""
         if 5 <= hour < 9:
             return TimeOfDay.EARLY_MORNING
-        elif 9 <= hour < 12:
+        if 9 <= hour < 12:
             return TimeOfDay.LATE_MORNING
-        elif 12 <= hour < 17:
+        if 12 <= hour < 17:
             return TimeOfDay.AFTERNOON
-        elif 17 <= hour < 21:
+        if 17 <= hour < 21:
             return TimeOfDay.EVENING
-        elif 21 <= hour < 24 or hour == 0:
+        if 21 <= hour < 24 or hour == 0:
             return TimeOfDay.NIGHT
-        else:
-            return TimeOfDay.LATE_NIGHT
+        return TimeOfDay.LATE_NIGHT
 
     def detect_temporal_patterns(
         self, memories: list[Memory], min_occurrences: int = 3
@@ -434,6 +432,7 @@ class TemporalAnalytics:
                 strength=0.0,
                 change_rate=0.0,
                 current_value=0.0,
+                forecast=None,
             )
 
         # Filter to time window
@@ -442,13 +441,12 @@ class TemporalAnalytics:
 
         if metric == "activity":
             return self._analyze_activity_trend(recent_memories, time_window_days)
-        elif metric == "importance":
+        if metric == "importance":
             return self._analyze_importance_trend(recent_memories, time_window_days)
-        elif metric == "types":
+        if metric == "types":
             return self._analyze_type_diversity_trend(recent_memories, time_window_days)
-        else:
-            # Default to activity
-            return self._analyze_activity_trend(recent_memories, time_window_days)
+        # Default to activity
+        return self._analyze_activity_trend(recent_memories, time_window_days)
 
     def _analyze_activity_trend(
         self, memories: list[Memory], time_window_days: int
@@ -462,6 +460,7 @@ class TemporalAnalytics:
                 strength=0.0,
                 change_rate=0.0,
                 current_value=0.0,
+                forecast=None,
             )
 
         # Group by day
@@ -490,6 +489,7 @@ class TemporalAnalytics:
                 change_rate=0.0,
                 current_value=float(values[0]) if values else 0.0,
                 historical_values=historical_values,
+                forecast=None,
             )
 
         # Simple linear regression
@@ -560,6 +560,7 @@ class TemporalAnalytics:
                 strength=0.0,
                 change_rate=0.0,
                 current_value=0.0,
+                forecast=None,
             )
 
         # Simple trend detection
@@ -588,6 +589,7 @@ class TemporalAnalytics:
             strength=strength,
             change_rate=change / time_window_days,
             current_value=values[-1] if values else 0.0,
+            forecast=None,
         )
 
     def _analyze_type_diversity_trend(
@@ -615,6 +617,7 @@ class TemporalAnalytics:
                 strength=0.0,
                 change_rate=0.0,
                 current_value=0.0,
+                forecast=None,
             )
 
         # Trend detection
@@ -642,6 +645,7 @@ class TemporalAnalytics:
             strength=strength,
             change_rate=0.0,
             current_value=float(values[-1]) if values else 0.0,
+            forecast=None,
         )
 
     def cluster_by_time(

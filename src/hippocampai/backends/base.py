@@ -25,7 +25,6 @@ class BaseBackend(ABC):
         extract_relationships: bool = False,
     ) -> Memory:
         """Store a memory."""
-        pass
 
     @abstractmethod
     def recall(
@@ -38,12 +37,10 @@ class BaseBackend(ABC):
         min_score: float = 0.0,
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories."""
-        pass
 
     @abstractmethod
     def get_memory(self, memory_id: str) -> Optional[Memory]:
         """Get a memory by ID."""
-        pass
 
     @abstractmethod
     def get_memories(
@@ -57,7 +54,6 @@ class BaseBackend(ABC):
         before: Optional[datetime] = None,
     ) -> list[Memory]:
         """Get all memories for a user with optional filters."""
-        pass
 
     @abstractmethod
     def update_memory(
@@ -70,41 +66,33 @@ class BaseBackend(ABC):
         expires_at: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """Update a memory."""
-        pass
 
     @abstractmethod
     def delete_memory(self, memory_id: str) -> bool:
         """Delete a memory."""
-        pass
 
     @abstractmethod
     def batch_remember(self, memories: list[dict[str, Any]]) -> list[Memory]:
         """Store multiple memories in batch."""
-        pass
 
     @abstractmethod
     def batch_get_memories(self, memory_ids: list[str]) -> list[Memory]:
         """Get multiple memories by IDs."""
-        pass
 
     @abstractmethod
     def batch_delete_memories(self, memory_ids: list[str]) -> bool:
         """Delete multiple memories."""
-        pass
 
     @abstractmethod
     def consolidate_memories(
         self, user_id: str, session_id: Optional[str] = None
     ) -> list[dict[str, Any]]:
         """Consolidate related memories."""
-        pass
 
     @abstractmethod
     def cleanup_expired_memories(self) -> int:
         """Remove expired memories."""
-        pass
 
     @abstractmethod
     def get_memory_analytics(self, user_id: str) -> dict[str, Any]:
         """Get analytics for user's memories."""
-        pass

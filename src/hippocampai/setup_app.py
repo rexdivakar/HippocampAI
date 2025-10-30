@@ -9,8 +9,9 @@ without impacting package installation.
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable
 
 
 def print_header(text: str) -> None:

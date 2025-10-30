@@ -233,7 +233,9 @@ class Summarizer:
         for pattern in self.action_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                action = match.group(1) if match.lastindex >= 1 else match.group(0)
+                action = (
+                    match.group(1) if match.lastindex and match.lastindex >= 1 else match.group(0)
+                )
                 action = action.strip()
 
                 # Clean up action text
@@ -292,12 +294,11 @@ class Summarizer:
 
         if positive_count > negative_count * 1.5:
             return SentimentType.POSITIVE
-        elif negative_count > positive_count * 1.5:
+        if negative_count > positive_count * 1.5:
             return SentimentType.NEGATIVE
-        elif positive_count > 0 and negative_count > 0:
+        if positive_count > 0 and negative_count > 0:
             return SentimentType.MIXED
-        else:
-            return SentimentType.NEUTRAL
+        return SentimentType.NEUTRAL
 
     def _calculate_duration(self, messages: list[dict[str, Any]]) -> Optional[int]:
         """Calculate conversation duration in minutes."""
@@ -354,6 +355,8 @@ Conversation:
 
 Summary:"""
 
+        if self.llm is None:
+            return self._generate_summary_template(key_points, topics, style)
         try:
             response = self.llm.generate(prompt, max_tokens=300)
             return response.strip()
@@ -368,8 +371,9 @@ Summary:"""
         if style == SummaryStyle.BULLET_POINTS:
             if key_points:
                 return "• " + "\n• ".join(key_points)
-            else:
-                return f"• Discussion covered topics: {', '.join(topics) if topics else 'various topics'}"
+            return (
+                f"• Discussion covered topics: {', '.join(topics) if topics else 'various topics'}"
+            )
 
         # For other styles, create a simple summary
         topic_str = f" about {', '.join(topics)}" if topics else ""

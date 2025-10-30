@@ -34,11 +34,12 @@ Merged memory:"""
 
         if self.llm:
             return self._consolidate_llm(memories)
-        else:
-            return self._consolidate_heuristic(memories)
+        return self._consolidate_heuristic(memories)
 
     def _consolidate_llm(self, memories: list[Memory]) -> Optional[Memory]:
         """LLM-based consolidation."""
+        if self.llm is None:
+            return None
         try:
             mem_texts = "\n".join([f"- {m.text}" for m in memories])
             prompt = self.CONSOLIDATE_PROMPT.format(memories=mem_texts[:1000])

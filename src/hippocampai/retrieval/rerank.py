@@ -70,3 +70,25 @@ class Reranker:
         # Sort by rerank score
         results.sort(key=lambda x: x[3], reverse=True)
         return results[:top_k]
+
+    def rerank_single(self, text1: str, text2: str) -> float:
+        """
+        Compute similarity score between two texts using CrossEncoder.
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            Similarity score (higher is more similar)
+        """
+        # Create cache key from both texts
+        cache_key = hashlib.md5(f"{text1}:{text2}".encode()).hexdigest()
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            return float(cached)
+
+        # Compute score
+        score = float(self.model.predict([[text1, text2]])[0])
+        self.cache.set(cache_key, score)
+        return score

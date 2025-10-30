@@ -166,7 +166,7 @@ class MemoryManagementService:
                     raise ValueError(f"Duplicate memory {existing_id} not found")
                 return existing_memory
 
-            elif action == "update":
+            if action == "update":
                 logger.info(f"Updating existing memory: {duplicate_ids[0]}")
                 # Update the first duplicate
                 existing_id = duplicate_ids[0]

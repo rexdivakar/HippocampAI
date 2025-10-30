@@ -43,7 +43,7 @@ def get_service() -> MemoryManagementService:
         reranker = Reranker(model_name=config.reranker_model)
 
         # Note: Redis store is optional for background tasks
-        redis_store = None
+        redis_store: Optional[AsyncMemoryKVStore] = None
         try:
             redis_store = AsyncMemoryKVStore(
                 redis_url=config.redis_url,
@@ -483,17 +483,17 @@ def create_collection_snapshots(self) -> dict[str, str]:
 
 
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
-def health_check_task(self) -> dict[str, bool]:
+def health_check_task(self) -> dict[str, Any]:
     """
     Perform health checks on all services.
 
     Returns:
-        Health status of each service
+        Health status of each service (dict with bool values or error string)
     """
     try:
         service = get_service()
 
-        health = {
+        health: dict[str, Any] = {
             "qdrant": False,
             "redis": False,
             "embedder": False,
@@ -511,8 +511,13 @@ def health_check_task(self) -> dict[str, bool]:
             try:
                 import asyncio
 
-                asyncio.run(service.redis.backend.ping())
-                health["redis"] = True
+                async def check_redis():
+                    if service.redis and service.redis.store._client:
+                        return await service.redis.store._client.ping()
+                    return False
+
+                result = asyncio.run(check_redis())
+                health["redis"] = bool(result)
             except Exception as e:
                 logger.error(f"Redis health check failed: {e}")
 

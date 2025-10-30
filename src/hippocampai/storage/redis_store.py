@@ -1,5 +1,7 @@
 """Redis-based key-value store for fast memory lookups with async support."""
 
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any, Optional
@@ -7,6 +9,9 @@ from typing import Any, Optional
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
+
+# Constants for error messages
+_REDIS_NOT_CONNECTED_ERROR = "Redis client not connected"
 
 
 class AsyncRedisKVStore:
@@ -68,7 +73,8 @@ class AsyncRedisKVStore:
     async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
         """Set a key-value pair with optional TTL."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         serialized = json.dumps(value)
         if ttl_seconds:
             await self._client.setex(key, ttl_seconds, serialized)
@@ -79,7 +85,8 @@ class AsyncRedisKVStore:
     async def get(self, key: str) -> Optional[Any]:
         """Get value by key."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         value = await self._client.get(key)
         if value:
             return json.loads(value)
@@ -88,7 +95,8 @@ class AsyncRedisKVStore:
     async def delete(self, key: str) -> bool:
         """Delete a key."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         result = await self._client.delete(key)
         logger.debug(f"Deleted key: {key}, result: {result}")
         return result > 0
@@ -96,52 +104,73 @@ class AsyncRedisKVStore:
     async def exists(self, key: str) -> bool:
         """Check if key exists."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         return await self._client.exists(key) > 0
 
     async def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         keys = await self._client.keys(pattern)
         return [k.decode() if isinstance(k, bytes) else k for k in keys]
 
     async def clear(self) -> None:
         """Clear all keys in the current database."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         await self._client.flushdb()
         logger.debug("Cleared Redis database")
 
     async def size(self) -> int:
         """Get number of keys."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         return await self._client.dbsize()
 
-    async def sadd(self, key: str, *values: str) -> None:
+    async def sadd(self, key: str, *values: str) -> int:
         """Add values to a set."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
-        await self._client.sadd(key, *values)
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
+        result = self._client.sadd(key, *values)
+        # Handle both sync and async returns from redis client
+        if isinstance(result, int):
+            return result
+        return int(await result) if result is not None else 0  # type: ignore
 
-    async def smembers(self, key: str) -> set[Any]:
+    async def smembers(self, key: str) -> set[str]:
         """Get all members of a set."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
-        members = await self._client.smembers(key)
-        return {m.decode() if isinstance(m, bytes) else m for m in members}
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
+        # smembers is synchronous in redis-py async client, returns a Set directly
+        members = self._client.smembers(key)
+        if isinstance(members, set):
+            return {str(m.decode() if isinstance(m, bytes) else m) for m in members}
+        # If it's a coroutine, await it
+        members_result = await members  # type: ignore
+        return {str(m.decode() if isinstance(m, bytes) else m) for m in members_result}
 
-    async def srem(self, key: str, *values: str) -> None:
+    async def srem(self, key: str, *values: str) -> int:
         """Remove values from a set."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
-        await self._client.srem(key, *values)
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
+        # srem might return int directly or a coroutine
+        result = self._client.srem(key, *values)
+        if isinstance(result, int):
+            return result
+        return int(await result) if result is not None else 0  # type: ignore
 
     async def pipeline(self) -> Any:
         """Create a pipeline for batch operations."""
         await self.connect()
-        assert self._client is not None, "Redis client not connected"
+        if self._client is None:
+            raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         return self._client.pipeline()
 
 

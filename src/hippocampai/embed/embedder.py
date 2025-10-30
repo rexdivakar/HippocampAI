@@ -42,7 +42,11 @@ class Embedder:
             embeddings = self.model.encode(
                 texts, batch_size=self.batch_size, show_progress_bar=False, convert_to_numpy=True
             )
-        return embeddings
+        # Ensure we return ndarray
+        if isinstance(embeddings, np.ndarray):
+            return embeddings
+        # Handle List[Tensor] or Tensor cases
+        return np.array(embeddings)
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text."""

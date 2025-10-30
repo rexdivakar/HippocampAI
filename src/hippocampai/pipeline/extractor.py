@@ -64,15 +64,15 @@ Extract memories as JSON array:"""
         """Extract memories from conversation."""
         if self.mode == "llm" and self.llm:
             return self._extract_llm(conversation, user_id, session_id)
-        elif self.mode == "heuristic":
+        if self.mode == "heuristic":
             return self._extract_heuristic(conversation, user_id, session_id)
-        else:  # hybrid
-            heuristic_mems = self._extract_heuristic(conversation, user_id, session_id)
-            if self.llm:
-                llm_mems = self._extract_llm(conversation, user_id, session_id)
-                # Merge, prefer LLM
-                return llm_mems if llm_mems else heuristic_mems
-            return heuristic_mems
+        # hybrid
+        heuristic_mems = self._extract_heuristic(conversation, user_id, session_id)
+        if self.llm:
+            llm_mems = self._extract_llm(conversation, user_id, session_id)
+            # Merge, prefer LLM
+            return llm_mems if llm_mems else heuristic_mems
+        return heuristic_mems
 
     def _extract_heuristic(
         self, conversation: str, user_id: str, session_id: Optional[str] = None

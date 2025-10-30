@@ -259,8 +259,7 @@ async def cancel_task(task_id: str):
     if task.state in ["PENDING", "STARTED", "RETRY"]:
         task.revoke(terminate=True)
         return {"message": f"Task {task_id} cancelled", "status": "cancelled"}
-    else:
-        return {"message": f"Task {task_id} is already {task.state}", "status": task.state}
+    return {"message": f"Task {task_id} is already {task.state}", "status": task.state}
 
 
 @router.get("/inspect/stats")

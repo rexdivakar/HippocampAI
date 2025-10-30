@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import networkx as nx
 
@@ -167,9 +167,9 @@ class MemoryGraph:
         """
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
-            degrees = [(node, self.graph.degree(node)) for node in user_nodes]
+            degrees = [(node, self.graph.degree[node]) for node in user_nodes]
         else:
-            degrees = list(self.graph.degree())
+            degrees = list(self.graph.degree)
 
         # Sort by degree descending
         degrees.sort(key=lambda x: x[1], reverse=True)
@@ -192,13 +192,20 @@ class MemoryGraph:
         else:
             subgraph = self.graph
 
+        num_nodes = subgraph.number_of_nodes()
+        # Calculate average degree - subgraph.degree is a DegreeView iterable of (node, degree) tuples
+        if num_nodes > 0:
+            degree_list: list[tuple[Any, int]] = list(subgraph.degree)
+            degree_sum = sum(degree for _, degree in degree_list)
+        else:
+            degree_sum = 0
+
         return {
-            "num_nodes": subgraph.number_of_nodes(),
+            "num_nodes": num_nodes,
             "num_edges": subgraph.number_of_edges(),
-            "density": nx.density(subgraph) if subgraph.number_of_nodes() > 0 else 0.0,
+            "density": nx.density(subgraph) if num_nodes > 0 else 0.0,
             "num_clusters": len(self.get_clusters(user_id)),
-            "avg_degree": sum(dict(subgraph.degree()).values())
-            / max(subgraph.number_of_nodes(), 1),
+            "avg_degree": degree_sum / max(num_nodes, 1),
         }
 
     def suggest_relationships(
@@ -322,7 +329,7 @@ class MemoryGraph:
             raise FileNotFoundError(f"Graph file not found: {file_path}")
 
         # Load from file
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             graph_data = json.load(f)
 
         # Validate structure

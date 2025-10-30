@@ -256,7 +256,11 @@ class EntityRecognizer:
                 matches = re.finditer(pattern, text)
 
                 for match in matches:
-                    entity_text = match.group(1) if match.lastindex >= 1 else match.group(0)
+                    entity_text = (
+                        match.group(1)
+                        if match.lastindex and match.lastindex >= 1
+                        else match.group(0)
+                    )
                     entity_text = entity_text.strip()
 
                     if not entity_text or len(entity_text) < 2:

@@ -214,14 +214,13 @@ class RelationshipMapper:
         """
         if strength_score >= 0.8:
             return RelationshipStrength.VERY_STRONG
-        elif strength_score >= 0.6:
+        if strength_score >= 0.6:
             return RelationshipStrength.STRONG
-        elif strength_score >= 0.4:
+        if strength_score >= 0.4:
             return RelationshipStrength.MODERATE
-        elif strength_score >= 0.2:
+        if strength_score >= 0.2:
             return RelationshipStrength.WEAK
-        else:
-            return RelationshipStrength.VERY_WEAK
+        return RelationshipStrength.VERY_WEAK
 
     def get_entity_relationships(
         self,
@@ -376,7 +375,7 @@ class RelationshipMapper:
                 if neighbor not in visited:
                     dfs(neighbor, cluster)
 
-        for entity in adjacency.keys():
+        for entity in adjacency:
             if entity not in visited:
                 cluster_entities: set[str] = set()
                 dfs(entity, cluster_entities)

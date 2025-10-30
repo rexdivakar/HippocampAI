@@ -72,12 +72,14 @@ class RemoteBackend(BaseBackend):
 
     def _dict_to_memory(self, data: dict[str, Any]) -> Memory:
         """Convert API response dict to Memory object."""
+        # Handle both 'type' and 'memory_type' keys for backward compatibility
+        mem_type_str = data.get("type") or data.get("memory_type", "fact")
         return Memory(
             id=data["id"],
             text=data["text"],
             user_id=data["user_id"],
             session_id=data.get("session_id"),
-            memory_type=MemoryType(data.get("memory_type", "fact")),
+            type=MemoryType(mem_type_str),
             metadata=data.get("metadata", {}),
             tags=data.get("tags", []),
             importance=data.get("importance", 0.5),
@@ -90,18 +92,23 @@ class RemoteBackend(BaseBackend):
             expires_at=datetime.fromisoformat(data["expires_at"])
             if data.get("expires_at")
             else None,
-            entities=data.get("entities", {}),
-            facts=data.get("facts", []),
-            relationships=data.get("relationships", []),
+            entities=data.get("entities"),
+            facts=data.get("facts"),
+            relationships=data.get("relationships"),
             embedding=data.get("embedding"),
+            rank=data.get("rank"),
         )
 
     def _dict_to_retrieval_result(self, data: dict[str, Any]) -> RetrievalResult:
         """Convert API response dict to RetrievalResult object."""
+        # Rank is stored in memory, not in RetrievalResult
+        memory_data = data["memory"]
+        if "rank" in data:
+            memory_data["rank"] = data["rank"]
         return RetrievalResult(
-            memory=self._dict_to_memory(data["memory"]),
+            memory=self._dict_to_memory(memory_data),
             score=data["score"],
-            rank=data.get("rank", 0),
+            breakdown=data.get("breakdown", {}),
         )
 
     def remember(

@@ -99,7 +99,7 @@ class SemanticCategorizer:
 
         # Add most common meaningful words
         for word, count in word_counts.most_common(3):
-            if word not in {"that", "this", "with", "from", "have", "been", "were", "have"}:
+            if word not in {"that", "this", "with", "from", "have", "been", "were"}:
                 suggested.add(word)
 
         # Add topic-based tags
@@ -126,6 +126,8 @@ Text: {text}
 
 Tags:"""
 
+        if self.llm is None:
+            return []
         try:
             response = self.llm.generate(prompt, max_tokens=30)
             # Parse comma-separated tags
@@ -211,6 +213,8 @@ Memory: {text}
 
 Category (respond with only the category name):"""
 
+        if self.llm is None:
+            return MemoryType.FACT  # Default fallback
         try:
             response = self.llm.generate(prompt, max_tokens=10).strip().lower()
 

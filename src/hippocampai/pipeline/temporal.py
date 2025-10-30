@@ -285,14 +285,13 @@ class TemporalAnalyzer:
         """Determine event type from memory."""
         if memory.type == MemoryType.EVENT:
             return "event"
-        elif memory.type == MemoryType.GOAL:
+        if memory.type == MemoryType.GOAL:
             return "milestone"
-        elif memory.type == MemoryType.HABIT:
+        if memory.type == MemoryType.HABIT:
             return "recurring"
-        elif memory.type == MemoryType.PREFERENCE:
+        if memory.type == MemoryType.PREFERENCE:
             return "state_change"
-        else:
-            return "action"
+        return "action"
 
     def _enrich_event_with_llm(self, event: TemporalEvent, text: str) -> Optional[TemporalEvent]:
         """Use LLM to extract additional event details."""
@@ -306,6 +305,8 @@ Return JSON with:
 
 JSON:"""
 
+        if self.llm is None:
+            return None
         try:
             response = self.llm.generate(prompt, max_tokens=100)
 

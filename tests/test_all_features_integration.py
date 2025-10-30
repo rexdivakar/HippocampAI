@@ -4,34 +4,33 @@ Comprehensive integration tests for all Memory Management API features.
 Tests everything including Groq integration.
 """
 
+# ruff: noqa: S101  # Use of assert detected - expected in test files
+
 import asyncio
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-# Load environment variables
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Add src to path
+# Must add src to path before importing hippocampai modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hippocampai.models.retrieval import RetrievalResult  # noqa: E402
-from qdrant_client import models  # noqa: E402
+from dotenv import load_dotenv
+from qdrant_client import models
 
-from hippocampai.adapters.llm_base import BaseLLM  # noqa: E402
-from hippocampai.adapters.provider_groq import GroqLLM  # noqa: E402
-from hippocampai.adapters.provider_ollama import OllamaLLM  # noqa: E402
-from hippocampai.adapters.provider_openai import OpenAILLM  # noqa: E402
-from hippocampai.config import get_config  # noqa: E402
-from hippocampai.embed.embedder import Embedder  # noqa: E402
-from hippocampai.models.memory import Memory  # noqa: E402
-from hippocampai.retrieval.rerank import Reranker  # noqa: E402
-from hippocampai.services.memory_service import MemoryManagementService  # noqa: E402
-from hippocampai.storage.redis_store import AsyncMemoryKVStore  # noqa: E402
-from hippocampai.vector.qdrant_store import QdrantStore  # noqa: E402
+from hippocampai.adapters.llm_base import BaseLLM
+from hippocampai.adapters.provider_groq import GroqLLM
+from hippocampai.adapters.provider_ollama import OllamaLLM
+from hippocampai.adapters.provider_openai import OpenAILLM
+from hippocampai.config import get_config
+from hippocampai.embed.embedder import Embedder
+from hippocampai.models.memory import Memory, RetrievalResult
+from hippocampai.retrieval.rerank import Reranker
+from hippocampai.services.memory_service import MemoryManagementService
+from hippocampai.storage.redis_store import AsyncMemoryKVStore
+from hippocampai.vector.qdrant_store import QdrantStore
+
+load_dotenv()
 
 
 # Colors for output
@@ -87,16 +86,16 @@ async def test_service_initialization() -> tuple[
                 collection_name="test_integration_facts",
                 vectors_config=models.VectorParams(size=384, distance=models.Distance.COSINE),
             )
-        except Exception:
-            pass  # Collection may already exist
+        except Exception:  # noqa: S110
+            pass  # Collection may already exist - expected behavior in tests
 
         try:
             qdrant.client.create_collection(
                 collection_name="test_integration_prefs",
                 vectors_config=models.VectorParams(size=384, distance=models.Distance.COSINE),
             )
-        except Exception:
-            pass  # Collection may already exist
+        except Exception:  # noqa: S110
+            pass  # Collection may already exist - expected behavior in tests
 
         print_success("Qdrant initialized")
 
@@ -172,10 +171,11 @@ async def test_crud_operations(service: MemoryManagementService) -> Memory:
     )
     print_success(f"Created memory: {memory.id}")
     assert memory.text == "Paris is the capital of France"
-    assert memory.importance == 8.0
+    assert abs(memory.importance - 8.0) < 0.01  # Float comparison with tolerance
 
     # READ
     retrieved = await service.get_memory(memory.id)
+    assert retrieved is not None, "Retrieved memory should not be None"
     print_success(f"Retrieved memory: {retrieved.id}")
     assert retrieved.text == memory.text
 
@@ -185,8 +185,9 @@ async def test_crud_operations(service: MemoryManagementService) -> Memory:
         importance=9.5,
         tags=["geography", "europe", "france", "capitals"],
     )
+    assert updated is not None, "Updated memory should not be None"
     print_success(f"Updated memory importance: {updated.importance}")
-    assert updated.importance == 9.5
+    assert abs(updated.importance - 9.5) < 0.01  # Float comparison with tolerance
     assert "capitals" in updated.tags
 
     # Query
@@ -227,7 +228,9 @@ async def test_batch_operations(service: MemoryManagementService) -> list[Memory
     updated = await service.batch_update_memories(updates)
     print_success(f"Batch updated {len(updated)} memories")
     assert len(updated) == 5
-    assert all(m.importance == 8.0 for m in updated if m)
+    assert all(
+        abs(m.importance - 8.0) < 0.01 for m in updated if m
+    )  # Float comparison with tolerance
 
     # Batch delete
     delete_ids = [mem.id for mem in created[5:]]
@@ -477,7 +480,7 @@ async def test_redis_caching(service: MemoryManagementService) -> None:
     print_success(f"Redis stats: {stats}")
 
 
-async def test_background_tasks(service: MemoryManagementService) -> None:
+def test_background_tasks(service: MemoryManagementService) -> None:
     """Test 10: Background tasks."""
     print_test("Background Tasks (would run in production)")
 
@@ -506,8 +509,8 @@ async def cleanup(
             qdrant.client.delete_collection("test_integration_facts")
             qdrant.client.delete_collection("test_integration_prefs")
             print_success("Qdrant test collections deleted")
-        except Exception:
-            pass
+        except Exception:  # noqa: S110
+            pass  # Collections may not exist - expected in cleanup
 
         # Close Redis
         await redis_store.close()

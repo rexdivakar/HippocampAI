@@ -379,5 +379,4 @@ class UnifiedMemoryClient:
         """
         if self.mode == "remote":
             return self._backend.health_check()
-        else:
-            raise AttributeError("health_check() only available in remote mode")
+        raise AttributeError("health_check() only available in remote mode")

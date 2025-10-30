@@ -1,7 +1,7 @@
 """OpenAI LLM adapter."""
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.utils.retry import get_llm_retry_decorator
@@ -30,7 +30,7 @@ class OpenAILLM(BaseLLM):
         temperature: float = 0.0,
     ) -> str:
         """Generate completion."""
-        messages = []
+        messages: list[dict[str, Any]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
@@ -43,11 +43,12 @@ class OpenAILLM(BaseLLM):
     ) -> str:
         """Chat completion (with automatic retry on transient failures)."""
         try:
+            # Cast to proper type for OpenAI API
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=cast("Any", messages),  # Type-safe cast for dict compatibility
                 max_tokens=max_tokens,
-                temperature=temperature,  # type: ignore
+                temperature=temperature,
             )
             content = response.choices[0].message.content
             return content if content is not None else ""

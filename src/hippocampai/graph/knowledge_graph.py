@@ -428,7 +428,7 @@ class KnowledgeGraph(MemoryGraph):
                     node_data = self.graph.nodes[node_id]
                     if node_data.get("node_type") in type_values:
                         filtered_nodes.append(node_id)
-                nodes_in_radius = {n: 0 for n in filtered_nodes}
+                nodes_in_radius = dict.fromkeys(filtered_nodes, 0)
 
             # Build subgraph
             subgraph = self.graph.subgraph(nodes_in_radius.keys())
