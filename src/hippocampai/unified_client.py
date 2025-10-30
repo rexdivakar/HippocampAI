@@ -92,20 +92,20 @@ class UnifiedMemoryClient:
         elif mode == "local":
             # Import here to avoid circular dependency
             try:
-                from hippocampai.client import MemoryClient
+                from hippocampai.backends.local import LocalBackend
             except ImportError as e:
                 raise ImportError(
-                    "Failed to import MemoryClient. Make sure all dependencies are installed.\n"
+                    "Failed to import LocalBackend. Make sure all dependencies are installed.\n"
                     "Install with: pip install -e ."
                 ) from e
 
             try:
-                self._backend = MemoryClient(**local_kwargs)
+                self._backend = LocalBackend(**local_kwargs)
                 logger.info("Initialized in LOCAL mode")
 
-                # Log connection details
-                if hasattr(self._backend, "config"):
-                    config = self._backend.config
+                # Log connection details if available
+                if hasattr(self._backend, "_client") and hasattr(self._backend._client, "config"):
+                    config = self._backend._client.config
                     logger.info(f"  Qdrant: {config.qdrant_url}")
                     logger.info(f"  Redis: {config.redis_url}")
                     logger.info(f"  LLM Provider: {config.llm_provider}")
