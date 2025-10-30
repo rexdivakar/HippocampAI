@@ -317,17 +317,10 @@ def deduplicate_all_memories(self) -> dict[str, int]:
         Statistics about deduplicated memories
     """
     try:
-        import asyncio
-
-        async def _deduplicate():
-            # Get all unique user IDs
-            # This would need a method to list all users
-            # For now, this is a placeholder
-            # TODO: Use get_service() when implementing bulk deduplication logic
-            logger.info("Starting global deduplication task")
-            return {"deduplicated": 0, "kept": 0}
-
-        stats = asyncio.run(_deduplicate())
+        # Placeholder implementation for bulk deduplication
+        # Future: Implement user listing and per-user deduplication
+        logger.info("Starting global deduplication task")
+        stats = {"deduplicated": 0, "kept": 0}
 
         logger.info(f"Task {self.request.id}: Deduplication completed - {stats}")
         return stats
@@ -346,14 +339,10 @@ def consolidate_all_memories(self) -> dict[str, int]:
         Statistics about consolidated memories
     """
     try:
-        import asyncio
-
-        async def _consolidate():
-            # TODO: Use get_service() when implementing bulk consolidation logic
-            logger.info("Starting global consolidation task")
-            return {"consolidated": 0, "original": 0}
-
-        stats = asyncio.run(_consolidate())
+        # Placeholder implementation for bulk consolidation
+        # Future: Implement user listing and per-user consolidation
+        logger.info("Starting global consolidation task")
+        stats = {"consolidated": 0, "original": 0}
 
         logger.info(f"Task {self.request.id}: Consolidation completed - {stats}")
         return stats
@@ -374,42 +363,34 @@ def cleanup_expired_memories(self) -> dict[str, int]:
     try:
         service = get_service()
 
-        import asyncio
+        logger.info("Starting expired memories cleanup task")
+        # Get all memories and check expiration
+        count = 0
+        for collection in [service.qdrant.collection_facts, service.qdrant.collection_prefs]:
+            try:
+                # Scroll through all memories
+                results = service.qdrant.scroll(
+                    collection_name=collection,
+                    limit=1000,
+                )
 
-        async def _cleanup():
-            logger.info("Starting expired memories cleanup task")
-            # Get all memories and check expiration
-            # This is a simplified version
-            count = 0
-            for collection in [service.qdrant.collection_facts, service.qdrant.collection_prefs]:
-                try:
-                    # Scroll through all memories
-                    results = service.qdrant.scroll(
-                        collection_name=collection,
-                        limit=1000,
-                    )
+                expired_ids = []
+                for result in results:
+                    expires_at = result.get("payload", {}).get("expires_at")
+                    if expires_at and datetime.fromisoformat(expires_at) < datetime.now(
+                        timezone.utc
+                    ):
+                        expired_ids.append(result["id"])
 
-                    expired_ids = []
-                    for result in results:
-                        expires_at = result.get("payload", {}).get("expires_at")
-                        if expires_at and datetime.fromisoformat(expires_at) < datetime.now(
-                            timezone.utc
-                        ):
-                            expired_ids.append(result["id"])
+                if expired_ids:
+                    service.qdrant.delete(collection, expired_ids)
+                    count += len(expired_ids)
+                    logger.info(f"Deleted {len(expired_ids)} expired memories from {collection}")
 
-                    if expired_ids:
-                        service.qdrant.delete(collection, expired_ids)
-                        count += len(expired_ids)
-                        logger.info(
-                            f"Deleted {len(expired_ids)} expired memories from {collection}"
-                        )
+            except Exception as e:
+                logger.error(f"Error cleaning up {collection}: {e}")
 
-                except Exception as e:
-                    logger.error(f"Error cleaning up {collection}: {e}")
-
-            return {"deleted": count}
-
-        stats = asyncio.run(_cleanup())
+        stats = {"deleted": count}
 
         logger.info(
             f"Task {self.request.id}: Cleanup completed - {stats['deleted']} memories deleted"
@@ -430,15 +411,10 @@ def decay_memory_importance(self) -> dict[str, int]:
         Statistics about decayed memories
     """
     try:
-        import asyncio
-
-        async def _decay():
-            # TODO: Use get_service() when implementing importance decay logic
-            # This would iterate through all memories and apply decay formula
-            logger.info("Starting importance decay task")
-            return {"decayed": 0}
-
-        stats = asyncio.run(_decay())
+        # Placeholder implementation for importance decay
+        # Future: Iterate through all memories and apply decay formula based on age
+        logger.info("Starting importance decay task")
+        stats = {"decayed": 0}
 
         logger.info(f"Task {self.request.id}: Decay completed - {stats}")
         return stats

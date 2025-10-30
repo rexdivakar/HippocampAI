@@ -56,6 +56,8 @@ class AsyncRedisKVStore:
                 retry_on_timeout=True,
             )
             self._client = redis.Redis(connection_pool=self._pool)
+            # Test connection with an async operation
+            await self._client.ping()
             logger.info(
                 f"Connected to Redis at {self.redis_url} with pool size {self.max_connections}"
             )

@@ -249,7 +249,7 @@ class TemporalAnalytics:
         for hour, timestamps in hour_occurrences.items():
             if len(timestamps) >= min_occurrences:
                 # Check if occurrences are on different days
-                unique_days = len(set(ts.date() for ts in timestamps))
+                unique_days = len({ts.date() for ts in timestamps})
 
                 if unique_days >= min_occurrences:
                     # Compute regularity (how consistently it occurs)
@@ -364,7 +364,7 @@ class TemporalAnalytics:
 
             # Group intervals within ±20% tolerance
             found_group = False
-            for group_interval in list(interval_groups.keys()):
+            for group_interval in interval_groups.keys():
                 if abs(rounded - group_interval) / max(rounded, group_interval) < 0.2:
                     interval_groups[group_interval].append(i)
                     found_group = True
