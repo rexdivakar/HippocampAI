@@ -47,6 +47,7 @@ python web_chat.py
 ```
 
 Open `http://localhost:5000` to access the web UI:
+
 - Responsive layout with conversation history and live memory stats
 - Memory viewer shows what HippocampAI stored from the session
 - Supports tool-calling extensions configured in `docs/TOOLS.md`
@@ -86,6 +87,7 @@ for result in results:
 ## 4. Scheduling Maintenance Jobs
 
 HippocampAI ships with background jobs (see `src/hippocampai/jobs/`) to keep the memory store fresh:
+
 - **Decay**: apply exponential decay to importance scores.
 - **Consolidation**: merge clusters of similar memories.
 - **Snapshots**: create periodic Qdrant snapshots for backup.
@@ -139,4 +141,4 @@ HippocampAI delivers deeper control and extensibility; Mem0 and similar hosted p
 - **Duplicate memories** – adjust the dedupe similarity threshold (`DEDUP_SIMILARITY_THRESHOLD`) in `.env`.
 
 Need more help? Open an issue or check the example scripts in `examples/` for working reference flows.
-You can also join the community Discord for live support and collaboration: https://discord.gg/pPSNW9J7gB
+You can also join the community Discord for live support and collaboration: <https://discord.gg/pPSNW9J7gB>

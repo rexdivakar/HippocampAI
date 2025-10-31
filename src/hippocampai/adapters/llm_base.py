@@ -1,7 +1,7 @@
 """Base LLM adapter interface."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Optional
 
 
 class BaseLLM(ABC):
@@ -16,11 +16,9 @@ class BaseLLM(ABC):
         temperature: float = 0.0,
     ) -> str:
         """Generate text completion."""
-        pass
 
     @abstractmethod
     def chat(
-        self, messages: List[Dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
+        self, messages: list[dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
         """Chat completion."""
-        pass

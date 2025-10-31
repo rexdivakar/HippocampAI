@@ -134,6 +134,20 @@ class TestImportanceDecay:
 
     def test_apply_importance_decay_empty(self, client_with_scheduler):
         """Test decay with no memories."""
+        # Clean up any existing memories from previous tests
+        for coll in [
+            client_with_scheduler.config.collection_facts,
+            client_with_scheduler.config.collection_prefs,
+        ]:
+            results = client_with_scheduler.qdrant.scroll(
+                collection_name=coll,
+                filters={},
+                limit=10000,
+            )
+            if results:
+                ids = [r["id"] for r in results]
+                client_with_scheduler.qdrant.delete(collection_name=coll, ids=ids)
+
         count = client_with_scheduler.apply_importance_decay()
         assert count == 0
 

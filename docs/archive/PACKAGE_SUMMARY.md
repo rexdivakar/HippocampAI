@@ -68,48 +68,58 @@ Total: 40+ files created
 ## Key Features Implemented
 
 ### 1. Hybrid Retrieval ✅
+
 - **BM25** sparse retrieval (rank-bm25)
 - **Vector** similarity search (Qdrant)
 - **RRF fusion** of rankings
 - **Two-stage ranking**: Top 200 → CrossEncoder → Top 20
 
 ### 2. Qdrant Optimization ✅
+
 - HNSW parameters: M=48, ef_construction=256, ef_search=128
 - Payload indices (user_id, type)
 - WAL enabled
 - Snapshot support
 
 ### 3. Embeddings & Models ✅
+
 - Batch processing with configurable batch_size
 - Thread-safe shared model instance
 - Optional int8 quantization support
 - Default: BAAI/bge-small-en-v1.5 (384d)
 
 ### 4. Cross-Encoder Reranking ✅
+
 - Model: ms-marco-MiniLM-L-6-v2
 - 24h TTL cache for scores (keyed by query_hash + memory_id)
 - Configurable top-K
 
 ### 5. LLM Adapters ✅
+
 - **Ollama** (local, default): qwen2.5:7b-instruct
 - **OpenAI** (optional, with allow_cloud flag)
 - Base interface for extensibility
 
 ### 6. Score Fusion ✅
+
 ```
 final_score = 0.55*sim + 0.20*rerank + 0.15*recency + 0.10*importance
 ```
+
 - Configurable weights
 - Half-life decay for recency (prefs=90d, facts=30d, events=14d)
 
 ### 7. Memory Pipeline ✅
+
 - **Extractor**: Heuristic + optional LLM modes
 - **Deduplicator**: Vector similarity + semantic check
 - **Consolidator**: Merge similar memories
 - **Importance**: Heuristic scoring (1-10)
 
 ### 8. API & CLI ✅
+
 **FastAPI Endpoints:**
+
 - `POST /v1/memories:remember`
 - `POST /v1/memories:recall`
 - `POST /v1/memories:extract`
@@ -117,17 +127,20 @@ final_score = 0.55*sim + 0.20*rerank + 0.15*recency + 0.10*importance
 - `GET /metrics`
 
 **CLI Commands:**
+
 - `hippocampai init`
 - `hippocampai remember --user <id> --text <text>`
 - `hippocampai recall --user <id> --query <q> -k 5`
 - `hippocampai api --port 8000`
 
 ### 9. Background Jobs ✅
+
 - **Decay**: Daily at 2am
 - **Consolidate**: Weekly on Sunday
 - **Snapshots**: Hourly
 
 ### 10. Configuration ✅
+
 - Environment variable overrides
 - Centralized config.py
 - Defaults for local-only mode
@@ -177,7 +190,8 @@ pytest -v tests/
 
 ## What's Different from Original
 
-### Added:
+### Added
+
 - ✅ Hybrid BM25 + vector retrieval
 - ✅ RRF fusion
 - ✅ Two-stage cross-encoder reranking
@@ -190,7 +204,8 @@ pytest -v tests/
 - ✅ CLI with Typer
 - ✅ Background scheduler
 
-### Kept:
+### Kept
+
 - ✅ Memory extraction
 - ✅ Deduplication
 - ✅ Consolidation
@@ -198,7 +213,8 @@ pytest -v tests/
 - ✅ Session management
 - ✅ Qdrant vector store
 
-### Improved:
+### Improved
+
 - 🔥 Token efficiency (hybrid heuristic+LLM modes)
 - 🔥 Retrieval quality (BM25+vector+rerank)
 - 🔥 Speed (caching, batching, quantization)

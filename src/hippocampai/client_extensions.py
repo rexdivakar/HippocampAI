@@ -11,14 +11,19 @@ This module extends the MemoryClient with additional capabilities:
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from hippocampai.graph import MemoryGraph, RelationType
-from hippocampai.models.memory import Memory
+from hippocampai.models.memory import Memory, RetrievalResult
 from hippocampai.storage import MemoryKVStore
 from hippocampai.telemetry import OperationType
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
+
+if TYPE_CHECKING:
+    from hippocampai.config import Config
+    from hippocampai.telemetry import MemoryTelemetry
+    from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,52 @@ class MemoryClientExtensions:
     This class is designed to be mixed into MemoryClient to add advanced features
     without bloating the main client file.
     """
+
+    # Type hints for attributes from parent class (MemoryClient)
+    if TYPE_CHECKING:
+        telemetry: "MemoryTelemetry"
+        config: "Config"
+        qdrant: "QdrantStore"
+
+        def remember(
+            self,
+            text: str,
+            user_id: str,
+            session_id: Optional[str] = None,
+            type: str = "fact",
+            importance: Optional[float] = None,
+            tags: Optional[list[str]] = None,
+            ttl_days: Optional[int] = None,
+        ) -> Memory: ...
+
+        def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool: ...
+
+        def update_memory(
+            self,
+            memory_id: str,
+            text: Optional[str] = None,
+            importance: Optional[float] = None,
+            tags: Optional[list[str]] = None,
+            metadata: Optional[dict[str, Any]] = None,
+            expires_at: Optional[Any] = None,
+        ) -> Optional[Memory]: ...
+
+        def recall(
+            self,
+            query: str,
+            user_id: str,
+            session_id: Optional[str] = None,
+            k: int = 5,
+            filters: Optional[dict[str, Any]] = None,
+        ) -> list["RetrievalResult"]: ...
+
+        def get_memories(
+            self,
+            user_id: str,
+            session_id: Optional[str] = None,
+            limit: int = 100,
+            filters: Optional[dict[str, Any]] = None,
+        ) -> list[Memory]: ...
 
     def __init_extensions__(self, enable_graph: bool = True, enable_versioning: bool = True):
         """
@@ -57,10 +108,10 @@ class MemoryClientExtensions:
 
     def add_memories(
         self,
-        memories: List[Dict[str, Any]],
+        memories: list[dict[str, Any]],
         user_id: str,
         session_id: Optional[str] = None,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Batch add multiple memories at once.
 
@@ -103,7 +154,7 @@ class MemoryClientExtensions:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             raise
 
-    def delete_memories(self, memory_ids: List[str], user_id: Optional[str] = None) -> int:
+    def delete_memories(self, memory_ids: list[str], user_id: Optional[str] = None) -> int:
         """
         Batch delete multiple memories.
 
@@ -172,9 +223,9 @@ class MemoryClientExtensions:
     def get_related_memories(
         self,
         memory_id: str,
-        relation_types: Optional[List[RelationType]] = None,
+        relation_types: Optional[list[RelationType]] = None,
         max_depth: int = 1,
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """
         Get memories related to a given memory.
 
@@ -191,7 +242,7 @@ class MemoryClientExtensions:
 
         return self.graph.get_related_memories(memory_id, relation_types, max_depth)
 
-    def get_memory_clusters(self, user_id: str) -> List[Set[str]]:
+    def get_memory_clusters(self, user_id: str) -> list[set[str]]:
         """
         Find clusters of related memories.
 
@@ -237,7 +288,7 @@ class MemoryClientExtensions:
         self,
         file_path: str,
         merge: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Import memory graph from a JSON file.
 
@@ -271,7 +322,7 @@ class MemoryClientExtensions:
 
     # === VERSION CONTROL ===
 
-    def get_memory_history(self, memory_id: str) -> List:
+    def get_memory_history(self, memory_id: str) -> list:
         """
         Get version history for a memory.
 
@@ -322,7 +373,7 @@ class MemoryClientExtensions:
         user_id: Optional[str] = None,
         change_type: Optional[ChangeType] = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """
         Get audit trail entries.
 
@@ -428,11 +479,11 @@ class MemoryClientExtensions:
     def get_memories_advanced(
         self,
         user_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         sort_by: str = "created_at",  # created_at, importance, access_count
         sort_order: str = "desc",
         limit: int = 100,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Get memories with advanced filtering and sorting.
 
@@ -447,7 +498,9 @@ class MemoryClientExtensions:
             List of Memory objects
         """
         # Get base memories
-        memories = self.get_memories(user_id, filters, limit=limit * 2)  # Get more for sorting
+        memories = self.get_memories(
+            user_id, session_id=None, limit=limit * 2, filters=filters
+        )  # Get more for sorting
 
         # Apply metadata filters if provided
         if filters and "metadata" in filters:

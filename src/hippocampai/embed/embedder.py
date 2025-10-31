@@ -2,7 +2,6 @@
 
 import logging
 import threading
-from typing import List
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -34,7 +33,7 @@ class Embedder:
         self.lock = threading.Lock()
         logger.info(f"Loaded embedder: {model_name}, quantized={quantized}")
 
-    def encode(self, texts: List[str]) -> np.ndarray:
+    def encode(self, texts: list[str]) -> np.ndarray:
         """Encode texts to embeddings."""
         if not texts:
             return np.array([])
@@ -43,7 +42,11 @@ class Embedder:
             embeddings = self.model.encode(
                 texts, batch_size=self.batch_size, show_progress_bar=False, convert_to_numpy=True
             )
-        return embeddings
+        # Ensure we return ndarray
+        if isinstance(embeddings, np.ndarray):
+            return embeddings
+        # Handle List[Tensor] or Tensor cases
+        return np.array(embeddings)
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text."""

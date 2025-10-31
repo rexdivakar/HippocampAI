@@ -7,6 +7,7 @@ Quick reference for all HippocampAI APIs.
 ### Core Operations
 
 #### remember()
+
 ```python
 client.remember(
     text: str,
@@ -24,6 +25,7 @@ Store a memory with automatic size tracking.
 **Returns:** Memory object with `id`, `text_length`, `token_count`, etc.
 
 #### recall()
+
 ```python
 client.recall(
     query: str,
@@ -37,6 +39,7 @@ client.recall(
 Retrieve memories using hybrid search.
 
 #### update_memory()
+
 ```python
 client.update_memory(
     memory_id: str,
@@ -51,6 +54,7 @@ client.update_memory(
 Update an existing memory. Size metrics are recalculated if text changes.
 
 #### delete_memory()
+
 ```python
 client.delete_memory(
     memory_id: str,
@@ -61,6 +65,7 @@ client.delete_memory(
 Delete a memory by ID.
 
 #### get_memories()
+
 ```python
 client.get_memories(
     user_id: str,
@@ -72,6 +77,7 @@ client.get_memories(
 Get memories with filtering (no semantic search).
 
 **Filters:**
+
 - `type`: Memory type (str or list)
 - `tags`: Tags to filter by (str or list)
 - `session_id`: Session ID
@@ -82,6 +88,7 @@ Get memories with filtering (no semantic search).
 ### Batch Operations
 
 #### add_memories()
+
 ```python
 client.add_memories(
     memories: List[Dict[str, Any]],
@@ -93,6 +100,7 @@ client.add_memories(
 Batch add multiple memories.
 
 #### delete_memories()
+
 ```python
 client.delete_memories(
     memory_ids: List[str],
@@ -105,6 +113,7 @@ Batch delete memories. Returns count of deleted memories.
 ### Memory Statistics
 
 #### get_memory_statistics()
+
 ```python
 client.get_memory_statistics(
     user_id: str
@@ -114,6 +123,7 @@ client.get_memory_statistics(
 Get memory size and usage statistics.
 
 **Returns:**
+
 ```python
 {
     "total_memories": int,
@@ -130,6 +140,7 @@ Get memory size and usage statistics.
 ### Graph Operations
 
 #### add_relationship()
+
 ```python
 client.add_relationship(
     source_id: str,
@@ -142,6 +153,7 @@ client.add_relationship(
 Add a relationship between two memories.
 
 #### get_related_memories()
+
 ```python
 client.get_related_memories(
     memory_id: str,
@@ -153,6 +165,7 @@ client.get_related_memories(
 Get related memories. Returns list of (memory_id, relation_type, weight) tuples.
 
 #### get_memory_clusters()
+
 ```python
 client.get_memory_clusters(
     user_id: str
@@ -162,6 +175,7 @@ client.get_memory_clusters(
 Find clusters of related memories.
 
 #### export_graph_to_json()
+
 ```python
 client.export_graph_to_json(
     file_path: str,
@@ -173,6 +187,7 @@ client.export_graph_to_json(
 Export memory graph to a JSON file for backup or transfer.
 
 **Args:**
+
 - `file_path`: Path where the JSON file will be saved
 - `user_id`: Optional user ID to export only a specific user's graph
 - `indent`: JSON indentation level (default: 2)
@@ -180,6 +195,7 @@ Export memory graph to a JSON file for backup or transfer.
 **Returns:** File path where the graph was saved
 
 **Example:**
+
 ```python
 # Export full graph
 client.export_graph_to_json("memory_graph.json")
@@ -189,6 +205,7 @@ client.export_graph_to_json("alice_graph.json", user_id="alice")
 ```
 
 #### import_graph_from_json()
+
 ```python
 client.import_graph_from_json(
     file_path: str,
@@ -199,10 +216,12 @@ client.import_graph_from_json(
 Import memory graph from a JSON file.
 
 **Args:**
+
 - `file_path`: Path to the JSON file to import
 - `merge`: If True, merge with existing graph; if False, replace existing graph
 
 **Returns:** Dictionary with import statistics:
+
 ```python
 {
     "file_path": str,          # Path that was imported
@@ -217,10 +236,12 @@ Import memory graph from a JSON file.
 ```
 
 **Raises:**
+
 - `FileNotFoundError`: If the file doesn't exist
 - `ValueError`: If the file contains invalid graph format
 
 **Example:**
+
 ```python
 # Import and merge with existing graph
 stats = client.import_graph_from_json("memory_graph.json")
@@ -233,6 +254,7 @@ stats = client.import_graph_from_json("backup.json", merge=False)
 ### Version Control
 
 #### get_memory_history()
+
 ```python
 client.get_memory_history(
     memory_id: str
@@ -242,6 +264,7 @@ client.get_memory_history(
 Get version history for a memory.
 
 #### rollback_memory()
+
 ```python
 client.rollback_memory(
     memory_id: str,
@@ -254,6 +277,7 @@ Rollback memory to a previous version.
 ### Context Injection
 
 #### inject_context()
+
 ```python
 client.inject_context(
     prompt: str,
@@ -271,6 +295,7 @@ Inject relevant memories into a prompt for LLMs.
 ### Telemetry
 
 #### get_telemetry_metrics()
+
 ```python
 client.get_telemetry_metrics() -> Dict[str, Any]
 ```
@@ -278,6 +303,7 @@ client.get_telemetry_metrics() -> Dict[str, Any]
 Get performance metrics including size tracking.
 
 #### get_recent_operations()
+
 ```python
 client.get_recent_operations(
     limit: int = 10,
@@ -288,6 +314,7 @@ client.get_recent_operations(
 Get recent memory operations with traces.
 
 #### export_telemetry()
+
 ```python
 client.export_telemetry(
     trace_ids: Optional[List[str]] = None
@@ -410,6 +437,7 @@ client = MemoryClient(config=config)
 ## Enums
 
 ### MemoryType
+
 ```python
 class MemoryType(str, Enum):
     PREFERENCE = "preference"
@@ -421,6 +449,7 @@ class MemoryType(str, Enum):
 ```
 
 ### RelationType
+
 ```python
 class RelationType(str, Enum):
     RELATED_TO = "related_to"
@@ -431,6 +460,7 @@ class RelationType(str, Enum):
 ```
 
 ### OperationType
+
 ```python
 class OperationType(str, Enum):
     REMEMBER = "remember"

@@ -22,18 +22,18 @@ class StructuredLogger(logging.Logger):
 
     def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False, stacklevel=1):
         """Override _log to inject request_id into all log records."""
-        if extra is None:
-            extra = {}
+        # Create mutable dict for extra fields
+        extra_dict: dict = dict(extra) if extra else {}
 
         # Add request ID if available
         request_id = request_id_var.get("")
         if request_id:
-            extra["request_id"] = request_id
+            extra_dict["request_id"] = request_id
 
         # Add timestamp
-        extra["timestamp"] = datetime.now(timezone.utc).isoformat()
+        extra_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
 
-        super()._log(level, msg, args, exc_info, extra, stack_info, stacklevel + 1)
+        super()._log(level, msg, args, exc_info, extra_dict, stack_info, stacklevel + 1)
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -204,7 +204,7 @@ class RequestContext:
         """
         self.request_id = request_id or generate_request_id()
         self.operation = operation
-        self.start_time = None
+        self.start_time: Optional[datetime] = None
         self.logger = get_logger(__name__)
 
     def __enter__(self):
@@ -222,7 +222,11 @@ class RequestContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit context - clear request ID and log completion."""
-        duration = (datetime.now(timezone.utc) - self.start_time).total_seconds()
+        duration = (
+            (datetime.now(timezone.utc) - self.start_time).total_seconds()
+            if self.start_time
+            else 0.0
+        )
 
         if exc_type is None:
             if self.operation:

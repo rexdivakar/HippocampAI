@@ -2,7 +2,6 @@
 
 import math
 from datetime import datetime
-from typing import Dict
 
 from hippocampai.utils.time import ensure_utc, now_utc
 
@@ -22,7 +21,7 @@ def recency_score(created_at: datetime, half_life_days: int) -> float:
 
 
 def fuse_scores(
-    sim: float, rerank: float, recency: float, importance: float, weights: Dict[str, float]
+    sim: float, rerank: float, recency: float, importance: float, weights: dict[str, float]
 ) -> float:
     """
     Weighted fusion of scores.

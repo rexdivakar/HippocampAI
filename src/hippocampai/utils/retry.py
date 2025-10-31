@@ -5,7 +5,6 @@ transient failures in external services (Qdrant, LLM providers, etc).
 """
 
 import logging
-from typing import Tuple, Type
 
 from tenacity import (
     before_sleep_log,
@@ -108,7 +107,7 @@ def get_llm_retry_decorator(
 
 
 def retry_on_exception(
-    exception_types: Tuple[Type[Exception], ...] = (Exception,),
+    exception_types: tuple[type[Exception], ...] = (Exception,),
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     min_wait: int = DEFAULT_MIN_WAIT,
     max_wait: int = DEFAULT_MAX_WAIT,

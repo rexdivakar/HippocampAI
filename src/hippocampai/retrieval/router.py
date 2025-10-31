@@ -56,7 +56,6 @@ class QueryRouter:
 
         if has_pref and not has_fact:
             return "prefs"
-        elif has_fact and not has_pref:
+        if has_fact and not has_pref:
             return "facts"
-        else:
-            return "both"
+        return "both"

@@ -5,6 +5,7 @@ This directory contains working examples demonstrating HippocampAI's core featur
 ## Prerequisites
 
 1. Install HippocampAI with dependencies:
+
    ```bash
    # From PyPI (recommended)
    pip install hippocampai
@@ -16,11 +17,13 @@ This directory contains working examples demonstrating HippocampAI's core featur
    View on PyPI: [https://pypi.org/project/hippocampai/](https://pypi.org/project/hippocampai/)
 
 2. Start Qdrant:
+
    ```bash
    docker run -p 6333:6333 qdrant/qdrant
    ```
 
 3. Configure environment:
+
    ```bash
    cp .env.example .env
    # Edit .env and set your configuration
@@ -29,9 +32,11 @@ This directory contains working examples demonstrating HippocampAI's core featur
 ## Examples
 
 ### 01_basic_usage.py
+
 **Basic remember/recall workflow**
 
 Demonstrates:
+
 - Initializing MemoryClient
 - Storing memories (preferences, facts, goals, events)
 - Recalling memories with queries
@@ -42,9 +47,11 @@ python examples/01_basic_usage.py
 ```
 
 ### 02_conversation_extraction.py
+
 **Extract memories from conversations**
 
 Demonstrates:
+
 - Automatic memory extraction from conversation text
 - Different memory types (preferences, facts, goals)
 - Importance scoring
@@ -55,9 +62,11 @@ python examples/02_conversation_extraction.py
 ```
 
 ### 03_hybrid_retrieval.py
+
 **Hybrid retrieval demonstration**
 
 Demonstrates:
+
 - Vector search + BM25 fusion
 - Cross-encoder reranking
 - Score breakdowns (similarity, rerank, recency, importance)
@@ -68,9 +77,11 @@ python examples/03_hybrid_retrieval.py
 ```
 
 ### 04_custom_configuration.py
+
 **Custom configuration options**
 
 Demonstrates:
+
 - Default configuration
 - Parameter overrides
 - Custom Config objects
@@ -82,9 +93,11 @@ python examples/04_custom_configuration.py
 ```
 
 ### 05_multi_user.py
+
 **Multi-user memory management**
 
 Demonstrates:
+
 - User isolation
 - Per-user memory stores
 - User-specific retrieval
@@ -102,6 +115,7 @@ python examples/05_multi_user.py
 ```
 
 Or individually:
+
 ```bash
 python examples/01_basic_usage.py
 python examples/02_conversation_extraction.py

@@ -1,11 +1,13 @@
 """Time utilities."""
 
+import sys
 from datetime import datetime, timezone
 from typing import Optional
 
-try:
+# Handle Python 3.11+ datetime.UTC compatibility
+if sys.version_info >= (3, 11):
     from datetime import UTC
-except ImportError:
+else:
     UTC = timezone.utc
 
 
