@@ -157,9 +157,8 @@ class TemporalAnalyzer:
             start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             end = now
         else:
-            # Default to last day
-            start = now - timedelta(days=1)
-            end = now
+            # This should never be reached if all enum values are handled
+            raise ValueError(f"Unknown time range: {time_range}")
 
         return start, end
 
@@ -570,8 +569,8 @@ JSON:"""
         time_span = (last_mem.created_at - first_mem.created_at).total_seconds() / 86400
 
         # Count by hour
-        hour_counts = defaultdict(int)
-        day_counts = defaultdict(int)
+        hour_counts: dict[int, int] = defaultdict(int)
+        day_counts: dict[str, int] = defaultdict(int)
 
         for mem in memories:
             hour = mem.created_at.hour

@@ -225,7 +225,7 @@ class MemoryGraph:
         Returns:
             List of (candidate_id, suggested_relation, confidence) tuples
         """
-        suggestions = []
+        suggestions: list[tuple[str, RelationType, float]] = []
 
         # Simple heuristic: suggest based on common neighbors
         if memory_id not in self.graph:

@@ -666,7 +666,7 @@ class TemporalAnalytics:
         # Sort by time
         sorted_memories = sorted(memories, key=lambda m: m.created_at)
 
-        clusters = []
+        clusters: list[TemporalCluster] = []
         current_cluster = [sorted_memories[0]]
 
         for i in range(1, len(sorted_memories)):

@@ -152,7 +152,8 @@ class RelationshipMapper:
             self.entity_relationships[to_entity_id].append(rel)
 
         # Update co-occurrence
-        co_key = tuple(sorted([from_entity_id, to_entity_id]))
+        sorted_entities = sorted([from_entity_id, to_entity_id])
+        co_key = (sorted_entities[0], sorted_entities[1])
         self.co_occurrences[co_key] += 1
 
         return rel
@@ -275,7 +276,9 @@ class RelationshipMapper:
             )
 
         # BFS to find shortest path
-        queue = [(from_entity, [], 1.0)]  # (current_entity, path, strength)
+        queue: list[tuple[str, list[Any], float]] = [
+            (from_entity, [], 1.0)
+        ]  # (current_entity, path, strength)
         visited = {from_entity}
 
         while queue:
@@ -366,7 +369,7 @@ class RelationshipMapper:
 
         # Find connected components using DFS
         visited = set()
-        clusters = []
+        clusters: list[RelationshipCluster] = []
 
         def dfs(node: str, cluster: set[str]):
             visited.add(node)
@@ -490,7 +493,7 @@ class RelationshipMapper:
         """
         relationships = list(self.relationships.values())
 
-        stats = {
+        stats: dict[str, Any] = {
             "total_relationships": len(relationships),
             "total_entities": len(self.entity_relationships),
             "by_type": {},

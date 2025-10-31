@@ -282,10 +282,10 @@ class traced:
         self.operation = operation
         self.capture_result = capture_result
 
-    def __call__(self, func):
+    def __call__(self, func: Any) -> Any:
         """Wrap function with tracing."""
 
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             telemetry = get_telemetry()
 
             # Extract user_id and session_id from kwargs if available
@@ -316,7 +316,7 @@ class traced:
                 duration_ms = (time.time() - start_time) * 1000
 
                 # Prepare result metadata
-                result_meta = None
+                result_meta: Optional[dict[str, Any]] = None
                 if self.capture_result and result:
                     if isinstance(result, list):
                         result_meta = {"count": len(result)}

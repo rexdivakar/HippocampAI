@@ -418,7 +418,7 @@ Summary:"""
         """
         conversation = self._format_conversation(messages)
 
-        insights = {
+        insights: dict[str, Any] = {
             "user_id": user_id,
             "message_count": len(messages),
             "topics": self._identify_topics(conversation),

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.celery_app import celery_app
 from hippocampai.config import Config
@@ -42,7 +42,7 @@ def get_service() -> MemoryManagementService:
 
         reranker = Reranker(model_name=config.reranker_model)
 
-        # Note: Redis store is optional for background tasks
+        # Note: Redis store is required for memory service
         redis_store: Optional[AsyncMemoryKVStore] = None
         try:
             redis_store = AsyncMemoryKVStore(
@@ -50,7 +50,8 @@ def get_service() -> MemoryManagementService:
                 cache_ttl=config.redis_cache_ttl,
             )
         except Exception as e:
-            logger.warning(f"Redis store not available for background tasks: {e}")
+            logger.error(f"Redis store required but not available: {e}")
+            raise RuntimeError("Redis store is required for memory service") from e
 
         _services["memory_service"] = MemoryManagementService(
             qdrant_store=qdrant_store,
@@ -69,7 +70,7 @@ def get_service() -> MemoryManagementService:
 
 @celery_app.task(name="hippocampai.tasks.create_memory_task", bind=True, max_retries=3)
 def create_memory_task(
-    self,
+    self: Any,
     text: str,
     user_id: str,
     memory_type: str = "fact",
@@ -98,7 +99,7 @@ def create_memory_task(
         # For now, we'll use the synchronous wrapper
         import asyncio
 
-        async def _create():
+        async def _create() -> Any:
             return await service.create_memory(
                 text=text,
                 user_id=user_id,
@@ -126,7 +127,7 @@ def create_memory_task(
 
 @celery_app.task(name="hippocampai.tasks.batch_create_memories_task", bind=True, max_retries=3)
 def batch_create_memories_task(
-    self,
+    self: Any,
     memories: list[dict[str, Any]],
     check_duplicates: bool = True,
 ) -> list[dict[str, Any]]:
@@ -145,7 +146,7 @@ def batch_create_memories_task(
 
         import asyncio
 
-        async def _batch_create():
+        async def _batch_create() -> Any:
             return await service.batch_create_memories(
                 memories=memories,
                 check_duplicates=check_duplicates,
@@ -171,7 +172,7 @@ def batch_create_memories_task(
 
 @celery_app.task(name="hippocampai.tasks.recall_memories_task", bind=True)
 def recall_memories_task(
-    self,
+    self: Any,
     query: str,
     user_id: str,
     k: int = 5,
@@ -194,7 +195,7 @@ def recall_memories_task(
 
         import asyncio
 
-        async def _recall():
+        async def _recall() -> Any:
             return await service.recall_memories(
                 query=query,
                 user_id=user_id,
@@ -224,7 +225,7 @@ def recall_memories_task(
 
 @celery_app.task(name="hippocampai.tasks.update_memory_task", bind=True, max_retries=3)
 def update_memory_task(
-    self,
+    self: Any,
     memory_id: str,
     user_id: str,
     updates: dict[str, Any],
@@ -245,14 +246,16 @@ def update_memory_task(
 
         import asyncio
 
-        async def _update():
+        async def _update() -> Any:
             return await service.update_memory(
                 memory_id=memory_id,
-                user_id=user_id,
                 **updates,
             )
 
         updated_memory = asyncio.run(_update())
+
+        if not updated_memory:
+            raise Exception(f"Memory {memory_id} not found or could not be updated")
 
         logger.info(f"Task {self.request.id}: Updated memory {memory_id}")
         return {
@@ -268,7 +271,7 @@ def update_memory_task(
 
 @celery_app.task(name="hippocampai.tasks.delete_memory_task", bind=True, max_retries=3)
 def delete_memory_task(
-    self,
+    self: Any,
     memory_id: str,
     user_id: str,
 ) -> bool:
@@ -287,7 +290,7 @@ def delete_memory_task(
 
         import asyncio
 
-        async def _delete():
+        async def _delete() -> Any:
             return await service.delete_memory(
                 memory_id=memory_id,
                 user_id=user_id,
@@ -296,7 +299,7 @@ def delete_memory_task(
         success = asyncio.run(_delete())
 
         logger.info(f"Task {self.request.id}: Deleted memory {memory_id}")
-        return success
+        return cast(bool, success)
 
     except Exception as exc:
         logger.error(f"Task {self.request.id} failed: {exc}")
@@ -309,7 +312,7 @@ def delete_memory_task(
 
 
 @celery_app.task(name="hippocampai.tasks.deduplicate_all_memories", bind=True)
-def deduplicate_all_memories(self) -> dict[str, int]:
+def deduplicate_all_memories(self: Any) -> dict[str, int]:
     """
     Run deduplication across all users' memories.
 
@@ -331,7 +334,7 @@ def deduplicate_all_memories(self) -> dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.consolidate_all_memories", bind=True)
-def consolidate_all_memories(self) -> dict[str, int]:
+def consolidate_all_memories(self: Any) -> dict[str, int]:
     """
     Run memory consolidation across all users.
 
@@ -353,7 +356,7 @@ def consolidate_all_memories(self) -> dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.cleanup_expired_memories", bind=True)
-def cleanup_expired_memories(self) -> dict[str, int]:
+def cleanup_expired_memories(self: Any) -> dict[str, int]:
     """
     Clean up expired memories across all collections.
 
@@ -403,7 +406,7 @@ def cleanup_expired_memories(self) -> dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.decay_memory_importance", bind=True)
-def decay_memory_importance(self) -> dict[str, int]:
+def decay_memory_importance(self: Any) -> dict[str, int]:
     """
     Apply importance decay to all memories based on their age.
 
@@ -425,7 +428,7 @@ def decay_memory_importance(self) -> dict[str, int]:
 
 
 @celery_app.task(name="hippocampai.tasks.create_collection_snapshots", bind=True)
-def create_collection_snapshots(self) -> dict[str, str]:
+def create_collection_snapshots(self: Any) -> dict[str, str]:
     """
     Create snapshots of all Qdrant collections.
 
@@ -459,7 +462,7 @@ def create_collection_snapshots(self) -> dict[str, str]:
 
 
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
-def health_check_task(self) -> dict[str, Any]:
+def health_check_task(self: Any) -> dict[str, Any]:
     """
     Perform health checks on all services.
 
@@ -487,7 +490,7 @@ def health_check_task(self) -> dict[str, Any]:
             try:
                 import asyncio
 
-                async def check_redis():
+                async def check_redis() -> Any:
                     if service.redis and service.redis.store._client:
                         return await service.redis.store._client.ping()
                     return False

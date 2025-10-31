@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from hippocampai.backends.remote import RemoteBackend
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -195,13 +195,16 @@ class UnifiedMemoryClient:
         Returns:
             List of RetrievalResult objects sorted by relevance
         """
-        return self._backend.recall(
-            query=query,
-            user_id=user_id,
-            session_id=session_id,
-            limit=limit,
-            filters=filters,
-            min_score=min_score,
+        return cast(
+            list[RetrievalResult],
+            self._backend.recall(
+                query=query,
+                user_id=user_id,
+                session_id=session_id,
+                limit=limit,
+                filters=filters,
+                min_score=min_score,
+            ),
         )
 
     def get_memory(self, memory_id: str) -> Optional[Memory]:
@@ -241,14 +244,17 @@ class UnifiedMemoryClient:
         Returns:
             List of Memory objects
         """
-        return self._backend.get_memories(
-            user_id=user_id,
-            session_id=session_id,
-            limit=limit,
-            filters=filters,
-            min_importance=min_importance,
-            after=after,
-            before=before,
+        return cast(
+            list[Memory],
+            self._backend.get_memories(
+                user_id=user_id,
+                session_id=session_id,
+                limit=limit,
+                filters=filters,
+                min_importance=min_importance,
+                after=after,
+                before=before,
+            ),
         )
 
     def update_memory(
@@ -293,7 +299,7 @@ class UnifiedMemoryClient:
         Returns:
             True if deleted, False if not found
         """
-        return self._backend.delete_memory(memory_id)
+        return cast(bool, self._backend.delete_memory(memory_id))
 
     def batch_remember(self, memories: list[dict[str, Any]]) -> list[Memory]:
         """
@@ -305,7 +311,7 @@ class UnifiedMemoryClient:
         Returns:
             List of created Memory objects
         """
-        return self._backend.batch_remember(memories)
+        return cast(list[Any], self._backend.batch_remember(memories))
 
     def batch_get_memories(self, memory_ids: list[str]) -> list[Memory]:
         """
@@ -317,7 +323,7 @@ class UnifiedMemoryClient:
         Returns:
             List of Memory objects
         """
-        return self._backend.batch_get_memories(memory_ids)
+        return cast(list[Any], self._backend.batch_get_memories(memory_ids))
 
     def batch_delete_memories(self, memory_ids: list[str]) -> bool:
         """
@@ -329,7 +335,7 @@ class UnifiedMemoryClient:
         Returns:
             True if successful
         """
-        return self._backend.batch_delete_memories(memory_ids)
+        return cast(bool, self._backend.batch_delete_memories(memory_ids))
 
     def consolidate_memories(
         self, user_id: str, session_id: Optional[str] = None
@@ -344,7 +350,10 @@ class UnifiedMemoryClient:
         Returns:
             List of consolidated memory groups
         """
-        return self._backend.consolidate_memories(user_id=user_id, session_id=session_id)
+        return cast(
+            list[dict[str, Any]],
+            self._backend.consolidate_memories(user_id=user_id, session_id=session_id),
+        )
 
     def cleanup_expired_memories(self) -> int:
         """
@@ -353,7 +362,7 @@ class UnifiedMemoryClient:
         Returns:
             Number of memories deleted
         """
-        return self._backend.cleanup_expired_memories()
+        return cast(int, self._backend.cleanup_expired_memories())
 
     def get_memory_analytics(self, user_id: str) -> dict[str, Any]:
         """
@@ -365,7 +374,7 @@ class UnifiedMemoryClient:
         Returns:
             Analytics dictionary with metrics
         """
-        return self._backend.get_memory_analytics(user_id)
+        return cast(dict[str, Any], self._backend.get_memory_analytics(user_id))
 
     def health_check(self) -> dict[str, Any]:
         """
@@ -378,5 +387,5 @@ class UnifiedMemoryClient:
             AttributeError: If called in local mode
         """
         if self.mode == "remote":
-            return self._backend.health_check()
+            return cast(dict[str, Any], self._backend.health_check())
         raise AttributeError("health_check() only available in remote mode")

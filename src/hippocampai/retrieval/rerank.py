@@ -35,7 +35,7 @@ class Reranker:
         if not candidates:
             return []
 
-        query_hash = hashlib.md5(query.encode()).hexdigest()
+        query_hash = hashlib.md5(query.encode(), usedforsecurity=False).hexdigest()
         results = []
 
         # Try cache first
@@ -83,7 +83,7 @@ class Reranker:
             Similarity score (higher is more similar)
         """
         # Create cache key from both texts
-        cache_key = hashlib.md5(f"{text1}:{text2}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"{text1}:{text2}".encode(), usedforsecurity=False).hexdigest()
         cached = self.cache.get(cache_key)
         if cached is not None:
             return float(cached)

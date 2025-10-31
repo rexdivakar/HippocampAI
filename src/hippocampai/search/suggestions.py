@@ -82,7 +82,7 @@ class SearchSuggestionEngine:
             return []
 
         # Get last used timestamp for each query
-        last_used_map = {}
+        last_used_map: dict[str, datetime] = {}
         for query, timestamp in self._query_history[user_id]:
             if query in filtered:
                 if query not in last_used_map or timestamp > last_used_map[query]:
@@ -133,7 +133,7 @@ class SearchSuggestionEngine:
             return []
 
         # Get last used timestamp
-        last_used_map = {}
+        last_used_map: dict[str, datetime] = {}
         for query, timestamp in self._query_history[user_id]:
             if query not in last_used_map or timestamp > last_used_map[query]:
                 last_used_map[query] = timestamp

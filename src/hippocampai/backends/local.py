@@ -72,14 +72,38 @@ class LocalBackend(BaseBackend):
             delta = expires_at - now
             ttl_days = max(1, int(delta.total_seconds() / (24 * 3600)))
 
-        return self._client.remember(
-            text=text,
-            user_id=user_id,
-            session_id=session_id,
-            tags=tags,
-            importance=importance,
-            ttl_days=ttl_days,
-        )
+        # Determine memory type from metadata or default to "fact"
+        memory_type = "fact"
+        if metadata and "type" in metadata:
+            memory_type = metadata["type"]
+        elif tags:
+            # Infer type from tags if possible
+            type_mapping = {
+                "preference": "preference",
+                "event": "event",
+                "fact": "fact",
+                "opinion": "opinion",
+            }
+            for tag in tags:
+                if tag in type_mapping:
+                    memory_type = type_mapping[tag]
+                    break
+
+        # Filter parameters that MemoryClient.remember() accepts
+        memory_kwargs = {
+            "text": text,
+            "user_id": user_id,
+            "session_id": session_id,
+            "type": memory_type,  # MemoryClient uses 'type' parameter
+            "importance": importance,
+            "tags": tags,
+            "ttl_days": ttl_days,
+        }
+
+        # Remove None values to use MemoryClient defaults
+        memory_kwargs = {k: v for k, v in memory_kwargs.items() if v is not None}
+
+        return self._client.remember(**memory_kwargs)
 
     def recall(
         self,

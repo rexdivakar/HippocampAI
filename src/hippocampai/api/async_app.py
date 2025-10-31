@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from hippocampai.adapters.llm_base import BaseLLM
+from hippocampai.adapters.provider_anthropic import AnthropicLLM
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
@@ -83,6 +84,13 @@ async def lifespan(app: FastAPI):
         if api_key:
             llm = GroqLLM(api_key=api_key, model=config.llm_model)
             logger.info(f"Initialized Groq LLM: {config.llm_model}")
+    elif config.llm_provider == "anthropic" and config.allow_cloud:
+        import os
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if api_key:
+            llm = AnthropicLLM(api_key=api_key, model=config.llm_model)
+            logger.info(f"Initialized Anthropic LLM: {config.llm_model}")
 
     if llm is None:
         logger.warning(
@@ -152,9 +160,18 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load intelligence routes: {e}")
 
+# Include Celery routes for background task processing
+try:
+    from hippocampai.api.celery_routes import router as celery_router
+
+    app.include_router(celery_router, prefix="/celery", tags=["celery"])
+    logger.info("Celery routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load celery routes: {e}")
+
 
 # Dependency to get service
-async def get_service() -> MemoryManagementService:
+def get_service() -> MemoryManagementService:
     """Get memory management service."""
     if _service is None:
         raise HTTPException(status_code=500, detail="Service not initialized")
@@ -267,13 +284,13 @@ class ExpireRequest(BaseModel):
 
 @app.get("/healthz")
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok", "service": "hippocampai", "version": "2.0.0"}
 
 
 @app.get("/stats")
-async def get_stats(service: MemoryManagementService = Depends(get_service)):
+async def get_stats(service: MemoryManagementService = Depends(get_service)) -> dict[str, Any]:
     """Get Redis cache statistics."""
     stats = await service.redis.get_stats()
     return stats
@@ -287,7 +304,7 @@ async def get_stats(service: MemoryManagementService = Depends(get_service)):
 @app.post("/v1/memories", response_model=Memory, status_code=status.HTTP_201_CREATED)
 async def create_memory(
     request: MemoryCreate, service: MemoryManagementService = Depends(get_service)
-):
+) -> Memory:
     """Create a new memory with optional deduplication check."""
     try:
         memory = await service.create_memory(
@@ -308,7 +325,9 @@ async def create_memory(
 
 
 @app.get("/v1/memories/{memory_id}", response_model=Memory)
-async def get_memory(memory_id: str, service: MemoryManagementService = Depends(get_service)):
+async def get_memory(
+    memory_id: str, service: MemoryManagementService = Depends(get_service)
+) -> Memory:
     """Get a memory by ID."""
     try:
         memory = await service.get_memory(memory_id)
@@ -327,7 +346,7 @@ async def update_memory(
     memory_id: str,
     request: MemoryUpdate,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> Memory:
     """Update an existing memory."""
     try:
         memory = await service.update_memory(
@@ -353,7 +372,7 @@ async def delete_memory(
     memory_id: str,
     user_id: Optional[str] = None,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Delete a memory."""
     try:
         deleted = await service.delete_memory(memory_id, user_id)
@@ -640,7 +659,7 @@ async def get_memory_analytics(
 
 
 # Dependency to get background task manager
-async def get_background_tasks() -> BackgroundTaskManager:
+def get_background_tasks() -> BackgroundTaskManager:
     """Get background task manager."""
     if _background_tasks is None:
         raise HTTPException(status_code=500, detail="Background tasks not initialized")
@@ -714,7 +733,7 @@ async def extract(request: ExtractRequest, service: MemoryManagementService = De
 # ============================================================================
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+def run_server(host: str = "127.0.0.1", port: int = 8000):
     """Run FastAPI server."""
     uvicorn.run(app, host=host, port=port)
 

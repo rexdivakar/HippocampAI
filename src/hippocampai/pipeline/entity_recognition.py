@@ -522,7 +522,7 @@ Entities:"""
         Returns:
             List of (related_entity_id, relation_type) tuples
         """
-        related = []
+        related: list[tuple[str, RelationType]] = []
         profile = self.get_entity_profile(entity_id)
 
         if not profile:
@@ -717,7 +717,7 @@ Entities:"""
         Returns:
             Dictionary of statistics
         """
-        stats = {
+        stats: dict[str, Any] = {
             "total_entities": len(self.entities),
             "by_type": {},
             "top_mentioned": [],

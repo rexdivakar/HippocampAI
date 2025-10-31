@@ -10,7 +10,7 @@ This wrapper provides:
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -27,8 +27,8 @@ class EnhancedMemoryClient:
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         qdrant_url: str = "http://localhost:6333",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """Initialize enhanced memory client.
 
         Args:
@@ -109,7 +109,7 @@ class EnhancedMemoryClient:
             return os.getenv(env_var)
         return None
 
-    def _set_api_key_env(self, provider: str, api_key: str):
+    def _set_api_key_env(self, provider: str, api_key: str) -> None:
         """Set API key in environment."""
         env_vars = {
             "groq": "GROQ_API_KEY",
@@ -120,7 +120,7 @@ class EnhancedMemoryClient:
         if env_var:
             os.environ[env_var] = api_key
 
-    def _validate_setup(self, provider: str, api_key: Optional[str]):
+    def _validate_setup(self, provider: str, api_key: Optional[str]) -> None:
         """Validate provider setup."""
         if provider in ["groq", "openai", "anthropic"] and not api_key:
             raise ValueError(
@@ -159,27 +159,33 @@ class EnhancedMemoryClient:
         filters: Optional[dict[str, Any]] = None,
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories."""
-        return self.client.recall(
-            query=query,
-            user_id=user_id,
-            session_id=session_id,
-            k=k,
-            filters=filters,
+        return cast(
+            list[Any],
+            self.client.recall(
+                query=query,
+                user_id=user_id,
+                session_id=session_id,
+                k=k,
+                filters=filters,
+            ),
         )
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> list[Memory]:
         """Extract and store memories from conversation."""
-        return self.client.extract_from_conversation(
-            conversation=conversation,
-            user_id=user_id,
-            session_id=session_id,
+        return cast(
+            list[Any],
+            self.client.extract_from_conversation(
+                conversation=conversation,
+                user_id=user_id,
+                session_id=session_id,
+            ),
         )
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory usage statistics."""
-        return self.client.get_memory_statistics(user_id=user_id)
+        return cast(dict[str, Any], self.client.get_memory_statistics(user_id=user_id))
 
     def get_memories(
         self,
@@ -188,11 +194,13 @@ class EnhancedMemoryClient:
         limit: int = 100,
     ) -> list[Memory]:
         """Get all memories for a user."""
-        return self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
+        return cast(
+            list[Any], self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
+        )
 
     def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a memory."""
-        return self.client.delete_memory(memory_id=memory_id, user_id=user_id)
+        return cast(bool, self.client.delete_memory(memory_id=memory_id, user_id=user_id))
 
     def update_memory(
         self,
@@ -250,7 +258,7 @@ class EnhancedMemoryClient:
             auto_boundary_detect=auto_boundary_detect,
         )
 
-    def complete_session(self, session_id: str, generate_summary: bool = True):
+    def complete_session(self, session_id: str, generate_summary: bool = True) -> Any:
         """Complete a session."""
         return self.client.complete_session(
             session_id=session_id,
@@ -277,23 +285,26 @@ class EnhancedMemoryClient:
         """Get telemetry metrics."""
         return self.client.get_telemetry_metrics()
 
-    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None):
+    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[str]:
         """Get recent operations."""
-        return self.client.get_recent_operations(limit=limit, operation=operation)
+        return cast(list[str], self.client.get_recent_operations(limit=limit, operation=operation))
 
     @property
-    def llm(self):
+    def llm(self) -> Optional[str]:
         """Access underlying LLM."""
-        return self.client.llm
+        return cast(Optional[str], self.client.llm)
 
     # Smart memory updates and clustering
     def reconcile_user_memories(self, user_id: str) -> list[Memory]:
         """Reconcile and resolve conflicts in user's memories."""
         return self.client.reconcile_user_memories(user_id=user_id)
 
-    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> dict[str, Any]:
         """Cluster user's memories by topics."""
-        return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
+        return cast(
+            dict[str, Any],
+            self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters),
+        )
 
     def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory."""
@@ -314,20 +325,25 @@ class EnhancedMemoryClient:
         self,
         name: str,
         user_id: str,
-        role=None,
+        role: Optional[Any] = None,
         description: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Any:
         """Create a new agent with its own memory space."""
-        return self.client.create_agent(name, user_id, role, description, metadata)
+        # Import here to avoid circular dependency
+        from hippocampai.models.agent import AgentRole
 
-    def get_agent(self, agent_id: str):
+        return self.client.create_agent(
+            name, user_id, role or AgentRole.ASSISTANT, description, metadata
+        )
+
+    def get_agent(self, agent_id: str) -> Any:
         """Get agent by ID."""
         return self.client.get_agent(agent_id)
 
-    def list_agents(self, user_id: Optional[str] = None):
+    def list_agents(self, user_id: Optional[str] = None) -> list[Any]:
         """List all agents."""
-        return self.client.list_agents(user_id)
+        return cast(list[Any], self.client.list_agents(user_id))
 
     def create_run(
         self,
@@ -335,7 +351,7 @@ class EnhancedMemoryClient:
         user_id: str,
         name: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Any:
         """Create a new run for an agent."""
         return self.client.create_run(agent_id, user_id, name, metadata)
 

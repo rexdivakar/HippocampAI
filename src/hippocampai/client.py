@@ -2,9 +2,10 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 from uuid import uuid4
 
+from hippocampai.adapters.provider_anthropic import AnthropicLLM
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
@@ -167,6 +168,12 @@ class MemoryClient:
             api_key = os.getenv("GROQ_API_KEY")
             if api_key:
                 self.llm = GroqLLM(api_key=api_key, model=self.config.llm_model)
+        elif self.config.llm_provider == "anthropic" and self.config.allow_cloud:
+            import os
+
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if api_key:
+                self.llm = AnthropicLLM(api_key=api_key, model=self.config.llm_model)
 
         # Pipeline
         self.extractor = MemoryExtractor(llm=self.llm, mode="hybrid")
@@ -461,8 +468,11 @@ class MemoryClient:
                 self.telemetry.add_event(trace_id, "bm25_rebuild", status="success")
 
             self.telemetry.add_event(trace_id, "hybrid_retrieval", status="in_progress")
-            results = self.retriever.retrieve(
-                query=query, user_id=user_id, session_id=session_id, k=k, filters=filters
+            results = cast(
+                list[Any],
+                self.retriever.retrieve(
+                    query=query, user_id=user_id, session_id=session_id, k=k, filters=filters
+                ),
             )
             self.telemetry.add_event(
                 trace_id, "hybrid_retrieval", status="success", results_count=len(results)
@@ -591,8 +601,8 @@ class MemoryClient:
         # Calculate averages
         for type_name in by_type:
             count = by_type[type_name]["count"]
-            by_type[type_name]["avg_chars"] = by_type[type_name]["total_chars"] / count
-            by_type[type_name]["avg_tokens"] = by_type[type_name]["total_tokens"] / count
+            by_type[type_name]["avg_chars"] = int(by_type[type_name]["total_chars"] / count)
+            by_type[type_name]["avg_tokens"] = int(by_type[type_name]["total_tokens"] / count)
 
         return by_type
 
@@ -1316,7 +1326,7 @@ class MemoryClient:
                 return 0
 
             # Group by user
-            user_memories = {}
+            user_memories: dict[str, list[Memory]] = {}
             for data in all_memories:
                 memory = Memory(**data["payload"])
                 user_id = memory.user_id

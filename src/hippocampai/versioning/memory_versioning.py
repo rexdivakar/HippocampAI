@@ -174,7 +174,7 @@ class MemoryVersionControl:
         if not v1 or not v2:
             return None
 
-        diff = {"added": {}, "removed": {}, "changed": {}, "text_diff": None}
+        diff: dict[str, Any] = {"added": {}, "removed": {}, "changed": {}, "text_diff": None}
 
         # Find added and changed
         for key, value in v2.data.items():

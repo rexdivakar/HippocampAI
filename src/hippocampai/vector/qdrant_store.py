@@ -310,7 +310,7 @@ class QdrantStore:
                     tags = [tags]
                 conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
-                query_filter = Filter(must=conditions)
+                query_filter = Filter(must=list(conditions))
 
         # Build search params
         hnsw_ef = ef if ef else self.ef_search
@@ -360,7 +360,7 @@ class QdrantStore:
                     tags = [tags]
                 conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
             if conditions:
-                query_filter = Filter(must=conditions)
+                query_filter = Filter(must=list(conditions))
 
         try:
             results, _ = self.client.scroll(
@@ -392,7 +392,7 @@ class QdrantStore:
         from qdrant_client.models import PointIdsList
 
         self.client.delete(
-            collection_name=collection_name, points_selector=PointIdsList(points=ids)
+            collection_name=collection_name, points_selector=PointIdsList(points=list(ids))
         )
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)

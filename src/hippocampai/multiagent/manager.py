@@ -390,7 +390,7 @@ class MultiAgentManager:
         agent_memories = [m for m in memories if hasattr(m, "agent_id") and m.agent_id == agent_id]
 
         # Count by visibility
-        by_visibility = defaultdict(int)
+        by_visibility: dict[str, int] = defaultdict(int)
         for mem in agent_memories:
             visibility = getattr(mem, "visibility", MemoryVisibility.PRIVATE)
             # visibility might be a string (from storage) or enum
@@ -398,12 +398,12 @@ class MultiAgentManager:
             by_visibility[visibility_str] += 1
 
         # Count by type
-        by_type = defaultdict(int)
+        by_type: dict[str, int] = defaultdict(int)
         for mem in agent_memories:
             by_type[mem.type.value] += 1
 
         # Count by run
-        by_run = defaultdict(int)
+        by_run: dict[str, int] = defaultdict(int)
         for mem in agent_memories:
             run_id = getattr(mem, "run_id", None)
             if run_id:

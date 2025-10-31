@@ -82,10 +82,6 @@ Extract memories as JSON array:"""
         conv_lower = conversation.lower()
 
         for mem_type, patterns in self.HEURISTIC_PATTERNS.items():
-            # Handle both list of patterns and single pattern
-            if isinstance(patterns, str):
-                patterns = [patterns]
-
             for pattern in patterns:
                 matches = re.findall(pattern, conv_lower, re.IGNORECASE)
                 for match in matches:

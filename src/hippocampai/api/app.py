@@ -214,7 +214,7 @@ def expire_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+def run_server(host: str = "127.0.0.1", port: int = 8000):
     """Run FastAPI server."""
     uvicorn.run(app, host=host, port=port)
 

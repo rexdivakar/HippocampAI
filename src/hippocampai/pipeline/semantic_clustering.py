@@ -40,7 +40,7 @@ class MemoryCluster:
             if count >= 2 or count / len(self.memories) > 0.5
         ]
 
-    def add_memory(self, memory: Memory):
+    def add_memory(self, memory: Memory) -> None:
         """Add memory to cluster."""
         self.memories.append(memory)
         self.tags = self._extract_common_tags()
@@ -49,7 +49,7 @@ class MemoryCluster:
 class SemanticCategorizer:
     """Handles semantic clustering and auto-categorization of memories."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: Optional[Any] = None) -> None:
         """Initialize categorizer.
 
         Args:
@@ -175,7 +175,7 @@ Tags:"""
         }
 
         # Score each category
-        scores = defaultdict(int)
+        scores: dict[MemoryType, int] = defaultdict(int)
         for category, patterns in category_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, text_lower):
@@ -315,7 +315,7 @@ Category (respond with only the category name):"""
             jaccard_sim = len(intersection) / len(union) if union else 0
 
             # Calculate semantic similarity using synonym groups
-            semantic_boost = 0
+            semantic_boost = 0.0
             for group in synonym_groups:
                 query_has = any(token in group for token in query_tokens)
                 existing_has = any(token in group for token in existing_tokens)
@@ -375,19 +375,19 @@ Category (respond with only the category name):"""
         text_lower = text.lower()
 
         # Check topic keywords
-        topic_scores = defaultdict(int)
+        topic_scores: dict[str, int] = defaultdict(int)
         for topic, keywords in self.topic_keywords.items():
             for keyword in keywords:
                 if keyword in text_lower:
                     topic_scores[topic] += 1
 
         if topic_scores:
-            return max(topic_scores.items(), key=lambda x: x[1])[0]
+            return str(max(topic_scores.items(), key=lambda x: x[1])[0])
 
         # Extract most common noun as topic
         words = re.findall(r"\b[a-z]{4,}\b", text_lower)
         if words:
-            return Counter(words).most_common(1)[0][0]
+            return str(Counter(words).most_common(1)[0][0])
 
         return "general"
 
@@ -528,7 +528,7 @@ Category (respond with only the category name):"""
 
         while len(clusters) > 1:
             # Find most similar pair of clusters
-            max_sim = -1
+            max_sim = -1.0
             merge_i, merge_j = -1, -1
 
             for i in range(len(clusters)):
@@ -689,7 +689,7 @@ Category (respond with only the category name):"""
             clusters = self.cluster_memories(memories, max_clusters=k)
 
             # Compute average cohesion
-            total_cohesion = 0
+            total_cohesion = 0.0
             for cluster in clusters:
                 metrics = self.compute_cluster_quality_metrics(cluster)
                 total_cohesion += metrics["cohesion"] * len(cluster.memories)

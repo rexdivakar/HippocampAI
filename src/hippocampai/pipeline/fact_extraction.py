@@ -418,7 +418,7 @@ Facts:"""
 
         # Try to split by "User:" and "Assistant:" markers
         turns = []
-        current_turn = []
+        current_turn: list[str] = []
 
         for line in conversation.split("\n"):
             line = line.strip()
@@ -445,7 +445,7 @@ Facts:"""
     def _link_related_facts(self, facts: list[ExtractedFact]) -> list[ExtractedFact]:
         """Link related facts together."""
         # Group facts by entities
-        entity_groups = {}
+        entity_groups: dict[str, list[ExtractedFact]] = {}
 
         for fact in facts:
             for entity in fact.entities:

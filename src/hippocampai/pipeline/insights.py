@@ -258,7 +258,7 @@ class InsightAnalyzer:
         sorted_mems = sorted(memories, key=lambda m: m.created_at)
 
         # Look for sequences with tags
-        tag_sequences = defaultdict(int)
+        tag_sequences: dict[str, int] = defaultdict(int)
 
         for i in range(len(sorted_mems) - 1):
             mem1 = sorted_mems[i]
@@ -640,7 +640,7 @@ class InsightAnalyzer:
         Returns:
             List of trends
         """
-        trends = []
+        trends: list[Trend] = []
 
         if not memories:
             return trends

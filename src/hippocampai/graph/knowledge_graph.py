@@ -361,7 +361,7 @@ class KnowledgeGraph(MemoryGraph):
         if not entity_node_id:
             return {}
 
-        connections = {}
+        connections: dict[str, list[tuple[str, int]]] = {}
 
         # Use BFS to find connected entities
         import networkx as nx
