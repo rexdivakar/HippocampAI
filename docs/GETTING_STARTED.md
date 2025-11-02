@@ -370,7 +370,7 @@ client.delete_memories_by_filter(
 )
 ```
 
-### Intelligence Features (v0.2.0)
+### Intelligence Features (V0.2.5)
 
 #### 7. **extract_facts() - Automatic Fact Extraction**
 

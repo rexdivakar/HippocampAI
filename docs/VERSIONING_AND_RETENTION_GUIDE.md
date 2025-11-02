@@ -1,6 +1,6 @@
 # Versioning & Retention Guide
 
-**Version**: 0.2.0
+**Version**: 0.2.5
 **Last Updated**: 2025-11-02
 
 ---
@@ -597,4 +597,4 @@ For questions or issues:
 ---
 
 **Generated**: 2025-11-02
-**Version**: 0.2.0
+**Version**: 0.2.5

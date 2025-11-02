@@ -431,8 +431,8 @@ def function(arg1: str, arg2: int) -> bool:
 
 1. Update version in `pyproject.toml`
 2. Update `CHANGELOG.md`
-3. Create git tag: `git tag -a v0.2.0 -m "Release 0.2.0"`
-4. Push tag: `git push origin v0.2.0`
+3. Create git tag: `git tag -a V0.2.5 -m "Release 0.2.5"`
+4. Push tag: `git push origin V0.2.5`
 5. Build: `python -m build`
 6. Upload: `python -m twine upload dist/*`
 7. Create GitHub release with changelog

@@ -32,7 +32,7 @@ from hippocampai.pipeline.insights import (
 )
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
-__version__ = "0.2.0"
+__version__ = "0.2.5"
 __all__ = [
     "MemoryClient",
     "UnifiedMemoryClient",  # New: Supports both local and remote modes

@@ -30,7 +30,7 @@ results = client.recall("UI preferences", user_id="user123")
 
 ## ✨ Key Features
 
-### 🎯 New in v0.2.0 - Enterprise Memory Engine
+### 🎯 New in V0.2.5 - Enterprise Memory Engine
 
 - **🚀 Performance**: 5-100x faster queries with Redis caching, connection pooling, and bulk operations
 - **🏢 Enterprise Ready**: Complete Docker Compose stack with Prometheus + Grafana monitoring  
@@ -47,7 +47,7 @@ results = client.recall("UI preferences", user_id="user123")
 - **Production-ready** — Docker Compose deployment, Celery task queue, monitoring, and enterprise-grade reliability
 - **Fully customizable** — Every component is extensible without vendor lock-in
 
-**Current Release:** v0.2.0 — Major enterprise memory engine release with production-ready infrastructure, advanced intelligence capabilities, and 5-100x performance improvements.
+**Current Release:** V0.2.5 — Major enterprise memory engine release with production-ready infrastructure, advanced intelligence capabilities, and 5-100x performance improvements.
 
 **✅ Verified Working**: Groq (0.37s), Ollama (0.02s), Docker Compose deployment, Celery task queue, comprehensive monitoring.
 
@@ -194,7 +194,7 @@ python validate_intelligence_features.py --verbose
 
 ---
 
-## 🚀 Quick Start - Production Ready (v0.2.0)
+## 🚀 Quick Start - Production Ready (V0.2.5)
 
 Choose your deployment mode and AI provider with a single line:
 
@@ -273,7 +273,7 @@ memory = client.remember(
     tags=["beverages", "schedule", "work"]
 )
 
-# Automatic fact extraction (v0.2.0 feature)
+# Automatic fact extraction (V0.2.5 feature)
 print(f"Extracted facts: {memory.extracted_facts}")
 # Output: ['beverage_preference: oat milk', 'work_schedule: 9-5 PST']
 
@@ -739,7 +739,7 @@ client = MemoryClient(config=config)
 
 ## 🗺️ Roadmap
 
-**Completed (v0.2.0):**
+**Completed (V0.2.5):**
 
 - [x] **Unified Memory Client** — Single interface for local/remote modes with complete feature parity
 - [x] **Advanced Search & Retrieval** — Hybrid search modes, reranking control, score breakdowns, saved searches
