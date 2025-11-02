@@ -2554,7 +2554,7 @@ python examples/07_advanced_features_demo.py
 
 ## Migration Guide
 
-### From v0.1.0 to v1.0.0
+### From v0.1.5 to v0.2.0
 
 **All changes are backward compatible.** Existing code will work without modifications.
 
