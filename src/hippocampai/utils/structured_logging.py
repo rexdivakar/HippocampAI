@@ -57,10 +57,10 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
         # Add request_id if available
         if hasattr(record, "request_id"):
-            log_record["request_id"] = record.request_id
+            log_record["request_id"] = getattr(record, "request_id", None)
 
         # Add exception info if present
-        if record.exc_info:
+        if record.exc_info and record.exc_info[0] is not None:
             log_record["exception"] = {
                 "type": record.exc_info[0].__name__,
                 "message": str(record.exc_info[1]),
@@ -98,7 +98,7 @@ def setup_structured_logging(
 
     if format_json:
         # Use JSON formatter
-        formatter = CustomJsonFormatter(
+        formatter: logging.Formatter = CustomJsonFormatter(
             "%(timestamp)s %(level)s %(name)s %(message)s",
             rename_fields={
                 "levelname": "level",

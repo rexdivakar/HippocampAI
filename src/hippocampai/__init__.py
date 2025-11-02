@@ -93,6 +93,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.enhanced_client import EnhancedMemoryClient as EnhancedMemoryClient
     from hippocampai.graph import MemoryGraph as MemoryGraph
     from hippocampai.graph import RelationType as RelationType
+    from hippocampai.multiagent import MultiAgentManager as MultiAgentManager
     from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
     from hippocampai.session import SessionManager as SessionManager
     from hippocampai.storage import MemoryKVStore as MemoryKVStore

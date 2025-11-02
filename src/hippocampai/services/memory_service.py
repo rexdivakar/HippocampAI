@@ -6,6 +6,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+import numpy as np
+
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
@@ -217,9 +219,9 @@ class MemoryManagementService:
         # Try both collections
         for collection in [self.qdrant.collection_facts, self.qdrant.collection_prefs]:
             try:
-                points = self.qdrant.retrieve(collection_name=collection, ids=[memory_id])
-                if points:
-                    payload = points[0]["payload"]
+                point = self.qdrant.get(collection_name=collection, id=memory_id)
+                if point:
+                    payload = point
                     # Cache in Redis
                     await self.redis.set_memory(memory_id, payload)
                     return Memory(**payload)
@@ -469,8 +471,8 @@ class MemoryManagementService:
         # Phase 3: Optionally check for duplicates
         if check_duplicates:
             # Note: Bulk duplicate checking can be optimized in future
-            filtered_memories = []
-            filtered_vectors = []
+            filtered_memories: list[Memory] = []
+            filtered_vectors: list[np.ndarray] = []
             for memory, vector in zip(memory_objects, vectors):
                 action, _ = self.deduplicator.check_duplicate(memory, memory.user_id)
                 if action == "add":
@@ -479,7 +481,7 @@ class MemoryManagementService:
                 else:
                     logger.debug(f"Skipping duplicate memory for user {memory.user_id}")
             memory_objects = filtered_memories
-            vectors = filtered_vectors
+            vectors = np.array(filtered_vectors)
 
         if not memory_objects:
             logger.info("All memories were duplicates, skipping batch create")

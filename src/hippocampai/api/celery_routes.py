@@ -2,9 +2,11 @@
 
 from typing import Any, Optional
 
+from celery.result import AsyncResult  # type: ignore[import-untyped]
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from hippocampai.celery_app import celery_app
 from hippocampai.tasks import (
     batch_create_memories_task,
     create_memory_task,
@@ -215,10 +217,6 @@ async def get_task_status(task_id: str):
     Returns:
         Current status and result (if completed)
     """
-    from celery.result import AsyncResult
-
-    from hippocampai.celery_app import celery_app
-
     task = AsyncResult(task_id, app=celery_app)
 
     response = TaskStatusResponse(
@@ -250,10 +248,6 @@ async def cancel_task(task_id: str):
     Returns:
         Cancellation status
     """
-    from celery.result import AsyncResult
-
-    from hippocampai.celery_app import celery_app
-
     task = AsyncResult(task_id, app=celery_app)
 
     if task.state in ["PENDING", "STARTED", "RETRY"]:
@@ -270,7 +264,6 @@ async def get_worker_stats():
     Returns:
         Worker stats including active tasks, queues, etc.
     """
-    from hippocampai.celery_app import celery_app
 
     inspector = celery_app.control.inspect()
 
@@ -292,7 +285,6 @@ async def get_queue_info():
     Returns:
         Queue information including message counts
     """
-    from hippocampai.celery_app import celery_app
 
     inspector = celery_app.control.inspect()
 
@@ -314,7 +306,6 @@ async def list_scheduled_tasks():
     Returns:
         List of scheduled tasks with their schedules
     """
-    from hippocampai.celery_app import celery_app
 
     schedule = celery_app.conf.beat_schedule
 
@@ -341,7 +332,6 @@ async def run_scheduled_task_now(task_name: str):
     Returns:
         Task ID of the triggered task
     """
-    from hippocampai.celery_app import celery_app
 
     schedule = celery_app.conf.beat_schedule
 

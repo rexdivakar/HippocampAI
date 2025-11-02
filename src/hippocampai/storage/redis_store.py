@@ -142,9 +142,9 @@ class AsyncRedisKVStore:
         # Handle both sync and async returns from redis client
         if isinstance(result, int):
             return result
-        return int(await result) if result is not None else 0  # type: ignore
+        return int(await result) if result is not None else 0
 
-    async def smembers(self, key: str) -> set[str]:
+    async def smembers(self, key: str) -> set[str]:  # type: ignore[valid-type]
         """Get all members of a set."""
         await self.connect()
         if self._client is None:
@@ -154,7 +154,7 @@ class AsyncRedisKVStore:
         if isinstance(members, set):
             return {str(m.decode() if isinstance(m, bytes) else m) for m in members}
         # If it's a coroutine, await it
-        members_result = await members  # type: ignore
+        members_result = await members
         return {str(m.decode() if isinstance(m, bytes) else m) for m in members_result}
 
     async def srem(self, key: str, *values: str) -> int:
@@ -166,7 +166,7 @@ class AsyncRedisKVStore:
         result = self._client.srem(key, *values)
         if isinstance(result, int):
             return result
-        return int(await result) if result is not None else 0  # type: ignore
+        return int(await result) if result is not None else 0
 
     async def pipeline(self) -> Any:
         """Create a pipeline for batch operations."""

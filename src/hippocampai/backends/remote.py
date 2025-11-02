@@ -218,6 +218,7 @@ class RemoteBackend(BaseBackend):
     ) -> Optional[Memory]:
         """Update a memory via API."""
         payload = {
+            "memory_id": memory_id,
             "text": text,
             "metadata": metadata,
             "tags": tags,

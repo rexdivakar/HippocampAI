@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, Optional, Union, cast
 from uuid import uuid4
 
 from hippocampai.adapters.provider_anthropic import AnthropicLLM
@@ -153,7 +153,7 @@ class MemoryClient:
         )
 
         # LLM (optional)
-        self.llm = None
+        self.llm: Optional[Union[OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM]] = None
         if self.config.llm_provider == "ollama":
             self.llm = OllamaLLM(model=self.config.llm_model, base_url=self.config.llm_base_url)
         elif self.config.llm_provider == "openai" and self.config.allow_cloud:
@@ -2335,10 +2335,10 @@ class MemoryClient:
         memories = self.get_memories(user_id, limit=10000)
 
         # Get sessions if IDs provided
-        sessions = None
+        sessions: Optional[list[Session]] = None
         if session_ids:
-            sessions = [self.session_manager.get_session(sid) for sid in session_ids]
-            sessions = [s for s in sessions if s is not None]
+            sessions_list = [self.session_manager.get_session(sid) for sid in session_ids]
+            sessions = [s for s in sessions_list if s is not None]
 
         return self.insight_analyzer.detect_patterns(memories, user_id, sessions)
 

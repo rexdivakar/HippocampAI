@@ -1,6 +1,7 @@
 """Celery application configuration for distributed task processing."""
 
 import os
+from typing import Any
 
 from celery import Celery
 from celery.schedules import crontab
@@ -57,7 +58,7 @@ celery_app.conf.update(
 
 
 # Scheduled tasks configuration
-def get_beat_schedule():
+def get_beat_schedule() -> dict[str, dict[str, Any]]:
     """Get the Celery Beat schedule based on environment configuration."""
     schedule = {}
 

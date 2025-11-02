@@ -56,7 +56,7 @@ class HybridRetriever:
         self.corpus_facts: list[tuple[str, str]] = []  # [(id, text), ...]
         self.corpus_prefs: list[tuple[str, str]] = []
 
-    def rebuild_bm25(self, user_id: str):
+    def rebuild_bm25(self, user_id: str) -> None:
         """Rebuild BM25 indices for a user."""
         # Fetch all memories for user
         facts_data = self.qdrant.scroll(
@@ -128,19 +128,30 @@ class HybridRetriever:
             bm25_ranking = []
             vector_results = []
 
+            # Construct base filters
+            base_filters = {"user_id": user_id}
+            if session_id:
+                base_filters["session_id"] = session_id
+
+            # Merge with additional filters if provided
+            final_filters = base_filters if not filters else {**filters, **base_filters}
+
             # Vector search (if mode allows)
-            if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY]:
+            if (
+                search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY]
+                and query_vector is not None
+            ):
                 vector_results = self.qdrant.search(
                     collection_name=collection,
                     vector=query_vector,
                     limit=self.top_k_qdrant,
-                    filters={"user_id": user_id}
-                    if not filters
-                    else {**filters, "user_id": user_id},
+                    filters=final_filters,
                 )
                 vector_ranking = [(r["id"], r["score"]) for r in vector_results]
 
             # BM25 search (if mode allows)
+            # NOTE: BM25 session filtering is complex and affects performance
+            # For now, we rely on vector search session filtering and post-filter BM25 results
             if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY]:
                 if collection == self.qdrant.collection_facts and self.bm25_facts:
                     bm25_results = self.bm25_facts.search(query, top_k=self.top_k_qdrant)
@@ -254,8 +265,12 @@ class HybridRetriever:
                     "reranking_enabled": enable_reranking,
                 }
 
-            results.append(RetrievalResult(memory=memory, score=final_score, breakdown=breakdown))
+            # Apply session filtering as final security check
+            if session_id is None or memory.session_id == session_id:
+                results.append(
+                    RetrievalResult(memory=memory, score=final_score, breakdown=breakdown)
+                )
 
-        # Sort by final score
-        results.sort(key=lambda x: x.score, reverse=True)
+        # Sort and return top k
+        results.sort(key=lambda r: r.score, reverse=True)
         return results[:k]

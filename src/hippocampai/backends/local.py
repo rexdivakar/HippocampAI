@@ -101,9 +101,38 @@ class LocalBackend(BaseBackend):
         }
 
         # Remove None values to use MemoryClient defaults
-        memory_kwargs = {k: v for k, v in memory_kwargs.items() if v is not None}
+        filtered_kwargs = {k: v for k, v in memory_kwargs.items() if v is not None}
 
-        return self._client.remember(**memory_kwargs)
+        # Extract required positional args with type casting
+        text = str(filtered_kwargs.pop("text"))
+        user_id = str(filtered_kwargs.pop("user_id"))
+
+        # Build properly typed kwargs
+        kwargs: dict[str, Any] = {}
+        if "session_id" in filtered_kwargs:
+            kwargs["session_id"] = (
+                str(filtered_kwargs["session_id"])
+                if filtered_kwargs["session_id"] is not None
+                else None
+            )
+        if "type" in filtered_kwargs:
+            kwargs["type"] = str(filtered_kwargs["type"])
+        if "importance" in filtered_kwargs:
+            importance_val = filtered_kwargs["importance"]
+            if isinstance(importance_val, (int, float)) or (
+                isinstance(importance_val, str) and importance_val.replace(".", "", 1).isdigit()
+            ):
+                kwargs["importance"] = float(importance_val) if importance_val is not None else None
+        if "tags" in filtered_kwargs and isinstance(filtered_kwargs["tags"], list):
+            kwargs["tags"] = [str(tag) for tag in filtered_kwargs["tags"]]
+        if "ttl_days" in filtered_kwargs:
+            ttl_val = filtered_kwargs["ttl_days"]
+            if isinstance(ttl_val, (int, str)) and (
+                str(ttl_val).isdigit() if isinstance(ttl_val, str) else True
+            ):
+                kwargs["ttl_days"] = int(ttl_val) if ttl_val is not None else None
+
+        return self._client.remember(text, user_id, **kwargs)
 
     def recall(
         self,
