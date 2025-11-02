@@ -1,7 +1,7 @@
 """Memory deduplicator using embeddings + reranker."""
 
 import logging
-from typing import List, Literal
+from typing import Literal
 
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory
@@ -28,7 +28,7 @@ class MemoryDeduplicator:
 
     def check_duplicate(
         self, new_memory: Memory, user_id: str
-    ) -> tuple[Literal["store", "skip", "update"], List[str]]:
+    ) -> tuple[Literal["store", "skip", "update"], list[str]]:
         """
         Check if memory is duplicate.
 

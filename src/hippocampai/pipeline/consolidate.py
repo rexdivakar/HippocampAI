@@ -1,7 +1,7 @@
 """Memory consolidator for periodic cleanup."""
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.models.memory import Memory
@@ -22,7 +22,7 @@ Merged memory:"""
     def __init__(self, llm: Optional[BaseLLM] = None):
         self.llm = llm
 
-    def consolidate(self, memories: List[Memory]) -> Optional[Memory]:
+    def consolidate(self, memories: list[Memory]) -> Optional[Memory]:
         """
         Consolidate multiple memories into one.
 
@@ -34,11 +34,12 @@ Merged memory:"""
 
         if self.llm:
             return self._consolidate_llm(memories)
-        else:
-            return self._consolidate_heuristic(memories)
+        return self._consolidate_heuristic(memories)
 
-    def _consolidate_llm(self, memories: List[Memory]) -> Optional[Memory]:
+    def _consolidate_llm(self, memories: list[Memory]) -> Optional[Memory]:
         """LLM-based consolidation."""
+        if self.llm is None:
+            return None
         try:
             mem_texts = "\n".join([f"- {m.text}" for m in memories])
             prompt = self.CONSOLIDATE_PROMPT.format(memories=mem_texts[:1000])
@@ -65,7 +66,7 @@ Merged memory:"""
             logger.error(f"LLM consolidation failed: {e}")
             return None
 
-    def _consolidate_heuristic(self, memories: List[Memory]) -> Optional[Memory]:
+    def _consolidate_heuristic(self, memories: list[Memory]) -> Optional[Memory]:
         """Simple heuristic: pick highest importance."""
         best = max(memories, key=lambda m: m.importance)
         return Memory(

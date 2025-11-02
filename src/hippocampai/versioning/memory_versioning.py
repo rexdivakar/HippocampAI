@@ -1,10 +1,11 @@
 """Memory versioning and audit trail system."""
 
+import difflib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -28,12 +29,12 @@ class MemoryVersion:
     version_id: str
     memory_id: str
     version_number: int
-    data: Dict[str, Any]
+    data: dict[str, Any]
     created_at: datetime
     created_by: Optional[str] = None  # User/system that created this version
     change_summary: Optional[str] = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "version_id": self.version_id,
@@ -55,10 +56,10 @@ class AuditEntry:
     change_type: ChangeType = ChangeType.UPDATED
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
-    changes: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    changes: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "audit_id": self.audit_id,
@@ -82,13 +83,13 @@ class MemoryVersionControl:
             max_versions_per_memory: Maximum versions to keep per memory
         """
         self.max_versions = max_versions_per_memory
-        self._versions: Dict[str, List[MemoryVersion]] = {}  # memory_id -> versions
-        self._audit_trail: List[AuditEntry] = []
+        self._versions: dict[str, list[MemoryVersion]] = {}  # memory_id -> versions
+        self._audit_trail: list[AuditEntry] = []
 
     def create_version(
         self,
         memory_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         created_by: Optional[str] = None,
         change_summary: Optional[str] = None,
     ) -> MemoryVersion:
@@ -154,13 +155,13 @@ class MemoryVersionControl:
 
         return None
 
-    def get_version_history(self, memory_id: str) -> List[MemoryVersion]:
+    def get_version_history(self, memory_id: str) -> list[MemoryVersion]:
         """Get all versions of a memory."""
         return self._versions.get(memory_id, [])
 
     def compare_versions(
         self, memory_id: str, version1: int, version2: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Compare two versions of a memory.
 
@@ -173,7 +174,7 @@ class MemoryVersionControl:
         if not v1 or not v2:
             return None
 
-        diff = {"added": {}, "removed": {}, "changed": {}}
+        diff: dict[str, Any] = {"added": {}, "removed": {}, "changed": {}, "text_diff": None}
 
         # Find added and changed
         for key, value in v2.data.items():
@@ -187,9 +188,47 @@ class MemoryVersionControl:
             if key not in v2.data:
                 diff["removed"][key] = v1.data[key]
 
+        # Generate text diff if text field changed
+        if "text" in diff["changed"]:
+            old_text = diff["changed"]["text"]["old"]
+            new_text = diff["changed"]["text"]["new"]
+            diff["text_diff"] = self._generate_text_diff(old_text, new_text)
+
         return diff
 
-    def rollback(self, memory_id: str, version_number: int) -> Optional[Dict[str, Any]]:
+    def _generate_text_diff(self, old_text: str, new_text: str) -> dict[str, Any]:
+        """
+        Generate a detailed text diff using difflib.
+
+        Returns:
+            Dictionary with unified diff and statistics
+        """
+        old_lines = old_text.splitlines(keepends=True)
+        new_lines = new_text.splitlines(keepends=True)
+
+        # Generate unified diff
+        diff_lines = list(
+            difflib.unified_diff(old_lines, new_lines, fromfile="old", tofile="new", lineterm="")
+        )
+
+        # Calculate statistics
+        added_lines = sum(
+            1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
+        )
+        removed_lines = sum(
+            1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+        )
+
+        return {
+            "unified_diff": "\n".join(diff_lines),
+            "added_lines": added_lines,
+            "removed_lines": removed_lines,
+            "old_length": len(old_text),
+            "new_length": len(new_text),
+            "size_change": len(new_text) - len(old_text),
+        }
+
+    def rollback(self, memory_id: str, version_number: int) -> Optional[dict[str, Any]]:
         """
         Rollback to a previous version.
 
@@ -206,8 +245,8 @@ class MemoryVersionControl:
         memory_id: str,
         change_type: ChangeType,
         user_id: Optional[str] = None,
-        changes: Optional[Dict] = None,
-        metadata: Optional[Dict] = None,
+        changes: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> AuditEntry:
         """
         Add an audit trail entry.
@@ -240,7 +279,7 @@ class MemoryVersionControl:
         user_id: Optional[str] = None,
         change_type: Optional[ChangeType] = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """
         Get audit trail entries with optional filtering.
 
@@ -285,7 +324,7 @@ class MemoryVersionControl:
         logger.info(f"Cleared {cleared} old audit entries")
         return cleared
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get version control statistics."""
         total_versions = sum(len(versions) for versions in self._versions.values())
 

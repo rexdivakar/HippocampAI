@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hippocampai"
-version = "0.1.5"
+version = "0.2.0"
 description = "HippocampAI — autonomous long-term memory engine with hybrid retrieval and cross-encoder reranking"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -44,6 +44,9 @@ dependencies = [
     "typer[all]>=0.9,<1.0",
     "tenacity>=8.2,<9.0",
     "python-json-logger>=2.0,<3.0",
+    "celery[redis]>=5.3,<6.0",
+    "flower>=2.0,<3.0",
+    "redis>=5.0,<6.0",
 ]
 
 [project.optional-dependencies]
@@ -184,6 +187,9 @@ module = [
     "rank_bm25.*",
     "apscheduler.*",
     "cachetools.*",
+    "celery.*",
+    "kombu.*",
+    "flower.*",
 ]
 ignore_missing_imports = true
 

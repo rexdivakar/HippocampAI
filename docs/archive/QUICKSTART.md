@@ -75,6 +75,7 @@ python -c "from hippocampai import MemoryClient; MemoryClient()"
 ```
 
 You should see:
+
 ```
 Connected to Qdrant at http://localhost:6333
 Created collection: hippocampai_facts
@@ -120,6 +121,7 @@ python test_memory.py
 ```
 
 Expected output:
+
 ```
 ✓ Stored memory: f47ac10b-58cc-4372-a567-0e02b2c3d479
 ✓ Found 1 relevant memories:
@@ -144,7 +146,7 @@ pip install -e ".[web]"
 python web_chat.py
 ```
 
-Open http://localhost:5000 in your browser.
+Open <http://localhost:5000> in your browser.
 
 ## Run Examples
 
@@ -174,6 +176,7 @@ ERROR: Failed to connect to Qdrant
 ```
 
 **Solution**: Make sure Qdrant is running:
+
 ```bash
 docker ps | grep qdrant
 ```
@@ -185,6 +188,7 @@ ModuleNotFoundError: No module named 'qdrant_client'
 ```
 
 **Solution**: Install dependencies:
+
 ```bash
 pip install -e .
 ```
@@ -199,9 +203,8 @@ ERROR: LLM_PROVIDER not configured
 
 ## Getting Help
 
-- **Discord**: https://discord.gg/pPSNW9J7gB
-- **Issues**: https://github.com/rexdivakar/HippocampAI/issues
-- **Email**: rexdivakar@hotmail.com
+- **Discord**: <https://discord.gg/pPSNW9J7gB>
+- **Issues**: <https://github.com/rexdivakar/HippocampAI/issues>
 
 ## What's Next?
 
