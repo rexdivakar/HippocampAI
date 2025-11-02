@@ -1,7 +1,7 @@
 """Ollama LLM adapter."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 import httpx
 
@@ -50,7 +50,7 @@ class OllamaLLM(BaseLLM):
 
     @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(
-        self, messages: List[Dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
+        self, messages: list[dict[str, str]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
         """Chat completion (with automatic retry on transient failures)."""
         url = f"{self.base_url}/api/chat"

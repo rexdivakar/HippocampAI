@@ -14,10 +14,10 @@ class Cache:
     def get(self, key: str) -> Optional[Any]:
         return self.cache.get(key)
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         self.cache[key] = value
 
-    def clear(self):
+    def clear(self) -> None:
         self.cache.clear()
 
 

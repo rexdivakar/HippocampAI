@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-from typing import List, Tuple
 
 from sentence_transformers import CrossEncoder
 
@@ -20,8 +19,8 @@ class Reranker:
         logger.info(f"Loaded reranker: {model_name}")
 
     def rerank(
-        self, query: str, candidates: List[Tuple[str, str, float]], top_k: int = 20
-    ) -> List[Tuple[str, str, float, float]]:
+        self, query: str, candidates: list[tuple[str, str, float]], top_k: int = 20
+    ) -> list[tuple[str, str, float, float]]:
         """
         Rerank candidates using CrossEncoder.
 
@@ -36,7 +35,7 @@ class Reranker:
         if not candidates:
             return []
 
-        query_hash = hashlib.md5(query.encode()).hexdigest()
+        query_hash = hashlib.md5(query.encode(), usedforsecurity=False).hexdigest()
         results = []
 
         # Try cache first
@@ -71,3 +70,25 @@ class Reranker:
         # Sort by rerank score
         results.sort(key=lambda x: x[3], reverse=True)
         return results[:top_k]
+
+    def rerank_single(self, text1: str, text2: str) -> float:
+        """
+        Compute similarity score between two texts using CrossEncoder.
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            Similarity score (higher is more similar)
+        """
+        # Create cache key from both texts
+        cache_key = hashlib.md5(f"{text1}:{text2}".encode(), usedforsecurity=False).hexdigest()
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            return float(cached)
+
+        # Compute score
+        score = float(self.model.predict([[text1, text2]])[0])
+        self.cache.set(cache_key, score)
+        return score

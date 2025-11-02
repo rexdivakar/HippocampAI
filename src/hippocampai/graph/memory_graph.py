@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Optional, Union
 
 import networkx as nx
 
@@ -31,10 +31,10 @@ class MemoryGraph:
     def __init__(self):
         """Initialize memory graph."""
         self.graph = nx.DiGraph()  # Directed graph for relationships
-        self._memory_index: Dict[str, Dict] = {}  # memory_id -> memory_data
-        self._user_graphs: Dict[str, Set[str]] = defaultdict(set)  # user_id -> memory_ids
+        self._memory_index: dict[str, dict] = {}  # memory_id -> memory_data
+        self._user_graphs: dict[str, set[str]] = defaultdict(set)  # user_id -> memory_ids
 
-    def add_memory(self, memory_id: str, user_id: str, metadata: Optional[Dict] = None):
+    def add_memory(self, memory_id: str, user_id: str, metadata: Optional[dict] = None):
         """Add a memory node to the graph."""
         self.graph.add_node(memory_id, user_id=user_id, **(metadata or {}))
         self._memory_index[memory_id] = {"user_id": user_id, "metadata": metadata or {}}
@@ -47,7 +47,7 @@ class MemoryGraph:
         target_id: str,
         relation_type: RelationType,
         weight: float = 1.0,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
     ):
         """Add a relationship between two memories."""
         if source_id not in self.graph or target_id not in self.graph:
@@ -63,10 +63,10 @@ class MemoryGraph:
     def get_related_memories(
         self,
         memory_id: str,
-        relation_types: Optional[List[RelationType]] = None,
+        relation_types: Optional[list[RelationType]] = None,
         max_depth: int = 1,
         direction: str = "both",  # 'outgoing', 'incoming', 'both'
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """
         Get memories related to a given memory.
 
@@ -121,14 +121,14 @@ class MemoryGraph:
 
         return related
 
-    def find_path(self, source_id: str, target_id: str) -> Optional[List[str]]:
+    def find_path(self, source_id: str, target_id: str) -> Optional[list[str]]:
         """Find shortest path between two memories."""
         try:
             return nx.shortest_path(self.graph, source_id, target_id)
         except nx.NetworkXNoPath:
             return None
 
-    def get_clusters(self, user_id: Optional[str] = None) -> List[Set[str]]:
+    def get_clusters(self, user_id: Optional[str] = None) -> list[set[str]]:
         """
         Find clusters of related memories using community detection.
 
@@ -154,7 +154,7 @@ class MemoryGraph:
 
     def get_most_connected(
         self, user_id: Optional[str] = None, top_k: int = 10
-    ) -> List[Tuple[str, int]]:
+    ) -> list[tuple[str, int]]:
         """
         Get most connected memories (highest degree).
 
@@ -167,9 +167,9 @@ class MemoryGraph:
         """
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
-            degrees = [(node, self.graph.degree(node)) for node in user_nodes]
+            degrees = [(node, self.graph.degree[node]) for node in user_nodes]
         else:
-            degrees = list(self.graph.degree())
+            degrees = list(self.graph.degree)
 
         # Sort by degree descending
         degrees.sort(key=lambda x: x[1], reverse=True)
@@ -184,7 +184,7 @@ class MemoryGraph:
             self._user_graphs[user_id].discard(memory_id)
             logger.debug(f"Removed memory {memory_id} from graph")
 
-    def get_graph_stats(self, user_id: Optional[str] = None) -> Dict:
+    def get_graph_stats(self, user_id: Optional[str] = None) -> dict:
         """Get statistics about the graph."""
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
@@ -192,18 +192,25 @@ class MemoryGraph:
         else:
             subgraph = self.graph
 
+        num_nodes = subgraph.number_of_nodes()
+        # Calculate average degree - subgraph.degree is a DegreeView iterable of (node, degree) tuples
+        if num_nodes > 0:
+            degree_list: list[tuple[Any, int]] = list(subgraph.degree)
+            degree_sum = sum(degree for _, degree in degree_list)
+        else:
+            degree_sum = 0
+
         return {
-            "num_nodes": subgraph.number_of_nodes(),
+            "num_nodes": num_nodes,
             "num_edges": subgraph.number_of_edges(),
-            "density": nx.density(subgraph) if subgraph.number_of_nodes() > 0 else 0.0,
+            "density": nx.density(subgraph) if num_nodes > 0 else 0.0,
             "num_clusters": len(self.get_clusters(user_id)),
-            "avg_degree": sum(dict(subgraph.degree()).values())
-            / max(subgraph.number_of_nodes(), 1),
+            "avg_degree": degree_sum / max(num_nodes, 1),
         }
 
     def suggest_relationships(
-        self, memory_id: str, candidates: List[str], threshold: float = 0.7
-    ) -> List[Tuple[str, RelationType, float]]:
+        self, memory_id: str, candidates: list[str], threshold: float = 0.7
+    ) -> list[tuple[str, RelationType, float]]:
         """
         Suggest potential relationships based on existing patterns.
 
@@ -218,7 +225,7 @@ class MemoryGraph:
         Returns:
             List of (candidate_id, suggested_relation, confidence) tuples
         """
-        suggestions = []
+        suggestions: list[tuple[str, RelationType, float]] = []
 
         # Simple heuristic: suggest based on common neighbors
         if memory_id not in self.graph:
@@ -243,7 +250,7 @@ class MemoryGraph:
 
         return suggestions
 
-    def export_to_dict(self, user_id: Optional[str] = None) -> Dict:
+    def export_to_dict(self, user_id: Optional[str] = None) -> dict:
         """Export graph to dictionary format for serialization."""
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
@@ -253,7 +260,7 @@ class MemoryGraph:
 
         return nx.node_link_data(subgraph, edges="links")
 
-    def import_from_dict(self, data: Dict):
+    def import_from_dict(self, data: dict):
         """Import graph from dictionary format."""
         imported_graph = nx.node_link_graph(data, edges="links")
         self.graph = nx.compose(self.graph, imported_graph)
@@ -297,7 +304,7 @@ class MemoryGraph:
         )
         return str(file_path)
 
-    def import_from_json(self, file_path: Union[str, Path], merge: bool = True) -> Dict:
+    def import_from_json(self, file_path: Union[str, Path], merge: bool = True) -> dict:
         """
         Import graph from a JSON file.
 
@@ -322,7 +329,7 @@ class MemoryGraph:
             raise FileNotFoundError(f"Graph file not found: {file_path}")
 
         # Load from file
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             graph_data = json.load(f)
 
         # Validate structure

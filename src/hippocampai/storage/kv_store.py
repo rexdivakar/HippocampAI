@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +12,8 @@ class InMemoryKVStore:
 
     def __init__(self):
         """Initialize in-memory store."""
-        self._store: Dict[str, Any] = {}
-        self._ttl: Dict[str, datetime] = {}
+        self._store: dict[str, Any] = {}
+        self._ttl: dict[str, datetime] = {}
 
     def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None):
         """Set a key-value pair with optional TTL."""
@@ -47,7 +47,7 @@ class InMemoryKVStore:
         value = self.get(key)  # This handles TTL check
         return value is not None
 
-    def keys(self, pattern: Optional[str] = None) -> List[str]:
+    def keys(self, pattern: Optional[str] = None) -> list[str]:
         """Get all keys, optionally matching pattern."""
         all_keys = list(self._store.keys())
 
@@ -100,7 +100,7 @@ class MemoryKVStore:
         """Generate key for tag index."""
         return f"tag:{tag}:memories"
 
-    def set_memory(self, memory_id: str, memory_data: Dict):
+    def set_memory(self, memory_id: str, memory_data: dict):
         """Store memory data."""
         key = self._memory_key(memory_id)
         self.backend.set(key, memory_data, ttl_seconds=self.cache_ttl)
@@ -115,7 +115,7 @@ class MemoryKVStore:
         for tag in tags:
             self._add_to_index(self._tag_key(tag), memory_id)
 
-    def get_memory(self, memory_id: str) -> Optional[Dict]:
+    def get_memory(self, memory_id: str) -> Optional[dict]:
         """Retrieve memory data by ID."""
         key = self._memory_key(memory_id)
         return self.backend.get(key)
@@ -141,13 +141,13 @@ class MemoryKVStore:
 
         return deleted
 
-    def get_user_memories(self, user_id: str) -> List[str]:
+    def get_user_memories(self, user_id: str) -> list[str]:
         """Get all memory IDs for a user."""
         key = self._user_memories_key(user_id)
         memory_ids = self.backend.get(key)
         return memory_ids if memory_ids else []
 
-    def get_memories_by_tag(self, tag: str) -> List[str]:
+    def get_memories_by_tag(self, tag: str) -> list[str]:
         """Get all memory IDs with a specific tag."""
         key = self._tag_key(tag)
         memory_ids = self.backend.get(key)
@@ -185,7 +185,7 @@ class MemoryKVStore:
         for memory_id in memory_ids:
             self.delete_memory(memory_id)
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get store statistics."""
         return {
             "total_keys": self.backend.size(),

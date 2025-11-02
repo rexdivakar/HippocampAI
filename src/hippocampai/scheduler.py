@@ -6,9 +6,104 @@ and other maintenance tasks.
 
 import logging
 from datetime import datetime
+from typing import Any, Callable, Dict, Optional
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+logger = logging.getLogger(__name__)
+
+
+class SchedulerWrapper:
+    """Wrapper for APScheduler to provide better type safety."""
+
+    def __init__(self) -> None:
+        """Initialize the scheduler wrapper."""
+        try:
+            # Import APScheduler components at runtime
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from apscheduler.triggers.cron import CronTrigger
+
+            self._scheduler = BackgroundScheduler()
+            self._cron_trigger_class = CronTrigger
+            self._available = True
+        except ImportError:
+            logger.error("APScheduler not available. Scheduler functionality disabled.")
+            self._scheduler = None
+            self._cron_trigger_class = None
+            self._available = False
+
+    def is_available(self) -> bool:
+        """Check if scheduler is available."""
+        return self._available
+
+    def add_job(
+        self,
+        func: Callable[[], None],
+        cron_expression: str,
+        job_id: str,
+        name: str,
+        replace_existing: bool = True,
+    ) -> bool:
+        """Add a job to the scheduler."""
+        if not self._available or not self._scheduler or not self._cron_trigger_class:
+            logger.warning(f"Cannot add job '{name}': APScheduler not available")
+            return False
+
+        try:
+            trigger = self._cron_trigger_class.from_crontab(cron_expression)
+            self._scheduler.add_job(
+                func,
+                trigger=trigger,
+                id=job_id,
+                name=name,
+                replace_existing=replace_existing,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add job '{name}': {e}")
+            return False
+
+    def start(self) -> bool:
+        """Start the scheduler."""
+        if not self._available or not self._scheduler:
+            logger.warning("Cannot start scheduler: APScheduler not available")
+            return False
+
+        try:
+            self._scheduler.start()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start scheduler: {e}")
+            return False
+
+    def shutdown(self) -> None:
+        """Shutdown the scheduler."""
+        if self._scheduler:
+            try:
+                self._scheduler.shutdown()
+            except Exception as e:
+                logger.error(f"Error during scheduler shutdown: {e}")
+
+    def get_jobs(self) -> list[dict[str, Any]]:
+        """Get list of jobs with their information."""
+        if not self._available or not self._scheduler:
+            return []
+
+        try:
+            jobs = []
+            for job in self._scheduler.get_jobs():
+                next_run = job.next_run_time
+                jobs.append(
+                    {
+                        "id": job.id,
+                        "name": job.name,
+                        "next_run": next_run.isoformat() if next_run else None,
+                        "trigger": str(job.trigger),
+                    }
+                )
+            return jobs
+        except Exception as e:
+            logger.error(f"Failed to get jobs: {e}")
+            return []
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +111,7 @@ logger = logging.getLogger(__name__)
 class MemoryScheduler:
     """Background scheduler for memory maintenance tasks."""
 
-    def __init__(self, client=None, config=None):
+    def __init__(self, client: Optional[Any] = None, config: Optional[Any] = None) -> None:
         """Initialize scheduler.
 
         Args:
@@ -25,13 +120,17 @@ class MemoryScheduler:
         """
         self.client = client
         self.config = config
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = SchedulerWrapper()
         self._running = False
 
-    def start(self):
+    def start(self) -> None:
         """Start the scheduler."""
         if self._running:
             logger.warning("Scheduler already running")
+            return
+
+        if not self.scheduler.is_available():
+            logger.error("APScheduler not available. Cannot start scheduler.")
             return
 
         if not self.config or not self.config.enable_scheduler:
@@ -40,42 +139,47 @@ class MemoryScheduler:
 
         # Schedule consolidation job
         if hasattr(self.config, "consolidate_cron"):
-            self.scheduler.add_job(
-                self._run_consolidation,
-                trigger=CronTrigger.from_crontab(self.config.consolidate_cron),
-                id="consolidate_memories",
+            success = self.scheduler.add_job(
+                func=self._run_consolidation,
+                cron_expression=self.config.consolidate_cron,
+                job_id="consolidate_memories",
                 name="Memory Consolidation",
                 replace_existing=True,
             )
-            logger.info(f"Scheduled consolidation: {self.config.consolidate_cron}")
+            if success:
+                logger.info(f"Scheduled consolidation: {self.config.consolidate_cron}")
 
         # Schedule decay job
         if hasattr(self.config, "decay_cron"):
-            self.scheduler.add_job(
-                self._run_decay,
-                trigger=CronTrigger.from_crontab(self.config.decay_cron),
-                id="decay_importance",
+            success = self.scheduler.add_job(
+                func=self._run_decay,
+                cron_expression=self.config.decay_cron,
+                job_id="decay_importance",
                 name="Importance Decay",
                 replace_existing=True,
             )
-            logger.info(f"Scheduled importance decay: {self.config.decay_cron}")
+            if success:
+                logger.info(f"Scheduled importance decay: {self.config.decay_cron}")
 
         # Schedule snapshot job
         if hasattr(self.config, "snapshot_cron"):
-            self.scheduler.add_job(
-                self._run_snapshot,
-                trigger=CronTrigger.from_crontab(self.config.snapshot_cron),
-                id="create_snapshots",
+            success = self.scheduler.add_job(
+                func=self._run_snapshot,
+                cron_expression=self.config.snapshot_cron,
+                job_id="create_snapshots",
                 name="Snapshot Creation",
                 replace_existing=True,
             )
-            logger.info(f"Scheduled snapshots: {self.config.snapshot_cron}")
+            if success:
+                logger.info(f"Scheduled snapshots: {self.config.snapshot_cron}")
 
-        self.scheduler.start()
-        self._running = True
-        logger.info("Memory scheduler started")
+        if self.scheduler.start():
+            self._running = True
+            logger.info("Memory scheduler started")
+        else:
+            logger.error("Failed to start scheduler")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the scheduler."""
         if not self._running:
             return
@@ -84,7 +188,7 @@ class MemoryScheduler:
         self._running = False
         logger.info("Memory scheduler stopped")
 
-    def _run_consolidation(self):
+    def _run_consolidation(self) -> None:
         """Run memory consolidation job."""
         if not self.client:
             logger.warning("No client configured for consolidation")
@@ -114,7 +218,7 @@ class MemoryScheduler:
         except Exception as e:
             logger.error(f"Consolidation job failed: {e}", exc_info=True)
 
-    def _run_decay(self):
+    def _run_decay(self) -> None:
         """Run importance decay job."""
         if not self.client:
             logger.warning("No client configured for decay")
@@ -140,7 +244,7 @@ class MemoryScheduler:
         except Exception as e:
             logger.error(f"Decay job failed: {e}", exc_info=True)
 
-    def _run_snapshot(self):
+    def _run_snapshot(self) -> None:
         """Run snapshot creation job."""
         if not self.client:
             logger.warning("No client configured for snapshots")
@@ -161,30 +265,38 @@ class MemoryScheduler:
         except Exception as e:
             logger.error(f"Snapshot job failed: {e}", exc_info=True)
 
-    def get_job_status(self) -> dict:
-        """Get status of scheduled jobs.
+    def get_job_status(self) -> Dict[str, Any]:
+        """Get the status of all scheduled jobs."""
+        jobs = self.scheduler.get_jobs()
+        job_info = []
 
-        Returns:
-            Dictionary with job information
-        """
-        if not self._running:
-            return {"status": "stopped", "jobs": []}
+        for job in jobs:
+            # The SchedulerWrapper returns dicts, not job objects
+            if isinstance(job, dict):
+                next_run = job.get("next_run_time")
+                job_info.append(
+                    {
+                        "id": job.get("id"),
+                        "name": job.get("name"),
+                        "next_run": next_run.isoformat() if next_run else None,
+                        "trigger": job.get("trigger", "cron"),
+                    }
+                )
+            else:
+                # Fallback for actual job objects if present
+                next_run = getattr(job, "next_run_time", None)
+                job_info.append(
+                    {
+                        "id": getattr(job, "id", "unknown"),
+                        "name": getattr(job, "name", "unknown"),
+                        "next_run": next_run.isoformat() if next_run else None,
+                        "trigger": str(getattr(job, "trigger", "unknown")),
+                    }
+                )
 
-        jobs = []
-        for job in self.scheduler.get_jobs():
-            next_run = job.next_run_time
-            jobs.append(
-                {
-                    "id": job.id,
-                    "name": job.name,
-                    "next_run": next_run.isoformat() if next_run else None,
-                    "trigger": str(job.trigger),
-                }
-            )
+        return {"running": self._running, "jobs": job_info}
 
-        return {"status": "running", "jobs": jobs}
-
-    def trigger_consolidation_now(self):
+    def trigger_consolidation_now(self) -> None:
         """Manually trigger consolidation job immediately."""
         if not self._running:
             logger.warning("Scheduler not running")
@@ -193,7 +305,7 @@ class MemoryScheduler:
         logger.info("Manually triggering consolidation job")
         self._run_consolidation()
 
-    def trigger_decay_now(self):
+    def trigger_decay_now(self) -> None:
         """Manually trigger decay job immediately."""
         if not self._running:
             logger.warning("Scheduler not running")
@@ -202,7 +314,7 @@ class MemoryScheduler:
         logger.info("Manually triggering decay job")
         self._run_decay()
 
-    def trigger_snapshot_now(self):
+    def trigger_snapshot_now(self) -> None:
         """Manually trigger snapshot job immediately."""
         if not self._running:
             logger.warning("Scheduler not running")
