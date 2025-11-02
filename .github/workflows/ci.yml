@@ -4,7 +4,7 @@ on:
   push:
     branches: ["*"]
   pull_request:
-    branches: ["*"]
+    branches: ["main"]
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -17,14 +17,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-
-    # services:
-    #   qdrant:
-    #     # (optional but recommended) pin image to a version or digest instead of :latest
-    #     image: qdrant/qdrant@sha256:f8f833b5c8d215bb94ff20b7c68cb5f0ca2f4516c870e321a1b655141665c105
-    #     ports:
-    #       - 6333:6333
-    #       - 6334:6334
 
     steps:
       - name: Checkout repository
@@ -54,32 +46,12 @@ jobs:
             echo "::warning ::Some files would be reformatted by Ruff"
           fi
 
-      # - name: Wait for Qdrant to be ready
-      #   run: |
-      #     echo "Waiting for Qdrant to be ready..."
-      #     for i in {1..30}; do
-      #       if curl -f http://localhost:6333/healthz > /dev/null 2>&1; then
-      #         echo "Qdrant is ready!"
-      #         curl -s http://localhost:6333/ | head -20
-      #         exit 0
-      #       fi
-      #       echo "Attempt $i/30: Qdrant not ready yet, waiting..."
-      #       sleep 2
-      #     done
-      #     echo "Qdrant failed to become ready"
-      #     exit 1
-        
-      # - name: Check Qdrant Status
-      #   run: |
-      #     curl http://localhost:6333/readyz
-
-      # - name: Run Tests
-      #   run: |
-      #     pytest -v --maxfail=2 --disable-warnings --cov=src --cov-report=term-missing
-      #   env:
-      #     QDRANT_HOST: localhost
-      #     QDRANT_PORT: 6333
-      #     QDRANT_URL: http://localhost:6333
+      - name: Bandit Security Scan
+        run: |
+          pip install bandit
+          if ! bandit -r src -lll; then
+            echo "::warning ::Bandit found potential security issues (review above)"
+          fi
 
   build:
     name: Build Package
