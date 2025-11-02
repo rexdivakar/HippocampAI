@@ -2,14 +2,14 @@
 
 All notable changes to HippocampAI will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.5/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 - No changes yet.
 
-## [1.0.0] - 2025-10-21
+## [0.1.5] - 2025-10-21
 
 ### Highlights
 - First major stable release of HippocampAI, signaling API and feature stability for production use.
@@ -191,7 +191,7 @@ Not applicable (initial release)
 
 ---
 
-## [0.2.0] - TBD
+## [0.1.5] - TBD
 
 ### Added (New in v0.2.0)
 
@@ -265,5 +265,5 @@ Not applicable (initial release)
 ---
 
 [Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
+[0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0
