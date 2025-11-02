@@ -1469,11 +1469,12 @@ class MemoryClient:
                         updated_count += 1
 
             logger.info(f"Importance decay completed: {updated_count} memories updated")
-            return updated_count
 
         except Exception as e:
-            logger.error(f"Importance decay failed: {e}", exc_info=True)
-            return updated_count
+            logger.error("Importance decay failed: %s", e, exc_info=True)
+
+        # Single exit point satisfies S3516
+        return updated_count
 
     # === SESSION MANAGEMENT ===
 
