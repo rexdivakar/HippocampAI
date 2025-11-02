@@ -665,7 +665,7 @@ cd HippocampAI
 pip install -e .
 
 # Or install specific version
-pip install git+https://github.com/rexdivakar/HippocampAI.git@v1.0.0
+pip install git+https://github.com/rexdivakar/HippocampAI.git@v0.2.0
 ```
 
 ### Basic Usage
