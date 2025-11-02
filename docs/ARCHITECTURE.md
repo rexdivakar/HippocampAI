@@ -2,32 +2,110 @@
 
 ## Overview
 
-HippocampAI is a **unified codebase** with a **unified library interface** that supports two connection modes:
+HippocampAI is a **production-ready autonomous memory engine** designed for LLM agents with enterprise-grade features:
 
-1. **Local Mode** - Direct connection to Qdrant/Redis/Ollama
-2. **Remote Mode** - HTTP connection to SaaS API server
+- **Type-Safe Architecture** - Comprehensive type safety with Pylance/MyPy support
+- **Hybrid Retrieval** - Combines semantic, BM25, and reranking for optimal recall
+- **Distributed Processing** - Celery-based background tasks with Redis/RabbitMQ
+- **Comprehensive Telemetry** - Built-in observability and performance monitoring
+- **Flexible Deployment** - Docker, local, or cloud deployment options
+- **Multiple Clients** - Sync, async, and unified client interfaces
 
-**Key Innovation**: The same Python library (`UnifiedMemoryClient`) works with both modes. You simply choose your backend connection at initialization!
+### Core Components
 
 ```python
-# Local mode - direct connection
-from hippocampai import UnifiedMemoryClient
-client = UnifiedMemoryClient(mode="local")
+# Main client interface
+from hippocampai import MemoryClient
+client = MemoryClient()
 
-# Remote mode - via API
-from hippocampai import UnifiedMemoryClient
-client = UnifiedMemoryClient(mode="remote", api_url="http://localhost:8000")
+# Store and retrieve memories
+memory = client.remember("Python is great for ML", user_id="alice")
+results = client.recall("What does alice think about Python?", user_id="alice")
 
-# Either way, same API!
-memory = client.remember("text", user_id="user123")
-results = client.recall("query", user_id="user123")
+# Async support
+from hippocampai import AsyncMemoryClient
+async_client = AsyncMemoryClient()
+await async_client.remember_async("text", user_id="alice")
 ```
 
 ---
 
-## The Unified Approach
+## System Architecture
 
-### Traditional Architecture (What We DON'T Do)
+### Core Components
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                     HippocampAI Core                        │
+├─────────────────────────────────────────────────────────────┤
+│  Client Layer                                               │
+│  ├── MemoryClient (Sync)      ├── AsyncMemoryClient        │
+│  ├── UnifiedMemoryClient      └── CLI Interface             │
+├─────────────────────────────────────────────────────────────┤
+│  Business Logic                                             │
+│  ├── Memory Operations        ├── Hybrid Retrieval         │
+│  ├── Graph Processing         ├── Conversation Extraction   │
+│  ├── Version Control          └── Telemetry System          │
+├─────────────────────────────────────────────────────────────┤
+│  Processing Layer                                           │
+│  ├── Embedding Pipeline       ├── Semantic Clustering      │
+│  ├── Entity Recognition       ├── Temporal Reasoning       │
+│  └── Background Scheduler     └── Background Tasks         │
+├─────────────────────────────────────────────────────────────┤
+│  Storage Layer                                              │
+│  ├── Vector Store (Qdrant)    ├── Redis Cache              │
+│  ├── Graph Store              └── Session Management       │
+├─────────────────────────────────────────────────────────────┤
+│  External Services                                          │
+│  ├── LLM Providers            ├── Embedding Models         │
+│  └── Reranking Models         └── Background Queue         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Type Safety Architecture
+
+HippocampAI implements comprehensive type safety through several layers:
+
+#### 1. Type-Safe Wrappers for External Libraries
+
+```python
+# SchedulerWrapper - Type-safe APScheduler integration
+class SchedulerWrapper:
+    def add_job(
+        self, 
+        func: Callable[[], None], 
+        cron_expression: str, 
+        job_id: str, 
+        name: str,
+        replace_existing: bool = True
+    ) -> bool:
+        """Add job with type safety and error handling."""
+        if not self.is_available():
+            return False
+        try:
+            trigger = self._cron_trigger_class.from_crontab(cron_expression)
+            self._scheduler.add_job(
+                func, trigger=trigger, id=job_id, name=name,
+                replace_existing=replace_existing
+            )
+            return True
+        except Exception:
+            return False
+```
+
+#### 2. Pylance Configuration
+
+```json
+{
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownParameterType": "none"
+}
+```
+
+This approach ensures type safety for internal code while gracefully handling external libraries without type stubs.
+
+### Processing Architecture
 
 ```
 ❌ Separate codebases requiring different learning curves:

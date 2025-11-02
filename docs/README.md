@@ -1,32 +1,34 @@
-# HippocampAI Documentation
+# HippocampAI Documentation Index
 
-Complete documentation for HippocampAI — Autonomous Memory Engine for LLM Agents.
+Welcome to the HippocampAI documentation! This index helps you navigate to the right guide for your needs.
 
----
+## � New Users - Start Here
 
-## 📖 Getting Started
+**[Complete User Guide](USER_GUIDE.md)** - Everything you need from installation to production deployment
+- Installation options
+- Configuration presets
+- Core features walkthrough
+- Advanced usage patterns
+- Deployment strategies
+- Troubleshooting
 
-Start here if you're new to HippocampAI:
+## 📚 Quick References
 
-| Document | Description |
-|----------|-------------|
-| **[Getting Started Guide](GETTING_STARTED.md)** | Complete setup and first steps (essential reading) |
-| **[Configuration Guide](CONFIGURATION.md)** | Configure Qdrant, Redis, LLMs, and embeddings |
-| **[Architecture Overview](ARCHITECTURE.md)** | System design and component architecture |
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [Getting Started](GETTING_STARTED.md) | Quick setup guide | First-time users |
+| [API Reference](API_REFERENCE.md) | Complete API docs | Developers |
+| [Configuration](CONFIGURATION.md) | All config options | DevOps/Advanced users |
+| [Features Guide](FEATURES.md) | Feature documentation | Power users |
 
----
+## �️ Architecture & Advanced Topics
 
-## 🎯 Unified Memory Client
-
-The new unified approach for using HippocampAI in both local and remote modes:
-
-| Document | Description |
-|----------|-------------|
-| **[Unified Client Guide](UNIFIED_CLIENT_GUIDE.md)** | Conceptual overview and when to use each mode |
-| **[Unified Client Usage](UNIFIED_CLIENT_USAGE.md)** | Complete API reference and examples |
-| **[What's New](WHATS_NEW_UNIFIED_CLIENT.md)** | Latest updates and migration guide |
-
----
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [Architecture Guide](ARCHITECTURE.md) | System design & patterns | Architects/Contributors |
+| [Telemetry Guide](TELEMETRY.md) | Observability & monitoring | DevOps/SRE |
+| [Testing Guide](TESTING_GUIDE.md) | Testing strategies | Developers |
+| [Resilience](RESILIENCE.md) | Error handling & reliability | Production teams |
 
 ## 📚 Core Documentation
 

@@ -2,6 +2,34 @@
 
 All notable changes to HippocampAI will be documented in this file.
 
+## [1.0.0] - 2025-11-02
+
+### Added
+- **Production-ready release** with comprehensive memory management features
+- **Type-safe architecture** with SchedulerWrapper and comprehensive Pylance integration
+- **Hybrid retrieval system** combining semantic, BM25, and reranking
+- **Comprehensive telemetry** and observability features
+- **Background processing** with Celery task queue integration
+- **Memory lifecycle management** with TTL, versioning, and audit trails
+- **Graph-based memory relationships** for enhanced context retrieval
+- **Multi-client support** (MemoryClient, AsyncMemoryClient, UnifiedMemoryClient)
+- **Complete API coverage** with FastAPI endpoints and CLI interface
+- **Docker deployment** support with production configurations
+- **Documentation reorganization** with comprehensive user guide
+
+### Changed
+- **Consolidated documentation** structure (57.8% reduction in document count)
+- **Updated architecture** to include type-safe wrappers for external libraries
+- **Enhanced configuration** system with preset configurations
+- **Improved error handling** with graceful degradation patterns
+
+### Technical Improvements
+- **SchedulerWrapper**: Type-safe APScheduler integration with error handling
+- **Pylance configuration**: Proper type safety without external library warnings  
+- **Celery integration**: Background task processing with Redis/RabbitMQ support
+- **Memory size tracking**: Automatic character and token count calculation
+- **Performance optimization**: Quantized embeddings and configurable search weights
+
 ## [Unreleased]
 
 ### Added
@@ -242,7 +270,7 @@ All notable changes to HippocampAI will be documented in this file.
 #### New Dependencies
 
 - redis >= 5.0.0
-- aioredis >= 2.0.0
+- aioredis >= 1.0.0
 - prometheus-client (for monitoring)
 
 #### Configuration Options Added

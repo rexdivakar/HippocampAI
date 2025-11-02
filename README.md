@@ -38,7 +38,7 @@ results = client.recall("UI preferences", user_id="user123")
 - **Production-ready** — Docker Compose deployment, Celery task queue, monitoring, and enterprise-grade reliability
 - **Fully customizable** — Every component is extensible without vendor lock-in
 
-**Current Release:** v2.0.0 — Production-ready release with comprehensive SaaS integration (85.7% success rate across all providers).
+**Current Release:** v1.0.0 — Production-ready release with comprehensive features and type-safe architecture.
 
 **✅ Verified Working**: Groq (0.37s), Ollama (0.02s), Docker Compose deployment, Celery task queue, comprehensive monitoring.
 
@@ -185,7 +185,7 @@ python validate_intelligence_features.py --verbose
 
 ---
 
-## � Quick Start - SaaS Integration (New in v2.0.0)
+## 🚀 Quick Start - Production Ready (v1.0.0)
 
 Choose your deployment mode and AI provider with a single line:
 
@@ -264,7 +264,7 @@ memory = client.remember(
     tags=["beverages", "schedule", "work"]
 )
 
-# Automatic fact extraction (v2.0.0 feature)
+# Automatic fact extraction (v1.0.0 feature)
 print(f"Extracted facts: {memory.extracted_facts}")
 # Output: ['beverage_preference: oat milk', 'work_schedule: 9-5 PST']
 
@@ -683,27 +683,34 @@ client = MemoryClient(config=config)
 
 ## 📖 Documentation
 
-### Getting Started
+### 🚀 Getting Started
 
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
-- **[Getting Started](docs/GETTING_STARTED.md)** - Detailed installation, setup, and first steps
-- **[Usage Guide](docs/USAGE.md)** - Common usage patterns, chat clients, and integration examples
+- **[Complete User Guide](docs/USER_GUIDE.md)** - Comprehensive guide from installation to deployment
+- **[Quick Start](docs/GETTING_STARTED.md)** - Get up and running in 5 minutes
+- **[Configuration](docs/CONFIGURATION.md)** - All configuration options and presets
 
-### Core Documentation
+### 📚 Core Documentation
 
-- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods and classes
-- **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples and use cases
-- **[Intelligence Features](docs/INTELLIGENCE_FEATURES.md)** - Fact extraction, entity recognition, summarization, and knowledge graphs
-- **[Configuration Guide](docs/CONFIGURATION.md)** - All configuration options, presets, and environment variables
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods
+- **[System Architecture](docs/ARCHITECTURE.md)** - Architecture overview with type safety and scalability
+- **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples
 - **[Provider Setup](docs/PROVIDERS.md)** - Configure LLM providers (Ollama, OpenAI, Anthropic, Groq)
 
-### Advanced Guides
+### 🔧 Advanced Topics
 
-- **[Resilience & Observability](docs/RESILIENCE.md)** - Automatic retry logic, error handling, and structured logging
-- **[Telemetry Guide](docs/TELEMETRY.md)** - Observability, tracing, metrics, and performance monitoring
-- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with 117 tests and 100% pass rate
+- **[Resilience & Observability](docs/RESILIENCE.md)** - Error handling, retry logic, and structured logging
+- **[Telemetry Guide](docs/TELEMETRY.md)** - Performance monitoring, tracing, and metrics
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with 117 tests and 100% coverage
+- **[Multi-Agent Features](docs/MULTIAGENT_FEATURES.md)** - Advanced multi-agent coordination and memory sharing
 
-### Examples & Tutorials
+### 📋 Specialized Guides
+
+- **[Celery Usage](docs/CELERY_USAGE_GUIDE.md)** - Background task processing and scheduling
+- **[Session Management](docs/SESSION_MANAGEMENT.md)** - User session and conversation management
+- **[Memory Management API](docs/MEMORY_MANAGEMENT_API.md)** - Advanced memory lifecycle operations
+- **[Versioning & Retention](docs/VERSIONING_AND_RETENTION_GUIDE.md)** - Data lifecycle and version control
+
+### 📖 Examples & Tutorials
 
 - **[Examples Documentation](docs/examples.md)** - Guide to all working examples in the `examples/` directory
 - See the [Examples section](#-examples) above for a complete list of runnable examples
