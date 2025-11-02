@@ -38,7 +38,7 @@ results = client.recall("UI preferences", user_id="user123")
 - **Production-ready** — Docker Compose deployment, Celery task queue, monitoring, and enterprise-grade reliability
 - **Fully customizable** — Every component is extensible without vendor lock-in
 
-**Current Release:** v1.0.0 — Production-ready release with comprehensive features and type-safe architecture.
+**Current Release:** v0.2.0 — Major enterprise memory engine release with advanced intelligence capabilities and production-ready infrastructure.
 
 **✅ Verified Working**: Groq (0.37s), Ollama (0.02s), Docker Compose deployment, Celery task queue, comprehensive monitoring.
 
@@ -730,8 +730,14 @@ client = MemoryClient(config=config)
 
 ## 🗺️ Roadmap
 
-**Completed (v1.0.0):**
+**Completed (v0.2.0):**
 
+- [x] **Unified Memory Client** — Single interface for local/remote modes with complete feature parity
+- [x] **Advanced Search & Retrieval** — Hybrid search modes, reranking control, score breakdowns, saved searches
+- [x] **Enterprise Memory Management** — Comprehensive CRUD API with batch operations and deduplication
+- [x] **Production Infrastructure** — Docker Compose stack, monitoring with Prometheus + Grafana
+- [x] **Performance Optimizations** — Query caching (50-100x speedup), connection pooling, bulk operations
+- [x] **Version Control & Audit** — Enhanced versioning with diffs, complete audit trails, retention policies
 - [x] Configuration presets (`.from_preset("local")`, `.from_preset("cloud")`)
 - [x] Built-in telemetry and observability
 - [x] Automatic retry logic for Qdrant and LLM operations

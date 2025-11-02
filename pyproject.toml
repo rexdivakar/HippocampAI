@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hippocampai"
-version = "0.1.5"
+version = "0.2.0"
 description = "HippocampAI — autonomous long-term memory engine with hybrid retrieval and cross-encoder reranking"
 readme = "README.md"
 requires-python = ">=3.9"

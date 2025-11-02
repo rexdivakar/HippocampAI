@@ -2,14 +2,20 @@
 
 All notable changes to HippocampAI will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.5/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-02
+
+### Major Release - Production-Ready Enterprise Memory Engine
+
+This release marks a significant milestone with comprehensive enterprise features, advanced intelligence capabilities, and production-ready infrastructure.
+
 ### Added
 
-#### Unified Memory Client (Latest)
+#### Unified Memory Client
 
 - **NEW**: UnifiedMemoryClient supporting both local and remote modes
   - Single interface for direct connection (local) or HTTP API (remote)
@@ -265,6 +271,38 @@ None - All changes are backward compatible
 
 No migration required - all optimizations are transparent to existing code
 
+### Release Summary
+
+Version 0.2.0 represents a major milestone for HippocampAI, transforming it from a basic memory system into a comprehensive, production-ready enterprise memory engine. This release delivers:
+
+**🎯 Core Achievements:**
+- **Enterprise-Ready**: Complete Docker Compose deployment stack with monitoring
+- **High Performance**: 5-100x speedup across all operations with advanced caching and optimization
+- **Advanced Intelligence**: Comprehensive search enhancements, version control, and memory management
+- **Production Features**: Unified client architecture, batch operations, and comprehensive APIs
+
+**📊 Performance Impact:**
+- Query caching: 50-100x speedup for repeated operations
+- Bulk operations: 3-10x faster batch processing
+- Connection pooling: 20-30% latency reduction
+- Concurrent capacity: 5-10x improvement (100 → 500-1000 req/s)
+
+**🛠️ Developer Experience:**
+- Unified interface supporting both local and remote modes
+- Comprehensive documentation (18 guides vs previous scattered docs)
+- Production deployment in under 5 minutes
+- 100% backward compatibility
+
+**🔧 Technical Excellence:**
+- All code passes ruff linting without suppressions
+- Complete test coverage for all new features
+- Type-safe architecture with proper error handling
+- Modular design with clean separation of concerns
+
+This release establishes HippocampAI as a production-ready alternative to existing solutions, offering superior performance, comprehensive features, and enterprise-grade reliability.
+
+---
+
 ## [0.1.5] - 2025-10-21
 
 ### Highlights
@@ -464,86 +502,7 @@ Not applicable (initial release)
 
 ---
 
-## [0.1.5] - TBD
-
-### Added (New in v0.2.0)
-
-#### Memory Size Tracking
-
-- **NEW**: Automatic character and token counting for all memories
-  - Added `text_length: int` field to Memory model
-  - Added `token_count: int` field to Memory model (4 chars ≈ 1 token approximation)
-  - `calculate_size_metrics()` method for automatic calculation
-  - Size metrics calculated on memory creation and updates
-- **NEW**: Memory statistics API
-  - `get_memory_statistics(user_id)` - Get comprehensive size analytics
-  - Returns total memories, characters, tokens, averages, min/max
-  - Statistics grouped by memory type
-- **NEW**: Telemetry integration for size tracking
-  - Added `memory_size_chars` and `memory_size_tokens` metrics
-  - `track_memory_size()` method in telemetry
-  - Size metrics included in metrics summary
-
-#### Async Support
-
-- **NEW**: `AsyncMemoryClient` class for asynchronous operations
-  - Extends `MemoryClient` with async variants
-  - All core operations: `remember_async()`, `recall_async()`, `update_memory_async()`, `delete_memory_async()`, `get_memories_async()`
-  - Batch operations: `add_memories_async()`, `delete_memories_async()`
-  - Utility methods: `get_memory_statistics_async()`, `inject_context_async()`, `extract_from_conversation_async()`
-  - Uses `asyncio.run_in_executor()` for non-blocking execution
-  - Full support for concurrent operations with `asyncio.gather()`
-- **NEW**: Async test suite
-  - Comprehensive tests in `tests/test_async.py`
-  - Tests for all async operations
-  - Concurrent operation tests
-
-#### Advanced Features (Previously Implemented, Now Documented)
-
-- Batch operations (`add_memories`, `delete_memories`)
-- Graph indexing and relationships
-- Version control and rollback
-- Context injection for LLM prompts
-- Memory access tracking
-- Advanced filtering and sorting
-- Snapshots and audit trail
-- KV store for fast lookups
-
-### Changed
-
-- Updated telemetry to track memory size metrics
-- Enhanced `MemoryClient` to calculate size metrics automatically
-- Improved test coverage with async operation tests (5 new test classes, 9 new tests)
-
-### Documentation
-
-- **Updated**: README.md with async usage examples and memory size tracking
-- **Updated**: FEATURES.md with complete feature documentation (all 15 features)
-- **Removed**: Obsolete chat integration docs (CHAT_INTEGRATION.md, CHAT_README.md)
-- **Removed**: Obsolete tool documentation (TOOLS.md, TOOLS_SUMMARY.md, HOW_TO_RUN.md)
-- **Updated**: Roadmap with completed features
-- **Updated**: Examples list to include advanced features demo
-
-### Planned Features
-
-- [ ] Memory consolidation scheduler (background jobs with APScheduler/Celery)
-- [ ] Persistent graph storage (JSON export/import for NetworkX graph)
-- [ ] LangChain integration
-- [ ] LlamaIndex integration
-- [ ] Retrieval evaluators and A/B testing
-- [ ] Multi-tenant RBAC
-- [ ] Native TypeScript SDK
-- [ ] Grafana/Prometheus exporters
-- [ ] WebSocket support for real-time updates
-
-### Planned Fixes
-
-- [ ] Update to Pydantic V2 style (remove deprecated `env` parameter)
-- [ ] Fix datetime.utcnow() deprecation warnings (use datetime.now(UTC))
-- [ ] Improve test coverage to 90%+
-
----
-
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v1.0.0...HEAD
-[0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.2.0
+[0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.5
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0

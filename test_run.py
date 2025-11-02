@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Test Runner for HippocampAI v1.0.0
+Comprehensive Test Runner for HippocampAI v0.2.0
 
 This script performs extensive testing of all HippocampAI features including:
 - Core memory operations (CRUD, search, filtering)
@@ -944,7 +944,7 @@ class HippocampAITestRunner:
         warnings = len([r for r in self.results if r.status == "WARN"])
 
         # Create summary table
-        summary_table = Table(title="🧪 HippocampAI v1.0.0 - Comprehensive Test Results")
+        summary_table = Table(title="🧪 HippocampAI v0.2.0 - Comprehensive Test Results")
         summary_table.add_column("Metric", style="cyan")
         summary_table.add_column("Value", style="magenta")
 
@@ -1055,7 +1055,7 @@ class HippocampAITestRunner:
             f"""
 {overall_status}
 
-HippocampAI v1.0.0 Test Assessment:
+HippocampAI v0.2.0 Test Assessment:
 • Library Functionality: {"✅ Working" if passed > 0 else "❌ Issues"}
 • Performance: {"✅ Good" if self.performance_metrics.throughput_results else "❓ Not tested"}
 • Memory Integrity: {"✅ Validated" if self.performance_metrics.integrity_checks else "❓ Not tested"}
@@ -1073,7 +1073,7 @@ Overall System Health: {success_rate:.1f}% tests passed
         # Save detailed results to file
         results_data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "version": "1.0.0",
+            "version": "0.2.0",
             "summary": {
                 "total_tests": len(self.results),
                 "passed": passed,
@@ -1113,7 +1113,7 @@ Overall System Health: {success_rate:.1f}% tests passed
         self.console.print(
             Panel(
                 """
-🧪 HippocampAI v1.0.0 Comprehensive Test Suite
+🧪 HippocampAI v0.2.0 Comprehensive Test Suite
             
 Testing all features extensively including:
 • Core memory operations (CRUD, search, filtering)

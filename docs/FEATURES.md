@@ -2583,7 +2583,7 @@ client.delete_memories([id1, id2, id3], user_id="alice")
 
 ## Change Log
 
-### Version 0.1.5 (Current)
+### Version 0.2.0 (Current)
 
 **Added - Core Features:**
 - ✅ `update_memory()` - Modify existing memories
