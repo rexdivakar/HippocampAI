@@ -41,7 +41,7 @@ Health check endpoint.
 {
   "status": "ok",
   "service": "hippocampai",
-  "version": "0.2.0"
+  "version": "0.2.5"
 }
 ```
 
@@ -726,7 +726,7 @@ docker-compose up -d
 
 ## API Changelog
 
-### Version 0.2.0 (Current)
+### Version 0.2.5 (Current)
 
 - Added async/await support
 - Integrated Redis for caching

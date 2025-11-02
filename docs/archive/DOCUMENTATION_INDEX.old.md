@@ -1,6 +1,6 @@
 # HippocampAI Documentation Index
 
-Complete documentation catalog for HippocampAI v0.2.0
+Complete documentation catalog for HippocampAI V0.2.5
 
 ---
 

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-11-02
+## [0.2.5] - 2025-11-02
 
 ### Major Release - Production-Ready Enterprise Memory Engine
 
@@ -273,7 +273,7 @@ No migration required - all optimizations are transparent to existing code
 
 ### Release Summary
 
-Version 0.2.0 represents a major milestone for HippocampAI, transforming it from a basic memory system into a comprehensive, production-ready enterprise memory engine. This release delivers:
+Version 0.2.5 represents a major milestone for HippocampAI, transforming it from a basic memory system into a comprehensive, production-ready enterprise memory engine. This release delivers:
 
 **🎯 Core Achievements:**
 - **Enterprise-Ready**: Complete Docker Compose deployment stack with monitoring
@@ -502,7 +502,7 @@ Not applicable (initial release)
 
 ---
 
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.2.0
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/V0.2.5...HEAD
+[0.2.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.2.5
 [0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.5
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0

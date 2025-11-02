@@ -2554,7 +2554,7 @@ python examples/07_advanced_features_demo.py
 
 ## Migration Guide
 
-### From v0.1.5 to v0.2.0
+### From v0.1.5 to V0.2.5
 
 **All changes are backward compatible.** Existing code will work without modifications.
 
@@ -2583,7 +2583,7 @@ client.delete_memories([id1, id2, id3], user_id="alice")
 
 ## Change Log
 
-### Version 0.2.0 (Current)
+### Version 0.2.5 (Current)
 
 **Added - Core Features:**
 - ✅ `update_memory()` - Modify existing memories

@@ -139,7 +139,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval, batch operations, deduplication, and consolidation",
-    version="0.2.0",
+    version="0.2.5",
     lifespan=lifespan,
 )
 
@@ -286,7 +286,7 @@ class ExpireRequest(BaseModel):
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "ok", "service": "hippocampai", "version": "0.2.0"}
+    return {"status": "ok", "service": "hippocampai", "version": "0.2.5"}
 
 
 @app.get("/stats")
