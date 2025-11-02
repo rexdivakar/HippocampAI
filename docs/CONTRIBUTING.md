@@ -304,7 +304,7 @@ client = MemoryClient()
 
 ### Environment
 - Python: 3.11
-- HippocampAI: 1.0.0
+- HippocampAI: 0.1.5
 - OS: macOS 13.0
 - Qdrant: 1.7.0
 
@@ -431,7 +431,7 @@ def function(arg1: str, arg2: int) -> bool:
 
 1. Update version in `pyproject.toml`
 2. Update `CHANGELOG.md`
-3. Create git tag: `git tag -a v1.0.0 -m "Release 1.0.0"`
+3. Create git tag: `git tag -a v1.0.0 -m "Release 0.1.5"`
 4. Push tag: `git push origin v1.0.0`
 5. Build: `python -m build`
 6. Upload: `python -m twine upload dist/*`

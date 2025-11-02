@@ -2,33 +2,8 @@
 
 All notable changes to HippocampAI will be documented in this file.
 
-## [1.0.0] - 2025-11-02
-
-### Added
-- **Production-ready release** with comprehensive memory management features
-- **Type-safe architecture** with SchedulerWrapper and comprehensive Pylance integration
-- **Hybrid retrieval system** combining semantic, BM25, and reranking
-- **Comprehensive telemetry** and observability features
-- **Background processing** with Celery task queue integration
-- **Memory lifecycle management** with TTL, versioning, and audit trails
-- **Graph-based memory relationships** for enhanced context retrieval
-- **Multi-client support** (MemoryClient, AsyncMemoryClient, UnifiedMemoryClient)
-- **Complete API coverage** with FastAPI endpoints and CLI interface
-- **Docker deployment** support with production configurations
-- **Documentation reorganization** with comprehensive user guide
-
-### Changed
-- **Consolidated documentation** structure (57.8% reduction in document count)
-- **Updated architecture** to include type-safe wrappers for external libraries
-- **Enhanced configuration** system with preset configurations
-- **Improved error handling** with graceful degradation patterns
-
-### Technical Improvements
-- **SchedulerWrapper**: Type-safe APScheduler integration with error handling
-- **Pylance configuration**: Proper type safety without external library warnings  
-- **Celery integration**: Background task processing with Redis/RabbitMQ support
-- **Memory size tracking**: Automatic character and token count calculation
-- **Performance optimization**: Quantized embeddings and configurable search weights
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.5/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -290,7 +265,7 @@ None - All changes are backward compatible
 
 No migration required - all optimizations are transparent to existing code
 
-## [1.0.0] - 2025-10-21
+## [0.1.5] - 2025-10-21
 
 ### Highlights
 
@@ -489,7 +464,7 @@ Not applicable (initial release)
 
 ---
 
-## [0.2.0] - TBD
+## [0.1.5] - TBD
 
 ### Added (New in v0.2.0)
 
@@ -570,5 +545,5 @@ Not applicable (initial release)
 ---
 
 [Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
+[0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v1.0.0
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0
