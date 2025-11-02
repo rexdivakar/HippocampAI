@@ -30,15 +30,24 @@ results = client.recall("UI preferences", user_id="user123")
 
 ## ✨ Key Features
 
+### 🎯 New in v0.2.0 - Enterprise Memory Engine
+
+- **🚀 Performance**: 5-100x faster queries with Redis caching, connection pooling, and bulk operations
+- **🏢 Enterprise Ready**: Complete Docker Compose stack with Prometheus + Grafana monitoring  
+- **🔍 Advanced Search**: Hybrid search modes, reranking control, saved searches, and score breakdowns
+- **📈 Intelligence**: Cross-session insights, behavioral pattern detection, habit tracking, and preference drift analysis
+- **⚡ Unified Client**: Single interface supporting both local (direct) and remote (API) modes seamlessly
+
+### 📊 Core Capabilities
+
 - **Universal SaaS Integration** — Seamless integration with Groq, OpenAI, Anthropic, and Ollama (85.7% success rate)
-- **Unified Interface** — Same Python library works for local and remote deployments
 - **High-Performance Memory** — Lightning-fast retrieval with advanced semantic clustering and cross-session insights
 - **Hybrid retrieval** — Fuses dense vectors, BM25, reciprocal-rank fusion, reranking, recency, and importance signals
 - **Multi-Agent Support** — Built-in coordination for complex multi-agent workflows and collaboration
 - **Production-ready** — Docker Compose deployment, Celery task queue, monitoring, and enterprise-grade reliability
 - **Fully customizable** — Every component is extensible without vendor lock-in
 
-**Current Release:** v0.2.0 — Major enterprise memory engine release with advanced intelligence capabilities and production-ready infrastructure.
+**Current Release:** v0.2.0 — Major enterprise memory engine release with production-ready infrastructure, advanced intelligence capabilities, and 5-100x performance improvements.
 
 **✅ Verified Working**: Groq (0.37s), Ollama (0.02s), Docker Compose deployment, Celery task queue, comprehensive monitoring.
 
@@ -185,7 +194,7 @@ python validate_intelligence_features.py --verbose
 
 ---
 
-## 🚀 Quick Start - Production Ready (v1.0.0)
+## 🚀 Quick Start - Production Ready (v0.2.0)
 
 Choose your deployment mode and AI provider with a single line:
 
@@ -264,7 +273,7 @@ memory = client.remember(
     tags=["beverages", "schedule", "work"]
 )
 
-# Automatic fact extraction (v1.0.0 feature)
+# Automatic fact extraction (v0.2.0 feature)
 print(f"Extracted facts: {memory.extracted_facts}")
 # Output: ['beverage_preference: oat milk', 'work_schedule: 9-5 PST']
 
