@@ -1,0 +1,20 @@
+# Security Constraints File
+# This file pins minimum secure versions of packages to address known vulnerabilities
+# Use with: pip install -c security-constraints.txt -r requirements.txt
+#
+# Generated: 2025-11-03
+# Based on: SECURITY_AUDIT.md
+
+# Direct Dependencies - Security Updates
+requests>=2.32.4  # CVE-2024-35195, CVE-2025-21604
+
+# Transitive Dependencies - Minimum Secure Versions
+certifi>=2024.7.4  # CVE-2024-39689
+configobj>=5.0.9  # CVE-2023-26112
+cryptography>=43.0.1  # CVE-2024-26130, CVE-2023-50782, CVE-2024-0727, CVE-2025-23093
+idna>=3.7  # CVE-2024-3651
+jinja2>=3.1.6  # CVE-2024-56201, CVE-2024-34064, CVE-2024-22195, CVE-2025-24858
+pip>=25.3  # CVE-2025-24856
+setuptools>=78.1.1  # CVE-2024-6345
+twisted>=24.7.0  # CVE-2024-41810, CVE-2024-41671
+urllib3>=2.5.0  # CVE-2024-37891, CVE-2025-50181

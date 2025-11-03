@@ -53,6 +53,13 @@ jobs:
             echo "::warning ::Bandit found potential security issues (review above)"
           fi
 
+      - name: Dependency Security Scan
+        run: |
+          pip install pip-audit
+          if ! pip-audit --desc; then
+            echo "::warning ::pip-audit found vulnerable dependencies (review above)"
+          fi
+
   build:
     name: Build Package
     runs-on: ubuntu-latest

@@ -1007,6 +1007,31 @@ pytest  # Run tests
 
 See our [Contributing Guide](docs/CONTRIBUTING.md) for detailed instructions.
 
+### 🔒 Security
+
+**Security is a top priority for HippocampAI.** We regularly audit our codebase and dependencies.
+
+**Latest Security Status:**
+- ✅ Source code security: All Bandit scans passing
+- ✅ Code quality: All Ruff checks passing  
+- 📋 Full audit report: See [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+
+**Using Secure Dependencies:**
+```bash
+# Install with security constraints
+pip install -c security-constraints.txt -r requirements.txt
+
+# Or use the pre-configured installation
+pip install hippocampai
+```
+
+**Reporting Security Issues:**
+- For security vulnerabilities, please email: rexdivakar@hotmail.com
+- Do not open public issues for security vulnerabilities
+- We will respond within 48 hours
+
+See our full [Security Policy](SECURITY_AUDIT.md) for more information.
+
 ### 📄 License
 
 **Apache 2.0** - Use HippocampAI freely in your projects, commercial or open source.
