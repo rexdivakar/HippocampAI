@@ -12,6 +12,7 @@ This directory contains 23 documentation files covering all aspects of Hippocamp
 
 Start here if you're new to HippocampAI:
 
+- **[Chat Demo Guide](CHAT_DEMO_GUIDE.md)** ⭐ - Interactive chatbot demo with persistent memory (try this first!)
 - **[Getting Started Guide](GETTING_STARTED.md)** - Complete setup, configuration, and first steps with examples
 - **[Configuration Guide](CONFIGURATION.md)** - Configure Qdrant, Redis, LLMs, and embeddings
 - **[Providers Guide](PROVIDERS.md)** - LLM provider setup (Ollama, OpenAI, Anthropic, Groq)
@@ -113,6 +114,7 @@ For developers and contributors:
 
 | Task | Documentation |
 |------|---------------|
+| **Try interactive demo** | [Chat Demo Guide](CHAT_DEMO_GUIDE.md) ⭐ |
 | **First time setup** | [Getting Started](GETTING_STARTED.md) |
 | **Configure LLM provider** | [Providers](PROVIDERS.md) |
 | **Deploy to production** | [User Guide](USER_GUIDE.md) |
@@ -128,12 +130,13 @@ For developers and contributors:
 
 ## 🔍 Documentation Statistics
 
-- **Total Files**: 26 markdown files
-- **Total Lines**: 35,000+ lines of documentation
+- **Total Files**: 27 markdown files
+- **Total Lines**: 38,000+ lines of documentation
 - **API Methods Documented**: 102+
-- **API Endpoints Documented**: 50+
+- **API Endpoints Documented**: 56
 - **Code Examples**: 150+ working examples
-- **Guides**: 18+ comprehensive guides
+- **Guides**: 19 comprehensive guides
+- **Interactive Demos**: 1 (chat.py)
 - **Last Updated**: 2025-11-03
 
 ---

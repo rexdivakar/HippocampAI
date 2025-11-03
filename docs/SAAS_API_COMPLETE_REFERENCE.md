@@ -1062,8 +1062,20 @@ Check intelligence services status.
 ### Prometheus - Metrics Collection
 
 **URL**: `http://localhost:9090`
+**Status**: ⚠️ Infrastructure configured, application metrics not yet implemented
 
-**Key Metrics:**
+**Current State:**
+- ✅ Prometheus container runs in docker-compose
+- ✅ Configuration file exists (monitoring/prometheus.yml)
+- ❌ Application `/metrics` endpoint not yet implemented
+- ❌ Custom HippocampAI metrics not exposed
+
+**What Works:**
+- System-level metrics (container stats, resource usage)
+- Basic health checks
+- Infrastructure monitoring
+
+**Planned Metrics** (coming in future release):
 - `hippocampai_memory_operations_total` - Total memory operations
 - `hippocampai_memory_operation_duration_seconds` - Operation latency
 - `hippocampai_cache_hits_total` - Cache hit count
@@ -1072,20 +1084,7 @@ Check intelligence services status.
 - `celery_task_succeeded` - Successful tasks
 - `celery_task_failed` - Failed tasks
 
-**Example Queries:**
-```promql
-# Memory operation rate (requests/second)
-rate(hippocampai_memory_operations_total[5m])
-
-# Average operation latency
-rate(hippocampai_memory_operation_duration_seconds_sum[5m]) / rate(hippocampai_memory_operation_duration_seconds_count[5m])
-
-# Cache hit ratio
-rate(hippocampai_cache_hits_total[5m]) / (rate(hippocampai_cache_hits_total[5m]) + rate(hippocampai_cache_misses_total[5m]))
-
-# Celery task success rate
-rate(celery_task_succeeded[5m]) / (rate(celery_task_succeeded[5m]) + rate(celery_task_failed[5m]))
-```
+**Alternative:** Use the built-in Telemetry API (see below) for operation tracking.
 
 ---
 
@@ -1093,18 +1092,26 @@ rate(celery_task_succeeded[5m]) / (rate(celery_task_succeeded[5m]) + rate(celery
 
 **URL**: `http://localhost:3000`
 **Default Login**: `admin:admin`
+**Status**: ⚠️ Infrastructure configured, custom dashboards not yet created
 
-**Pre-configured Dashboards:**
-1. **Memory Operations** - Request rates, latencies, error rates
-2. **Celery Tasks** - Task throughput, queue lengths, worker health
-3. **System Resources** - CPU, memory, disk usage
-4. **Cache Performance** - Hit rates, evictions, memory usage
+**Current State:**
+- ✅ Grafana container runs in docker-compose
+- ✅ Prometheus datasource can be configured
+- ❌ Pre-built HippocampAI dashboards not included
+- ❌ Application-specific visualizations need manual setup
 
-**Custom Dashboard Creation:**
+**What You Can Do:**
+1. Monitor infrastructure metrics (CPU, memory, disk)
+2. Create custom dashboards manually
+3. Query system-level Prometheus metrics
+
+**Manual Dashboard Creation:**
 1. Navigate to `http://localhost:3000/dashboard/new`
 2. Add panel → Select Prometheus datasource
-3. Enter PromQL query
-4. Configure visualization
+3. Create visualizations based on available metrics
+4. Save your custom dashboard
+
+**Alternative:** Use Flower (port 5555) for Celery task monitoring
 
 ---
 
@@ -1117,6 +1124,62 @@ rate(celery_task_succeeded[5m]) / (rate(celery_task_succeeded[5m]) + rate(celery
 - Vector count and size
 - Search performance metrics
 - Index optimization status
+
+---
+
+### HippocampAI Telemetry API (Built-in)
+
+**Status**: ✅ Fully implemented and production-ready
+
+HippocampAI includes a built-in telemetry system that tracks all operations without requiring external monitoring tools.
+
+**Available via Python Client:**
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# Get comprehensive metrics
+metrics = client.get_telemetry_metrics()
+print(f"Average recall duration: {metrics['recall_duration']['avg_ms']:.2f}ms")
+print(f"P95 latency: {metrics['recall_duration']['p95']:.2f}ms")
+
+# Get recent operation traces
+recent_ops = client.get_recent_operations(limit=10)
+for op in recent_ops:
+    print(f"{op.operation}: {op.duration_ms:.2f}ms (trace_id: {op.trace_id})")
+
+# Export traces for external analysis
+traces = client.export_telemetry(format="json")
+# Can be sent to OpenTelemetry, Datadog, etc.
+```
+
+**Tracked Metrics:**
+- Operation durations (remember, recall, extract, update, delete)
+- Retrieval counts and patterns
+- Memory sizes (characters and tokens)
+- Percentile latencies (P50, P95, P99)
+- Error rates and types
+- Trace IDs for distributed tracing
+
+**Trace Format:**
+Each operation gets a unique trace_id and tracks:
+- Start/end timestamps
+- Duration in milliseconds
+- User ID and session ID
+- Operation metadata
+- Status (success/error)
+- Sub-events within the operation
+
+**Export Formats:**
+- JSON (OpenTelemetry compatible)
+- Datadog APM format
+- Custom structured logs
+
+**See Also:**
+- [Telemetry Guide](TELEMETRY.md) - Complete telemetry documentation
+- [Library Reference](LIBRARY_COMPLETE_REFERENCE.md) - Telemetry methods
 
 ---
 

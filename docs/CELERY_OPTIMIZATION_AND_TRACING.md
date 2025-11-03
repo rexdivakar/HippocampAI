@@ -651,7 +651,53 @@ def task_retry_handler(sender=None, task_id=None, reason=None, **kwargs):
 
 ### Metrics Collection
 
-#### Prometheus Metrics
+#### Built-in Monitoring: Flower Dashboard
+
+**Status**: ✅ Fully implemented and running
+
+The primary monitoring tool for Celery tasks is **Flower**, which is included in docker-compose:
+
+**Access**: `http://localhost:5555`
+**Login**: `admin:admin` (configurable via `FLOWER_USER` and `FLOWER_PASSWORD`)
+
+**Features:**
+- Real-time task monitoring
+- Worker status and performance metrics
+- Task history and statistics
+- Queue lengths and backlog
+- Worker concurrency and pool info
+- Task success/failure rates
+- Task duration tracking
+- Broker and result backend monitoring
+
+**API Endpoints:**
+```bash
+# Get task statistics
+curl http://admin:admin@localhost:5555/api/tasks
+
+# Get worker information
+curl http://admin:admin@localhost:5555/api/workers
+
+# Get task details
+curl http://admin:admin@localhost:5555/api/task/info/{task_id}
+```
+
+---
+
+#### Prometheus Metrics (Optional Enhancement)
+
+**Status**: ⚠️ Infrastructure configured, metrics export not yet implemented
+
+While Prometheus and Grafana containers are configured in docker-compose, the metrics exporter is not yet integrated into the Python codebase.
+
+**To implement Prometheus metrics** (if needed for your use case):
+
+1. **Install prometheus_client:**
+```bash
+pip install prometheus-client
+```
+
+2. **Add metrics to your Celery signals:**
 ```python
 from prometheus_client import Counter, Histogram, Gauge, start_http_server
 from celery.signals import task_prerun, task_postrun, task_failure
@@ -712,6 +758,18 @@ def record_task_failure(sender=None, task_id=None, exception=None, **kwargs):
 # Start Prometheus server
 start_http_server(8001)
 ```
+
+3. **Add `/metrics` endpoint to FastAPI** (in `src/hippocampai/api/async_app.py`):
+```python
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi import Response
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+```
+
+**Until then, use Flower for comprehensive Celery monitoring.**
 
 ### Task Result Tracking
 
