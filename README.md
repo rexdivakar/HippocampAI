@@ -28,7 +28,7 @@ memory = client.remember("User prefers dark mode", user_id="user123")
 results = client.recall("UI preferences", user_id="user123")
 ```
 
-📚 **[Read the Unified Client Guide](docs/UNIFIED_CLIENT_GUIDE.md)** | **[Complete Usage Examples](docs/UNIFIED_CLIENT_USAGE.md)** | **[What's New](docs/WHATS_NEW_UNIFIED_CLIENT.md)**
+📚 **[Read the Unified Client Guide](archive/UNIFIED_CLIENT_GUIDE.md)** | **[Complete Usage Examples](archive/UNIFIED_CLIENT_USAGE.md)** | **[What's New](archive/WHATS_NEW_UNIFIED_CLIENT.md)**
 
 ---
 
@@ -72,7 +72,7 @@ HippocampAI isn't just another vector database wrapper - it's a complete memory 
 #### 🔧 **Developer Experience**
 - **Universal LLM support**: Works with OpenAI, Anthropic, Groq, Ollama, and local models
 - **Flexible deployment**: Local-first with cloud options, no vendor lock-in
-- **Comprehensive documentation**: 25+ guides covering every use case
+- **Comprehensive documentation**: 21 active guides covering every use case
 - **Type safety**: Full TypeScript-style hints and validation
 - **Extensible architecture**: Customize any component without forking
 
@@ -137,7 +137,7 @@ HippocampAI enables a wide range of intelligent memory applications:
 | **Maintenance** | Maintained by experts | Ongoing internal resources |
 | **Features** | 50+ advanced features | Basic functionality only |
 | **Testing** | Production-tested | Requires extensive testing |
-| **Documentation** | 25+ comprehensive guides | Internal docs required |
+| **Documentation** | 21 comprehensive guides | Internal docs required |
 
 ## 📚 Documentation
 
@@ -146,7 +146,8 @@ Complete documentation is available in the [docs/](docs/) folder:
 ### 🚀 Getting Started
 
 - **[Getting Started Guide](docs/GETTING_STARTED.md)** - Complete setup, configuration, and first steps
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Configure Qdrant, Redis, LLMs, and embeddings  
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Configure Qdrant, Redis, LLMs, and embeddings
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and component architecture
 - **[Testing Guide](docs/TESTING_GUIDE.md)** - Comprehensive testing and validation
 
@@ -154,26 +155,24 @@ Complete documentation is available in the [docs/](docs/) folder:
 
 - **[Features Overview](docs/FEATURES.md)** - Complete feature documentation (2600+ lines)
 - **[Memory Management API](docs/MEMORY_MANAGEMENT_API.md)** - Advanced memory operations and lifecycle
-- **[Unified Client Guide](docs/UNIFIED_CLIENT_GUIDE.md)** - Single interface for local/remote modes
+- **[Unified Client Guide](archive/UNIFIED_CLIENT_GUIDE.md)** - Single interface for local/remote modes
 - **[Multi-Agent Features](docs/MULTIAGENT_FEATURES.md)** - Agent coordination and collaboration
 
 ### 📖 Advanced Capabilities
 
-- **[Advanced Intelligence API](docs/ADVANCED_INTELLIGENCE_API.md)** - Fact extraction, entities, relationships
-- **[Search Enhancements](docs/SEARCH_ENHANCEMENTS_GUIDE.md)** - Hybrid search modes and optimization
-- **[Versioning & Retention](docs/VERSIONING_AND_RETENTION_GUIDE.md)** - Version control and data lifecycle
 - **[Session Management](docs/SESSION_MANAGEMENT.md)** - Conversation organization and boundaries
+- **[Versioning & Retention](docs/VERSIONING_AND_RETENTION_GUIDE.md)** - Version control and data lifecycle
+- **[Celery Usage Guide](docs/CELERY_USAGE_GUIDE.md)** - Background task processing and scheduling
 
 ### 🌐 Deployment & Production
 
-- **[User Guide](docs/USER_GUIDE.md)** - Complete production deployment guide  
+- **[User Guide](docs/USER_GUIDE.md)** - Complete production deployment guide
+- **[Security Best Practices](docs/SECURITY.md)** - Authentication, encryption, and security hardening
+- **[Backup & Recovery](docs/BACKUP_RECOVERY.md)** - Backup strategies and disaster recovery
+- **[Troubleshooting & FAQ](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Telemetry Guide](docs/TELEMETRY.md)** - Monitoring, observability, and metrics
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - Development setup and contribution guidelines
 - **[Changelog](CHANGELOG.md)** - Complete version history and updates
-
-### 📚 Complete Documentation
-
-- **[Full Documentation Index](docs/README.md)** - Browse all 25+ comprehensive guides
 
 ---
 
@@ -684,7 +683,7 @@ for fact in inferred:
 - **Knowledge Graph** - Build rich graphs connecting memories, entities, facts, and topics
 - **Knowledge Inference** - Infer new facts from existing knowledge patterns
 
-See the [Intelligence Features Guide](docs/INTELLIGENCE_FEATURES.md) for comprehensive documentation and examples.
+See the [Features Guide](docs/FEATURES.md) for comprehensive documentation and examples on intelligence features including fact extraction, entity recognition, and knowledge graphs.
 
 ### Advanced Features
 
@@ -856,16 +855,19 @@ client = MemoryClient(config=config)
 
 ### 📚 Core Documentation
 
-- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all methods
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all 102 methods
 - **[System Architecture](docs/ARCHITECTURE.md)** - Architecture overview with type safety and scalability
 - **[Features Guide](docs/FEATURES.md)** - Comprehensive feature documentation with examples
 - **[Provider Setup](docs/PROVIDERS.md)** - Configure LLM providers (Ollama, OpenAI, Anthropic, Groq)
 
 ### 🔧 Advanced Topics
 
+- **[Security Best Practices](docs/SECURITY.md)** - Authentication, encryption, and security hardening
+- **[Backup & Recovery](docs/BACKUP_RECOVERY.md)** - Backup strategies and disaster recovery procedures
+- **[Troubleshooting & FAQ](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Resilience & Observability](docs/RESILIENCE.md)** - Error handling, retry logic, and structured logging
 - **[Telemetry Guide](docs/TELEMETRY.md)** - Performance monitoring, tracing, and metrics
-- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with 117 tests and 100% coverage
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Complete testing guide with comprehensive coverage
 - **[Multi-Agent Features](docs/MULTIAGENT_FEATURES.md)** - Advanced multi-agent coordination and memory sharing
 
 ### 📋 Specialized Guides
@@ -875,17 +877,15 @@ client = MemoryClient(config=config)
 - **[Memory Management API](docs/MEMORY_MANAGEMENT_API.md)** - Advanced memory lifecycle operations
 - **[Versioning & Retention](docs/VERSIONING_AND_RETENTION_GUIDE.md)** - Data lifecycle and version control
 
-### 📖 Examples & Tutorials
+### 📖 Examples & Resources
 
-- **[Examples Documentation](docs/examples.md)** - Guide to all working examples in the `examples/` directory
-- See the [Examples section](#-examples) above for a complete list of runnable examples
+- See the [Examples section](#-examples) above for a complete list of 25+ runnable examples in the `examples/` directory
 
 ### Developer Resources
 
-- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Implementation details of core features and components
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to HippocampAI
-- **[Changelog](docs/CHANGELOG.md)** - Version history, updates, and breaking changes
-- **[Full Documentation Index](docs/README.md)** - Complete documentation navigation
+- **[Changelog](CHANGELOG.md)** - Version history, updates, and breaking changes
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)** - High-level project overview
 
 ---
 
