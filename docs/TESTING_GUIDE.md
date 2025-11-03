@@ -731,7 +731,7 @@ If tests fail or you encounter issues:
 - [API Reference](API_REFERENCE.md) - Complete API documentation
 - [Resilience Guide](RESILIENCE.md) - Retry logic and structured logging
 - [Examples](../examples/) - Working code examples
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute
 
 ---
 

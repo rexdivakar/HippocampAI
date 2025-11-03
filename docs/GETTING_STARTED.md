@@ -176,13 +176,12 @@ pip install "hippocampai[all]"         # Everything
 
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqProvider, OllamaProvider
+from hippocampai.adapters import GroqLLM, OllamaLLM
 
 # Option A: Default local setup
 client = MemoryClient()
 
 # Option B: With specific AI provider
-from hippocampai.adapters import GroqLLM
 client = MemoryClient(
     llm_provider=GroqLLM(api_key="your-groq-key")
 )
@@ -194,7 +193,6 @@ client = MemoryClient(
 )
 
 # Option D: Full configuration
-from hippocampai.adapters import GroqLLM
 client = MemoryClient(
     llm_provider=GroqLLM(api_key="gsk_..."),
     qdrant_url="http://localhost:6333",
@@ -624,10 +622,10 @@ client = mem0.MemoryClient(api_key="mem0_key")  # Cloud dependency
 ```python
 # Universal provider support
 providers = {
-    "groq": GroqProvider(api_key="groq_key"),        # 0.35s response
-    "ollama": OllamaProvider(base_url="local"),       # 0.03s response
-    "openai": OpenAIProvider(api_key="openai_key"),   # High quality
-    "anthropic": AnthropicProvider(api_key="ant_key") # Advanced reasoning
+    "groq": GroqLLM(api_key="groq_key"),        # 0.35s response
+    "ollama": OllamaLLM(base_url="local"),       # 0.03s response
+    "openai": OpenAILLM(api_key="openai_key"),   # High quality
+    "anthropic": AnthropicLLM(api_key="ant_key") # Advanced reasoning
 }
 
 # Switch providers instantly
@@ -655,7 +653,7 @@ client = mem0.MemoryClient()  # OpenAI only, no flexibility
 ```python
 # Complete local deployment
 client = MemoryClient(
-    llm_provider=OllamaProvider(base_url="http://localhost:11434"),
+    llm_provider=OllamaLLM(base_url="http://localhost:11434"),
     qdrant_url="http://localhost:6333",  # Your vector DB
     redis_url="redis://localhost:6379"   # Your cache
 )
@@ -923,7 +921,7 @@ asyncio.run(benchmark_throughput())
 # Production-optimized configuration
 client = MemoryClient(
     # Use local Ollama for speed, Groq for quality
-    llm_provider=OllamaProvider(
+    llm_provider=OllamaLLM(
         base_url="http://localhost:11434",
         model="qwen2.5:7b-instruct"  # Fast, good quality
     ),
@@ -1077,10 +1075,10 @@ Welcome to the future of memory management! 🧠✨
 
 ## 📚 Additional Resources
 
-- **[Complete API Documentation](docs/API_COMPLETE_REFERENCE.md)**
-- **[SaaS Integration Guide](docs/SAAS_INTEGRATION_GUIDE.md)**
-- **[Architecture Deep Dive](docs/ARCHITECTURE.md)**
-- **[Production Deployment](docs/DEPLOYMENT_AND_USAGE_GUIDE.md)**
+- **[Complete API Documentation](API_REFERENCE.md)**
+- **[Configuration Guide](CONFIGURATION.md)**
+- **[Architecture Deep Dive](ARCHITECTURE.md)**
+- **[User Guide](USER_GUIDE.md)**
 - **[GitHub Repository](https://github.com/rexdivakar/HippocampAI)**
 
 *Built with ❤️ by the HippocampAI community*

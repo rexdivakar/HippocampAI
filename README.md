@@ -10,9 +10,9 @@
 
 > **🎯 The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-## 🎯 NEW: Unified Memory Client
+## 🎯 Unified Memory Client
 
-**One interface, multiple backends!** The new `UnifiedMemoryClient` works with both local (direct) and remote (API) modes with the same code:
+**One interface, multiple backends!** The `UnifiedMemoryClient` works with both local (direct) and remote (API) modes with the same code:
 
 ```python
 from hippocampai import UnifiedMemoryClient
@@ -28,7 +28,7 @@ memory = client.remember("User prefers dark mode", user_id="user123")
 results = client.recall("UI preferences", user_id="user123")
 ```
 
-📚 **[Read the Unified Client Guide](archive/UNIFIED_CLIENT_GUIDE.md)** | **[Complete Usage Examples](archive/UNIFIED_CLIENT_USAGE.md)** | **[What's New](archive/WHATS_NEW_UNIFIED_CLIENT.md)**
+📚 **[Complete Getting Started Guide](docs/GETTING_STARTED.md)** | **[API Reference](docs/API_REFERENCE.md)** | **[Configuration Guide](docs/CONFIGURATION.md)**
 
 ---
 
@@ -155,7 +155,7 @@ Complete documentation is available in the [docs/](docs/) folder:
 
 - **[Features Overview](docs/FEATURES.md)** - Complete feature documentation (2600+ lines)
 - **[Memory Management API](docs/MEMORY_MANAGEMENT_API.md)** - Advanced memory operations and lifecycle
-- **[Unified Client Guide](archive/UNIFIED_CLIENT_GUIDE.md)** - Single interface for local/remote modes
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Single interface for local/remote modes
 - **[Multi-Agent Features](docs/MULTIAGENT_FEATURES.md)** - Agent coordination and collaboration
 
 ### 📖 Advanced Capabilities
@@ -357,11 +357,11 @@ Choose your deployment mode and AI provider with a single line:
 
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import OllamaProvider
+from hippocampai.adapters import OllamaLLM
 
 # Lightning-fast local processing
 client = MemoryClient(
-    llm_provider=OllamaProvider(base_url="http://localhost:11434"),
+    llm_provider=OllamaLLM(base_url="http://localhost:11434"),
     mode="local"  # Direct connection to Qdrant/Redis
 )
 
@@ -375,11 +375,11 @@ print(f"Found: {results[0].memory.text}")  # "I love dark chocolate"
 
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqProvider
+from hippocampai.adapters import GroqLLM
 
 # Production SaaS deployment
 client = MemoryClient(
-    llm_provider=GroqProvider(api_key="your-groq-key"),
+    llm_provider=GroqLLM(api_key="your-groq-key"),
     mode="remote",  # HTTP connection to FastAPI server
     api_url="http://localhost:8000"
 )
@@ -393,13 +393,13 @@ results = client.recall("insights about", user_id="enterprise_user")
 
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqProvider, OpenAIProvider, AnthropicProvider
+from hippocampai.adapters import GroqLLM, OpenAILLM, AnthropicLLM
 
 # Switch providers seamlessly
 providers = {
-    "groq": GroqProvider(api_key="groq-key"),      # Fast & cost-effective
-    "openai": OpenAIProvider(api_key="openai-key"), # High quality
-    "anthropic": AnthropicProvider(api_key="anthropic-key")  # Advanced reasoning
+    "groq": GroqLLM(api_key="groq-key"),      # Fast & cost-effective
+    "openai": OpenAILLM(api_key="openai-key"), # High quality
+    "anthropic": AnthropicLLM(api_key="anthropic-key")  # Advanced reasoning
 }
 
 # Same code works with any provider
@@ -769,8 +769,8 @@ python examples/04_custom_configuration.py
 # Multi-user management
 python examples/05_multi_user.py
 
-# Batch operations
-python examples/06_batch_operations.py
+# Advanced memory management
+python examples/06_advanced_memory_management.py
 
 # Advanced features (graph, version control, context injection, etc.)
 python examples/07_advanced_features_demo.py
@@ -788,16 +788,16 @@ python examples/10_session_management_demo.py
 python examples/11_intelligence_features_demo.py
 
 # Semantic clustering & auto-categorization
-python examples/12_semantic_clustering_demo.py
+python examples/11_semantic_clustering_demo.py
 
 # Multi-agent memory management
-python examples/13_multiagent_demo.py
+python examples/12_multiagent_demo.py
 
 # Temporal reasoning (time-based queries, narratives, scheduling)
-python examples/14_temporal_reasoning_demo.py
+python examples/13_temporal_reasoning_demo.py
 
 # Cross-session insights (patterns, habits, preference drift, trends)
-python examples/15_cross_session_insights_demo.py
+python examples/14_cross_session_insights_demo.py
 
 # Production resilience (retry logic + structured logging)
 python examples/example_resilience.py

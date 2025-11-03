@@ -41,7 +41,7 @@ client = MemoryClient(
 **Parameters:**
 - `qdrant_url` (str): Qdrant vector database URL. Default: `"http://localhost:6333"`
 - `redis_url` (str): Redis cache URL. Default: `"redis://localhost:6379"`
-- `llm_provider` (LLMProvider): LLM provider instance (OllamaProvider, OpenAIProvider, etc.)
+- `llm_provider` (BaseLLM): LLM provider instance (OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM)
 - `config` (Config): Configuration object. If not provided, loads from environment
 - `**kwargs`: Additional config overrides (weights, top_k, etc.)
 
@@ -50,10 +50,10 @@ client = MemoryClient(
 **Example:**
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import OllamaProvider
+from hippocampai.adapters import OllamaLLM
 
 client = MemoryClient(
-    llm_provider=OllamaProvider(base_url="http://localhost:11434"),
+    llm_provider=OllamaLLM(base_url="http://localhost:11434"),
     qdrant_url="http://localhost:6333"
 )
 ```
