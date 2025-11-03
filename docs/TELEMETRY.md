@@ -425,4 +425,4 @@ print("\nExported telemetry to telemetry_export.json")
 
 - See [CONFIGURATION.md](CONFIGURATION.md) for telemetry configuration options
 - Check [ARCHITECTURE.md](ARCHITECTURE.md) for system internals
-- Read [API.md](API.md) for complete API reference
+- Read [API_REFERENCE.md](API_REFERENCE.md) for complete API reference

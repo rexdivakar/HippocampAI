@@ -682,10 +682,10 @@ groq.RateLimitError: Rate limit exceeded
 1. **Implement retry logic:**
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqProvider
+from hippocampai.adapters import GroqLLM
 
 # Retry is built-in
-provider = GroqProvider(
+provider = GroqLLM(
     api_key=os.getenv("GROQ_API_KEY"),
     max_retries=3,
     retry_delay=2
@@ -1100,13 +1100,13 @@ python -c "from hippocampai import MemoryClient; MemoryClient().export_graph_to_
 **Q: Can I use multiple LLM providers?**
 A: Yes, switch providers per operation:
 ```python
-from hippocampai.adapters import OllamaProvider, OpenAIProvider
+from hippocampai.adapters import OllamaLLM, OpenAILLM
 
 # Use Ollama for most operations (free)
-client = MemoryClient(llm_provider=OllamaProvider())
+client = MemoryClient(llm_provider=OllamaLLM())
 
 # Use OpenAI for critical operations
-openai_provider = OpenAIProvider(api_key=key)
+openai_provider = OpenAILLM(api_key=key)
 facts = client.extract_facts(text, llm_provider=openai_provider)
 ```
 

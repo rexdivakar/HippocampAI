@@ -134,11 +134,11 @@ Enterprise-grade with managed AI providers:
 
 ```python
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqProvider
+from hippocampai.adapters import GroqLLM
 
 # Production SaaS setup
 client = MemoryClient(
-    llm_provider=GroqProvider(api_key="your-key"),
+    llm_provider=GroqLLM(api_key="your-key"),
     mode="remote",
     api_url="http://your-server:8000"
 )
@@ -283,10 +283,10 @@ insights = client.get_cross_session_insights(user_id="alice")
 
 ### Provider Adapters
 
-- **GroqProvider** (`src/hippocampai/adapters/groq_provider.py`)
-- **OpenAIProvider** (`src/hippocampai/adapters/openai_provider.py`)
-- **AnthropicProvider** (`src/hippocampai/adapters/anthropic_provider.py`)
-- **OllamaProvider** (`src/hippocampai/adapters/ollama_provider.py`)
+- **GroqLLM** (`src/hippocampai/adapters/provider_groq.py`)
+- **OpenAILLM** (`src/hippocampai/adapters/provider_openai.py`)
+- **AnthropicLLM** (`src/hippocampai/adapters/provider_anthropic.py`)
+- **OllamaLLM** (`src/hippocampai/adapters/provider_ollama.py`)
 
 ### API Layer
 
@@ -451,15 +451,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ## 📚 Complete Documentation Index
 
 - **[Getting Started](GETTING_STARTED.md)** - Setup and first steps
-- **[SaaS Integration Guide](SAAS_INTEGRATION_GUIDE.md)** - Complete provider setup and deployment
-- **[Architecture Guide](ARCHITECTURE.md)** - System design and components
-- **[API Reference](API_COMPLETE_REFERENCE.md)** - Complete REST API documentation
 - **[Configuration Guide](CONFIGURATION.md)** - Environment and provider configuration
-- **[Deployment Guide](DEPLOYMENT_AND_USAGE_GUIDE.md)** - Production deployment strategies
+- **[Architecture Guide](ARCHITECTURE.md)** - System design and components
+- **[API Reference](API_REFERENCE.md)** - Complete API documentation
+- **[User Guide](USER_GUIDE.md)** - Production deployment strategies
 - **[Features Overview](FEATURES.md)** - Complete feature documentation
 - **[Testing Guide](TESTING_GUIDE.md)** - Testing strategies and validation
+- **[Providers](PROVIDERS.md)** - LLM provider setup and configuration
 
-**See [docs/README.md](docs/README.md) for all 27+ documentation files.**
+**See [README.md](README.md) in the docs directory for the complete documentation index.**
 
 ---
 
