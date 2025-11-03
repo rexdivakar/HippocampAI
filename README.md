@@ -1030,7 +1030,7 @@ pip install hippocampai
 - Do not open public issues for security vulnerabilities
 - We will respond within 48 hours
 
-See our full [Security Policy](SECURITY_AUDIT.md) for more information.
+See our full [Security Policy](SECURITY.md) for more information.
 
 ### 📄 License
 
