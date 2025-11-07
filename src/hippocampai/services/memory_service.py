@@ -11,6 +11,10 @@ import numpy as np
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.pipeline.conflict_resolution import (
+    ConflictResolutionStrategy,
+    MemoryConflictResolver,
+)
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
 from hippocampai.retrieval.rerank import Reranker
@@ -32,6 +36,7 @@ class MemoryManagementService:
     - Hybrid search with customizable weights
     - Deduplication service
     - Consolidation service
+    - Conflict resolution for contradictory memories
     """
 
     def __init__(
@@ -44,6 +49,9 @@ class MemoryManagementService:
         weights: Optional[dict[str, float]] = None,
         half_lives: Optional[dict[str, int]] = None,
         dedup_threshold: float = 0.88,
+        enable_conflict_resolution: bool = True,
+        conflict_resolution_strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.TEMPORAL,
+        conflict_similarity_threshold: float = 0.75,
     ):
         """
         Initialize memory management service.
@@ -57,11 +65,16 @@ class MemoryManagementService:
             weights: Optional custom scoring weights
             half_lives: Optional custom half-lives for memory types
             dedup_threshold: Similarity threshold for deduplication
+            enable_conflict_resolution: Enable automatic conflict detection and resolution
+            conflict_resolution_strategy: Default strategy for resolving conflicts
+            conflict_similarity_threshold: Minimum similarity to check for conflicts
         """
         self.qdrant = qdrant_store
         self.embedder = embedder
         self.redis = redis_store
         self.llm = llm
+        self.enable_conflict_resolution = enable_conflict_resolution
+        self.conflict_resolution_strategy = conflict_resolution_strategy
 
         # Initialize retriever
         self.retriever = HybridRetriever(
@@ -82,6 +95,14 @@ class MemoryManagementService:
 
         # Initialize consolidator
         self.consolidator = MemoryConsolidator(llm=llm)
+
+        # Initialize conflict resolver
+        self.conflict_resolver = MemoryConflictResolver(
+            embedder=embedder,
+            llm=llm,
+            default_strategy=conflict_resolution_strategy,
+            similarity_threshold=conflict_similarity_threshold,
+        )
 
         # Query cache TTL (60 seconds)
         self.query_cache_ttl = 60
@@ -119,9 +140,11 @@ class MemoryManagementService:
         ttl_days: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
         check_duplicate: bool = True,
+        check_conflicts: bool = True,
+        auto_resolve_conflicts: bool = True,
     ) -> Memory:
         """
-        Create a new memory with optional deduplication.
+        Create a new memory with optional deduplication and conflict resolution.
 
         Args:
             text: Memory content
@@ -133,6 +156,8 @@ class MemoryManagementService:
             ttl_days: Optional time-to-live in days
             metadata: Optional metadata
             check_duplicate: Whether to check for duplicates
+            check_conflicts: Whether to check for conflicting memories
+            auto_resolve_conflicts: Whether to automatically resolve conflicts
 
         Returns:
             Created memory
@@ -181,6 +206,73 @@ class MemoryManagementService:
                 if updated_memory is None:
                     raise ValueError(f"Failed to update memory {existing_id}")
                 return updated_memory
+
+        # Check for conflicts
+        if check_conflicts and self.enable_conflict_resolution:
+            # Get existing memories of the same type
+            existing_memories = await self.get_memories(
+                user_id=user_id,
+                memory_type=memory_type,
+                limit=100,  # Check recent memories
+            )
+
+            if existing_memories:
+                conflicts = self.conflict_resolver.detect_conflicts(
+                    memory, existing_memories, check_llm=bool(self.llm)
+                )
+
+                if conflicts:
+                    logger.info(
+                        f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'"
+                    )
+
+                    # Auto-resolve if enabled
+                    if auto_resolve_conflicts:
+                        for conflict in conflicts:
+                            resolution = self.conflict_resolver.resolve_conflict(
+                                conflict, strategy=self.conflict_resolution_strategy
+                            )
+
+                            # Handle resolution
+                            if resolution.action == "keep_first":
+                                # Keep existing, don't create new
+                                logger.info(
+                                    f"Conflict resolved: keeping existing memory {conflict.memory_1.id}"
+                                )
+                                return conflict.memory_1
+
+                            elif resolution.action == "keep_second":
+                                # Continue to create new memory (will delete old below)
+                                logger.info(
+                                    f"Conflict resolved: keeping new memory, will delete {conflict.memory_1.id}"
+                                )
+                                # Delete conflicting old memory
+                                await self.delete_memory(conflict.memory_1.id)
+
+                            elif resolution.action == "merge":
+                                # Use merged memory instead
+                                logger.info("Conflict resolved: merged memories into new memory")
+                                memory = resolution.updated_memory
+                                # Delete both original memories
+                                for mem_id in resolution.deleted_memory_ids:
+                                    await self.delete_memory(mem_id)
+
+                            elif resolution.action in ["flag", "keep_both"]:
+                                # Flag both memories for review
+                                logger.info(f"Conflict flagged for review: {conflict.id}")
+                                # Update existing memory with conflict flag
+                                await self.update_memory(
+                                    memory_id=conflict.memory_1.id,
+                                    metadata=conflict.memory_1.metadata,
+                                )
+                                # Add conflict flag to new memory
+                                memory.metadata.update(conflict.memory_2.metadata)
+                    else:
+                        # Just flag for review without auto-resolving
+                        logger.info(f"Flagging {len(conflicts)} conflict(s) for user review")
+                        memory.metadata["has_conflicts"] = True
+                        memory.metadata["conflict_count"] = len(conflicts)
+                        memory.metadata["conflict_ids"] = [c.id for c in conflicts]
 
         # Store in vector database
         collection = memory.collection_name(
@@ -857,3 +949,191 @@ JSON:"""
 
         logger.info(f"Expired {expired_count} memories")
         return expired_count
+
+    async def detect_memory_conflicts(
+        self,
+        user_id: str,
+        memory_type: Optional[str] = None,
+        check_llm: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Detect conflicts in existing memories for a user.
+
+        Args:
+            user_id: User identifier
+            memory_type: Optional memory type filter
+            check_llm: Whether to use LLM for deep contradiction analysis
+
+        Returns:
+            List of detected conflicts with details
+        """
+        # Get user memories
+        memories = await self.get_memories(user_id=user_id, memory_type=memory_type, limit=1000)
+
+        if len(memories) < 2:
+            logger.info(f"No conflicts possible with {len(memories)} memories")
+            return []
+
+        # Detect conflicts
+        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+
+        # Format results
+        conflict_details = []
+        for conflict in conflicts:
+            conflict_details.append(
+                {
+                    "conflict_id": conflict.id,
+                    "memory_1": {
+                        "id": conflict.memory_1.id,
+                        "text": conflict.memory_1.text,
+                        "created_at": conflict.memory_1.created_at.isoformat(),
+                        "confidence": conflict.memory_1.confidence,
+                        "importance": conflict.memory_1.importance,
+                    },
+                    "memory_2": {
+                        "id": conflict.memory_2.id,
+                        "text": conflict.memory_2.text,
+                        "created_at": conflict.memory_2.created_at.isoformat(),
+                        "confidence": conflict.memory_2.confidence,
+                        "importance": conflict.memory_2.importance,
+                    },
+                    "conflict_type": conflict.conflict_type,
+                    "confidence_score": conflict.confidence_score,
+                    "similarity_score": conflict.similarity_score,
+                    "detected_at": conflict.detected_at.isoformat(),
+                }
+            )
+
+        logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
+        return conflict_details
+
+    async def resolve_memory_conflicts(
+        self,
+        user_id: str,
+        strategy: Optional[ConflictResolutionStrategy] = None,
+        memory_type: Optional[str] = None,
+        dry_run: bool = False,
+        check_llm: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Detect and resolve conflicts in existing memories.
+
+        Args:
+            user_id: User identifier
+            strategy: Resolution strategy (uses default if not specified)
+            memory_type: Optional memory type filter
+            dry_run: If True, only report conflicts without resolving
+            check_llm: Whether to use LLM for deep contradiction analysis
+
+        Returns:
+            Dictionary with resolution results
+        """
+        # Get user memories
+        memories = await self.get_memories(user_id=user_id, memory_type=memory_type, limit=1000)
+
+        if len(memories) < 2:
+            return {
+                "user_id": user_id,
+                "total_memories": len(memories),
+                "conflicts_found": 0,
+                "conflicts_resolved": 0,
+                "dry_run": dry_run,
+            }
+
+        # Detect conflicts
+        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+
+        if not conflicts:
+            return {
+                "user_id": user_id,
+                "total_memories": len(memories),
+                "conflicts_found": 0,
+                "conflicts_resolved": 0,
+                "dry_run": dry_run,
+            }
+
+        logger.info(f"Found {len(conflicts)} conflicts for user {user_id}")
+
+        resolved_count = 0
+        memories_deleted = 0
+        memories_updated = 0
+        memories_flagged = 0
+        resolution_details = []
+
+        if not dry_run:
+            for conflict in conflicts:
+                resolution = self.conflict_resolver.resolve_conflict(
+                    conflict, strategy=strategy or self.conflict_resolution_strategy
+                )
+
+                # Apply resolution
+                if resolution.action == "keep_first":
+                    # Delete second memory
+                    await self.delete_memory(conflict.memory_2.id)
+                    memories_deleted += 1
+                    resolved_count += 1
+
+                elif resolution.action == "keep_second":
+                    # Delete first memory
+                    await self.delete_memory(conflict.memory_1.id)
+                    memories_deleted += 1
+                    resolved_count += 1
+
+                elif resolution.action == "merge":
+                    # Create merged memory and delete originals
+                    if resolution.updated_memory:
+                        await self.create_memory(
+                            text=resolution.updated_memory.text,
+                            user_id=user_id,
+                            memory_type=resolution.updated_memory.type.value,
+                            importance=resolution.updated_memory.importance,
+                            tags=resolution.updated_memory.tags,
+                            metadata=resolution.updated_memory.metadata,
+                            check_duplicate=False,
+                            check_conflicts=False,
+                        )
+                        memories_updated += 1
+
+                    # Delete original memories
+                    for mem_id in resolution.deleted_memory_ids:
+                        await self.delete_memory(mem_id)
+                        memories_deleted += 1
+
+                    resolved_count += 1
+
+                elif resolution.action in ["flag", "keep_both"]:
+                    # Update both memories with conflict flags
+                    await self.update_memory(
+                        memory_id=conflict.memory_1.id,
+                        metadata=conflict.memory_1.metadata,
+                    )
+                    await self.update_memory(
+                        memory_id=conflict.memory_2.id,
+                        metadata=conflict.memory_2.metadata,
+                    )
+                    memories_flagged += 2
+                    resolved_count += 1
+
+                resolution_details.append(
+                    {
+                        "conflict_id": conflict.id,
+                        "action": resolution.action,
+                        "notes": resolution.notes,
+                    }
+                )
+
+        result = {
+            "user_id": user_id,
+            "total_memories": len(memories),
+            "conflicts_found": len(conflicts),
+            "conflicts_resolved": resolved_count if not dry_run else 0,
+            "memories_deleted": memories_deleted if not dry_run else 0,
+            "memories_updated": memories_updated if not dry_run else 0,
+            "memories_flagged": memories_flagged if not dry_run else 0,
+            "dry_run": dry_run,
+            "resolution_strategy": (strategy or self.conflict_resolution_strategy).value,
+            "details": resolution_details[:50],  # Limit details
+        }
+
+        logger.info(f"Conflict resolution for user {user_id}: {result}")
+        return result

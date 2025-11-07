@@ -83,6 +83,77 @@ class Config(BaseSettings):
     dedup_threshold: float = Field(default=0.88, validation_alias="DEDUP_THRESHOLD")
     consolidation_threshold: float = Field(default=0.85, validation_alias="CONSOLIDATION_THRESHOLD")
 
+    # Auto-Summarization Settings
+    auto_summarization_enabled: bool = Field(
+        default=True, validation_alias="AUTO_SUMMARIZATION_ENABLED"
+    )
+    hierarchical_summarization_enabled: bool = Field(
+        default=True, validation_alias="HIERARCHICAL_SUMMARIZATION_ENABLED"
+    )
+    sliding_window_enabled: bool = Field(default=True, validation_alias="SLIDING_WINDOW_ENABLED")
+    sliding_window_size: int = Field(default=10, validation_alias="SLIDING_WINDOW_SIZE")
+    sliding_window_keep_recent: int = Field(
+        default=5, validation_alias="SLIDING_WINDOW_KEEP_RECENT"
+    )
+    max_tokens_per_summary: int = Field(default=150, validation_alias="MAX_TOKENS_PER_SUMMARY")
+    hierarchical_batch_size: int = Field(default=5, validation_alias="HIERARCHICAL_BATCH_SIZE")
+    hierarchical_max_levels: int = Field(default=3, validation_alias="HIERARCHICAL_MAX_LEVELS")
+
+    # Memory Tiering Settings
+    hot_threshold_days: int = Field(default=7, validation_alias="HOT_THRESHOLD_DAYS")
+    warm_threshold_days: int = Field(default=30, validation_alias="WARM_THRESHOLD_DAYS")
+    cold_threshold_days: int = Field(default=90, validation_alias="COLD_THRESHOLD_DAYS")
+    hot_access_count_threshold: int = Field(
+        default=10, validation_alias="HOT_ACCESS_COUNT_THRESHOLD"
+    )
+
+    # Importance Decay Settings
+    importance_decay_enabled: bool = Field(
+        default=True, validation_alias="IMPORTANCE_DECAY_ENABLED"
+    )
+    decay_function: str = Field(
+        default="exponential", validation_alias="DECAY_FUNCTION"
+    )  # linear, exponential, logarithmic, step, hybrid
+    decay_interval_hours: int = Field(default=24, validation_alias="DECAY_INTERVAL_HOURS")
+    min_importance_threshold: float = Field(
+        default=1.0, validation_alias="MIN_IMPORTANCE_THRESHOLD"
+    )
+    access_boost_factor: float = Field(default=0.5, validation_alias="ACCESS_BOOST_FACTOR")
+
+    # Pruning Settings
+    auto_pruning_enabled: bool = Field(default=False, validation_alias="AUTO_PRUNING_ENABLED")
+    pruning_interval_hours: int = Field(
+        default=168, validation_alias="PRUNING_INTERVAL_HOURS"
+    )  # Weekly
+    pruning_strategy: str = Field(
+        default="comprehensive", validation_alias="PRUNING_STRATEGY"
+    )  # importance_only, age_based, access_based, comprehensive, conservative
+    min_health_threshold: float = Field(default=3.0, validation_alias="MIN_HEALTH_THRESHOLD")
+    pruning_target_percentage: float = Field(
+        default=0.1, validation_alias="PRUNING_TARGET_PERCENTAGE"
+    )  # Target to prune 10% max
+
+    # Conflict Resolution Settings
+    enable_conflict_resolution: bool = Field(
+        default=True, validation_alias="ENABLE_CONFLICT_RESOLUTION"
+    )
+    conflict_resolution_strategy: str = Field(
+        default="temporal", validation_alias="CONFLICT_RESOLUTION_STRATEGY"
+    )  # temporal, confidence, importance, user_review, auto_merge, keep_both
+    conflict_similarity_threshold: float = Field(
+        default=0.75, validation_alias="CONFLICT_SIMILARITY_THRESHOLD"
+    )
+    conflict_contradiction_threshold: float = Field(
+        default=0.85, validation_alias="CONFLICT_CONTRADICTION_THRESHOLD"
+    )
+    auto_resolve_conflicts: bool = Field(default=True, validation_alias="AUTO_RESOLVE_CONFLICTS")
+    conflict_check_llm: bool = Field(
+        default=True, validation_alias="CONFLICT_CHECK_LLM"
+    )  # Use LLM for deep contradiction analysis
+    conflict_resolution_interval_hours: int = Field(
+        default=24, validation_alias="CONFLICT_RESOLUTION_INTERVAL_HOURS"
+    )
+
     def get_weights(self) -> dict[str, float]:
         return {
             "sim": self.weight_sim,

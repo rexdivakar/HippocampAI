@@ -83,6 +83,15 @@ __all__ = [
     "HabitScore",
     "Trend",
     "InsightChangeType",
+    # SaaS automation
+    "AutomationController",
+    "AutomationPolicy",
+    "AutomationSchedule",
+    "PolicyType",
+    "TaskManager",
+    "TaskPriority",
+    "TaskStatus",
+    "BackgroundTask",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
@@ -319,5 +328,48 @@ def __getattr__(name: str) -> Any:
         from hippocampai.multiagent import MultiAgentManager as _ImportedMultiAgentManager
 
         return _ImportedMultiAgentManager
+
+    # SaaS automation
+    if name == "AutomationController":
+        from hippocampai.saas.automation import (
+            AutomationController as _ImportedAutomationController,
+        )
+
+        return _ImportedAutomationController
+
+    if name == "AutomationPolicy":
+        from hippocampai.saas.automation import AutomationPolicy as _ImportedAutomationPolicy
+
+        return _ImportedAutomationPolicy
+
+    if name == "AutomationSchedule":
+        from hippocampai.saas.automation import AutomationSchedule as _ImportedAutomationSchedule
+
+        return _ImportedAutomationSchedule
+
+    if name == "PolicyType":
+        from hippocampai.saas.automation import PolicyType as _ImportedPolicyType
+
+        return _ImportedPolicyType
+
+    if name == "TaskManager":
+        from hippocampai.saas.tasks import TaskManager as _ImportedTaskManager
+
+        return _ImportedTaskManager
+
+    if name == "TaskPriority":
+        from hippocampai.saas.tasks import TaskPriority as _ImportedTaskPriority
+
+        return _ImportedTaskPriority
+
+    if name == "TaskStatus":
+        from hippocampai.saas.tasks import TaskStatus as _ImportedTaskStatus
+
+        return _ImportedTaskStatus
+
+    if name == "BackgroundTask":
+        from hippocampai.saas.tasks import BackgroundTask as _ImportedBackgroundTask
+
+        return _ImportedBackgroundTask
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")
