@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.config import get_config
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
+from hippocampai.pipeline.memory_lifecycle import MemoryTier
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.services.background_tasks import BackgroundTaskManager
 from hippocampai.services.memory_service import MemoryManagementService
@@ -25,6 +26,18 @@ from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics
+try:
+    from hippocampai.monitoring.prometheus_metrics import (
+        PrometheusMiddleware,
+        get_metrics,
+    )
+
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+    logger.warning("Prometheus client not available - metrics disabled")
 
 # Global service instances
 _service: Optional[MemoryManagementService] = None
@@ -151,6 +164,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add Prometheus middleware if available
+if PROMETHEUS_AVAILABLE:
+    app.add_middleware(PrometheusMiddleware)
+    logger.info("Prometheus middleware enabled")
+
 # Include intelligence routes
 try:
     from hippocampai.api.intelligence_routes import router as intelligence_router
@@ -196,6 +214,15 @@ class MemoryCreate(BaseModel):
 
 
 class MemoryUpdate(BaseModel):
+    text: Optional[str] = None
+    importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    tags: Optional[list[str]] = None
+    metadata: Optional[dict[str, Any]] = None
+    expires_at: Optional[datetime] = None
+
+
+class BatchMemoryUpdate(BaseModel):
+    """Model for batch memory updates (includes memory_id)."""
     memory_id: str
     text: Optional[str] = None
     importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
@@ -240,7 +267,7 @@ class BatchCreateRequest(BaseModel):
 
 
 class BatchUpdateRequest(BaseModel):
-    updates: list[MemoryUpdate]
+    updates: list[BatchMemoryUpdate]
 
 
 class BatchDeleteRequest(BaseModel):
@@ -287,6 +314,17 @@ class ExpireRequest(BaseModel):
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok", "service": "hippocampai", "version": "0.2.5"}
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    """Prometheus metrics endpoint."""
+    if not PROMETHEUS_AVAILABLE:
+        raise HTTPException(
+            status_code=501,
+            detail="Prometheus metrics not available - install prometheus-client"
+        )
+    return Response(content=get_metrics(), media_type="text/plain")
 
 
 @app.get("/stats")
@@ -1149,6 +1187,308 @@ async def get_provenance(
         raise
     except Exception as e:
         logger.error(f"Error getting provenance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Memory Tracking & Monitoring Endpoints
+# ============================================================================
+
+
+class MemoryEventsRequest(BaseModel):
+    """Request for memory events."""
+
+    memory_id: Optional[str] = None
+    user_id: Optional[str] = None
+    event_type: Optional[str] = None
+    limit: int = 100
+
+
+class MemoryStatsRequest(BaseModel):
+    """Request for memory statistics."""
+
+    user_id: str
+
+
+class AccessPatternRequest(BaseModel):
+    """Request for memory access pattern."""
+
+    memory_id: str
+    user_id: str
+
+
+class HealthHistoryRequest(BaseModel):
+    """Request for health history."""
+
+    memory_id: str
+    user_id: str
+    limit: int = 100
+
+
+@app.get("/v1/monitoring/events")
+async def get_memory_events(
+    memory_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = 100,
+):
+    """Get memory lifecycle events.
+
+    Returns list of events showing what's happening with memories on the backend:
+    - Creation, updates, deletions
+    - Searches and retrievals
+    - Consolidations and deduplication
+    - Health checks and conflict detection
+    """
+    try:
+        from hippocampai.monitoring.memory_tracker import (
+            MemoryEventType,
+            get_tracker,
+        )
+
+        tracker = get_tracker()
+
+        # Convert string event_type to enum if provided
+        event_type_enum = None
+        if event_type:
+            try:
+                event_type_enum = MemoryEventType(event_type)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid event_type. Must be one of: {[e.value for e in MemoryEventType]}",
+                )
+
+        events = tracker.get_memory_events(
+            memory_id=memory_id,
+            user_id=user_id,
+            event_type=event_type_enum,
+            limit=limit,
+        )
+
+        return {
+            "total": len(events),
+            "events": [e.model_dump() for e in events],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting memory events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/monitoring/stats")
+async def get_memory_stats(request: MemoryStatsRequest):
+    """Get comprehensive memory statistics for a user.
+
+    Returns:
+    - Total events by type
+    - Success rates
+    - Most accessed memories
+    - Average operation durations
+    """
+    try:
+        from hippocampai.monitoring.memory_tracker import get_tracker
+
+        tracker = get_tracker()
+        stats = tracker.get_memory_stats(user_id=request.user_id)
+
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting memory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/monitoring/access-pattern")
+async def get_access_pattern(request: AccessPatternRequest):
+    """Get access pattern for a specific memory.
+
+    Returns:
+    - Access count and frequency
+    - Last and first access times
+    - Search hits vs direct retrievals
+    - Access sources
+    """
+    try:
+        from hippocampai.monitoring.memory_tracker import get_tracker
+
+        tracker = get_tracker()
+        pattern = tracker.get_access_pattern(
+            memory_id=request.memory_id, user_id=request.user_id
+        )
+
+        if not pattern:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No access pattern found for memory {request.memory_id}",
+            )
+
+        return pattern.model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting access pattern: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/monitoring/access-patterns/{user_id}")
+async def get_all_access_patterns(user_id: str):
+    """Get all access patterns for a user.
+
+    Returns list of all memories with their access statistics.
+    """
+    try:
+        from hippocampai.monitoring.memory_tracker import get_tracker
+
+        tracker = get_tracker()
+        patterns = tracker.get_all_access_patterns(user_id=user_id)
+
+        return {
+            "user_id": user_id,
+            "total_memories": len(patterns),
+            "patterns": [p.model_dump() for p in patterns],
+        }
+    except Exception as e:
+        logger.error(f"Error getting access patterns: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/monitoring/health-history")
+async def get_health_history(request: HealthHistoryRequest):
+    """Get health history for a specific memory.
+
+    Returns snapshots of memory health over time:
+    - Health scores
+    - Staleness and freshness scores
+    - Detected issues
+    """
+    try:
+        from hippocampai.monitoring.memory_tracker import get_tracker
+
+        tracker = get_tracker()
+        history = tracker.get_health_history(
+            memory_id=request.memory_id,
+            user_id=request.user_id,
+            limit=request.limit,
+        )
+
+        return {
+            "memory_id": request.memory_id,
+            "user_id": request.user_id,
+            "total_snapshots": len(history),
+            "history": [h.model_dump() for h in history],
+        }
+    except Exception as e:
+        logger.error(f"Error getting health history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Memory Lifecycle & Tiering
+# ============================================================================
+
+
+@app.get("/v1/lifecycle/temperature/{memory_id}")
+async def get_memory_temperature(
+    memory_id: str, service: MemoryManagementService = Depends(get_service)
+):
+    """
+    Get temperature metrics for a specific memory.
+
+    Returns lifecycle information including:
+    - Current tier (hot/warm/cold/archived/hibernated)
+    - Temperature score (0-100)
+    - Access frequency and recency
+    - Recommended tier based on access patterns
+    """
+    try:
+        temperature = await service.get_memory_temperature(memory_id)
+        if not temperature:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        return temperature
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting memory temperature: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TierMigrationRequest(BaseModel):
+    """Request to migrate a memory to a specific tier."""
+
+    memory_id: str
+    target_tier: str = Field(
+        ...,
+        description="Target tier: hot, warm, cold, archived, or hibernated",
+    )
+
+
+@app.post("/v1/lifecycle/migrate")
+async def migrate_memory_tier(
+    request: TierMigrationRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """
+    Manually migrate a memory to a specific storage tier.
+
+    Tiers:
+    - hot: Frequently accessed, cached in Redis + Vector DB
+    - warm: Occasionally accessed, in Vector DB
+    - cold: Rarely accessed, in Vector DB
+    - archived: Very old, compressed in Vector DB
+    - hibernated: Extremely old, highly compressed
+    """
+    try:
+        # Validate tier
+        try:
+            target_tier = MemoryTier(request.target_tier.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid tier. Must be one of: {[t.value for t in MemoryTier]}",
+            )
+
+        # Perform migration
+        success = await service.migrate_memory_tier(request.memory_id, target_tier)
+        if not success:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        return {
+            "memory_id": request.memory_id,
+            "target_tier": target_tier.value,
+            "migrated": True,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error migrating memory tier: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TierStatsRequest(BaseModel):
+    """Request for tier statistics."""
+
+    user_id: str
+
+
+@app.post("/v1/lifecycle/stats")
+async def get_tier_statistics(
+    request: TierStatsRequest, service: MemoryManagementService = Depends(get_service)
+):
+    """
+    Get statistics about memory tiers for a user.
+
+    Returns:
+    - Total memories and size
+    - Distribution across tiers
+    - Average temperature per tier
+    - Lifecycle configuration
+    """
+    try:
+        stats = await service.get_tier_statistics(request.user_id)
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting tier statistics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

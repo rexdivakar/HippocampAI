@@ -61,7 +61,7 @@ print(f"Found: {results[0].memory.text}")
 | **AI Integration** | Works with OpenAI, Anthropic, Groq, Ollama, local models | [Providers](docs/PROVIDERS.md) |
 | **Session Management** | Conversation tracking, summaries, hierarchical sessions | [Sessions](docs/SESSION_MANAGEMENT.md) |
 | **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_USAGE_GUIDE.md) |
-| **Monitoring** | Prometheus, Grafana, Flower dashboards | [Monitoring](docs/TELEMETRY.md) |
+| **Monitoring & Tracking** | Prometheus, Grafana dashboards, memory lifecycle tracking | [Monitoring](MONITORING_INTEGRATION_GUIDE.md) \| [Memory Tracking](MEMORY_TRACKING_GUIDE.md) |
 
 ---
 

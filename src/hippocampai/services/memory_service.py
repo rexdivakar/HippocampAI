@@ -17,6 +17,11 @@ from hippocampai.pipeline.conflict_resolution import (
 )
 from hippocampai.pipeline.consolidate import MemoryConsolidator
 from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.memory_lifecycle import (
+    LifecycleConfig,
+    MemoryLifecycleManager,
+    MemoryTier,
+)
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.storage.redis_store import AsyncMemoryKVStore
@@ -52,6 +57,8 @@ class MemoryManagementService:
         enable_conflict_resolution: bool = True,
         conflict_resolution_strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.TEMPORAL,
         conflict_similarity_threshold: float = 0.75,
+        lifecycle_config: Optional[LifecycleConfig] = None,
+        enable_lifecycle_management: bool = True,
     ):
         """
         Initialize memory management service.
@@ -68,6 +75,8 @@ class MemoryManagementService:
             enable_conflict_resolution: Enable automatic conflict detection and resolution
             conflict_resolution_strategy: Default strategy for resolving conflicts
             conflict_similarity_threshold: Minimum similarity to check for conflicts
+            lifecycle_config: Optional lifecycle management configuration
+            enable_lifecycle_management: Enable automatic memory tiering and lifecycle management
         """
         self.qdrant = qdrant_store
         self.embedder = embedder
@@ -75,6 +84,7 @@ class MemoryManagementService:
         self.llm = llm
         self.enable_conflict_resolution = enable_conflict_resolution
         self.conflict_resolution_strategy = conflict_resolution_strategy
+        self.enable_lifecycle_management = enable_lifecycle_management
 
         # Initialize retriever
         self.retriever = HybridRetriever(
@@ -102,6 +112,11 @@ class MemoryManagementService:
             llm=llm,
             default_strategy=conflict_resolution_strategy,
             similarity_threshold=conflict_similarity_threshold,
+        )
+
+        # Initialize lifecycle manager
+        self.lifecycle_manager = MemoryLifecycleManager(
+            config=lifecycle_config or LifecycleConfig()
         )
 
         # Query cache TTL (60 seconds)
@@ -289,15 +304,30 @@ class MemoryManagementService:
         # Cache in Redis
         await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
 
+        # Track Prometheus metrics
+        try:
+            from hippocampai.monitoring.prometheus_metrics import (
+                memories_created_total,
+                memory_operations_total,
+                memory_size_bytes,
+            )
+
+            memory_operations_total.labels(operation="create", status="success").inc()
+            memories_created_total.labels(memory_type=memory.type.value).inc()
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(len(text.encode("utf-8")))
+        except Exception as metrics_err:
+            logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+
         logger.info(f"Created memory {memory.id} for user {user_id}")
         return memory
 
-    async def get_memory(self, memory_id: str) -> Optional[Memory]:
+    async def get_memory(self, memory_id: str, track_access: bool = True) -> Optional[Memory]:
         """
         Get a memory by ID.
 
         Args:
             memory_id: Memory identifier
+            track_access: Whether to track this access and update lifecycle metrics
 
         Returns:
             Memory object or None if not found
@@ -305,7 +335,12 @@ class MemoryManagementService:
         # Try Redis cache first
         cached = await self.redis.get_memory(memory_id)
         if cached:
-            return Memory(**cached)
+            memory = Memory(**cached)
+            if track_access and self.enable_lifecycle_management:
+                # Update access count and track in background
+                memory.access_count += 1
+                await self._update_memory_access(memory)
+            return memory
 
         # Fall back to vector store
         # Try both collections
@@ -313,10 +348,17 @@ class MemoryManagementService:
             try:
                 point = self.qdrant.get(collection_name=collection, id=memory_id)
                 if point:
-                    payload = point
+                    payload = point["payload"]
+                    memory = Memory(**payload)
+
+                    if track_access and self.enable_lifecycle_management:
+                        # Update access count
+                        memory.access_count += 1
+                        await self._update_memory_access(memory)
+
                     # Cache in Redis
-                    await self.redis.set_memory(memory_id, payload)
-                    return Memory(**payload)
+                    await self.redis.set_memory(memory_id, memory.model_dump())
+                    return memory
             except Exception as e:
                 logger.debug(f"Memory {memory_id} not found in {collection}: {e}")
 
@@ -730,6 +772,18 @@ class MemoryManagementService:
                 cache_key, serialized_results, ttl_seconds=self.query_cache_ttl
             )
 
+            # Track Prometheus metrics
+            try:
+                from hippocampai.monitoring.prometheus_metrics import (
+                    search_requests_total,
+                    search_results_count,
+                )
+
+                search_requests_total.labels(search_type="hybrid", status="success").inc()
+                search_results_count.observe(len(results))
+            except Exception as metrics_err:
+                logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
+
             return results
         finally:
             # Restore original weights
@@ -1137,3 +1191,193 @@ JSON:"""
 
         logger.info(f"Conflict resolution for user {user_id}: {result}")
         return result
+
+    async def _update_memory_access(self, memory: Memory) -> None:
+        """
+        Update memory access patterns and lifecycle tier.
+
+        Args:
+            memory: Memory object with updated access_count
+        """
+        try:
+            # Calculate temperature
+            temperature = self.lifecycle_manager.calculate_temperature(
+                memory_id=memory.id,
+                created_at=memory.created_at,
+                access_count=memory.access_count,
+                last_access=datetime.now(timezone.utc),
+                importance=memory.importance,
+            )
+
+            # Get current tier from metadata
+            current_tier_str = memory.metadata.get("lifecycle", {}).get("tier")
+            current_tier = (
+                MemoryTier(current_tier_str) if current_tier_str else MemoryTier.WARM
+            )
+
+            # Update metadata with lifecycle info
+            memory_data = memory.model_dump()
+            memory_data = self.lifecycle_manager.update_access_metadata(
+                memory_data, temperature
+            )
+
+            # Check if tier migration is needed
+            if self.lifecycle_manager.should_migrate(current_tier, temperature.tier):
+                logger.info(
+                    f"Memory {memory.id} tier change: {current_tier.value} -> {temperature.tier.value} "
+                    f"(temp: {temperature.temperature_score:.1f})"
+                )
+
+            # Update in vector store
+            collection = memory.collection_name(
+                self.qdrant.collection_facts, self.qdrant.collection_prefs
+            )
+            self.qdrant.update(
+                collection_name=collection,
+                id=memory.id,
+                payload=memory_data,
+            )
+
+            # Update cache
+            await self.redis.set_memory(memory.id, memory_data)
+
+            logger.debug(
+                f"Updated memory {memory.id} access: count={memory.access_count}, "
+                f"tier={temperature.tier.value}, temp={temperature.temperature_score:.1f}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update memory access for {memory.id}: {e}")
+
+    async def get_memory_temperature(self, memory_id: str) -> Optional[dict[str, Any]]:
+        """
+        Get temperature metrics for a memory.
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            Temperature metrics dictionary or None if memory not found
+        """
+        memory = await self.get_memory(memory_id, track_access=False)
+        if not memory:
+            return None
+
+        temperature = self.lifecycle_manager.calculate_temperature(
+            memory_id=memory.id,
+            created_at=memory.created_at,
+            access_count=memory.access_count,
+            last_access=memory.metadata.get("lifecycle", {}).get("last_tier_update"),
+            importance=memory.importance,
+        )
+
+        return temperature.model_dump()
+
+    async def migrate_memory_tier(
+        self, memory_id: str, target_tier: MemoryTier
+    ) -> bool:
+        """
+        Manually migrate a memory to a specific tier.
+
+        Args:
+            memory_id: Memory identifier
+            target_tier: Target storage tier
+
+        Returns:
+            True if migration successful
+        """
+        memory = await self.get_memory(memory_id, track_access=False)
+        if not memory:
+            logger.warning(f"Memory {memory_id} not found for tier migration")
+            return False
+
+        # Calculate current temperature
+        temperature = self.lifecycle_manager.calculate_temperature(
+            memory_id=memory.id,
+            created_at=memory.created_at,
+            access_count=memory.access_count,
+            last_access=memory.metadata.get("lifecycle", {}).get("last_tier_update"),
+            importance=memory.importance,
+        )
+
+        # Override recommended tier with target tier
+        temperature.tier = target_tier
+
+        # Update metadata
+        memory_data = memory.model_dump()
+        memory_data = self.lifecycle_manager.update_access_metadata(
+            memory_data, temperature
+        )
+
+        # Handle compression for archived/hibernated tiers
+        if target_tier in {MemoryTier.ARCHIVED, MemoryTier.HIBERNATED}:
+            if self.lifecycle_manager.config.compress_archived or (
+                target_tier == MemoryTier.HIBERNATED
+                and self.lifecycle_manager.config.compress_hibernated
+            ):
+                # Store compression flag in metadata
+                memory_data["metadata"]["compressed"] = True
+                logger.info(f"Memory {memory_id} will be compressed in tier {target_tier.value}")
+
+        # Update in vector store
+        collection = memory.collection_name(
+            self.qdrant.collection_facts, self.qdrant.collection_prefs
+        )
+        self.qdrant.update(
+            collection_name=collection, id=memory.id, payload=memory_data
+        )
+
+        # Update cache
+        await self.redis.set_memory(memory.id, memory_data)
+
+        logger.info(f"Migrated memory {memory_id} to tier {target_tier.value}")
+        return True
+
+    async def get_tier_statistics(self, user_id: str) -> dict[str, Any]:
+        """
+        Get statistics about memory tiers for a user.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Dictionary with tier statistics
+        """
+        # Get all user memories
+        memories = await self.get_memories(user_id=user_id, limit=10000)
+
+        tier_counts = {tier.value: 0 for tier in MemoryTier}
+        tier_temperatures = {tier.value: [] for tier in MemoryTier}
+        total_size = 0
+        total_accesses = 0
+
+        for mem in memories:
+            # Calculate temperature
+            temperature = self.lifecycle_manager.calculate_temperature(
+                memory_id=mem.id,
+                created_at=mem.created_at,
+                access_count=mem.access_count,
+                last_access=mem.metadata.get("lifecycle", {}).get("last_tier_update"),
+                importance=mem.importance,
+            )
+
+            tier = temperature.tier.value
+            tier_counts[tier] += 1
+            tier_temperatures[tier].append(temperature.temperature_score)
+            total_size += mem.text_length
+            total_accesses += mem.access_count
+
+        # Calculate average temperatures
+        tier_avg_temps = {}
+        for tier, temps in tier_temperatures.items():
+            tier_avg_temps[tier] = sum(temps) / len(temps) if temps else 0.0
+
+        return {
+            "user_id": user_id,
+            "total_memories": len(memories),
+            "total_size_bytes": total_size,
+            "total_accesses": total_accesses,
+            "tier_counts": tier_counts,
+            "tier_average_temperatures": tier_avg_temps,
+            "lifecycle_config": self.lifecycle_manager.config.model_dump(),
+        }

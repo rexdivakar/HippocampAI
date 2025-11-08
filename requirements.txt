@@ -32,3 +32,6 @@ flower>=2.0.0
 
 # Tools & Utilities
 requests>=2.31.0
+
+# Monitoring
+prometheus-client>=0.19.0

@@ -212,6 +212,11 @@ class MemoryClient:
         )
         self.provenance_tracker = ProvenanceTracker(llm=self.llm)
 
+        # NEW: Memory Lifecycle Management
+        from hippocampai.pipeline.memory_lifecycle import LifecycleConfig, MemoryLifecycleManager
+
+        self.lifecycle_manager = MemoryLifecycleManager(config=LifecycleConfig())
+
         # NEW: Memory Health & Quality Monitoring
         from hippocampai.pipeline.memory_health import MemoryHealthMonitor
         from hippocampai.pipeline.memory_observability import MemoryObservabilityMonitor
@@ -631,9 +636,74 @@ class MemoryClient:
                     "auto_resolved": auto_resolve_conflicts,
                 },
             )
+
+            # Track memory creation event
+            try:
+                from hippocampai.monitoring.memory_tracker import (
+                    MemoryEventSeverity,
+                    MemoryEventType,
+                    get_tracker,
+                )
+
+                tracker = get_tracker()
+                tracker.track_event(
+                    memory_id=memory.id,
+                    user_id=user_id,
+                    event_type=MemoryEventType.CREATED,
+                    severity=MemoryEventSeverity.INFO,
+                    metadata={
+                        "type": memory.type.value,
+                        "importance": memory.importance,
+                        "session_id": session_id,
+                        "tags": tags or [],
+                        "auto_resolved": auto_resolve_conflicts,
+                    },
+                    success=True,
+                )
+            except Exception as track_err:
+                logger.warning(f"Failed to track memory creation: {track_err}")
+
+            # Track Prometheus metrics
+            try:
+                from hippocampai.monitoring.prometheus_metrics import (
+                    memories_created_total,
+                    memory_operations_total,
+                    memory_size_bytes,
+                )
+
+                memory_operations_total.labels(operation="create", status="success").inc()
+                memories_created_total.labels(memory_type=memory.type.value).inc()
+                memory_size_bytes.labels(memory_type=memory.type.value).observe(
+                    len(text.encode("utf-8"))
+                )
+            except Exception as metrics_err:
+                logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+
             return memory
         except Exception as e:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
+
+            # Track failed memory creation
+            try:
+                from hippocampai.monitoring.memory_tracker import (
+                    MemoryEventSeverity,
+                    MemoryEventType,
+                    get_tracker,
+                )
+
+                tracker = get_tracker()
+                tracker.track_event(
+                    memory_id="unknown",
+                    user_id=user_id,
+                    event_type=MemoryEventType.CREATED,
+                    severity=MemoryEventSeverity.ERROR,
+                    metadata={"text_length": len(text), "type": type},
+                    success=False,
+                    error_message=str(e),
+                )
+            except Exception as track_err:
+                logger.warning(f"Failed to track memory creation error: {track_err}")
+
             raise
 
     def recall(
@@ -676,6 +746,45 @@ class MemoryClient:
             self.telemetry.end_trace(
                 trace_id, status="success", result={"count": len(results), "k": k}
             )
+
+            # Track search event for each retrieved memory
+            try:
+                from hippocampai.monitoring.memory_tracker import (
+                    MemoryEventSeverity,
+                    MemoryEventType,
+                    get_tracker,
+                )
+
+                tracker = get_tracker()
+                for result in results:
+                    tracker.track_event(
+                        memory_id=result.memory_id if hasattr(result, "memory_id") else str(result.id) if hasattr(result, "id") else "unknown",
+                        user_id=user_id,
+                        event_type=MemoryEventType.SEARCHED,
+                        severity=MemoryEventSeverity.DEBUG,
+                        metadata={
+                            "query": query,
+                            "score": result.score if hasattr(result, "score") else None,
+                            "rank": results.index(result) + 1,
+                        },
+                        success=True,
+                    )
+            except Exception as track_err:
+                logger.warning(f"Failed to track search events: {track_err}")
+
+            # Track Prometheus metrics
+            try:
+
+                from hippocampai.monitoring.prometheus_metrics import (
+                    search_requests_total,
+                    search_results_count,
+                )
+
+                search_requests_total.labels(search_type="hybrid", status="success").inc()
+                search_results_count.observe(len(results))
+            except Exception as metrics_err:
+                logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
+
             return results
         except Exception as e:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
@@ -898,6 +1007,47 @@ class MemoryClient:
                     ),
                 },
             )
+
+            # Track memory update event
+            try:
+                from hippocampai.monitoring.memory_tracker import (
+                    MemoryEventSeverity,
+                    MemoryEventType,
+                    get_tracker,
+                )
+
+                tracker = get_tracker()
+                updated_fields = []
+                if text is not None:
+                    updated_fields.append("text")
+                if importance is not None:
+                    updated_fields.append("importance")
+                if tags is not None:
+                    updated_fields.append("tags")
+                if metadata is not None:
+                    updated_fields.append("metadata")
+                if expires_at is not None:
+                    updated_fields.append("expires_at")
+
+                tracker.track_event(
+                    memory_id=memory_id,
+                    user_id=memory.user_id,
+                    event_type=MemoryEventType.UPDATED,
+                    severity=MemoryEventSeverity.INFO,
+                    metadata={"updated_fields": updated_fields},
+                    success=True,
+                )
+            except Exception as track_err:
+                logger.warning(f"Failed to track memory update: {track_err}")
+
+            # Track Prometheus metrics
+            try:
+                from hippocampai.monitoring.prometheus_metrics import memory_operations_total
+
+                memory_operations_total.labels(operation="update", status="success").inc()
+            except Exception as metrics_err:
+                logger.warning(f"Failed to track Prometheus update metrics: {metrics_err}")
+
             return memory
 
         except Exception as e:
@@ -943,6 +1093,38 @@ class MemoryClient:
                 self.telemetry.end_trace(
                     trace_id, status="success", result={"memory_id": memory_id}
                 )
+
+                # Track memory deletion event
+                try:
+                    from hippocampai.monitoring.memory_tracker import (
+                        MemoryEventSeverity,
+                        MemoryEventType,
+                        get_tracker,
+                    )
+
+                    tracker = get_tracker()
+                    tracker.track_event(
+                        memory_id=memory_id,
+                        user_id=user_id or "system",
+                        event_type=MemoryEventType.DELETED,
+                        severity=MemoryEventSeverity.INFO,
+                        metadata={},
+                        success=True,
+                    )
+                except Exception as track_err:
+                    logger.warning(f"Failed to track memory deletion: {track_err}")
+
+                # Track Prometheus metrics
+                try:
+                    from hippocampai.monitoring.prometheus_metrics import (
+                        memory_operations_total,
+                    )
+
+                    memory_operations_total.labels(operation="delete", status="success").inc()
+                    # We don't have memory_type here, so we'll skip memories_deleted_total for now
+                except Exception as metrics_err:
+                    logger.warning(f"Failed to track Prometheus delete metrics: {metrics_err}")
+
                 return True
             logger.warning(f"Memory {memory_id} not found")
             self.telemetry.end_trace(trace_id, status="error", result={"error": "not_found"})
@@ -970,17 +1152,17 @@ class MemoryClient:
         """
         try:
             # Try facts collection first
-            result = self.qdrant.get_by_id(
+            result = self.qdrant.get(
                 collection_name=self.config.collection_facts,
-                memory_id=memory_id,
+                id=memory_id,
             )
             if result:
                 return Memory(**result["payload"])
 
             # Try prefs collection
-            result = self.qdrant.get_by_id(
+            result = self.qdrant.get(
                 collection_name=self.config.collection_prefs,
-                memory_id=memory_id,
+                id=memory_id,
             )
             if result:
                 return Memory(**result["payload"])
@@ -4165,3 +4347,208 @@ class MemoryClient:
         """
         slow_queries = self.observability.identify_slow_queries(threshold_ms)
         return [q.model_dump() for q in slow_queries]
+
+    # ========================================================================
+    # Memory Lifecycle & Tiering
+    # ========================================================================
+
+    def get_memory_temperature(self, memory_id: str) -> Optional[dict[str, Any]]:
+        """
+        Get temperature metrics for a memory.
+
+        Returns lifecycle information including:
+        - Current tier (hot/warm/cold/archived/hibernated)
+        - Temperature score (0-100)
+        - Access frequency and recency
+        - Recommended tier based on access patterns
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            Dictionary with temperature metrics or None if not found
+
+        Example:
+            >>> temp = client.get_memory_temperature("mem_123")
+            >>> print(f"Tier: {temp['tier']}")
+            >>> print(f"Temperature: {temp['temperature_score']:.1f}")
+            >>> print(f"Access frequency: {temp['access_frequency']:.2f}/day")
+        """
+        try:
+            # Get memory from storage
+            memory = self.get_memory(memory_id)
+            if not memory:
+                return None
+
+            # Calculate temperature
+            temperature = self.lifecycle_manager.calculate_temperature(
+                memory_id=memory.id,
+                created_at=memory.created_at,
+                access_count=memory.access_count,
+                last_access=memory.updated_at,
+                importance=memory.importance,
+            )
+
+            # Return as dictionary
+            return {
+                "memory_id": temperature.memory_id,
+                "tier": temperature.tier.value,
+                "temperature_score": temperature.temperature_score,
+                "access_frequency": temperature.access_frequency,
+                "recency_score": temperature.recency_score,
+                "importance_weight": temperature.importance_weight,
+                "access_count": temperature.access_count,
+                "days_since_creation": temperature.days_since_creation,
+                "days_since_last_access": temperature.days_since_last_access,
+                "last_access": temperature.last_access.isoformat() if temperature.last_access else None,
+                "created_at": temperature.created_at.isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to get memory temperature: {e}")
+            return None
+
+    def migrate_memory_tier(
+        self, memory_id: str, target_tier: str
+    ) -> dict[str, Any]:
+        """
+        Manually migrate a memory to a specific storage tier.
+
+        Tiers:
+        - hot: Frequently accessed, cached in Redis + Vector DB
+        - warm: Occasionally accessed, in Vector DB
+        - cold: Rarely accessed, in Vector DB
+        - archived: Very old, compressed in Vector DB
+        - hibernated: Extremely old, highly compressed
+
+        Args:
+            memory_id: Memory identifier
+            target_tier: Target tier (hot, warm, cold, archived, hibernated)
+
+        Returns:
+            Migration result dictionary
+
+        Raises:
+            ValueError: If tier is invalid or memory not found
+
+        Example:
+            >>> result = client.migrate_memory_tier("mem_123", "archived")
+            >>> print(f"Migrated to: {result['target_tier']}")
+        """
+        from hippocampai.pipeline.memory_lifecycle import MemoryTier
+
+        try:
+            # Validate tier
+            target_tier_enum = MemoryTier(target_tier.lower())
+
+            # Get memory from storage
+            memory = self.get_memory(memory_id)
+            if not memory:
+                raise ValueError(f"Memory {memory_id} not found")
+
+            # Update metadata with new tier
+            memory_data = memory.model_dump()
+            if "metadata" not in memory_data:
+                memory_data["metadata"] = {}
+            if "lifecycle" not in memory_data["metadata"]:
+                memory_data["metadata"]["lifecycle"] = {}
+
+            memory_data["metadata"]["lifecycle"]["tier"] = target_tier_enum.value
+            memory_data["metadata"]["lifecycle"]["last_tier_update"] = datetime.now(timezone.utc).isoformat()
+
+            # Update in vector store
+            collection = (
+                self.qdrant.collection_facts
+                if memory.type == MemoryType.FACT
+                else self.qdrant.collection_prefs
+            )
+            self.qdrant.update(
+                collection_name=collection,
+                id=memory.id,
+                payload=memory_data,
+            )
+
+            logger.info(f"Migrated memory {memory_id} to tier {target_tier_enum.value}")
+
+            return {
+                "memory_id": memory_id,
+                "target_tier": target_tier_enum.value,
+                "migrated": True,
+            }
+        except Exception as e:
+            logger.error(f"Failed to migrate memory tier: {e}")
+            raise
+
+    def get_tier_statistics(self, user_id: str) -> dict[str, Any]:
+        """
+        Get statistics about memory tiers for a user.
+
+        Returns:
+        - Total memories and size
+        - Distribution across tiers
+        - Average temperature per tier
+        - Lifecycle configuration
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Dictionary with tier statistics
+
+        Example:
+            >>> stats = client.get_tier_statistics("user123")
+            >>> print(f"Total memories: {stats['total_memories']}")
+            >>> for tier, count in stats['tier_counts'].items():
+            ...     print(f"{tier}: {count} memories")
+        """
+        try:
+            # Get all memories for user
+            memories = self.get_memories(user_id=user_id, limit=10000)
+
+            # Initialize statistics
+            tier_counts: dict[str, int] = {}
+            tier_temperatures: dict[str, list[float]] = {}
+            total_size = 0
+            total_accesses = 0
+
+            # Process each memory
+            for memory in memories:
+                # Calculate temperature
+                temperature = self.lifecycle_manager.calculate_temperature(
+                    memory_id=memory.id,
+                    created_at=memory.created_at,
+                    access_count=memory.access_count,
+                    last_access=memory.updated_at,
+                    importance=memory.importance,
+                )
+
+                # Update tier counts
+                tier = temperature.tier.value
+                tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+                # Track temperature scores
+                if tier not in tier_temperatures:
+                    tier_temperatures[tier] = []
+                tier_temperatures[tier].append(temperature.temperature_score)
+
+                # Update totals
+                total_accesses += memory.access_count
+                # Estimate size (text length)
+                total_size += len(memory.text.encode("utf-8"))
+
+            # Calculate average temperatures per tier
+            tier_average_temperatures = {
+                tier: sum(temps) / len(temps) if temps else 0.0
+                for tier, temps in tier_temperatures.items()
+            }
+
+            return {
+                "user_id": user_id,
+                "total_memories": len(memories),
+                "total_size_bytes": total_size,
+                "total_accesses": total_accesses,
+                "tier_counts": tier_counts,
+                "tier_average_temperatures": tier_average_temperatures,
+            }
+        except Exception as e:
+            logger.error(f"Failed to get tier statistics: {e}")
+            return {}
