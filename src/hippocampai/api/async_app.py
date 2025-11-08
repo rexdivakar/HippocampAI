@@ -729,6 +729,430 @@ async def extract(request: ExtractRequest, service: MemoryManagementService = De
 
 
 # ============================================================================
+# NEW: Observability & Debugging Endpoints
+# ============================================================================
+
+
+class ExplainRetrievalRequest(BaseModel):
+    """Request to explain retrieval results."""
+
+    query: str
+    user_id: str
+    k: int = 5
+
+
+class VisualizeScoresRequest(BaseModel):
+    """Request to visualize similarity scores."""
+
+    query: str
+    user_id: str
+    top_k: int = 10
+
+
+class AccessHeatmapRequest(BaseModel):
+    """Request for memory access heatmap."""
+
+    user_id: str
+    time_period_days: int = 30
+
+
+class ProfileQueryRequest(BaseModel):
+    """Request for query performance profiling."""
+
+    query: str
+    user_id: str
+    k: int = 5
+
+
+@app.post("/v1/observability/explain")
+async def explain_retrieval_results(
+    request: ExplainRetrievalRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Explain why specific memories were retrieved.
+
+    Returns detailed explanations including:
+    - Score breakdowns (vector, BM25, recency, importance)
+    - Contributing factors
+    - Human-readable explanations
+    """
+    try:
+        # First, recall memories
+        results = await service.recall_memories(
+            user_id=request.user_id,
+            query=request.query,
+            k=request.k,
+        )
+
+        # Then explain them
+        explanations = service.client.explain_retrieval(
+            query=request.query,
+            results=results,
+        )
+
+        return {
+            "query": request.query,
+            "results_count": len(results),
+            "explanations": [exp.model_dump() for exp in explanations],
+        }
+    except Exception as e:
+        logger.error(f"Error explaining retrieval: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/observability/visualize")
+async def visualize_similarity(
+    request: VisualizeScoresRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Visualize similarity scores and ranking factors.
+
+    Returns visualization data including:
+    - Score distribution
+    - Top results with detailed scores
+    - Statistical summary
+    """
+    try:
+        # Recall memories
+        results = await service.recall_memories(
+            user_id=request.user_id,
+            query=request.query,
+            k=request.top_k,
+        )
+
+        # Generate visualization
+        viz = service.client.visualize_similarity_scores(
+            query=request.query,
+            results=results,
+            top_k=request.top_k,
+        )
+
+        return viz.model_dump()
+    except Exception as e:
+        logger.error(f"Error visualizing scores: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/observability/heatmap")
+async def generate_heatmap(
+    request: AccessHeatmapRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Generate memory access heatmap.
+
+    Returns access patterns including:
+    - Access by hour/day
+    - Hot and cold memories
+    - Peak usage times
+    """
+    try:
+        heatmap = service.client.generate_access_heatmap(
+            user_id=request.user_id,
+            time_period_days=request.time_period_days,
+        )
+
+        return heatmap.model_dump()
+    except Exception as e:
+        logger.error(f"Error generating heatmap: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/observability/profile")
+async def profile_query(
+    request: ProfileQueryRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Profile query performance.
+
+    Returns performance metrics including:
+    - Stage-by-stage timing
+    - Bottleneck identification
+    - Optimization recommendations
+    """
+    try:
+        profile = service.client.profile_query_performance(
+            query=request.query,
+            user_id=request.user_id,
+            k=request.k,
+        )
+
+        return profile.model_dump()
+    except Exception as e:
+        logger.error(f"Error profiling query: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# NEW: Enhanced Temporal Features Endpoints
+# ============================================================================
+
+
+class FreshnessScoreRequest(BaseModel):
+    """Request to calculate memory freshness."""
+
+    memory_id: str
+    reference_date: Optional[datetime] = None
+
+
+class TimeDecayRequest(BaseModel):
+    """Request to apply time decay."""
+
+    memory_id: str
+    decay_function: Optional[str] = "default_exponential"
+
+
+class ForecastRequest(BaseModel):
+    """Request to forecast memory patterns."""
+
+    user_id: str
+    forecast_days: int = 30
+
+
+class ContextWindowRequest(BaseModel):
+    """Request for adaptive context window."""
+
+    query: str
+    user_id: str
+    context_type: str = "relevant"  # recent, relevant, seasonal
+
+
+@app.post("/v1/temporal/freshness")
+async def calculate_freshness(
+    request: FreshnessScoreRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Calculate memory freshness score.
+
+    Returns comprehensive freshness metrics including:
+    - Overall freshness score (0-1)
+    - Age factor
+    - Access frequency
+    - Temporal relevance
+    """
+    try:
+        # Get the memory
+        memories = await service.get_memories(memory_ids=[request.memory_id])
+        if not memories:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        freshness = service.client.calculate_memory_freshness(
+            memory=memories[0],
+            reference_date=request.reference_date,
+        )
+
+        return freshness.model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating freshness: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/temporal/decay")
+async def apply_decay(
+    request: TimeDecayRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Apply time decay function to memory importance.
+
+    Returns decayed importance score based on age and decay function.
+    """
+    try:
+        # Get the memory
+        memories = await service.get_memories(memory_ids=[request.memory_id])
+        if not memories:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        decayed_score = service.client.apply_time_decay(
+            memory=memories[0],
+            decay_function_name=request.decay_function,
+        )
+
+        return {
+            "memory_id": request.memory_id,
+            "original_importance": memories[0].importance,
+            "decayed_importance": decayed_score,
+            "decay_function": request.decay_function,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error applying decay: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/temporal/forecast")
+async def forecast_patterns(
+    request: ForecastRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Forecast future memory patterns.
+
+    Predicts usage, topic trends, and importance patterns based on historical data.
+    """
+    try:
+        forecasts = service.client.forecast_memory_patterns(
+            user_id=request.user_id,
+            forecast_days=request.forecast_days,
+        )
+
+        return {
+            "user_id": request.user_id,
+            "forecast_days": request.forecast_days,
+            "forecasts": [f.model_dump() for f in forecasts],
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting patterns: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/temporal/context-window")
+async def get_context_window(
+    request: ContextWindowRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Get adaptive temporal context window.
+
+    Auto-adjusts time range based on query and context type.
+    """
+    try:
+        window = service.client.get_adaptive_context_window(
+            query=request.query,
+            user_id=request.user_id,
+            context_type=request.context_type,
+        )
+
+        return window.model_dump()
+    except Exception as e:
+        logger.error(f"Error getting context window: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# NEW: Memory Health & Conflict Resolution Endpoints
+# ============================================================================
+
+
+class ConflictDetectionRequest(BaseModel):
+    """Request to detect memory conflicts."""
+
+    user_id: str
+    memory_id: Optional[str] = None  # If None, check all
+
+
+class ConflictResolutionRequest(BaseModel):
+    """Request to resolve memory conflict."""
+
+    conflict_id: str
+    strategy: str = "temporal"  # temporal, confidence, importance, auto_merge, keep_both
+
+
+class HealthScoreRequest(BaseModel):
+    """Request for memory health score."""
+
+    user_id: str
+
+
+class ProvenanceRequest(BaseModel):
+    """Request for memory provenance."""
+
+    memory_id: str
+
+
+@app.post("/v1/conflicts/detect")
+async def detect_conflicts(
+    request: ConflictDetectionRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Detect memory conflicts (contradictions, duplicates).
+
+    Returns list of detected conflicts with details.
+    """
+    try:
+        conflicts = service.client.detect_memory_conflicts(
+            user_id=request.user_id,
+            memory_id=request.memory_id,
+        )
+
+        return {
+            "user_id": request.user_id,
+            "conflicts_found": len(conflicts),
+            "conflicts": [c.model_dump() for c in conflicts],
+        }
+    except Exception as e:
+        logger.error(f"Error detecting conflicts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/conflicts/resolve")
+async def resolve_conflict(
+    request: ConflictResolutionRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Resolve a detected memory conflict.
+
+    Applies specified resolution strategy.
+    """
+    try:
+        resolution = service.client.resolve_memory_conflict(
+            conflict_id=request.conflict_id,
+            strategy=request.strategy,
+        )
+
+        return resolution.model_dump()
+    except Exception as e:
+        logger.error(f"Error resolving conflict: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/health/score")
+async def get_health_score(
+    request: HealthScoreRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Get comprehensive memory health score.
+
+    Returns health metrics including:
+    - Overall health score
+    - Quality indicators
+    - Issues detected
+    - Recommendations
+    """
+    try:
+        health = service.client.get_memory_health_score(user_id=request.user_id)
+
+        return health.model_dump()
+    except Exception as e:
+        logger.error(f"Error getting health score: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/provenance/track")
+async def get_provenance(
+    request: ProvenanceRequest,
+    service: MemoryManagementService = Depends(get_service),
+):
+    """Get memory provenance and lineage.
+
+    Returns complete history and source tracking.
+    """
+    try:
+        provenance = service.client.get_memory_provenance_chain(
+            memory_id=request.memory_id
+        )
+
+        if not provenance:
+            raise HTTPException(status_code=404, detail="Provenance not found")
+
+        return provenance
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting provenance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # Server
 # ============================================================================
 

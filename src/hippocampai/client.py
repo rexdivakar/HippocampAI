@@ -199,6 +199,41 @@ class MemoryClient:
         self.context_injector = ContextInjector()
         self.multiagent = MultiAgentManager()  # Multi-agent support
 
+        # NEW: Conflict Resolution & Provenance Tracking
+        from hippocampai.pipeline.conflict_resolution import MemoryConflictResolver
+        from hippocampai.pipeline.provenance_tracker import ProvenanceTracker
+
+        self.conflict_resolver = MemoryConflictResolver(
+            embedder=self.embedder,
+            llm=self.llm,
+            default_strategy="temporal",
+            similarity_threshold=0.75,
+            contradiction_threshold=0.85,
+        )
+        self.provenance_tracker = ProvenanceTracker(llm=self.llm)
+
+        # NEW: Memory Health & Quality Monitoring
+        from hippocampai.pipeline.memory_health import MemoryHealthMonitor
+        from hippocampai.pipeline.memory_observability import MemoryObservabilityMonitor
+        from hippocampai.pipeline.temporal_enhancement import EnhancedTemporalAnalyzer
+
+        self.health_monitor = MemoryHealthMonitor(
+            qdrant_store=self.qdrant,
+            embedder=self.embedder,
+            stale_threshold_days=180,
+            near_duplicate_threshold=0.85,
+            exact_duplicate_threshold=0.95,
+        )
+        self.enhanced_temporal = EnhancedTemporalAnalyzer(
+            default_half_life_days=90,
+            freshness_window_days=30,
+        )
+        self.observability = MemoryObservabilityMonitor(
+            enable_profiling=enable_telemetry,
+            slow_query_threshold_ms=1000.0,
+            track_access_patterns=True,
+        )
+
         # Session Management
         self.session_manager = SessionManager(
             qdrant_store=self.qdrant,
@@ -287,8 +322,51 @@ class MemoryClient:
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         visibility: Optional[str] = None,
+        auto_resolve_conflicts: bool = False,
+        resolution_strategy: str = "temporal",
     ) -> Memory:
-        """Store a memory."""
+        """
+        Store a memory with optional automatic conflict resolution.
+
+        Args:
+            text: Memory text content
+            user_id: User identifier
+            session_id: Optional session identifier
+            type: Memory type (fact, preference, goal, habit, event, context)
+            importance: Importance score (0-10), auto-calculated if None
+            tags: Optional tags for categorization
+            ttl_days: Time-to-live in days, None for no expiration
+            agent_id: Optional agent identifier for multi-agent systems
+            run_id: Optional run identifier
+            visibility: Memory visibility (private, shared, public)
+            auto_resolve_conflicts: If True, automatically detect and resolve conflicts (default: False)
+            resolution_strategy: Strategy for auto-resolution - "temporal" (latest wins),
+                                "confidence" (higher confidence wins), "importance" (higher importance wins),
+                                "auto_merge" (LLM merges both), "keep_both" (flag both) (default: "temporal")
+
+        Returns:
+            Memory object (may be merged/updated if conflicts were auto-resolved)
+
+        Example:
+            >>> # Basic usage (no auto-resolve)
+            >>> memory = client.remember("I love coffee", user_id="alice")
+
+            >>> # With auto-resolve (Mem0-style)
+            >>> memory = client.remember(
+            ...     "I hate coffee now",
+            ...     user_id="alice",
+            ...     auto_resolve_conflicts=True,
+            ...     resolution_strategy="temporal"  # Latest wins
+            ... )
+
+            >>> # Auto-merge to preserve history
+            >>> memory = client.remember(
+            ...     "I work at Facebook",
+            ...     user_id="alice",
+            ...     auto_resolve_conflicts=True,
+            ...     resolution_strategy="auto_merge"  # Merges with existing
+            ... )
+        """
         # Start telemetry trace
         trace_id = self.telemetry.start_trace(
             operation=OperationType.REMEMBER,
@@ -432,10 +510,126 @@ class MemoryClient:
             )
 
             logger.info(f"Stored memory: {memory.id}, type={memory.type}")
+
+            # AUTO-RESOLVE CONFLICTS (Mem0-style)
+            if auto_resolve_conflicts:
+                self.telemetry.add_event(trace_id, "auto_conflict_resolution", status="in_progress")
+
+                # Refetch memories to include the newly stored one
+                all_memories = self.get_memories(user_id, limit=100)
+                # Remove the newly stored memory from the list to compare against others
+                other_memories = [m for m in all_memories if m.id != memory.id]
+
+                # Detect conflicts with the newly stored memory
+                # Use LLM if available for better conflict detection
+                conflicts = self.conflict_resolver.detect_conflicts(
+                    memory,
+                    other_memories,
+                    check_llm=(self.llm is not None)
+                )
+
+                if conflicts:
+                    logger.info(
+                        f"Auto-resolve: Found {len(conflicts)} conflict(s) for memory {memory.id}, "
+                        f"using strategy '{resolution_strategy}'"
+                    )
+
+                    from hippocampai.pipeline.conflict_resolution import ConflictResolutionStrategy
+
+                    # Resolve each conflict
+                    for conflict in conflicts:
+                        try:
+                            resolution = self.conflict_resolver.resolve_conflict(
+                                conflict, strategy=ConflictResolutionStrategy(resolution_strategy)
+                            )
+
+                            # Apply resolution
+                            if resolution.action in ["keep_first", "keep_second"]:
+                                # Delete the loser memory
+                                for mem_id in resolution.deleted_memory_ids:
+                                    self.delete_memory(mem_id, user_id)
+                                    logger.info(f"Auto-resolve: Deleted conflicting memory {mem_id}")
+
+                                # If the new memory was deleted (keep_first), return the existing one
+                                if memory.id in resolution.deleted_memory_ids:
+                                    memory = resolution.updated_memory
+                                    logger.info(
+                                        f"Auto-resolve: Keeping existing memory {memory.id} "
+                                        f"(strategy: {resolution_strategy})"
+                                    )
+
+                            elif resolution.action == "merge":
+                                # Delete originals, store merged
+                                if resolution.updated_memory:
+                                    for mem_id in resolution.deleted_memory_ids:
+                                        self.delete_memory(mem_id, user_id)
+
+                                    # Store the merged memory
+                                    merged_collection = resolution.updated_memory.collection_name(
+                                        self.config.collection_facts, self.config.collection_prefs
+                                    )
+                                    merged_vector = self.embedder.encode_single(
+                                        resolution.updated_memory.text
+                                    )
+                                    self.qdrant.upsert(
+                                        collection_name=merged_collection,
+                                        id=resolution.updated_memory.id,
+                                        vector=merged_vector,
+                                        payload=resolution.updated_memory.model_dump(mode="json"),
+                                    )
+
+                                    memory = resolution.updated_memory
+                                    logger.info(
+                                        f"Auto-resolve: Merged into memory {memory.id}, "
+                                        f"deleted {len(resolution.deleted_memory_ids)} memories"
+                                    )
+
+                                    # Track provenance for merged memory
+                                    self.provenance_tracker.track_merge(
+                                        memory,
+                                        [conflict.memory_1, conflict.memory_2],
+                                        merge_strategy=resolution_strategy,
+                                    )
+
+                            elif resolution.action in ["flag", "keep_both"]:
+                                # Update both memories with conflict metadata
+                                if conflict.memory_1.metadata.get("has_conflict"):
+                                    self.update_memory(
+                                        conflict.memory_1.id, metadata=conflict.memory_1.metadata
+                                    )
+                                if conflict.memory_2.metadata.get("has_conflict"):
+                                    self.update_memory(
+                                        conflict.memory_2.id, metadata=conflict.memory_2.metadata
+                                    )
+                                logger.info(
+                                    f"Auto-resolve: Flagged memories for review "
+                                    f"({conflict.memory_1.id}, {conflict.memory_2.id})"
+                                )
+
+                        except Exception as e:
+                            logger.error(f"Auto-resolve failed for conflict: {e}")
+                            # Continue with other conflicts
+
+                    self.telemetry.add_event(
+                        trace_id,
+                        "auto_conflict_resolution",
+                        status="success",
+                        conflicts_found=len(conflicts),
+                        strategy=resolution_strategy,
+                    )
+                else:
+                    self.telemetry.add_event(
+                        trace_id, "auto_conflict_resolution", status="success", conflicts_found=0
+                    )
+
             self.telemetry.end_trace(
                 trace_id,
                 status="success",
-                result={"memory_id": memory.id, "collection": collection},
+                result={
+                    "memory_id": memory.id,
+                    "collection": collection,
+                    "auto_resolved": auto_resolve_conflicts,
+                },
             )
             return memory
         except Exception as e:
@@ -2944,3 +3138,892 @@ class MemoryClient:
             "relationships": relationships,
             "graph_updated": add_to_graph,
         }
+
+    # === CONFLICT RESOLUTION ===
+
+    def detect_memory_conflicts(
+        self,
+        user_id: str,
+        check_llm: bool = True,
+        memory_type: Optional[str] = None,
+    ) -> list:
+        """
+        Detect conflicts in user's memories.
+
+        Args:
+            user_id: User ID to check memories for
+            check_llm: Whether to use LLM for deep contradiction analysis (slower but more accurate)
+            memory_type: Optional memory type filter
+
+        Returns:
+            List of MemoryConflict objects
+
+        Example:
+            >>> conflicts = client.detect_memory_conflicts("alice", check_llm=True)
+            >>> print(f"Found {len(conflicts)} conflicts")
+            >>> for conflict in conflicts:
+            ...     print(f"{conflict.conflict_type}: {conflict.memory_1.text} vs {conflict.memory_2.text}")
+        """
+        # Get user memories
+        memories = self.get_memories(user_id, limit=1000)
+
+        # Filter by type if specified
+        if memory_type:
+            memories = [m for m in memories if m.type == memory_type]
+
+        if not memories:
+            return []
+
+        # Detect conflicts
+        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+
+        logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
+        return conflicts
+
+    def resolve_memory_conflict(
+        self,
+        conflict_id: str,
+        strategy: Optional[str] = None,
+        apply_resolution: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Resolve a specific memory conflict.
+
+        Args:
+            conflict_id: Conflict ID to resolve
+            strategy: Resolution strategy ("temporal", "confidence", "importance", "user_review", "auto_merge", "keep_both")
+            apply_resolution: Whether to apply the resolution (update/delete memories)
+
+        Returns:
+            Dictionary with resolution details
+
+        Example:
+            >>> conflicts = client.detect_memory_conflicts("alice")
+            >>> resolution = client.resolve_memory_conflict(
+            ...     conflicts[0].id,
+            ...     strategy="temporal",
+            ...     apply_resolution=True
+            ... )
+            >>> print(resolution["action"])  # "keep_second", "keep_first", "merge", etc.
+        """
+        # Note: In a real implementation, you'd store conflicts in a database
+        # For now, this is a placeholder showing the API structure
+        logger.warning("resolve_memory_conflict requires conflict storage - implement as needed")
+
+        return {
+            "conflict_id": conflict_id,
+            "strategy": strategy,
+            "applied": apply_resolution,
+            "note": "Conflict storage not yet implemented - conflicts are detected on-demand",
+        }
+
+    def auto_resolve_conflicts(
+        self,
+        user_id: str,
+        strategy: str = "temporal",
+        memory_type: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Automatically detect and resolve all conflicts for a user.
+
+        Args:
+            user_id: User ID
+            strategy: Default resolution strategy
+            memory_type: Optional memory type filter
+
+        Returns:
+            Dictionary with resolution summary
+
+        Example:
+            >>> result = client.auto_resolve_conflicts("alice", strategy="confidence")
+            >>> print(f"Resolved {result['resolved_count']} conflicts")
+            >>> print(f"Deleted {result['deleted_count']} memories")
+        """
+        from hippocampai.pipeline.conflict_resolution import ConflictResolutionStrategy
+
+        # Get conflicts
+        conflicts = self.detect_memory_conflicts(user_id, check_llm=True, memory_type=memory_type)
+
+        if not conflicts:
+            return {
+                "user_id": user_id,
+                "conflicts_found": 0,
+                "resolved_count": 0,
+                "deleted_count": 0,
+                "merged_count": 0,
+            }
+
+        # Resolve each conflict
+        resolved_count = 0
+        deleted_ids = []
+        merged_count = 0
+
+        for conflict in conflicts:
+            try:
+                resolution = self.conflict_resolver.resolve_conflict(
+                    conflict, strategy=ConflictResolutionStrategy(strategy)
+                )
+
+                if resolution.action in ["keep_first", "keep_second"]:
+                    # Delete the loser
+                    for mem_id in resolution.deleted_memory_ids:
+                        self.delete_memory(mem_id)
+                        deleted_ids.append(mem_id)
+                    resolved_count += 1
+
+                elif resolution.action == "merge":
+                    # Create merged memory, delete originals
+                    if resolution.updated_memory:
+                        self.remember(
+                            text=resolution.updated_memory.text,
+                            user_id=user_id,
+                            type=resolution.updated_memory.type,
+                            importance=resolution.updated_memory.importance,
+                            confidence=resolution.updated_memory.confidence,
+                        )
+                        for mem_id in resolution.deleted_memory_ids:
+                            self.delete_memory(mem_id)
+                            deleted_ids.append(mem_id)
+                        merged_count += 1
+                        resolved_count += 1
+
+                elif resolution.action == "flag":
+                    # Update memories with conflict flags
+                    if conflict.memory_1.metadata.get("has_conflict"):
+                        self.update_memory(
+                            conflict.memory_1.id, metadata=conflict.memory_1.metadata
+                        )
+                    if conflict.memory_2.metadata.get("has_conflict"):
+                        self.update_memory(
+                            conflict.memory_2.id, metadata=conflict.memory_2.metadata
+                        )
+
+            except Exception as e:
+                logger.error(f"Failed to resolve conflict: {e}")
+
+        return {
+            "user_id": user_id,
+            "conflicts_found": len(conflicts),
+            "resolved_count": resolved_count,
+            "deleted_count": len(deleted_ids),
+            "merged_count": merged_count,
+            "deleted_memory_ids": deleted_ids,
+        }
+
+    # === PROVENANCE & LINEAGE ===
+
+    def track_memory_provenance(
+        self,
+        memory: Memory,
+        source: str = "conversation",
+        parent_ids: Optional[list[str]] = None,
+        citations: Optional[list[dict[str, Any]]] = None,
+    ) -> dict[str, Any]:
+        """
+        Initialize or update provenance tracking for a memory.
+
+        Args:
+            memory: Memory to track
+            source: Source of memory ("conversation", "api_direct", "inference", "merge", "import")
+            parent_ids: Parent memory IDs if derived
+            citations: List of citation dicts
+
+        Returns:
+            Dictionary with lineage information
+
+        Example:
+            >>> memory = client.remember("John works at Google", user_id="alice")
+            >>> lineage = client.track_memory_provenance(
+            ...     memory,
+            ...     source="conversation",
+            ...     citations=[{"source_type": "message", "source_text": "User mentioned..."}]
+            ... )
+        """
+        from hippocampai.models.provenance import Citation, MemorySource
+
+        # Convert citations
+        citation_objects = []
+        if citations:
+            for cit in citations:
+                citation_objects.append(
+                    Citation(
+                        source_type=cit.get("source_type", "external"),
+                        source_id=cit.get("source_id"),
+                        source_url=cit.get("source_url"),
+                        source_text=cit.get("source_text"),
+                        confidence=cit.get("confidence", 1.0),
+                    )
+                )
+
+        # Initialize lineage
+        lineage = self.provenance_tracker.init_lineage(
+            memory=memory,
+            source=MemorySource(source),
+            created_by=memory.user_id,
+            parent_ids=parent_ids,
+            citations=citation_objects,
+        )
+
+        # Update memory in storage
+        self.update_memory(memory.id, metadata=memory.metadata)
+
+        return lineage.model_dump()
+
+    def get_memory_lineage(self, memory_id: str) -> Optional[dict[str, Any]]:
+        """
+        Get complete lineage information for a memory.
+
+        Args:
+            memory_id: Memory ID
+
+        Returns:
+            Lineage dict or None if not found
+
+        Example:
+            >>> lineage = client.get_memory_lineage(memory_id)
+            >>> print(f"Source: {lineage['source']}")
+            >>> print(f"Parents: {lineage['parent_memory_ids']}")
+            >>> print(f"Transformations: {len(lineage['transformations'])}")
+        """
+        # Try to get memory from both collections
+        memory_data = None
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                break
+
+        if not memory_data:
+            return None
+
+        memory = Memory(**memory_data["payload"])
+
+        if "lineage" in memory.metadata:
+            return memory.metadata["lineage"]
+
+        return None
+
+    def get_memory_provenance_chain(self, memory_id: str) -> Optional[dict[str, Any]]:
+        """
+        Build complete provenance chain for a memory (including ancestors).
+
+        Args:
+            memory_id: Memory ID
+
+        Returns:
+            Provenance chain dict or None
+
+        Example:
+            >>> chain = client.get_memory_provenance_chain(memory_id)
+            >>> print(f"Chain length: {chain['total_generations']}")
+            >>> print(f"Root memories: {chain['root_memory_ids']}")
+            >>> for link in chain['chain']:
+            ...     print(f"  - {link['memory_id']}: {link['source']}")
+        """
+        # Get all memories for user (needed to build full chain)
+        memory_data = None
+        memory = None
+
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+                break
+
+        if not memory:
+            return None
+
+        # Get all user memories for chain building
+        all_memories_list = self.get_memories(memory.user_id, limit=1000)
+        all_memories = {m.id: m for m in all_memories_list}
+
+        # Build chain
+        chain = self.provenance_tracker.build_provenance_chain(memory, all_memories)
+
+        return chain.model_dump()
+
+    def assess_memory_quality(
+        self, memory_id: str, use_llm: bool = True
+    ) -> Optional[dict[str, Any]]:
+        """
+        Assess quality of a memory.
+
+        Args:
+            memory_id: Memory ID
+            use_llm: Whether to use LLM for assessment (more accurate)
+
+        Returns:
+            Quality metrics dict or None
+
+        Example:
+            >>> quality = client.assess_memory_quality(memory_id, use_llm=True)
+            >>> print(f"Overall score: {quality['overall_score']}")
+            >>> print(f"Specificity: {quality['specificity']}")
+            >>> print(f"Verifiability: {quality['verifiability']}")
+        """
+        # Get memory
+        memory = None
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+                break
+
+        if not memory:
+            return None
+
+        # Assess quality
+        quality_metrics = self.provenance_tracker.assess_quality(memory, use_llm=use_llm)
+
+        # Store in memory metadata
+        memory.metadata["quality_metrics"] = quality_metrics.model_dump()
+        memory.metadata["quality_assessed_at"] = datetime.now(timezone.utc).isoformat()
+        self.update_memory(memory_id, metadata=memory.metadata)
+
+        return quality_metrics.model_dump()
+
+    def add_memory_citation(
+        self,
+        memory_id: str,
+        source_type: str,
+        source_id: Optional[str] = None,
+        source_url: Optional[str] = None,
+        source_text: Optional[str] = None,
+        confidence: float = 1.0,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Add a citation to a memory.
+
+        Args:
+            memory_id: Memory ID
+            source_type: Type of source ("conversation", "document", "url", "memory", "external")
+            source_id: Source identifier
+            source_url: Source URL
+            source_text: Excerpt from source
+            confidence: Confidence in citation (0-1)
+
+        Returns:
+            Updated lineage dict or None
+
+        Example:
+            >>> lineage = client.add_memory_citation(
+            ...     memory_id,
+            ...     source_type="url",
+            ...     source_url="https://example.com/article",
+            ...     source_text="According to the article...",
+            ...     confidence=0.95
+            ... )
+        """
+        # Get memory
+        memory = None
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+                break
+
+        if not memory:
+            return None
+
+        # Add citation
+        lineage = self.provenance_tracker.add_citation(
+            memory=memory,
+            source_type=source_type,
+            source_id=source_id,
+            source_url=source_url,
+            source_text=source_text,
+            confidence=confidence,
+        )
+
+        # Update memory
+        self.update_memory(memory_id, metadata=memory.metadata)
+
+        return lineage.model_dump()
+
+    def extract_memory_citations(
+        self, memory_id: str, context: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        """
+        Extract potential citations from memory text using LLM.
+
+        Args:
+            memory_id: Memory ID
+            context: Optional context for citation extraction
+
+        Returns:
+            List of citation dicts
+
+        Example:
+            >>> citations = client.extract_memory_citations(memory_id, context="User said...")
+            >>> for cit in citations:
+            ...     print(f"{cit['source_type']}: {cit['source_text']}")
+        """
+        # Get memory
+        memory = None
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                memory = Memory(**memory_data["payload"])
+                break
+
+        if not memory:
+            return []
+
+        # Extract citations
+        citations = self.provenance_tracker.extract_citations(memory, context=context)
+
+        return [cit.model_dump() for cit in citations]
+
+    def get_derived_memories(self, memory_id: str) -> list[Memory]:
+        """
+        Get all memories derived from a specific memory.
+
+        Args:
+            memory_id: Parent memory ID
+
+        Returns:
+            List of derived memories
+
+        Example:
+            >>> derived = client.get_derived_memories(parent_memory_id)
+            >>> print(f"Found {len(derived)} derived memories")
+        """
+        # Get the parent memory to find user_id
+        parent_memory = None
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                parent_memory = Memory(**memory_data["payload"])
+                break
+
+        if not parent_memory:
+            return []
+
+        # Search through user's memories
+        all_memories = self.get_memories(parent_memory.user_id, limit=1000)
+
+        # Filter to only those with this parent
+        derived = []
+        for memory in all_memories:
+            lineage_data = memory.metadata.get("lineage", {})
+            parent_ids = lineage_data.get("parent_memory_ids", [])
+            if memory_id in parent_ids:
+                derived.append(memory)
+
+        return derived
+
+    # ============================================================================
+    # MEMORY HEALTH & QUALITY MONITORING
+    # ============================================================================
+
+    def get_memory_health_score(
+        self,
+        user_id: str,
+        include_stale_detection: bool = True,
+        include_duplicate_detection: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Calculate comprehensive health score for user's memory store.
+
+        Args:
+            user_id: User identifier
+            include_stale_detection: Run stale memory detection
+            include_duplicate_detection: Run duplicate clustering
+
+        Returns:
+            Health score dict with overall and component scores
+
+        Example:
+            >>> health = client.get_memory_health_score("user123")
+            >>> print(f"Overall health: {health['overall_score']}/100")
+            >>> print(f"Recommendations: {health['recommendations']}")
+        """
+        health_score = self.health_monitor.calculate_health_score(
+            user_id=user_id,
+            include_stale_detection=include_stale_detection,
+            include_duplicate_detection=include_duplicate_detection,
+        )
+        return health_score.model_dump()
+
+    def detect_stale_memories(self, user_id: str) -> list[dict[str, Any]]:
+        """
+        Detect potentially stale/outdated memories.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            List of stale memory dicts with reasons
+
+        Example:
+            >>> stale = client.detect_stale_memories("user123")
+            >>> for mem in stale[:5]:
+            ...     print(f"{mem['text'][:50]}... - {mem['staleness_reason']}")
+        """
+        stale_memories = self.health_monitor.detect_stale_memories(user_id)
+        return [m.model_dump() for m in stale_memories]
+
+    def detect_duplicate_clusters(
+        self,
+        user_id: str,
+        min_cluster_size: int = 2,
+    ) -> list[dict[str, Any]]:
+        """
+        Detect clusters of duplicate/similar memories.
+
+        Args:
+            user_id: User identifier
+            min_cluster_size: Minimum cluster size to report
+
+        Returns:
+            List of duplicate cluster dicts
+
+        Example:
+            >>> clusters = client.detect_duplicate_clusters("user123")
+            >>> for cluster in clusters:
+            ...     print(f"Cluster: {len(cluster['memory_ids'])} duplicates")
+            ...     print(f"Representative: {cluster['representative_text']}")
+        """
+        clusters = self.health_monitor.detect_duplicate_clusters(
+            user_id=user_id,
+            min_cluster_size=min_cluster_size,
+        )
+        return [c.model_dump() for c in clusters]
+
+    def detect_near_duplicates(
+        self,
+        user_id: str,
+        suggest_merge: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Detect near-duplicate pairs with merge suggestions.
+
+        Args:
+            user_id: User identifier
+            suggest_merge: Generate merge suggestions
+
+        Returns:
+            List of near-duplicate warning dicts
+
+        Example:
+            >>> warnings = client.detect_near_duplicates("user123")
+            >>> for warning in warnings[:3]:
+            ...     print(f"Similarity: {warning['similarity_score']:.2f}")
+            ...     print(f"Suggestion: {warning['merge_suggestion']}")
+        """
+        warnings = self.health_monitor.detect_near_duplicates(
+            user_id=user_id,
+            suggest_merge=suggest_merge,
+        )
+        return [w.model_dump() for w in warnings]
+
+    def analyze_memory_coverage(self, user_id: str) -> dict[str, Any]:
+        """
+        Analyze memory coverage across topics and types.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Coverage report dict
+
+        Example:
+            >>> coverage = client.analyze_memory_coverage("user123")
+            >>> print(f"Topics: {coverage['topic_distribution']}")
+            >>> print(f"Well covered: {coverage['well_covered_topics']}")
+            >>> print(f"Gaps: {coverage['coverage_gaps']}")
+        """
+        report = self.health_monitor.analyze_coverage(user_id)
+        return report.model_dump()
+
+    # ============================================================================
+    # ENHANCED TEMPORAL FEATURES
+    # ============================================================================
+
+    def calculate_memory_freshness(
+        self,
+        memory: Memory,
+        reference_date: Optional[datetime] = None,
+    ) -> dict[str, Any]:
+        """
+        Calculate comprehensive freshness score for a memory.
+
+        Args:
+            memory: Memory to score
+            reference_date: Reference date (defaults to now)
+
+        Returns:
+            Freshness score dict with breakdown
+
+        Example:
+            >>> memory = client.get_memories("user123", limit=1)[0]
+            >>> freshness = client.calculate_memory_freshness(memory)
+            >>> print(f"Freshness: {freshness['freshness_score']:.2f}")
+            >>> print(f"Age: {freshness['age_days']} days")
+        """
+        score = self.enhanced_temporal.calculate_freshness_score(
+            memory=memory,
+            reference_date=reference_date,
+        )
+        return score.model_dump()
+
+    def apply_time_decay(
+        self,
+        memory: Memory,
+        decay_type: str = "exponential",
+        reference_date: Optional[datetime] = None,
+    ) -> float:
+        """
+        Apply time decay function to memory importance.
+
+        Args:
+            memory: Memory to decay
+            decay_type: Type of decay (exponential, linear, logarithmic, step)
+            reference_date: Reference date
+
+        Returns:
+            Decayed importance score
+
+        Example:
+            >>> memory = client.get_memories("user123", limit=1)[0]
+            >>> decayed = client.apply_time_decay(memory, decay_type="exponential")
+            >>> print(f"Original: {memory.importance}, Decayed: {decayed:.2f}")
+        """
+        decay_function = self.enhanced_temporal.decay_functions.get(decay_type)
+        if not decay_function:
+            logger.warning(f"Unknown decay type: {decay_type}, using default")
+            decay_function = None
+
+        return self.enhanced_temporal.apply_time_decay(
+            memory=memory,
+            decay_function=decay_function,
+            reference_date=reference_date,
+        )
+
+    def get_adaptive_time_window(
+        self,
+        query: str,
+        user_id: str,
+        context_type: str = "relevant",
+    ) -> dict[str, Any]:
+        """
+        Get auto-adjusted temporal context window for query.
+
+        Args:
+            query: Query text
+            user_id: User identifier
+            context_type: Type of context (recent, relevant, seasonal)
+
+        Returns:
+            Temporal window dict
+
+        Example:
+            >>> window = client.get_adaptive_time_window("recent updates", "user123")
+            >>> print(f"Window: {window['window_size_days']} days")
+            >>> print(f"From: {window['start_date']} to: {window['end_date']}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        window = self.enhanced_temporal.get_adaptive_context_window(
+            query=query,
+            memories=memories,
+            context_type=context_type,
+        )
+        return window.model_dump()
+
+    def forecast_memory_patterns(
+        self,
+        user_id: str,
+        forecast_days: int = 30,
+    ) -> list[dict[str, Any]]:
+        """
+        Predict future memory patterns based on historical data.
+
+        Args:
+            user_id: User identifier
+            forecast_days: Days to forecast ahead
+
+        Returns:
+            List of forecast dicts
+
+        Example:
+            >>> forecasts = client.forecast_memory_patterns("user123", forecast_days=30)
+            >>> for forecast in forecasts:
+            ...     print(f"Type: {forecast['forecast_type']}")
+            ...     print(f"Predictions: {forecast['predictions']}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        forecasts = self.enhanced_temporal.forecast_memory_patterns(
+            memories=memories,
+            forecast_days=forecast_days,
+        )
+        return [f.model_dump() for f in forecasts]
+
+    def predict_future_patterns(
+        self,
+        user_id: str,
+        pattern_type: str = "recurring",
+    ) -> list[dict[str, Any]]:
+        """
+        Predict when patterns might recur.
+
+        Args:
+            user_id: User identifier
+            pattern_type: Type of pattern (recurring, seasonal)
+
+        Returns:
+            List of pattern prediction dicts
+
+        Example:
+            >>> predictions = client.predict_future_patterns("user123", "recurring")
+            >>> for pred in predictions:
+            ...     print(f"{pred['description']}")
+            ...     print(f"Next occurrence: {pred['predicted_date']}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        predictions = self.enhanced_temporal.predict_future_patterns(
+            memories=memories,
+            pattern_type=pattern_type,
+        )
+        return [p.model_dump() for p in predictions]
+
+    # ============================================================================
+    # DEBUGGING & OBSERVABILITY
+    # ============================================================================
+
+    def explain_retrieval(
+        self,
+        query: str,
+        results: list[RetrievalResult],
+    ) -> list[dict[str, Any]]:
+        """
+        Explain why each memory was retrieved and ranked.
+
+        Args:
+            query: Original query
+            results: Retrieved results
+
+        Returns:
+            List of explanation dicts
+
+        Example:
+            >>> results = client.search_memories("user123", "python tips")
+            >>> explanations = client.explain_retrieval("python tips", results)
+            >>> for exp in explanations:
+            ...     print(f"Rank {exp['rank']}: {exp['explanation']}")
+        """
+        explanations = self.observability.explain_retrieval(
+            query=query,
+            results=results,
+        )
+        return [e.model_dump() for e in explanations]
+
+    def visualize_similarity_scores(
+        self,
+        query: str,
+        results: list[RetrievalResult],
+        top_k: int = 10,
+    ) -> dict[str, Any]:
+        """
+        Create visualization data for similarity scores.
+
+        Args:
+            query: Query text
+            results: Retrieval results
+            top_k: Number of top results to visualize
+
+        Returns:
+            Visualization data dict
+
+        Example:
+            >>> results = client.search_memories("user123", "python")
+            >>> viz = client.visualize_similarity_scores("python", results)
+            >>> print(f"Score distribution: {viz['score_distribution']}")
+            >>> print(f"Avg score: {viz['avg_score']:.2f}")
+        """
+        viz = self.observability.visualize_similarity_scores(
+            query=query,
+            results=results,
+            top_k=top_k,
+        )
+        return viz.model_dump()
+
+    def generate_access_heatmap(
+        self,
+        user_id: str,
+        time_period_days: int = 30,
+    ) -> dict[str, Any]:
+        """
+        Generate heatmap of memory access patterns.
+
+        Args:
+            user_id: User identifier
+            time_period_days: Time period to analyze
+
+        Returns:
+            Access heatmap dict
+
+        Example:
+            >>> heatmap = client.generate_access_heatmap("user123", time_period_days=30)
+            >>> print(f"Peak hours: {heatmap['peak_hours']}")
+            >>> print(f"Hot memories: {heatmap['hot_memories']}")
+            >>> print(f"Access by type: {heatmap['access_by_type']}")
+        """
+        memories = self.get_memories(user_id, limit=1000)
+        heatmap = self.observability.generate_access_heatmap(
+            user_id=user_id,
+            memories=memories,
+            time_period_days=time_period_days,
+        )
+        return heatmap.model_dump()
+
+    def get_performance_snapshot(self) -> dict[str, Any]:
+        """
+        Get current performance snapshot.
+
+        Returns:
+            Performance snapshot dict
+
+        Example:
+            >>> snapshot = client.get_performance_snapshot()
+            >>> print(f"Avg query time: {snapshot['avg_query_time_ms']:.2f}ms")
+            >>> print(f"Performance score: {snapshot['performance_score']:.1f}/100")
+        """
+        snapshot = self.observability.get_performance_snapshot()
+        return snapshot.model_dump()
+
+    def get_performance_report(self) -> dict[str, Any]:
+        """
+        Generate comprehensive performance report.
+
+        Returns:
+            Performance report dict
+
+        Example:
+            >>> report = client.get_performance_report()
+            >>> print(f"Slowest queries: {report['slowest_queries']}")
+            >>> print(f"Bottlenecks: {report['common_bottlenecks']}")
+            >>> print(f"Recommendations: {report['recommendations']}")
+        """
+        return self.observability.generate_performance_report()
+
+    def identify_slow_queries(
+        self,
+        threshold_ms: Optional[float] = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Identify queries that exceeded performance threshold.
+
+        Args:
+            threshold_ms: Custom threshold (uses default if None)
+
+        Returns:
+            List of slow query profile dicts
+
+        Example:
+            >>> slow = client.identify_slow_queries(threshold_ms=500)
+            >>> for query in slow[:5]:
+            ...     print(f"Query: {query['query']}")
+            ...     print(f"Time: {query['total_time_ms']:.2f}ms")
+            ...     print(f"Bottlenecks: {query['bottlenecks']}")
+        """
+        slow_queries = self.observability.identify_slow_queries(threshold_ms)
+        return [q.model_dump() for q in slow_queries]
