@@ -19,7 +19,7 @@ class RetrievalExplanation(BaseModel):
     memory_id: str
     rank: int
     final_score: float
-    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    score_breakdown: dict[str, Any] = Field(default_factory=dict)
     ranking_factors: dict[str, Any] = Field(default_factory=dict)
     explanation: str
     contributing_factors: list[str] = Field(default_factory=list)

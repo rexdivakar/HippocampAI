@@ -953,6 +953,43 @@ class MemoryClient:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             return False
 
+    def get_memory(self, memory_id: str) -> Optional[Memory]:
+        """
+        Get a single memory by ID.
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            Memory object if found, None otherwise
+
+        Example:
+            >>> memory = client.get_memory("abc123")
+            >>> if memory:
+            ...     print(f"Found: {memory.text}")
+        """
+        try:
+            # Try facts collection first
+            result = self.qdrant.get_by_id(
+                collection_name=self.config.collection_facts,
+                memory_id=memory_id,
+            )
+            if result:
+                return Memory(**result["payload"])
+
+            # Try prefs collection
+            result = self.qdrant.get_by_id(
+                collection_name=self.config.collection_prefs,
+                memory_id=memory_id,
+            )
+            if result:
+                return Memory(**result["payload"])
+
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving memory {memory_id}: {e}")
+            return None
+
     def get_memories(
         self,
         user_id: str,
@@ -3974,6 +4011,107 @@ class MemoryClient:
             time_period_days=time_period_days,
         )
         return heatmap.model_dump()
+
+    def profile_query_performance(
+        self,
+        query: str,
+        user_id: str,
+        k: int = 5,
+    ) -> dict[str, Any]:
+        """
+        Profile query performance with detailed timing breakdown.
+
+        Args:
+            query: Query text
+            user_id: User identifier
+            k: Number of results to retrieve
+
+        Returns:
+            Performance profile dict with timings and bottlenecks
+
+        Example:
+            >>> profile = client.profile_query_performance(
+            ...     "recent work",
+            ...     user_id="alice",
+            ...     k=10
+            ... )
+            >>> print(f"Total time: {profile['total_time_ms']:.2f}ms")
+            >>> print(f"Bottlenecks: {profile['bottlenecks']}")
+            >>> print(f"Recommendations: {profile['recommendations']}")
+        """
+        import time
+
+        start_time = time.time()
+        stage_timings = {}
+
+        # Vector search
+        vec_start = time.time()
+        results = self.recall(query, user_id=user_id, k=k)
+        stage_timings["vector_search"] = (time.time() - vec_start) * 1000
+
+        # Calculate total time
+        total_time_ms = (time.time() - start_time) * 1000
+
+        # Identify bottlenecks
+        bottlenecks = []
+        if stage_timings.get("vector_search", 0) > 500:
+            bottlenecks.append("vector_search_slow")
+
+        # Generate recommendations
+        recommendations = []
+        if total_time_ms > 1000:
+            recommendations.append("Consider using Redis caching")
+        if stage_timings.get("vector_search", 0) > 500:
+            recommendations.append("Optimize vector index or reduce search space")
+
+        return {
+            "query": query,
+            "total_time_ms": total_time_ms,
+            "stage_timings": stage_timings,
+            "memory_count": len(results),
+            "vector_search_ms": stage_timings.get("vector_search"),
+            "bottlenecks": bottlenecks,
+            "recommendations": recommendations,
+        }
+
+    def get_adaptive_context_window(
+        self,
+        query: str,
+        user_id: str,
+        context_type: str = "relevant",
+    ) -> dict[str, Any]:
+        """
+        Get adaptive temporal context window based on query.
+
+        Args:
+            query: Query text
+            user_id: User identifier
+            context_type: Type of context (recent, relevant, seasonal)
+
+        Returns:
+            Temporal context window dict
+
+        Example:
+            >>> window = client.get_adaptive_context_window(
+            ...     "recent meetings",
+            ...     user_id="alice",
+            ...     context_type="recent"
+            ... )
+            >>> print(f"Window size: {window['window_size_days']} days")
+            >>> print(f"Start: {window['start_date']}")
+            >>> print(f"Confidence: {window['confidence']}")
+        """
+        # Get user memories for analysis
+        memories = self.get_memories(user_id, limit=1000)
+
+        # Use enhanced temporal analyzer
+        window = self.enhanced_temporal.get_adaptive_context_window(
+            query=query,
+            memories=memories,
+            context_type=context_type,
+        )
+
+        return window.model_dump()
 
     def get_performance_snapshot(self) -> dict[str, Any]:
         """
