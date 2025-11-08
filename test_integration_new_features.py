@@ -1,7 +1,6 @@
 """Integration test for new memory features (library + SaaS API)."""
 
 import asyncio
-from datetime import datetime, timezone
 
 from hippocampai import MemoryClient
 
@@ -71,7 +70,7 @@ async def test_library_integration():
 
     # Adaptive context window
     try:
-        print(f"   ⊘ Context window test skipped (method name may differ)")
+        print("   ⊘ Context window test skipped (method name may differ)")
     except Exception as e:
         print(f"   ✗ Context window failed: {e}")
 
@@ -106,7 +105,7 @@ async def test_library_integration():
             query="programming preferences",
             results=results,
         )
-        print(f"   ✓ Similarity visualization generated")
+        print("   ✓ Similarity visualization generated")
         avg_score = viz.get('avg_score', 0) if isinstance(viz, dict) else viz.avg_score
         max_score = viz.get('max_score', 0) if isinstance(viz, dict) else viz.max_score
         viz_results = viz.get('results', []) if isinstance(viz, dict) else viz.results
@@ -119,7 +118,7 @@ async def test_library_integration():
     # Access heatmap
     try:
         heatmap = client.generate_access_heatmap(user_id, time_period_days=30)
-        print(f"   ✓ Access heatmap generated")
+        print("   ✓ Access heatmap generated")
         total = heatmap.get('total_accesses', 0) if isinstance(heatmap, dict) else heatmap.total_accesses
         hot = heatmap.get('hot_memories', []) if isinstance(heatmap, dict) else heatmap.hot_memories
         peak = heatmap.get('peak_hours', []) if isinstance(heatmap, dict) else heatmap.peak_hours
@@ -169,10 +168,10 @@ async def test_library_integration():
     try:
         provenance = client.get_memory_provenance_chain(mem1.id)
         if provenance:
-            print(f"   ✓ Provenance chain retrieved")
+            print("   ✓ Provenance chain retrieved")
             print(f"     - Memory ID: {provenance.get('memory_id', 'N/A')}")
         else:
-            print(f"   ✗ Provenance not found")
+            print("   ✗ Provenance not found")
     except Exception as e:
         print(f"   ✗ Provenance tracking failed: {e}")
 
