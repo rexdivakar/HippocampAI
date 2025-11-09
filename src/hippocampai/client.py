@@ -252,6 +252,19 @@ class MemoryClient:
             merge_confidence_threshold=0.7,
         )
 
+        # NEW: Memory Operations
+        from hippocampai.pipeline.memory_operations import MemoryOperations
+
+        self.memory_ops = MemoryOperations()
+
+        # NEW: Adaptive Learning Engine
+        from hippocampai.pipeline.adaptive_learning import AdaptiveLearningEngine
+
+        self.adaptive_learning = AdaptiveLearningEngine(
+            access_history_limit=10000,
+            pattern_analysis_window_days=30,
+        )
+
         # Session Management
         self.session_manager = SessionManager(
             qdrant_store=self.qdrant,
@@ -5080,3 +5093,936 @@ class MemoryClient:
         except Exception as e:
             logger.error(f"Failed to preview merge: {e}")
             return None
+
+    # Memory Operations Methods
+
+    def clone_memory(
+        self,
+        memory_id: str,
+        new_user_id: Optional[str] = None,
+        preserve_timestamps: bool = False,
+        tag_additions: Optional[list[str]] = None,
+        metadata_overrides: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Clone a memory with optional modifications.
+
+        Args:
+            memory_id: ID of memory to clone
+            new_user_id: Optional new user ID for clone
+            preserve_timestamps: Keep original created/updated timestamps
+            tag_additions: Additional tags to add to clone
+            metadata_overrides: Metadata fields to override
+
+        Returns:
+            Cloned memory
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Clone memory to another user
+            cloned = client.clone_memory(
+                memory_id="mem_123",
+                new_user_id="user_456",
+                tag_additions=["cloned"],
+                metadata_overrides={"source": "cloned_from_user_123"}
+            )
+
+            print(f"Cloned to: {cloned.id}")
+            ```
+        """
+        from hippocampai.pipeline.memory_operations import CloneOptions
+
+        try:
+            # Get original memory
+            original = self.get(memory_id=memory_id)
+            if not original:
+                logger.error(f"Memory {memory_id} not found")
+                return None
+
+            # Convert to dict
+            memory_dict = {
+                "id": original.id,
+                "text": original.text,
+                "user_id": original.user_id,
+                "session_id": original.session_id,
+                "type": original.type.value,
+                "importance": original.importance,
+                "confidence": original.confidence,
+                "tags": original.tags,
+                "metadata": original.metadata,
+                "created_at": original.created_at,
+                "updated_at": original.updated_at,
+            }
+
+            # Create clone options
+            options = CloneOptions(
+                preserve_timestamps=preserve_timestamps,
+                new_user_id=new_user_id,
+                tag_additions=tag_additions or [],
+                metadata_overrides=metadata_overrides or {},
+            )
+
+            # Clone memory
+            cloned_dict = self.memory_ops.clone_memory(memory_dict, options)
+
+            # Create in store
+            cloned_memory = self.add(
+                text=cloned_dict["text"],
+                user_id=cloned_dict["user_id"],
+                session_id=cloned_dict.get("session_id"),
+                memory_type=cloned_dict["type"],
+                importance=cloned_dict["importance"],
+                tags=cloned_dict["tags"],
+                metadata=cloned_dict["metadata"],
+            )
+
+            logger.info(f"Cloned memory {memory_id} to {cloned_memory.id}")
+
+            return cloned_memory
+
+        except Exception as e:
+            logger.error(f"Failed to clone memory {memory_id}: {e}")
+            return None
+
+    def create_memory_template(
+        self,
+        template_name: str,
+        text_template: str,
+        default_importance: float = 5.0,
+        default_type: str = "fact",
+        default_tags: Optional[list[str]] = None,
+    ):
+        """
+        Create a reusable memory template.
+
+        Args:
+            template_name: Name of the template
+            text_template: Text with {variable} placeholders
+            default_importance: Default importance score
+            default_type: Default memory type
+            default_tags: Default tags
+
+        Returns:
+            Template dict
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Create template
+            template = client.create_memory_template(
+                template_name="greeting",
+                text_template="User {name} prefers to be greeted as {greeting}",
+                default_importance=6.0,
+                default_tags=["preference", "greeting"]
+            )
+
+            # Use template
+            memory = client.instantiate_template(
+                template=template,
+                variables={"name": "Alice", "greeting": "Dr. Smith"},
+                user_id="user_123"
+            )
+            ```
+        """
+        template = self.memory_ops.create_template_memory(
+            template_name=template_name,
+            text_template=text_template,
+            default_importance=default_importance,
+            default_type=default_type,
+            default_tags=default_tags or [],
+        )
+
+        logger.info(f"Created memory template: {template_name}")
+
+        return template
+
+    def instantiate_template(
+        self,
+        template: dict[str, Any],
+        variables: dict[str, str],
+        user_id: str,
+        session_id: Optional[str] = None,
+        overrides: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Create a memory from a template.
+
+        Args:
+            template: Template dict from create_memory_template
+            variables: Variables to fill in template
+            user_id: User ID for new memory
+            session_id: Optional session ID
+            overrides: Override default template values
+
+        Returns:
+            Created memory
+        """
+        memory_dict = self.memory_ops.instantiate_template(
+            template=template,
+            variables=variables,
+            user_id=user_id,
+            session_id=session_id,
+            overrides=overrides,
+        )
+
+        # Create in store
+        memory = self.add(
+            text=memory_dict["text"],
+            user_id=memory_dict["user_id"],
+            session_id=memory_dict.get("session_id"),
+            memory_type=memory_dict["type"],
+            importance=memory_dict["importance"],
+            tags=memory_dict["tags"],
+            metadata=memory_dict["metadata"],
+        )
+
+        logger.info(f"Instantiated template {template['template_name']}: {memory.id}")
+
+        return memory
+
+    def batch_update_memories(
+        self,
+        user_id: str,
+        filters: Optional[dict[str, Any]] = None,
+        set_importance: Optional[float] = None,
+        adjust_importance: Optional[float] = None,
+        add_tags: Optional[list[str]] = None,
+        remove_tags: Optional[list[str]] = None,
+        set_metadata: Optional[dict[str, Any]] = None,
+        archive: bool = False,
+    ):
+        """
+        Batch update memories matching filter criteria.
+
+        Args:
+            user_id: User ID
+            filters: Filter criteria dict
+            set_importance: Set importance to this value
+            adjust_importance: Add/subtract from importance
+            add_tags: Tags to add
+            remove_tags: Tags to remove
+            set_metadata: Metadata to set/update
+            archive: Whether to archive matched memories
+
+        Returns:
+            Batch update result
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Boost importance of all work-related memories
+            result = client.batch_update_memories(
+                user_id="user_123",
+                filters={"tags_include": ["work"]},
+                adjust_importance=1.0,
+                add_tags=["prioritized"]
+            )
+
+            print(f"Updated {result.total_updated} memories")
+            ```
+        """
+        from hippocampai.pipeline.memory_operations import (
+            ArchivalReason,
+            BatchUpdateFilter,
+            BatchUpdateOperation,
+        )
+
+        try:
+            # Get memories
+            all_memories = self.search(query="", user_id=user_id, k=10000, filters={})
+
+            # Convert to dicts
+            memory_dicts = []
+            for mem in all_memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "user_id": mem.user_id,
+                        "session_id": mem.session_id,
+                        "type": mem.type.value,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "updated_at": mem.updated_at,
+                    }
+                )
+
+            # Build filter
+            filter_criteria = BatchUpdateFilter(user_ids=[user_id])
+            if filters:
+                for key, value in filters.items():
+                    setattr(filter_criteria, key, value)
+
+            # Build operation
+            operation = BatchUpdateOperation(
+                set_importance=set_importance,
+                adjust_importance=adjust_importance,
+                add_tags=add_tags or [],
+                remove_tags=remove_tags or [],
+                set_metadata=set_metadata or {},
+                archive=archive,
+                archive_reason=ArchivalReason.MANUAL if archive else None,
+            )
+
+            # Execute batch update
+            result = self.memory_ops.batch_update(
+                memories=memory_dicts,
+                filter_criteria=filter_criteria,
+                operation=operation,
+            )
+
+            # Update in store
+            for memory_dict in memory_dicts:
+                if memory_dict["id"] in result.updated_memory_ids:
+                    # Update the memory
+                    self.update(
+                        memory_id=memory_dict["id"],
+                        text=memory_dict["text"],
+                        importance=memory_dict["importance"],
+                        tags=memory_dict["tags"],
+                        metadata=memory_dict["metadata"],
+                    )
+
+            logger.info(
+                f"Batch update: {result.total_updated} memories updated in {result.execution_time_ms:.2f}ms"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to batch update memories: {e}")
+            return None
+
+    def schedule_memory_maintenance(
+        self,
+        action: str,
+        interval_hours: int,
+        filters: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Schedule automatic memory maintenance.
+
+        Args:
+            action: Type of maintenance (refresh_embeddings, update_metadata, etc.)
+            interval_hours: Hours between executions
+            filters: Optional filter criteria
+
+        Returns:
+            Maintenance schedule
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Schedule daily importance recalculation
+            schedule = client.schedule_memory_maintenance(
+                action="recalculate_importance",
+                interval_hours=24
+            )
+
+            print(f"Scheduled {schedule.action} every {schedule.interval_hours}h")
+            ```
+        """
+        from hippocampai.pipeline.memory_operations import (
+            BatchUpdateFilter,
+            MaintenanceAction,
+            MaintenanceSchedule,
+        )
+
+        try:
+            action_enum = MaintenanceAction(action.lower())
+        except ValueError:
+            logger.error(f"Invalid maintenance action: {action}")
+            return None
+
+        filter_criteria = None
+        if filters:
+            filter_criteria = BatchUpdateFilter(**filters)
+
+        schedule = MaintenanceSchedule(
+            action=action_enum,
+            interval_hours=interval_hours,
+            next_run=datetime.now(timezone.utc),
+            filter_criteria=filter_criteria,
+        )
+
+        scheduled = self.memory_ops.schedule_maintenance(schedule)
+
+        logger.info(f"Scheduled {action} maintenance every {interval_hours} hours")
+
+        return scheduled
+
+    def archive_memories(
+        self,
+        user_id: str,
+        stale_threshold_days: Optional[int] = None,
+        low_importance_threshold: Optional[float] = None,
+        dry_run: bool = True,
+    ):
+        """
+        Archive old or low-value memories.
+
+        Args:
+            user_id: User ID
+            stale_threshold_days: Archive if not updated in N days
+            low_importance_threshold: Archive if importance below this
+            dry_run: Preview without actually archiving
+
+        Returns:
+            Batch update result with archival stats
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Preview archival
+            result = client.archive_memories(
+                user_id="user_123",
+                stale_threshold_days=180,
+                low_importance_threshold=2.0,
+                dry_run=True
+            )
+
+            print(f"Would archive {result.total_matched} memories")
+
+            # Execute archival
+            result = client.archive_memories(
+                user_id="user_123",
+                stale_threshold_days=180,
+                low_importance_threshold=2.0,
+                dry_run=False
+            )
+            ```
+        """
+        from hippocampai.pipeline.memory_operations import ArchivalPolicy, ArchivalReason
+
+        try:
+            # Get memories
+            all_memories = self.search(query="", user_id=user_id, k=10000, filters={})
+
+            # Convert to dicts
+            memory_dicts = []
+            for mem in all_memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "user_id": mem.user_id,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "updated_at": mem.updated_at,
+                        "access_count": getattr(mem, "access_count", 0),
+                    }
+                )
+
+            # Create policy
+            policy = ArchivalPolicy(
+                name="manual_archival",
+                stale_threshold_days=stale_threshold_days,
+                low_importance_threshold=low_importance_threshold,
+                archive_reason=ArchivalReason.RETENTION_POLICY,
+                dry_run=dry_run,
+            )
+
+            # Apply policy
+            result = self.memory_ops.apply_archival_policies(
+                memories=memory_dicts, policies=[policy]
+            )
+
+            if not dry_run:
+                # Update archived memories in store
+                for memory_dict in memory_dicts:
+                    if memory_dict.get("archived") and memory_dict["id"] in result.archived_memory_ids:
+                        memory_dict["metadata"]["archived"] = True
+                        memory_dict["metadata"]["archived_at"] = memory_dict.get(
+                            "archived_at", datetime.now(timezone.utc)
+                        ).isoformat()
+                        self.update(
+                            memory_id=memory_dict["id"],
+                            metadata=memory_dict["metadata"],
+                        )
+
+            mode = "DRY RUN: " if dry_run else ""
+            logger.info(
+                f"{mode}Archived {result.total_archived} memories for user {user_id}"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to archive memories: {e}")
+            return None
+
+    def garbage_collect_memories(
+        self,
+        user_id: str,
+        policy: str = "moderate",
+        min_age_days: int = 30,
+        dry_run: bool = True,
+    ):
+        """
+        Garbage collect low-value memories.
+
+        Args:
+            user_id: User ID
+            policy: GC policy (aggressive, moderate, conservative)
+            min_age_days: Minimum age before considering for GC
+            dry_run: Preview without actually deleting
+
+        Returns:
+            Garbage collection result
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Preview GC
+            result = client.garbage_collect_memories(
+                user_id="user_123",
+                policy="moderate",
+                min_age_days=90,
+                dry_run=True
+            )
+
+            print(f"Would collect {result.total_collected} memories")
+            print(f"Space reclaimed: {result.space_reclaimed_bytes} bytes")
+
+            # Execute GC
+            result = client.garbage_collect_memories(
+                user_id="user_123",
+                policy="moderate",
+                min_age_days=90,
+                dry_run=False
+            )
+            ```
+        """
+        from hippocampai.pipeline.memory_operations import (
+            GarbageCollectionConfig,
+            GarbageCollectionPolicy,
+        )
+
+        try:
+            policy_enum = GarbageCollectionPolicy(policy.lower())
+        except ValueError:
+            logger.error(f"Invalid GC policy: {policy}")
+            return None
+
+        try:
+            # Get memories
+            all_memories = self.search(query="", user_id=user_id, k=10000, filters={})
+
+            # Convert to dicts
+            memory_dicts = []
+            for mem in all_memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "type": mem.type.value,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "access_count": getattr(mem, "access_count", 0),
+                    }
+                )
+
+            # Create GC config
+            config = GarbageCollectionConfig(
+                policy=policy_enum, min_age_days=min_age_days, dry_run=dry_run
+            )
+
+            # Execute GC
+            result = self.memory_ops.garbage_collect(
+                memories=memory_dicts, config=config
+            )
+
+            if not dry_run:
+                # Delete collected memories
+                for mem_id in result.collected_memory_ids:
+                    self.delete(memory_id=mem_id)
+
+            mode = "DRY RUN: " if dry_run else ""
+            logger.info(
+                f"{mode}Garbage collected {result.total_collected} memories "
+                f"({result.space_reclaimed_bytes} bytes)"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to garbage collect memories: {e}")
+            return None
+
+    # Adaptive Learning Methods
+
+    def record_memory_access(
+        self,
+        memory_id: str,
+        access_type: str = "read",
+        context: Optional[str] = None,
+        co_accessed_ids: Optional[list[str]] = None,
+        relevance_score: Optional[float] = None,
+    ):
+        """
+        Record a memory access event for learning patterns.
+
+        Args:
+            memory_id: Memory that was accessed
+            access_type: Type of access (read, update, search, etc.)
+            context: Optional context or query that led to access
+            co_accessed_ids: Other memories accessed in same request
+            relevance_score: Relevance score if from search
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Record access when searching
+            memories = client.search("pizza toppings", user_id="user_123")
+            for mem in memories:
+                client.record_memory_access(
+                    memory_id=mem.id,
+                    access_type="search",
+                    context="pizza toppings",
+                    relevance_score=mem.score
+                )
+            ```
+        """
+        from hippocampai.pipeline.adaptive_learning import AccessEvent
+
+        event = AccessEvent(
+            memory_id=memory_id,
+            timestamp=datetime.now(timezone.utc),
+            access_type=access_type,
+            context=context,
+            co_accessed_ids=co_accessed_ids or [],
+            relevance_score=relevance_score,
+        )
+
+        self.adaptive_learning.record_access(event)
+
+        logger.debug(f"Recorded {access_type} access for memory {memory_id}")
+
+    def analyze_memory_access_pattern(self, memory_id: str, force_refresh: bool = False):
+        """
+        Analyze access pattern for a memory.
+
+        Args:
+            memory_id: Memory to analyze
+            force_refresh: Force new analysis even if cached
+
+        Returns:
+            Access pattern analysis
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            analysis = client.analyze_memory_access_pattern("mem_123")
+
+            print(f"Pattern: {analysis.pattern_type}")
+            print(f"Frequency: {analysis.access_frequency} times/day")
+            print(f"Trend: {analysis.trend}")
+            print(f"Co-occurring memories: {analysis.co_occurring_memories}")
+            ```
+        """
+        analysis = self.adaptive_learning.analyze_access_pattern(
+            memory_id, force_refresh=force_refresh
+        )
+
+        if analysis:
+            logger.info(
+                f"Access pattern for {memory_id}: {analysis.pattern_type.value} "
+                f"({analysis.access_frequency:.2f} accesses/day, {analysis.trend} trend)"
+            )
+
+        return analysis
+
+    def get_refresh_recommendations(
+        self, user_id: str, limit: int = 20
+    ) -> list:
+        """
+        Get recommendations for memories that should be refreshed.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum recommendations to return
+
+        Returns:
+            List of refresh recommendations, sorted by priority
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            recommendations = client.get_refresh_recommendations("user_123", limit=10)
+
+            for rec in recommendations:
+                print(f"Memory {rec.memory_id}:")
+                print(f"  Priority: {rec.priority}")
+                print(f"  Reason: {rec.reason}")
+                print(f"  Staleness: {rec.staleness_score:.2f}")
+                print(f"  Suggested sources: {rec.suggested_sources}")
+            ```
+        """
+        try:
+            # Get user memories
+            memories = self.search(query="", user_id=user_id, k=1000, filters={})
+
+            recommendations = []
+
+            for mem in memories:
+                # Get or analyze access pattern
+                pattern = self.adaptive_learning.analyze_access_pattern(mem.id)
+
+                # Get refresh recommendation
+                rec = self.adaptive_learning.recommend_refresh(
+                    memory_id=mem.id,
+                    current_importance=mem.importance,
+                    last_updated=mem.updated_at,
+                    access_pattern=pattern,
+                )
+
+                if rec:
+                    recommendations.append(rec)
+
+            # Sort by priority
+            priority_order = {
+                "critical": 0,
+                "high": 1,
+                "medium": 2,
+                "low": 3,
+            }
+            recommendations.sort(
+                key=lambda r: (
+                    priority_order.get(r.priority.value, 99),
+                    -r.staleness_score,
+                )
+            )
+
+            logger.info(
+                f"Generated {len(recommendations)} refresh recommendations for user {user_id}"
+            )
+
+            return recommendations[:limit]
+
+        except Exception as e:
+            logger.error(f"Failed to get refresh recommendations: {e}")
+            return []
+
+    def get_compression_recommendations(
+        self, user_id: str, limit: int = 20
+    ) -> list:
+        """
+        Get recommendations for adaptive memory compression.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum recommendations to return
+
+        Returns:
+            List of compression recommendations, sorted by space savings
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            recommendations = client.get_compression_recommendations("user_123")
+
+            total_savings = sum(r.estimated_space_savings for r in recommendations)
+            print(f"Potential space savings: {total_savings} bytes")
+
+            for rec in recommendations:
+                print(f"Memory {rec.memory_id}:")
+                print(f"  {rec.current_level} -> {rec.recommended_level}")
+                print(f"  Reason: {rec.reason}")
+                print(f"  Savings: {rec.estimated_space_savings} bytes")
+            ```
+        """
+        try:
+            # Get user memories
+            memories = self.search(query="", user_id=user_id, k=1000, filters={})
+
+            recommendations = []
+
+            for mem in memories:
+                # Calculate age
+                age_days = (
+                    datetime.now(timezone.utc) - mem.created_at
+                ).total_seconds() / 86400
+
+                # Get current compression level from metadata
+                from hippocampai.pipeline.adaptive_learning import CompressionLevel
+
+                current_compression = CompressionLevel(
+                    mem.metadata.get("compression_level", "none")
+                )
+
+                # Get or analyze access pattern
+                pattern = self.adaptive_learning.analyze_access_pattern(mem.id)
+
+                # Get compression recommendation
+                rec = self.adaptive_learning.recommend_compression(
+                    memory_id=mem.id,
+                    current_importance=mem.importance,
+                    age_days=int(age_days),
+                    text_length=len(mem.text),
+                    current_compression=current_compression,
+                    access_pattern=pattern,
+                )
+
+                if rec:
+                    recommendations.append(rec)
+
+            # Sort by space savings
+            recommendations.sort(
+                key=lambda r: r.estimated_space_savings, reverse=True
+            )
+
+            total_savings = sum(r.estimated_space_savings for r in recommendations)
+
+            logger.info(
+                f"Generated {len(recommendations)} compression recommendations "
+                f"for user {user_id} (potential {total_savings} bytes savings)"
+            )
+
+            return recommendations[:limit]
+
+        except Exception as e:
+            logger.error(f"Failed to get compression recommendations: {e}")
+            return []
+
+    def apply_compression_recommendation(
+        self, memory_id: str, compression_level: str
+    ):
+        """
+        Apply compression to a memory.
+
+        Args:
+            memory_id: Memory to compress
+            compression_level: Compression level (none, light, moderate, aggressive, archived)
+
+        Returns:
+            Updated memory
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Get recommendations
+            recs = client.get_compression_recommendations("user_123")
+
+            # Apply first recommendation
+            if recs:
+                compressed = client.apply_compression_recommendation(
+                    recs[0].memory_id,
+                    recs[0].recommended_level.value
+                )
+            ```
+        """
+        from hippocampai.pipeline.adaptive_learning import CompressionLevel
+
+        try:
+            compression_enum = CompressionLevel(compression_level.lower())
+        except ValueError:
+            logger.error(f"Invalid compression level: {compression_level}")
+            return None
+
+        try:
+            # Get memory
+            memory = self.get(memory_id=memory_id)
+            if not memory:
+                return None
+
+            # Apply compression based on level
+            compressed_text = memory.text
+
+            if compression_enum == CompressionLevel.LIGHT:
+                # Light: Remove redundant whitespace, minor cleanup
+                compressed_text = " ".join(memory.text.split())
+
+            elif compression_enum == CompressionLevel.MODERATE:
+                # Moderate: Summarize if LLM available
+                if self.llm:
+                    compressed_text = self.llm.summarize(
+                        memory.text, max_length=len(memory.text) // 2
+                    )
+                else:
+                    # Truncate to 50%
+                    compressed_text = memory.text[: len(memory.text) // 2] + "..."
+
+            elif compression_enum == CompressionLevel.AGGRESSIVE:
+                # Aggressive: Heavy summarization
+                if self.llm:
+                    compressed_text = self.llm.summarize(
+                        memory.text, max_length=len(memory.text) // 3
+                    )
+                else:
+                    # Truncate to 30%
+                    compressed_text = memory.text[: len(memory.text) // 3] + "..."
+
+            elif compression_enum == CompressionLevel.ARCHIVED:
+                # Archived: Minimal representation
+                compressed_text = memory.text[:100] + "... [archived]"
+
+            # Update memory
+            memory.metadata["compression_level"] = compression_level
+            memory.metadata["original_length"] = len(memory.text)
+            memory.metadata["compressed_at"] = datetime.now(timezone.utc).isoformat()
+
+            updated = self.update(
+                memory_id=memory_id,
+                text=compressed_text,
+                metadata=memory.metadata,
+            )
+
+            logger.info(
+                f"Compressed memory {memory_id} to {compression_level} level "
+                f"({len(memory.text)} -> {len(compressed_text)} bytes)"
+            )
+
+            return updated
+
+        except Exception as e:
+            logger.error(f"Failed to apply compression: {e}")
+            return None
+
+    def get_access_statistics(self) -> dict[str, Any]:
+        """
+        Get overall access statistics and patterns.
+
+        Returns:
+            Dictionary with access statistics
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            stats = client.get_access_statistics()
+
+            print(f"Total accesses: {stats['total_access_events']}")
+            print(f"Unique memories: {stats['unique_memories_accessed']}")
+            print(f"Top accessed: {stats['top_accessed_memories'][:5]}")
+            print(f"Top contexts: {stats['top_access_contexts'][:5]}")
+            ```
+        """
+        stats = self.adaptive_learning.get_access_statistics()
+
+        logger.info(
+            f"Access statistics: {stats['total_access_events']} events, "
+            f"{stats['unique_memories_accessed']} unique memories"
+        )
+
+        return stats
