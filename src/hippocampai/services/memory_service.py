@@ -16,11 +16,23 @@ from hippocampai.pipeline.conflict_resolution import (
     MemoryConflictResolver,
 )
 from hippocampai.pipeline.consolidate import MemoryConsolidator
+from hippocampai.pipeline.conversation_memory import (
+    ConversationMemoryManager,
+    ConversationSummary,
+    ConversationTurn,
+    SpeakerRole,
+)
 from hippocampai.pipeline.dedup import MemoryDeduplicator
 from hippocampai.pipeline.memory_lifecycle import (
     LifecycleConfig,
     MemoryLifecycleManager,
     MemoryTier,
+)
+from hippocampai.pipeline.memory_merge import (
+    MemoryMergeEngine,
+    MergeCandidate,
+    MergeResult,
+    MergeStrategy,
 )
 from hippocampai.pipeline.memory_quality import (
     DuplicateCluster,
@@ -131,6 +143,18 @@ class MemoryManagementService:
             stale_threshold_days=90,
             duplicate_threshold=0.85,
             near_duplicate_threshold=0.70,
+        )
+
+        # Initialize conversation memory manager
+        self.conversation_manager = ConversationMemoryManager(
+            kv_store=redis_store,
+            llm=llm,
+        )
+
+        # Initialize memory merge engine
+        self.merge_engine = MemoryMergeEngine(
+            similarity_threshold=0.85,
+            merge_confidence_threshold=0.7,
         )
 
         # Query cache TTL (60 seconds)
@@ -1662,3 +1686,433 @@ JSON:"""
         except Exception as e:
             logger.error(f"Failed to get stale memories for user {user_id}: {e}")
             return []
+
+    # Conversation-Aware Memory Methods
+
+    async def add_conversation_turn(
+        self,
+        conversation_id: str,
+        session_id: str,
+        user_id: str,
+        speaker: str,
+        text: str,
+        role: SpeakerRole = SpeakerRole.USER,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> ConversationTurn:
+        """
+        Add a turn to a conversation and track it.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            session_id: Session identifier
+            user_id: User identifier
+            speaker: Name of the speaker
+            text: Content of the turn
+            role: Speaker role (USER, ASSISTANT, SYSTEM, PARTICIPANT)
+            metadata: Optional metadata
+
+        Returns:
+            Parsed conversation turn
+        """
+        try:
+            # Parse the turn
+            turn = self.conversation_manager.parse_turn(
+                text=text,
+                speaker=speaker,
+                role=role,
+                conversation_id=conversation_id,
+                metadata=metadata,
+            )
+
+            # Add to conversation context
+            self.conversation_manager.add_turn(
+                conversation_id=conversation_id,
+                session_id=session_id,
+                user_id=user_id,
+                turn=turn,
+            )
+
+            logger.info(
+                f"Added turn {turn.turn_id} to conversation {conversation_id} "
+                f"by {speaker} ({role})"
+            )
+
+            return turn
+
+        except Exception as e:
+            logger.error(
+                f"Failed to add conversation turn to {conversation_id}: {e}"
+            )
+            raise
+
+    async def get_conversation_summary(
+        self, conversation_id: str, use_llm: bool = True
+    ) -> Optional[ConversationSummary]:
+        """
+        Get a multi-level summary of a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            use_llm: Whether to use LLM for better summarization
+
+        Returns:
+            Conversation summary with key points, decisions, action items, etc.
+        """
+        try:
+            summary = self.conversation_manager.summarize_conversation(
+                conversation_id=conversation_id, use_llm=use_llm
+            )
+
+            if summary:
+                logger.info(
+                    f"Generated summary for conversation {conversation_id}: "
+                    f"{summary.total_turns} turns, {len(summary.key_points)} key points, "
+                    f"{len(summary.decisions)} decisions, {len(summary.action_items)} actions"
+                )
+
+            return summary
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get conversation summary for {conversation_id}: {e}"
+            )
+            return None
+
+    async def extract_conversation_memories(
+        self,
+        conversation_id: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        auto_tag: bool = True,
+    ) -> list[Memory]:
+        """
+        Extract and store memories from a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            user_id: User identifier
+            session_id: Optional session identifier
+            auto_tag: Whether to auto-tag with conversation topics
+
+        Returns:
+            List of created memories
+        """
+        try:
+            summary = await self.get_conversation_summary(
+                conversation_id=conversation_id, use_llm=True
+            )
+
+            if not summary:
+                logger.warning(
+                    f"No summary available for conversation {conversation_id}"
+                )
+                return []
+
+            created_memories = []
+
+            # Create memory from key points
+            for idx, point in enumerate(summary.key_points):
+                tags = summary.topics_discussed if auto_tag else []
+                tags.append(f"conversation:{conversation_id}")
+
+                memory = await self.create_memory(
+                    text=point,
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=7.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation",
+                        "conversation_id": conversation_id,
+                        "key_point_index": idx,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from decisions
+            for decision in summary.decisions:
+                tags = summary.topics_discussed if auto_tag else []
+                tags.extend(["decision", f"conversation:{conversation_id}"])
+
+                memory = await self.create_memory(
+                    text=f"Decision: {decision.decision}. Rationale: {decision.rationale}",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=9.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_decision",
+                        "conversation_id": conversation_id,
+                        "decision_maker": decision.decision_maker,
+                        "topic": decision.topic,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from action items
+            for action in summary.action_items:
+                tags = summary.topics_discussed if auto_tag else []
+                tags.extend(["action_item", f"conversation:{conversation_id}"])
+
+                memory = await self.create_memory(
+                    text=f"Action: {action.action} (Priority: {action.priority})",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="task",
+                    importance=8.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_action",
+                        "conversation_id": conversation_id,
+                        "assignee": action.assignee,
+                        "deadline": action.deadline.isoformat()
+                        if action.deadline
+                        else None,
+                        "status": action.status,
+                    },
+                )
+                created_memories.append(memory)
+
+            logger.info(
+                f"Extracted {len(created_memories)} memories from conversation {conversation_id}"
+            )
+
+            return created_memories
+
+        except Exception as e:
+            logger.error(
+                f"Failed to extract memories from conversation {conversation_id}: {e}"
+            )
+            return []
+
+    # Memory Merge Methods
+
+    async def suggest_memory_merges(
+        self, user_id: str, limit: int = 100
+    ) -> list[MergeCandidate]:
+        """
+        Suggest memory merges based on similarity.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum number of memories to analyze
+
+        Returns:
+            List of merge candidates with similarity scores and conflicts
+        """
+        try:
+            # Get recent memories
+            memories = await self.get_memories(user_id=user_id, limit=limit)
+
+            if len(memories) < 2:
+                logger.info(f"Not enough memories for user {user_id} to suggest merges")
+                return []
+
+            # Convert to dict format for merge engine
+            memory_dicts = []
+            for mem in memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "type": mem.type.value,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "updated_at": mem.updated_at,
+                    }
+                )
+
+            # Calculate similarity matrix
+            similarity_matrix = {}
+            for i, mem1 in enumerate(memory_dicts):
+                for j, mem2 in enumerate(memory_dicts):
+                    if i < j:
+                        # Get embeddings and calculate similarity
+                        result1 = await self.retriever.search(
+                            query=mem1["text"],
+                            user_id=user_id,
+                            k=1,
+                            filters={"id": mem1["id"]},
+                        )
+                        result2 = await self.retriever.search(
+                            query=mem2["text"],
+                            user_id=user_id,
+                            k=1,
+                            filters={"id": mem2["id"]},
+                        )
+
+                        if result1 and result2:
+                            # Simple cosine similarity between embeddings
+                            emb1 = result1[0].metadata.get("embedding", [])
+                            emb2 = result2[0].metadata.get("embedding", [])
+                            if emb1 and emb2:
+                                similarity = float(
+                                    np.dot(emb1, emb2)
+                                    / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+                                )
+                                similarity_matrix[(mem1["id"], mem2["id"])] = (
+                                    similarity
+                                )
+
+            # Get merge suggestions
+            candidates = self.merge_engine.suggest_merges(
+                memories=memory_dicts, similarity_matrix=similarity_matrix
+            )
+
+            logger.info(
+                f"Found {len(candidates)} merge candidates for user {user_id}"
+            )
+
+            return candidates
+
+        except Exception as e:
+            logger.error(f"Failed to suggest merges for user {user_id}: {e}")
+            return []
+
+    async def merge_memories(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: Optional[MergeStrategy] = None,
+        manual_resolutions: Optional[dict[str, Any]] = None,
+    ) -> Optional[MergeResult]:
+        """
+        Merge multiple memories into one.
+
+        Args:
+            memory_ids: List of memory IDs to merge
+            user_id: User identifier
+            strategy: Merge strategy (NEWEST, HIGHEST_CONFIDENCE, LONGEST, COMBINE, MANUAL)
+            manual_resolutions: Manual conflict resolutions
+
+        Returns:
+            Merge result with merged memory ID and metrics
+        """
+        try:
+            if len(memory_ids) < 2:
+                logger.warning("Need at least 2 memories to merge")
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = await self.get_memory(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                logger.error("Some memories not found or don't belong to user")
+                return None
+
+            # Execute merge
+            result = self.merge_engine.merge_memories(
+                memories=memories,
+                strategy=strategy,
+                user_id=user_id,
+                manual_resolutions=manual_resolutions,
+            )
+
+            if result.success:
+                # Create the merged memory in the store
+                merged_data = result.rollback_data.get("merged_memory", {})
+
+                merged_memory = await self.create_memory(
+                    text=merged_data["text"],
+                    user_id=user_id,
+                    memory_type=merged_data["type"],
+                    importance=merged_data["importance"],
+                    tags=merged_data["tags"],
+                    metadata=merged_data.get("metadata", {}),
+                    check_duplicate=False,  # Already verified
+                )
+
+                # Delete original memories
+                for mem_id in memory_ids:
+                    await self.delete_memory(memory_id=mem_id)
+
+                # Update result with actual merged memory ID
+                result.merged_memory_id = merged_memory.id
+
+                logger.info(
+                    f"Successfully merged {len(memory_ids)} memories into {merged_memory.id} "
+                    f"using {result.strategy_used} strategy"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to merge memories: {e}")
+            return None
+
+    async def preview_memory_merge(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: Optional[MergeStrategy] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Preview what a memory merge would look like without executing it.
+
+        Args:
+            memory_ids: List of memory IDs to preview merge
+            user_id: User identifier
+            strategy: Optional merge strategy
+
+        Returns:
+            Preview of merged memory with conflicts and quality metrics
+        """
+        try:
+            if len(memory_ids) < 2:
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = await self.get_memory(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                return None
+
+            # Get preview
+            preview = self.merge_engine.preview_merge(
+                memories=memories, strategy=strategy
+            )
+
+            logger.info(f"Generated merge preview for {len(memory_ids)} memories")
+
+            return preview
+
+        except Exception as e:
+            logger.error(f"Failed to preview merge: {e}")
+            return None

@@ -239,6 +239,19 @@ class MemoryClient:
             track_access_patterns=True,
         )
 
+        # NEW: Conversation-Aware Memory & Merge Engine
+        from hippocampai.pipeline.conversation_memory import ConversationMemoryManager
+        from hippocampai.pipeline.memory_merge import MemoryMergeEngine
+
+        self.conversation_manager = ConversationMemoryManager(
+            kv_store=self.kv_store,
+            llm=self.llm,
+        )
+        self.merge_engine = MemoryMergeEngine(
+            similarity_threshold=0.85,
+            merge_confidence_threshold=0.7,
+        )
+
         # Session Management
         self.session_manager = SessionManager(
             qdrant_store=self.qdrant,
@@ -4552,3 +4565,518 @@ class MemoryClient:
         except Exception as e:
             logger.error(f"Failed to get tier statistics: {e}")
             return {}
+
+    # Conversation-Aware Memory Methods
+
+    def add_conversation_turn(
+        self,
+        conversation_id: str,
+        speaker: str,
+        text: str,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        role: str = "user",
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Add a turn to a conversation and track it.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            speaker: Name of the speaker
+            text: Content of the turn
+            user_id: Optional user identifier (defaults to conversation_id)
+            session_id: Optional session identifier
+            role: Speaker role (user, assistant, system, participant)
+            metadata: Optional metadata
+
+        Returns:
+            Parsed conversation turn
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Add user turn
+            turn = client.add_conversation_turn(
+                conversation_id="conv_123",
+                speaker="Alice",
+                text="What's the weather like today?",
+                role="user"
+            )
+
+            # Add assistant turn
+            turn = client.add_conversation_turn(
+                conversation_id="conv_123",
+                speaker="Bot",
+                text="It's sunny and 72°F",
+                role="assistant"
+            )
+            ```
+        """
+        from hippocampai.pipeline.conversation_memory import SpeakerRole
+
+        try:
+            role_enum = SpeakerRole(role.upper())
+        except ValueError:
+            role_enum = SpeakerRole.USER
+
+        user_id = user_id or conversation_id
+        session_id = session_id or conversation_id
+
+        turn = self.conversation_manager.parse_turn(
+            text=text,
+            speaker=speaker,
+            role=role_enum,
+            conversation_id=conversation_id,
+            metadata=metadata,
+        )
+
+        self.conversation_manager.add_turn(
+            conversation_id=conversation_id,
+            session_id=session_id,
+            user_id=user_id,
+            turn=turn,
+        )
+
+        logger.info(
+            f"Added conversation turn {turn.turn_id} to {conversation_id} by {speaker}"
+        )
+
+        return turn
+
+    def get_conversation_summary(
+        self, conversation_id: str, use_llm: bool = True
+    ):
+        """
+        Get a multi-level summary of a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            use_llm: Whether to use LLM for better summarization
+
+        Returns:
+            Conversation summary with key points, decisions, action items, etc.
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Get conversation summary
+            summary = client.get_conversation_summary("conv_123")
+
+            print(f"Total turns: {summary.total_turns}")
+            print(f"Key points: {summary.key_points}")
+            print(f"Decisions: {summary.decisions}")
+            print(f"Action items: {summary.action_items}")
+            print(f"Unresolved questions: {summary.unresolved_questions}")
+            ```
+        """
+        summary = self.conversation_manager.summarize_conversation(
+            conversation_id=conversation_id, use_llm=use_llm
+        )
+
+        if summary:
+            logger.info(
+                f"Generated summary for conversation {conversation_id}: "
+                f"{summary.total_turns} turns, {len(summary.key_points)} key points"
+            )
+
+        return summary
+
+    def extract_conversation_memories(
+        self,
+        conversation_id: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        auto_tag: bool = True,
+    ) -> list[Memory]:
+        """
+        Extract and store memories from a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            user_id: User identifier
+            session_id: Optional session identifier
+            auto_tag: Whether to auto-tag with conversation topics
+
+        Returns:
+            List of created memories
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Add conversation turns
+            client.add_conversation_turn("conv_123", "Alice", "I love pizza", role="user")
+            client.add_conversation_turn("conv_123", "Bot", "Great! What toppings?", role="assistant")
+            client.add_conversation_turn("conv_123", "Alice", "Pepperoni and mushrooms", role="user")
+
+            # Extract memories from conversation
+            memories = client.extract_conversation_memories(
+                conversation_id="conv_123",
+                user_id="alice_123"
+            )
+
+            print(f"Extracted {len(memories)} memories")
+            ```
+        """
+        try:
+            summary = self.get_conversation_summary(
+                conversation_id=conversation_id, use_llm=True
+            )
+
+            if not summary:
+                logger.warning(
+                    f"No summary available for conversation {conversation_id}"
+                )
+                return []
+
+            created_memories = []
+
+            # Create memory from key points
+            for idx, point in enumerate(summary.key_points):
+                tags = list(summary.topics_discussed) if auto_tag else []
+                tags.append(f"conversation:{conversation_id}")
+
+                memory = self.add(
+                    text=point,
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=7.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation",
+                        "conversation_id": conversation_id,
+                        "key_point_index": idx,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from decisions
+            for decision in summary.decisions:
+                tags = list(summary.topics_discussed) if auto_tag else []
+                tags.extend(["decision", f"conversation:{conversation_id}"])
+
+                memory = self.add(
+                    text=f"Decision: {decision.decision}. Rationale: {decision.rationale}",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=9.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_decision",
+                        "conversation_id": conversation_id,
+                        "decision_maker": decision.decision_maker,
+                        "topic": decision.topic,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from action items
+            for action in summary.action_items:
+                tags = list(summary.topics_discussed) if auto_tag else []
+                tags.extend(["action_item", f"conversation:{conversation_id}"])
+
+                memory = self.add(
+                    text=f"Action: {action.action} (Priority: {action.priority})",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="task",
+                    importance=8.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_action",
+                        "conversation_id": conversation_id,
+                        "assignee": action.assignee,
+                        "deadline": action.deadline.isoformat()
+                        if action.deadline
+                        else None,
+                        "status": action.status,
+                    },
+                )
+                created_memories.append(memory)
+
+            logger.info(
+                f"Extracted {len(created_memories)} memories from conversation {conversation_id}"
+            )
+
+            return created_memories
+
+        except Exception as e:
+            logger.error(
+                f"Failed to extract memories from conversation {conversation_id}: {e}"
+            )
+            return []
+
+    # Memory Merge Methods
+
+    def suggest_memory_merges(self, user_id: str, limit: int = 100):
+        """
+        Suggest memory merges based on similarity.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum number of memories to analyze
+
+        Returns:
+            List of merge candidates with similarity scores and conflicts
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Get merge suggestions
+            candidates = client.suggest_memory_merges(user_id="user_123", limit=50)
+
+            for candidate in candidates:
+                print(f"Merge cluster: {candidate.memory_ids}")
+                print(f"Similarity: {candidate.similarity_score}")
+                print(f"Conflicts: {len(candidate.conflicts)}")
+                print(f"Quality gain: {candidate.estimated_quality_gain}")
+            ```
+        """
+        try:
+            # Get recent memories
+            memories = self.search(
+                query="", user_id=user_id, k=limit, filters={}
+            )
+
+            if len(memories) < 2:
+                logger.info(f"Not enough memories for user {user_id} to suggest merges")
+                return []
+
+            # Convert to dict format for merge engine
+            memory_dicts = []
+            for mem in memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "type": mem.type.value,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "updated_at": mem.updated_at,
+                    }
+                )
+
+            # Calculate similarity matrix using embeddings
+            import numpy as np
+
+            similarity_matrix = {}
+            for i, mem1 in enumerate(memory_dicts):
+                emb1 = self.embedder.embed(mem1["text"])
+                for j, mem2 in enumerate(memory_dicts):
+                    if i < j:
+                        emb2 = self.embedder.embed(mem2["text"])
+                        similarity = float(
+                            np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+                        )
+                        similarity_matrix[(mem1["id"], mem2["id"])] = similarity
+
+            # Get merge suggestions
+            candidates = self.merge_engine.suggest_merges(
+                memories=memory_dicts, similarity_matrix=similarity_matrix
+            )
+
+            logger.info(
+                f"Found {len(candidates)} merge candidates for user {user_id}"
+            )
+
+            return candidates
+
+        except Exception as e:
+            logger.error(f"Failed to suggest merges for user {user_id}: {e}")
+            return []
+
+    def merge_memories(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: str = "combine",
+        manual_resolutions: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Merge multiple memories into one.
+
+        Args:
+            memory_ids: List of memory IDs to merge
+            user_id: User identifier
+            strategy: Merge strategy (newest, highest_confidence, longest, combine, manual)
+            manual_resolutions: Manual conflict resolutions
+
+        Returns:
+            Merge result with merged memory ID and metrics
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Merge memories
+            result = client.merge_memories(
+                memory_ids=["mem_1", "mem_2"],
+                user_id="user_123",
+                strategy="combine"
+            )
+
+            print(f"Merged into: {result.merged_memory_id}")
+            print(f"Conflicts resolved: {result.conflicts_resolved}")
+            print(f"Quality before: {result.quality_before}")
+            print(f"Quality after: {result.quality_after}")
+            ```
+        """
+        from hippocampai.pipeline.memory_merge import MergeStrategy
+
+        try:
+            strategy_enum = MergeStrategy(strategy.lower())
+        except ValueError:
+            strategy_enum = MergeStrategy.COMBINE
+
+        try:
+            if len(memory_ids) < 2:
+                logger.warning("Need at least 2 memories to merge")
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = self.get(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                logger.error("Some memories not found or don't belong to user")
+                return None
+
+            # Execute merge
+            result = self.merge_engine.merge_memories(
+                memories=memories,
+                strategy=strategy_enum,
+                user_id=user_id,
+                manual_resolutions=manual_resolutions,
+            )
+
+            if result.success:
+                # Create the merged memory
+                merged_data = result.rollback_data.get("merged_memory", {})
+
+                merged_memory = self.add(
+                    text=merged_data["text"],
+                    user_id=user_id,
+                    memory_type=merged_data["type"],
+                    importance=merged_data["importance"],
+                    tags=merged_data["tags"],
+                    metadata=merged_data.get("metadata", {}),
+                )
+
+                # Delete original memories
+                for mem_id in memory_ids:
+                    self.delete(memory_id=mem_id)
+
+                # Update result with actual merged memory ID
+                result.merged_memory_id = merged_memory.id
+
+                logger.info(
+                    f"Successfully merged {len(memory_ids)} memories into {merged_memory.id}"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to merge memories: {e}")
+            return None
+
+    def preview_memory_merge(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: str = "combine",
+    ):
+        """
+        Preview what a memory merge would look like without executing it.
+
+        Args:
+            memory_ids: List of memory IDs to preview merge
+            user_id: User identifier
+            strategy: Optional merge strategy
+
+        Returns:
+            Preview of merged memory with conflicts and quality metrics
+
+        Example:
+            ```python
+            client = MemoryClient()
+
+            # Preview merge
+            preview = client.preview_memory_merge(
+                memory_ids=["mem_1", "mem_2"],
+                user_id="user_123"
+            )
+
+            print(preview["preview_text"])
+            print(f"Conflicts: {preview['conflicts']}")
+            print(f"Estimated quality: {preview['estimated_quality']}")
+            ```
+        """
+        from hippocampai.pipeline.memory_merge import MergeStrategy
+
+        try:
+            strategy_enum = MergeStrategy(strategy.lower())
+        except ValueError:
+            strategy_enum = MergeStrategy.COMBINE
+
+        try:
+            if len(memory_ids) < 2:
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = self.get(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                return None
+
+            # Get preview
+            preview = self.merge_engine.preview_merge(
+                memories=memories, strategy=strategy_enum
+            )
+
+            logger.info(f"Generated merge preview for {len(memory_ids)} memories")
+
+            return preview
+
+        except Exception as e:
+            logger.error(f"Failed to preview merge: {e}")
+            return None
