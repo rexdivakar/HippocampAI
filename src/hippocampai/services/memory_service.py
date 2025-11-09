@@ -22,6 +22,13 @@ from hippocampai.pipeline.memory_lifecycle import (
     MemoryLifecycleManager,
     MemoryTier,
 )
+from hippocampai.pipeline.memory_quality import (
+    DuplicateCluster,
+    MemoryHealthScore,
+    MemoryQualityMonitor,
+    MemoryStoreHealth,
+    TopicCoverage,
+)
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.storage.redis_store import AsyncMemoryKVStore
@@ -117,6 +124,13 @@ class MemoryManagementService:
         # Initialize lifecycle manager
         self.lifecycle_manager = MemoryLifecycleManager(
             config=lifecycle_config or LifecycleConfig()
+        )
+
+        # Initialize quality monitor
+        self.quality_monitor = MemoryQualityMonitor(
+            stale_threshold_days=90,
+            duplicate_threshold=0.85,
+            near_duplicate_threshold=0.70,
         )
 
         # Query cache TTL (60 seconds)
@@ -1381,3 +1395,270 @@ JSON:"""
             "tier_average_temperatures": tier_avg_temps,
             "lifecycle_config": self.lifecycle_manager.config.model_dump(),
         }
+
+    # ========================================================================
+    # MEMORY QUALITY & HEALTH MONITORING
+    # ========================================================================
+
+    async def assess_memory_health(self, memory_id: str) -> Optional[MemoryHealthScore]:
+        """
+        Assess health of a single memory.
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            MemoryHealthScore or None if memory not found
+        """
+        try:
+            # Get memory from cache or vector store
+            memory_data = await self.redis.get_memory(memory_id)
+            if not memory_data:
+                # Try vector store
+                results = await self.qdrant.get(self.qdrant.collection_facts, memory_id)
+                if not results:
+                    results = await self.qdrant.get(
+                        self.qdrant.collection_prefs, memory_id
+                    )
+                if not results:
+                    return None
+                memory_data = results
+
+            # Parse to Memory object
+            memory = Memory(**memory_data)
+
+            # Assess health
+            health = self.quality_monitor.assess_memory_health(
+                memory_id=memory.id,
+                text=memory.text,
+                confidence=memory.confidence,
+                importance=memory.importance,
+                created_at=memory.created_at,
+                updated_at=memory.updated_at,
+                tags=memory.tags,
+                metadata=memory.metadata,
+            )
+
+            return health
+
+        except Exception as e:
+            logger.error(f"Failed to assess memory health for {memory_id}: {e}")
+            return None
+
+    async def detect_duplicates(
+        self, user_id: str, similarity_threshold: Optional[float] = None
+    ) -> list[DuplicateCluster]:
+        """
+        Detect duplicate and near-duplicate memory clusters.
+
+        Args:
+            user_id: User identifier
+            similarity_threshold: Custom threshold (uses default if not provided)
+
+        Returns:
+            List of duplicate clusters
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if len(memories) < 2:
+                return []
+
+            # Build similarity matrix using embeddings
+            similarity_matrix: dict[tuple[str, str], float] = {}
+
+            logger.info(
+                f"Computing similarity matrix for {len(memories)} memories..."
+            )
+
+            for i, mem1 in enumerate(memories):
+                for j, mem2 in enumerate(memories[i + 1 :], start=i + 1):
+                    # Use embeddings if available
+                    if mem1.embedding and mem2.embedding:
+                        # Cosine similarity
+                        dot_product = np.dot(mem1.embedding, mem2.embedding)
+                        norm1 = np.linalg.norm(mem1.embedding)
+                        norm2 = np.linalg.norm(mem2.embedding)
+                        similarity = (
+                            dot_product / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0.0
+                        )
+                    else:
+                        # Fallback: use text similarity via reranker
+                        sim_result = self.deduplicator.reranker.rerank(
+                            query=mem1.text, documents=[mem2.text]
+                        )
+                        similarity = sim_result[0].score if sim_result else 0.0
+
+                    if similarity >= (
+                        similarity_threshold
+                        or self.quality_monitor.near_duplicate_threshold
+                    ):
+                        similarity_matrix[(mem1.id, mem2.id)] = similarity
+
+            # Detect clusters
+            memory_dicts = [
+                {"id": m.id, "text": m.text, "confidence": m.confidence}
+                for m in memories
+            ]
+            clusters = self.quality_monitor.detect_duplicate_clusters(
+                memories=memory_dicts, similarity_matrix=similarity_matrix
+            )
+
+            logger.info(f"Found {len(clusters)} duplicate clusters for user {user_id}")
+
+            return clusters
+
+        except Exception as e:
+            logger.error(f"Failed to detect duplicates for user {user_id}: {e}")
+            return []
+
+    async def analyze_topic_coverage(
+        self, user_id: str, topics: Optional[list[str]] = None
+    ) -> list[TopicCoverage]:
+        """
+        Analyze memory coverage across topics.
+
+        Args:
+            user_id: User identifier
+            topics: Optional predefined topics (extracts from tags if not provided)
+
+        Returns:
+            List of topic coverage analysis
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if not memories:
+                return []
+
+            # Convert to dicts for analyzer
+            memory_dicts = [
+                {
+                    "id": m.id,
+                    "text": m.text,
+                    "tags": m.tags,
+                    "confidence": m.confidence,
+                    "updated_at": m.updated_at,
+                }
+                for m in memories
+            ]
+
+            # Analyze coverage
+            coverage = self.quality_monitor.analyze_topic_coverage(
+                memories=memory_dicts, topics=topics
+            )
+
+            logger.info(f"Analyzed coverage for {len(coverage)} topics for user {user_id}")
+
+            return coverage
+
+        except Exception as e:
+            logger.error(f"Failed to analyze topic coverage for user {user_id}: {e}")
+            return []
+
+    async def assess_memory_store_health(
+        self, user_id: str
+    ) -> Optional[MemoryStoreHealth]:
+        """
+        Assess overall health of user's memory store.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            MemoryStoreHealth with comprehensive assessment
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if not memories:
+                return MemoryStoreHealth(
+                    user_id=user_id,
+                    overall_health_score=0.0,
+                    health_status="critical",
+                    recommendations=["No memories found in store."],
+                )
+
+            # Assess each memory
+            health_scores: list[MemoryHealthScore] = []
+            for memory in memories:
+                health = self.quality_monitor.assess_memory_health(
+                    memory_id=memory.id,
+                    text=memory.text,
+                    confidence=memory.confidence,
+                    importance=memory.importance,
+                    created_at=memory.created_at,
+                    updated_at=memory.updated_at,
+                    tags=memory.tags,
+                    metadata=memory.metadata,
+                )
+                health_scores.append(health)
+
+            # Detect duplicates
+            duplicate_clusters = await self.detect_duplicates(user_id)
+
+            # Analyze topic coverage
+            topic_coverage = await self.analyze_topic_coverage(user_id)
+
+            # Assess overall store health
+            store_health = self.quality_monitor.assess_memory_store_health(
+                user_id=user_id,
+                memory_health_scores=health_scores,
+                duplicate_clusters=duplicate_clusters,
+                topic_coverage=topic_coverage,
+            )
+
+            logger.info(
+                f"Memory store health for user {user_id}: "
+                f"{store_health.health_status.value} ({store_health.overall_health_score:.1f}/100)"
+            )
+
+            return store_health
+
+        except Exception as e:
+            logger.error(f"Failed to assess memory store health for user {user_id}: {e}")
+            return None
+
+    async def get_stale_memories(
+        self, user_id: str, threshold_days: Optional[int] = None
+    ) -> list[Memory]:
+        """
+        Get memories that are stale (not updated recently).
+
+        Args:
+            user_id: User identifier
+            threshold_days: Custom threshold (uses default if not provided)
+
+        Returns:
+            List of stale memories
+        """
+        try:
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+            threshold = threshold_days or self.quality_monitor.stale_threshold_days
+
+            stale_memories = []
+            now = datetime.now(timezone.utc)
+
+            for memory in memories:
+                updated_at = memory.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+
+                days_since_update = (now - updated_at).total_seconds() / 86400
+
+                if days_since_update > threshold:
+                    stale_memories.append(memory)
+
+            logger.info(
+                f"Found {len(stale_memories)} stale memories "
+                f"(>{threshold} days old) for user {user_id}"
+            )
+
+            return stale_memories
+
+        except Exception as e:
+            logger.error(f"Failed to get stale memories for user {user_id}: {e}")
+            return []
