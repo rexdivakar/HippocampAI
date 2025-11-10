@@ -19,6 +19,13 @@ class Config(BaseSettings):
     redis_max_connections: int = Field(default=100, validation_alias="REDIS_MAX_CONNECTIONS")
     redis_min_idle: int = Field(default=10, validation_alias="REDIS_MIN_IDLE")
 
+    # PostgreSQL (for authentication)
+    postgres_host: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
+    postgres_port: int = Field(default=5432, validation_alias="POSTGRES_PORT")
+    postgres_db: str = Field(default="hippocampai", validation_alias="POSTGRES_DB")
+    postgres_user: str = Field(default="hippocampai", validation_alias="POSTGRES_USER")
+    postgres_password: str = Field(default="hippocampai_secret", validation_alias="POSTGRES_PASSWORD")
+
     # HNSW tuning
     hnsw_m: int = Field(default=48, validation_alias="HNSW_M")
     ef_construction: int = Field(default=256, validation_alias="EF_CONSTRUCTION")

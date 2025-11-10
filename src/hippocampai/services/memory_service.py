@@ -1,5 +1,6 @@
 """Comprehensive memory management service with CRUD, batch, dedup, and consolidation."""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -23,6 +24,7 @@ from hippocampai.pipeline.conversation_memory import (
     SpeakerRole,
 )
 from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.errors import MemoryNotFoundError
 from hippocampai.pipeline.memory_lifecycle import (
     LifecycleConfig,
     MemoryLifecycleManager,
@@ -47,6 +49,9 @@ from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
+
+# Memory locks to prevent concurrent modifications
+MEMORY_LOCKS = {}
 
 
 class MemoryManagementService:
@@ -147,14 +152,14 @@ class MemoryManagementService:
 
         # Initialize conversation memory manager
         self.conversation_manager = ConversationMemoryManager(
-            kv_store=redis_store,
             llm=llm,
         )
 
         # Initialize memory merge engine
         self.merge_engine = MemoryMergeEngine(
+            llm=llm,
             similarity_threshold=0.85,
-            merge_confidence_threshold=0.7,
+            auto_merge_threshold=0.9,
         )
 
         # Query cache TTL (60 seconds)
@@ -215,7 +220,7 @@ class MemoryManagementService:
         Returns:
             Created memory
         """
-        # Create memory object
+        # Create memory object with all fields set
         memory = Memory(
             text=text,
             user_id=user_id,
@@ -233,20 +238,33 @@ class MemoryManagementService:
         # Calculate size metrics
         memory.calculate_size_metrics()
 
-        # Check for duplicates
-        if check_duplicate:
+        action = None
+        duplicate_ids = []
+        # Check duplicates unless explicitly skipped
+        if check_duplicate and not (metadata or {}).get("skip_duplicate_check", False):
             action, duplicate_ids = self.deduplicator.check_duplicate(memory, user_id)
 
             if action == "skip":
                 logger.info(f"Skipping duplicate memory: {memory.id}")
                 # Return existing memory
                 existing_id = duplicate_ids[0]
-                existing_memory = await self.get_memory(existing_id)
-                if existing_memory is None:
-                    raise ValueError(f"Duplicate memory {existing_id} not found")
-                return existing_memory
-
-            if action == "update":
+                try:
+                    existing_memory = await self.get_memory(existing_id)
+                    if existing_memory is None:
+                        # If the memory was detected as duplicate but no longer exists,
+                        # we should create a new one
+                        logger.warning(
+                            f"Detected duplicate {existing_id} no longer exists, creating new memory"
+                        )
+                        # Continue with creation by setting action to store
+                        action = "store"
+                        duplicate_ids = []
+                    else:
+                        return existing_memory
+                except Exception as e:
+                    logger.error(f"Error retrieving duplicate memory {existing_id}: {e}")
+                    raise MemoryNotFoundError(f"Duplicate memory {existing_id} not found")
+            elif action == "update":
                 logger.info(f"Updating existing memory: {duplicate_ids[0]}")
                 # Update the first duplicate
                 existing_id = duplicate_ids[0]
@@ -257,8 +275,13 @@ class MemoryManagementService:
                     tags=memory.tags,
                 )
                 if updated_memory is None:
-                    raise ValueError(f"Failed to update memory {existing_id}")
+                    raise MemoryNotFoundError(
+                        f"Failed to update memory {existing_id} - memory not found"
+                    )
                 return updated_memory
+            elif action != "store":
+                logger.error(f"Unexpected deduplication action: {action}")
+                action = "store"  # Default to storing if unknown action
 
         # Check for conflicts
         if check_conflicts and self.enable_conflict_resolution:
@@ -281,45 +304,58 @@ class MemoryManagementService:
 
                     # Auto-resolve if enabled
                     if auto_resolve_conflicts:
+                        # Track all resolutions before applying changes
+                        resolutions = []
+                        memories_to_delete = set()  # Use set to avoid duplicates
+                        keep_first_memory = None  # Track if we should keep an existing memory
+                        merged_memory = None  # Track if we should use a merged memory
+
+                        # First pass - collect all resolution decisions
                         for conflict in conflicts:
                             resolution = self.conflict_resolver.resolve_conflict(
                                 conflict, strategy=self.conflict_resolution_strategy
                             )
+                            resolutions.append(resolution)
 
-                            # Handle resolution
                             if resolution.action == "keep_first":
-                                # Keep existing, don't create new
-                                logger.info(
-                                    f"Conflict resolved: keeping existing memory {conflict.memory_1.id}"
-                                )
-                                return conflict.memory_1
-
+                                # Remember to keep existing and not create new
+                                keep_first_memory = conflict.memory_1
+                                break  # No need to continue if we're keeping an existing memory
                             elif resolution.action == "keep_second":
-                                # Continue to create new memory (will delete old below)
-                                logger.info(
-                                    f"Conflict resolved: keeping new memory, will delete {conflict.memory_1.id}"
-                                )
-                                # Delete conflicting old memory
-                                await self.delete_memory(conflict.memory_1.id)
-
+                                # Will keep new memory, mark old for deletion
+                                memories_to_delete.add(conflict.memory_1.id)
                             elif resolution.action == "merge":
-                                # Use merged memory instead
-                                logger.info("Conflict resolved: merged memories into new memory")
-                                memory = resolution.updated_memory
-                                # Delete both original memories
-                                for mem_id in resolution.deleted_memory_ids:
-                                    await self.delete_memory(mem_id)
-
+                                # Use merged memory, mark both for deletion
+                                merged_memory = resolution.updated_memory
+                                memories_to_delete.update(resolution.deleted_memory_ids)
                             elif resolution.action in ["flag", "keep_both"]:
-                                # Flag both memories for review
-                                logger.info(f"Conflict flagged for review: {conflict.id}")
-                                # Update existing memory with conflict flag
+                                # Update metadata for both memories
                                 await self.update_memory(
                                     memory_id=conflict.memory_1.id,
                                     metadata=conflict.memory_1.metadata,
                                 )
-                                # Add conflict flag to new memory
                                 memory.metadata.update(conflict.memory_2.metadata)
+
+                        # Apply resolutions
+                        if keep_first_memory:
+                            # Use existing memory instead of creating new
+                            logger.info(
+                                f"Conflict resolved: keeping existing memory {keep_first_memory.id}"
+                            )
+                            return keep_first_memory
+                        elif merged_memory:
+                            # Use merged memory instead
+                            logger.info("Conflict resolved: merged memories into new memory")
+                            memory = merged_memory
+
+                        # Delete conflicting memories in a single batch
+                        for mem_id in memories_to_delete:
+                            try:
+                                await self.delete_memory(mem_id)
+                                logger.info(f"Deleted conflicting memory: {mem_id}")
+                            except Exception as e:
+                                logger.warning(f"Failed to delete memory {mem_id}: {e}")
+
                     else:
                         # Just flag for review without auto-resolving
                         logger.info(f"Flagging {len(conflicts)} conflict(s) for user review")
@@ -352,7 +388,9 @@ class MemoryManagementService:
 
             memory_operations_total.labels(operation="create", status="success").inc()
             memories_created_total.labels(memory_type=memory.type.value).inc()
-            memory_size_bytes.labels(memory_type=memory.type.value).observe(len(text.encode("utf-8")))
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(
+                len(text.encode("utf-8"))
+            )
         except Exception as metrics_err:
             logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
 
@@ -476,10 +514,15 @@ class MemoryManagementService:
         Returns:
             True if deleted, False otherwise
         """
-        # Get memory to check ownership and determine collection
-        memory = await self.get_memory(memory_id)
-        if not memory:
-            return False
+        # Get or create lock for this memory ID
+        if memory_id not in MEMORY_LOCKS:
+            MEMORY_LOCKS[memory_id] = asyncio.Lock()
+
+        async with MEMORY_LOCKS[memory_id]:
+            # Get memory to check ownership and determine collection
+            memory = await self.get_memory(memory_id)
+            if not memory:
+                return False
 
         # Check authorization
         if user_id and memory.user_id != user_id:
@@ -1249,15 +1292,11 @@ JSON:"""
 
             # Get current tier from metadata
             current_tier_str = memory.metadata.get("lifecycle", {}).get("tier")
-            current_tier = (
-                MemoryTier(current_tier_str) if current_tier_str else MemoryTier.WARM
-            )
+            current_tier = MemoryTier(current_tier_str) if current_tier_str else MemoryTier.WARM
 
             # Update metadata with lifecycle info
             memory_data = memory.model_dump()
-            memory_data = self.lifecycle_manager.update_access_metadata(
-                memory_data, temperature
-            )
+            memory_data = self.lifecycle_manager.update_access_metadata(memory_data, temperature)
 
             # Check if tier migration is needed
             if self.lifecycle_manager.should_migrate(current_tier, temperature.tier):
@@ -1311,9 +1350,7 @@ JSON:"""
 
         return temperature.model_dump()
 
-    async def migrate_memory_tier(
-        self, memory_id: str, target_tier: MemoryTier
-    ) -> bool:
+    async def migrate_memory_tier(self, memory_id: str, target_tier: MemoryTier) -> bool:
         """
         Manually migrate a memory to a specific tier.
 
@@ -1343,9 +1380,7 @@ JSON:"""
 
         # Update metadata
         memory_data = memory.model_dump()
-        memory_data = self.lifecycle_manager.update_access_metadata(
-            memory_data, temperature
-        )
+        memory_data = self.lifecycle_manager.update_access_metadata(memory_data, temperature)
 
         # Handle compression for archived/hibernated tiers
         if target_tier in {MemoryTier.ARCHIVED, MemoryTier.HIBERNATED}:
@@ -1361,9 +1396,7 @@ JSON:"""
         collection = memory.collection_name(
             self.qdrant.collection_facts, self.qdrant.collection_prefs
         )
-        self.qdrant.update(
-            collection_name=collection, id=memory.id, payload=memory_data
-        )
+        self.qdrant.update(collection_name=collection, id=memory.id, payload=memory_data)
 
         # Update cache
         await self.redis.set_memory(memory.id, memory_data)
@@ -1441,9 +1474,7 @@ JSON:"""
                 # Try vector store
                 results = await self.qdrant.get(self.qdrant.collection_facts, memory_id)
                 if not results:
-                    results = await self.qdrant.get(
-                        self.qdrant.collection_prefs, memory_id
-                    )
+                    results = await self.qdrant.get(self.qdrant.collection_prefs, memory_id)
                 if not results:
                     return None
                 memory_data = results
@@ -1492,9 +1523,7 @@ JSON:"""
             # Build similarity matrix using embeddings
             similarity_matrix: dict[tuple[str, str], float] = {}
 
-            logger.info(
-                f"Computing similarity matrix for {len(memories)} memories..."
-            )
+            logger.info(f"Computing similarity matrix for {len(memories)} memories...")
 
             for i, mem1 in enumerate(memories):
                 for j, mem2 in enumerate(memories[i + 1 :], start=i + 1):
@@ -1515,15 +1544,13 @@ JSON:"""
                         similarity = sim_result[0].score if sim_result else 0.0
 
                     if similarity >= (
-                        similarity_threshold
-                        or self.quality_monitor.near_duplicate_threshold
+                        similarity_threshold or self.quality_monitor.near_duplicate_threshold
                     ):
                         similarity_matrix[(mem1.id, mem2.id)] = similarity
 
             # Detect clusters
             memory_dicts = [
-                {"id": m.id, "text": m.text, "confidence": m.confidence}
-                for m in memories
+                {"id": m.id, "text": m.text, "confidence": m.confidence} for m in memories
             ]
             clusters = self.quality_monitor.detect_duplicate_clusters(
                 memories=memory_dicts, similarity_matrix=similarity_matrix
@@ -1582,9 +1609,7 @@ JSON:"""
             logger.error(f"Failed to analyze topic coverage for user {user_id}: {e}")
             return []
 
-    async def assess_memory_store_health(
-        self, user_id: str
-    ) -> Optional[MemoryStoreHealth]:
+    async def assess_memory_store_health(self, user_id: str) -> Optional[MemoryStoreHealth]:
         """
         Assess overall health of user's memory store.
 
@@ -1733,16 +1758,13 @@ JSON:"""
             )
 
             logger.info(
-                f"Added turn {turn.turn_id} to conversation {conversation_id} "
-                f"by {speaker} ({role})"
+                f"Added turn {turn.turn_id} to conversation {conversation_id} by {speaker} ({role})"
             )
 
             return turn
 
         except Exception as e:
-            logger.error(
-                f"Failed to add conversation turn to {conversation_id}: {e}"
-            )
+            logger.error(f"Failed to add conversation turn to {conversation_id}: {e}")
             raise
 
     async def get_conversation_summary(
@@ -1773,9 +1795,7 @@ JSON:"""
             return summary
 
         except Exception as e:
-            logger.error(
-                f"Failed to get conversation summary for {conversation_id}: {e}"
-            )
+            logger.error(f"Failed to get conversation summary for {conversation_id}: {e}")
             return None
 
     async def extract_conversation_memories(
@@ -1803,9 +1823,7 @@ JSON:"""
             )
 
             if not summary:
-                logger.warning(
-                    f"No summary available for conversation {conversation_id}"
-                )
+                logger.warning(f"No summary available for conversation {conversation_id}")
                 return []
 
             created_memories = []
@@ -1867,9 +1885,7 @@ JSON:"""
                         "source": "conversation_action",
                         "conversation_id": conversation_id,
                         "assignee": action.assignee,
-                        "deadline": action.deadline.isoformat()
-                        if action.deadline
-                        else None,
+                        "deadline": action.deadline.isoformat() if action.deadline else None,
                         "status": action.status,
                     },
                 )
@@ -1882,16 +1898,12 @@ JSON:"""
             return created_memories
 
         except Exception as e:
-            logger.error(
-                f"Failed to extract memories from conversation {conversation_id}: {e}"
-            )
+            logger.error(f"Failed to extract memories from conversation {conversation_id}: {e}")
             return []
 
     # Memory Merge Methods
 
-    async def suggest_memory_merges(
-        self, user_id: str, limit: int = 100
-    ) -> list[MergeCandidate]:
+    async def suggest_memory_merges(self, user_id: str, limit: int = 100) -> list[MergeCandidate]:
         """
         Suggest memory merges based on similarity.
 
@@ -1955,18 +1967,14 @@ JSON:"""
                                     np.dot(emb1, emb2)
                                     / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
                                 )
-                                similarity_matrix[(mem1["id"], mem2["id"])] = (
-                                    similarity
-                                )
+                                similarity_matrix[(mem1["id"], mem2["id"])] = similarity
 
             # Get merge suggestions
             candidates = self.merge_engine.suggest_merges(
                 memories=memory_dicts, similarity_matrix=similarity_matrix
             )
 
-            logger.info(
-                f"Found {len(candidates)} merge candidates for user {user_id}"
-            )
+            logger.info(f"Found {len(candidates)} merge candidates for user {user_id}")
 
             return candidates
 
@@ -2105,9 +2113,7 @@ JSON:"""
                 return None
 
             # Get preview
-            preview = self.merge_engine.preview_merge(
-                memories=memories, strategy=strategy
-            )
+            preview = self.merge_engine.preview_merge(memories=memories, strategy=strategy)
 
             logger.info(f"Generated merge preview for {len(memory_ids)} memories")
 

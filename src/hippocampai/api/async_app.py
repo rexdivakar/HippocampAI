@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import uvicorn
@@ -18,6 +18,8 @@ from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.config import get_config
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
+from hippocampai.pipeline.conflict_resolution import ConflictResolutionStrategy
+from hippocampai.pipeline.errors import ConflictResolutionError, MemoryNotFoundError
 from hippocampai.pipeline.memory_lifecycle import MemoryTier
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.services.background_tasks import BackgroundTaskManager
@@ -138,6 +140,47 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Background tasks disabled by configuration")
 
+    # Initialize AuthService and RateLimiter for SaaS mode
+    try:
+        import os
+
+        import asyncpg
+
+        from hippocampai.auth.auth_service import AuthService
+        from hippocampai.auth.rate_limiter import RateLimiter
+
+        # Check if user auth is enabled
+        user_auth_enabled = os.getenv("USER_AUTH_ENABLED", "false").lower() == "true"
+
+        # Ensure Redis is connected
+        if _redis_store is not None:
+            await _redis_store.connect()
+            if _redis_store.store._client is None:
+                raise RuntimeError("Redis client not initialized")
+
+        db_pool = await asyncpg.create_pool(
+            host=config.postgres_host,
+            port=config.postgres_port,
+            database=config.postgres_db,
+            user=config.postgres_user,
+            password=config.postgres_password,
+            min_size=2,
+            max_size=10,
+        )
+        app.state.db_pool = db_pool  # Store pool for direct access
+        app.state.auth_service = AuthService(db_pool)
+        app.state.rate_limiter = RateLimiter(_redis_store.store._client)  # Use existing Redis
+        app.state.user_auth_enabled = user_auth_enabled
+
+        logger.info(f"AuthService initialized (user_auth_enabled={user_auth_enabled})")
+        logger.info("RateLimiter initialized successfully")
+
+    except Exception as e:
+        logger.warning(f"Could not initialize AuthService/RateLimiter: {e}")
+        app.state.auth_service = None
+        app.state.rate_limiter = None
+        app.state.user_auth_enabled = False
+
     logger.info("HippocampAI services initialized successfully")
     yield
 
@@ -147,6 +190,9 @@ async def lifespan(app: FastAPI):
         await _background_tasks.stop()
     if _redis_store:
         await _redis_store.close()
+    if hasattr(app.state, "db_pool") and app.state.db_pool:
+        await app.state.db_pool.close()
+        logger.info("PostgreSQL connection pool closed")
 
 
 app = FastAPI(
@@ -169,6 +215,16 @@ if PROMETHEUS_AVAILABLE:
     app.add_middleware(PrometheusMiddleware)
     logger.info("Prometheus middleware enabled")
 
+# Add authentication middleware (will lazy-load from app.state)
+try:
+    from hippocampai.api.middleware import AuthMiddleware
+
+    app.add_middleware(AuthMiddleware)
+    logger.info("AuthMiddleware registered (will lazy-load services from app.state)")
+except Exception as e:
+    logger.warning(f"Could not register AuthMiddleware: {e}")
+
+
 # Include intelligence routes
 try:
     from hippocampai.api.intelligence_routes import router as intelligence_router
@@ -186,6 +242,15 @@ try:
     logger.info("Celery routes registered successfully")
 except ImportError as e:
     logger.warning(f"Could not load celery routes: {e}")
+
+# Include admin routes
+try:
+    from hippocampai.api.admin_routes import router as admin_router
+
+    app.include_router(admin_router)
+    logger.info("Admin routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load admin routes: {e}")
 
 
 # Dependency to get service
@@ -223,6 +288,7 @@ class MemoryUpdate(BaseModel):
 
 class BatchMemoryUpdate(BaseModel):
     """Model for batch memory updates (includes memory_id)."""
+
     memory_id: str
     text: Optional[str] = None
     importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
@@ -321,8 +387,7 @@ async def metrics() -> Response:
     """Prometheus metrics endpoint."""
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(
-            status_code=501,
-            detail="Prometheus metrics not available - install prometheus-client"
+            status_code=501, detail="Prometheus metrics not available - install prometheus-client"
         )
     return Response(content=get_metrics(), media_type="text/plain")
 
@@ -341,22 +406,75 @@ async def get_stats(service: MemoryManagementService = Depends(get_service)) -> 
 
 @app.post("/v1/memories", response_model=Memory, status_code=status.HTTP_201_CREATED)
 async def create_memory(
-    request: MemoryCreate, service: MemoryManagementService = Depends(get_service)
+    request: MemoryCreate,
+    skip_duplicate_check: bool = False,
+    service: MemoryManagementService = Depends(get_service),
 ) -> Memory:
     """Create a new memory with optional deduplication check."""
     try:
-        memory = await service.create_memory(
-            text=request.text,
-            user_id=request.user_id,
-            session_id=request.session_id,
-            memory_type=request.type,
-            importance=request.importance,
-            tags=request.tags,
-            ttl_days=request.ttl_days,
-            metadata=request.metadata,
-            check_duplicate=request.check_duplicate,
-        )
-        return memory
+        # Set conflict handling strategy from request if provided
+        conflict_strategy = request.metadata.get("strategy") if request.metadata else None
+        if conflict_strategy:
+            try:
+                # Validate strategy is a valid enum value
+                strategy = ConflictResolutionStrategy(conflict_strategy)
+                service.conflict_resolution_strategy = strategy
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid conflict resolution strategy: {conflict_strategy}. "
+                        f"Must be one of: {[s.value for s in ConflictResolutionStrategy]}"
+                    ),
+                )
+
+        # Set auto-resolve based on request
+        auto_resolve = request.metadata.get("auto_resolve", True) if request.metadata else True
+
+        try:
+            memory = await service.create_memory(
+                text=request.text,
+                user_id=request.user_id,
+                session_id=request.session_id,
+                memory_type=request.type,
+                importance=request.importance,
+                tags=request.tags,
+                ttl_days=request.ttl_days,
+                metadata=request.metadata,
+                check_duplicate=not skip_duplicate_check,
+                check_conflicts=True,
+                auto_resolve_conflicts=auto_resolve,
+            )
+            return memory
+        except ConflictResolutionError as e:
+            # Handle conflict resolution errors specifically
+            status_code = 409 if auto_resolve else 400  # 409 Conflict or 400 Bad Request
+            error_detail = {
+                "error": "Memory conflict detected",
+                "message": str(e),
+                "conflict_id": getattr(e, "conflict_id", None),
+                "resolution_options": [s.value for s in ConflictResolutionStrategy],
+                "help": (
+                    "Set metadata.strategy to one of the resolution_options "
+                    "and metadata.auto_resolve=true to automatically resolve conflicts"
+                ),
+            }
+            raise HTTPException(status_code=status_code, detail=error_detail)
+        except MemoryNotFoundError as e:
+            # Handle missing memory errors (e.g. duplicate not found)
+            error_detail = {
+                "error": "Memory not found",
+                "message": str(e),
+                "help": "The memory was detected as a duplicate but could not be found",
+            }
+            raise HTTPException(status_code=404, detail=error_detail)
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Handle validation errors
+        logger.warning(f"Validation error in create_memory: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Create memory failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -751,7 +869,7 @@ async def trigger_background_consolidate(
 @app.post("/v1/memories:remember", response_model=Memory)
 async def remember(request: MemoryCreate, service: MemoryManagementService = Depends(get_service)):
     """Legacy endpoint: Create a memory."""
-    return await create_memory(request, service)
+    return await create_memory(request, skip_duplicate_check=False, service=service)
 
 
 @app.post("/v1/memories:recall", response_model=list[RetrievalResult])
@@ -822,16 +940,19 @@ async def explain_retrieval_results(
             k=request.k,
         )
 
-        # Then explain them
-        explanations = service.client.explain_retrieval(
-            query=request.query,
-            results=results,
-        )
-
+        # Return retrieval explanations
         return {
             "query": request.query,
             "results_count": len(results),
-            "explanations": [exp.model_dump() for exp in explanations],
+            "explanations": [
+                {
+                    "memory_id": result.memory.id,
+                    "text": result.memory.text,
+                    "score": result.score,
+                    "scores": result.breakdown,
+                }
+                for result in results
+            ],
         }
     except Exception as e:
         logger.error(f"Error explaining retrieval: {e}")
@@ -859,13 +980,24 @@ async def visualize_similarity(
         )
 
         # Generate visualization
-        viz = service.client.visualize_similarity_scores(
-            query=request.query,
-            results=results,
-            top_k=request.top_k,
-        )
-
-        return viz.model_dump()
+        viz_data = {
+            "query": request.query,
+            "scores": [
+                {
+                    "memory_id": r.memory.id,
+                    "text": r.memory.text,
+                    "score": r.score,
+                    "breakdown": r.breakdown,
+                }
+                for r in results[: request.top_k]
+            ],
+            "stats": {
+                "mean_score": sum(r.score for r in results) / len(results) if results else 0,
+                "count": len(results),
+                "top_k": request.top_k,
+            },
+        }
+        return viz_data
     except Exception as e:
         logger.error(f"Error visualizing scores: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -884,12 +1016,24 @@ async def generate_heatmap(
     - Peak usage times
     """
     try:
-        heatmap = service.client.generate_access_heatmap(
+        # Get user memories with their access counts
+        memories = await service.get_memories(
             user_id=request.user_id,
-            time_period_days=request.time_period_days,
+            limit=1000,  # Reasonable limit for analysis
         )
 
-        return heatmap.model_dump()
+        # Calculate access patterns
+        heatmap_data = {
+            "user_id": request.user_id,
+            "time_period_days": request.time_period_days,
+            "total_memories": len(memories),
+            "total_accesses": sum(m.access_count for m in memories),
+            "memory_access_counts": [
+                {"id": m.id, "access_count": m.access_count}
+                for m in sorted(memories, key=lambda x: x.access_count, reverse=True)
+            ],
+        }
+        return heatmap_data
     except Exception as e:
         logger.error(f"Error generating heatmap: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -908,13 +1052,28 @@ async def profile_query(
     - Optimization recommendations
     """
     try:
-        profile = service.client.profile_query_performance(
+        # Profile memory retrieval performance
+        start_time = datetime.now()
+
+        results = await service.recall_memories(
             query=request.query,
             user_id=request.user_id,
             k=request.k,
         )
 
-        return profile.model_dump()
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+
+        # Return performance metrics
+        return {
+            "query": request.query,
+            "user_id": request.user_id,
+            "k": request.k,
+            "results_found": len(results),
+            "duration_seconds": duration,
+            "throughput": len(results) / duration if duration > 0 else 0,
+            "average_score": sum(r.score for r in results) / len(results) if results else 0,
+        }
     except Exception as e:
         logger.error(f"Error profiling query: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -969,16 +1128,24 @@ async def calculate_freshness(
     """
     try:
         # Get the memory
-        memories = await service.get_memories(memory_ids=[request.memory_id])
-        if not memories:
+        memory = await service.get_memory(memory_id=request.memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
 
-        freshness = service.client.calculate_memory_freshness(
-            memory=memories[0],
-            reference_date=request.reference_date,
-        )
+        # Calculate freshness
+        reference = request.reference_date or datetime.now(timezone.utc)
+        age = (reference - memory.created_at).total_seconds()
+        last_access = (reference - memory.updated_at).total_seconds()
 
-        return freshness.model_dump()
+        return {
+            "memory_id": memory.id,
+            "age_days": age / (24 * 3600),
+            "last_access_days": last_access / (24 * 3600),
+            "access_count": memory.access_count,
+            "freshness_score": 1.0 / (1.0 + age / (30 * 24 * 3600)),  # 30-day half-life
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -996,21 +1163,24 @@ async def apply_decay(
     Returns decayed importance score based on age and decay function.
     """
     try:
-        # Get the memory
-        memories = await service.get_memories(memory_ids=[request.memory_id])
-        if not memories:
+        # Get the memory and calculate time-based decay
+        memory = await service.get_memory(memory_id=request.memory_id)
+        if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
 
-        decayed_score = service.client.apply_time_decay(
-            memory=memories[0],
-            decay_function_name=request.decay_function,
-        )
+        age_days = (datetime.now(timezone.utc) - memory.created_at).days
+        decay_rate = 0.1  # 10% decay per month for default exponential
+        if request.decay_function == "linear":
+            decayed_score = max(0.0, memory.importance * (1.0 - decay_rate * age_days / 30))
+        else:  # exponential decay
+            decayed_score = memory.importance * pow(1.0 - decay_rate, age_days / 30)
 
         return {
             "memory_id": request.memory_id,
-            "original_importance": memories[0].importance,
-            "decayed_importance": decayed_score,
-            "decay_function": request.decay_function,
+            "original_importance": memory.importance,
+            "decayed_importance": round(decayed_score, 2),
+            "decay_function": request.decay_function or "default_exponential",
+            "age_days": age_days,
         }
     except HTTPException:
         raise
@@ -1029,15 +1199,32 @@ async def forecast_patterns(
     Predicts usage, topic trends, and importance patterns based on historical data.
     """
     try:
-        forecasts = service.client.forecast_memory_patterns(
+        # Get historical memory data
+        memories = await service.get_memories(
             user_id=request.user_id,
-            forecast_days=request.forecast_days,
+            limit=1000,  # Reasonable limit for analysis
         )
+
+        # Calculate basic forecasts based on historical patterns
+        total_memories = len(memories)
+        creation_rate = (
+            total_memories
+            / ((datetime.now(timezone.utc) - min(m.created_at for m in memories)).days + 1)
+            if memories
+            else 0
+        )
+        avg_importance = sum(m.importance for m in memories) / total_memories if memories else 0
 
         return {
             "user_id": request.user_id,
             "forecast_days": request.forecast_days,
-            "forecasts": [f.model_dump() for f in forecasts],
+            "forecasts": {
+                "estimated_new_memories": round(creation_rate * request.forecast_days),
+                "avg_importance_trend": avg_importance,
+                "total_memories_forecast": total_memories
+                + round(creation_rate * request.forecast_days),
+                "daily_creation_rate": round(creation_rate, 2),
+            },
         }
     except Exception as e:
         logger.error(f"Error forecasting patterns: {e}")
@@ -1054,13 +1241,35 @@ async def get_context_window(
     Auto-adjusts time range based on query and context type.
     """
     try:
-        window = service.client.get_adaptive_context_window(
-            query=request.query,
-            user_id=request.user_id,
-            context_type=request.context_type,
-        )
+        # Get user memories sorted by relevance or recency
+        memories = await service.get_memories(user_id=request.user_id, limit=1000)
 
-        return window.model_dump()
+        if request.context_type == "recent":
+            relevant_memories = sorted(memories, key=lambda m: m.updated_at, reverse=True)[:10]
+        elif request.context_type == "relevant":
+            # Get relevant memories using recall
+            results = await service.recall_memories(
+                query=request.query, user_id=request.user_id, k=10
+            )
+            relevant_memories = [r.memory for r in results]
+        else:  # seasonal
+            # Default to most accessed memories
+            relevant_memories = sorted(memories, key=lambda m: m.access_count, reverse=True)[:10]
+
+        return {
+            "query": request.query,
+            "context_type": request.context_type,
+            "window_size": len(relevant_memories),
+            "memories": [
+                {
+                    "id": m.id,
+                    "text": m.text,
+                    "updated_at": m.updated_at.isoformat(),
+                    "access_count": m.access_count,
+                }
+                for m in relevant_memories
+            ],
+        }
     except Exception as e:
         logger.error(f"Error getting context window: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1081,7 +1290,8 @@ class ConflictDetectionRequest(BaseModel):
 class ConflictResolutionRequest(BaseModel):
     """Request to resolve memory conflict."""
 
-    conflict_id: str
+    user_id: str  # Owner of the conflict
+    conflict_id: str  # ID of the conflict to resolve
     strategy: str = "temporal"  # temporal, confidence, importance, auto_merge, keep_both
 
 
@@ -1107,15 +1317,39 @@ async def detect_conflicts(
     Returns list of detected conflicts with details.
     """
     try:
-        conflicts = service.client.detect_memory_conflicts(
-            user_id=request.user_id,
-            memory_id=request.memory_id,
-        )
+        # Get memories to check for conflicts
+        if request.memory_id:
+            memory = await service.get_memory(request.memory_id)
+            if not memory:
+                raise HTTPException(status_code=404, detail="Memory not found")
+            memories_to_check = [memory]
+        else:
+            memories_to_check = await service.get_memories(user_id=request.user_id, limit=1000)
+
+        conflicts = []
+        # Check for temporal conflicts
+        for memory in memories_to_check:
+            similar_results = await service.recall_memories(
+                query=memory.text, user_id=request.user_id, k=5
+            )
+            # Filter out self-matches and low similarity
+            conflicts.extend(
+                [
+                    {
+                        "memory_id": memory.id,
+                        "conflicting_id": r.memory.id,
+                        "similarity": r.score,
+                        "type": "content_overlap",
+                    }
+                    for r in similar_results
+                    if r.memory.id != memory.id and r.score > 0.8  # High similarity threshold
+                ]
+            )
 
         return {
             "user_id": request.user_id,
             "conflicts_found": len(conflicts),
-            "conflicts": [c.model_dump() for c in conflicts],
+            "conflicts": conflicts,
         }
     except Exception as e:
         logger.error(f"Error detecting conflicts: {e}")
@@ -1132,12 +1366,78 @@ async def resolve_conflict(
     Applies specified resolution strategy.
     """
     try:
-        resolution = service.client.resolve_memory_conflict(
-            conflict_id=request.conflict_id,
-            strategy=request.strategy,
-        )
+        # Get the conflict details
+        conflicts = await service.detect_memory_conflicts(user_id=request.user_id)
+        if not conflicts:
+            raise HTTPException(status_code=404, detail="No conflicts found")
 
-        return resolution.model_dump()
+        # Find the specific conflict
+        conflict = None
+        for c in conflicts:
+            if c["conflict_id"] == request.conflict_id:
+                conflict = c
+                break
+
+        if not conflict:
+            raise HTTPException(status_code=404, detail="Conflict not found")
+
+        # Apply resolution based on strategy
+        if request.strategy == "merge":
+            # Get the conflicting memories
+            memory1_details = conflict["memory_1"]
+            memory2_details = conflict["memory_2"]
+
+            # Merge their text
+            merged_text = f"{memory1_details['text']}\n---\n{memory2_details['text']}"
+            await service.update_memory(
+                memory_id=memory1_details["id"],
+                text=merged_text,
+                metadata={
+                    "merged_from": memory2_details["id"],
+                    "merge_strategy": request.strategy,
+                    "conflict_type": conflict["conflict_type"],
+                },
+            )
+            await service.delete_memory(memory2_details["id"])
+
+        elif request.strategy == "keep_latest":
+            # Keep the more recent memory
+            memory1_details = conflict["memory_1"]
+            memory2_details = conflict["memory_2"]
+
+            # Parse timestamps
+            mem1_time = datetime.fromisoformat(memory1_details["created_at"])
+            mem2_time = datetime.fromisoformat(memory2_details["created_at"])
+
+            to_delete = memory1_details["id"] if mem2_time > mem1_time else memory2_details["id"]
+            to_keep = memory2_details["id"] if mem2_time > mem1_time else memory1_details["id"]
+
+            await service.delete_memory(to_delete)
+            # Update metadata on kept memory
+            await service.update_memory(
+                memory_id=to_keep,
+                metadata={
+                    "conflict_resolved": True,
+                    "resolution_strategy": request.strategy,
+                    "deleted_memory_id": to_delete,
+                },
+            )
+
+        elif request.strategy == "manual":
+            # For manual resolution, we just mark it as reviewed
+            await service.update_memory(
+                memory_id=conflict["memory_1"]["id"],
+                metadata={
+                    "conflict_reviewed": True,
+                    "review_timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+        return {
+            "conflict_id": request.conflict_id,
+            "resolution_status": "success",
+            "resolution_strategy": request.strategy,
+        }
     except Exception as e:
         logger.error(f"Error resolving conflict: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1157,9 +1457,59 @@ async def get_health_score(
     - Recommendations
     """
     try:
-        health = service.client.get_memory_health_score(user_id=request.user_id)
+        # Calculate overall memory health score
+        memories = await service.get_memories(user_id=request.user_id)
+        if not memories:
+            return {
+                "user_id": request.user_id,
+                "health_score": 1.0,  # Perfect score for empty memory
+                "details": {
+                    "memory_count": 0,
+                    "avg_age_days": 0,
+                    "duplicate_ratio": 0,
+                    "retrieval_success_rate": 1.0,
+                },
+            }
 
-        return health.model_dump()
+        # Calculate metrics
+        current_time = datetime.now(timezone.utc)
+        memory_count = len(memories)
+
+        # Age analysis
+        ages = [(current_time - m.created_at).days for m in memories]
+        avg_age = sum(ages) / len(ages) if ages else 0
+
+        # Duplicate detection
+        seen_texts = set()
+        duplicates = 0
+        for m in memories:
+            if m.text in seen_texts:
+                duplicates += 1
+            seen_texts.add(m.text)
+        duplicate_ratio = duplicates / memory_count if memory_count > 0 else 0
+
+        # Calculate retrieval success rate from recent search results
+        # For now, we'll use a simplified metric based on access counts
+        recently_accessed = [m for m in memories if m.access_count > 0]
+        retrieval_rate = len(recently_accessed) / memory_count if memory_count > 0 else 1.0
+
+        # Calculate overall health score (0.0 to 1.0)
+        age_score = max(0, min(1, 1 - (avg_age / 365)))  # Penalize old memories
+        duplicate_score = 1 - duplicate_ratio
+        retrieval_score = retrieval_rate
+
+        overall_score = (age_score + duplicate_score + retrieval_score) / 3
+
+        return {
+            "user_id": request.user_id,
+            "health_score": overall_score,
+            "details": {
+                "memory_count": memory_count,
+                "avg_age_days": avg_age,
+                "duplicate_ratio": duplicate_ratio,
+                "retrieval_success_rate": retrieval_rate,
+            },
+        }
     except Exception as e:
         logger.error(f"Error getting health score: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1175,14 +1525,36 @@ async def get_provenance(
     Returns complete history and source tracking.
     """
     try:
-        provenance = service.client.get_memory_provenance_chain(
-            memory_id=request.memory_id
-        )
+        # Get the target memory
+        memory = await service.get_memory(request.memory_id)
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
 
-        if not provenance:
+        # Build provenance chain
+        chain = []
+        current = memory
+
+        # Follow parent links up to root
+        while current:
+            chain.append(
+                {
+                    "memory_id": current.id,
+                    "timestamp": current.created_at.isoformat(),
+                    "type": current.type,
+                    "metadata": current.metadata,
+                }
+            )
+
+            # Look for parent in metadata
+            if not current.metadata.get("parent_id"):
+                break
+
+            current = await service.get_memory(current.metadata["parent_id"])
+
+        if not chain:
             raise HTTPException(status_code=404, detail="Provenance not found")
 
-        return provenance
+        return {"memory_id": request.memory_id, "chain": chain}
     except HTTPException:
         raise
     except Exception as e:
@@ -1313,9 +1685,7 @@ async def get_access_pattern(request: AccessPatternRequest):
         from hippocampai.monitoring.memory_tracker import get_tracker
 
         tracker = get_tracker()
-        pattern = tracker.get_access_pattern(
-            memory_id=request.memory_id, user_id=request.user_id
-        )
+        pattern = tracker.get_access_pattern(memory_id=request.memory_id, user_id=request.user_id)
 
         if not pattern:
             raise HTTPException(

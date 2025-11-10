@@ -38,6 +38,15 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load intelligence routes: {e}")
 
+# Include admin routes
+try:
+    from hippocampai.api.admin_routes import router as admin_router
+
+    app.include_router(admin_router)
+    logger.info("Admin routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load admin routes: {e}")
+
 
 # Request/Response models
 class RememberRequest(BaseModel):

@@ -83,10 +83,32 @@ class MemoryClient:
         allow_cloud: Optional[bool] = None,
         config: Optional[Config] = None,
         enable_telemetry: bool = True,
+        user_auth: Optional[bool] = None,
+        api_key: Optional[str] = None,
     ):
-        """Initialize memory client."""
+        """Initialize memory client.
+
+        Args:
+            user_auth: Whether to use authentication (None = auto-detect from env, False = local mode, True = remote mode)
+            api_key: API key for authentication (if None, will check HIPPOCAMPAI_API_KEY env var)
+        """
         self.config = config or get_config()
         self.telemetry = get_telemetry(enabled=enable_telemetry)
+
+        # Authentication setup
+        import os
+
+        self.user_auth = (
+            user_auth
+            if user_auth is not None
+            else os.getenv("HIPPOCAMPAI_USER_AUTH", "false").lower() == "true"
+        )
+        self.api_key = api_key or os.getenv("HIPPOCAMPAI_API_KEY")
+
+        if self.user_auth and not self.api_key:
+            logger.warning(
+                "user_auth=True but no API key provided. Set api_key parameter or HIPPOCAMPAI_API_KEY environment variable."
+            )
 
         # Override config with params
         if qdrant_url:
@@ -244,12 +266,11 @@ class MemoryClient:
         from hippocampai.pipeline.memory_merge import MemoryMergeEngine
 
         self.conversation_manager = ConversationMemoryManager(
-            kv_store=self.kv_store,
             llm=self.llm,
         )
         self.merge_engine = MemoryMergeEngine(
             similarity_threshold=0.85,
-            merge_confidence_threshold=0.7,
+            auto_merge_threshold=0.7,
         )
 
         # NEW: Memory Operations
@@ -281,6 +302,23 @@ class MemoryClient:
             self.scheduler = MemoryScheduler(client=self, config=self.config)
 
         logger.info("MemoryClient initialized with advanced features and session management")
+
+    def _get_auth_headers(self) -> dict[str, str]:
+        """Get authentication headers for API requests.
+
+        Returns:
+            Dict with authentication headers
+        """
+        headers = {}
+
+        if self.user_auth:
+            headers["X-User-Auth"] = "true"
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+        else:
+            headers["X-User-Auth"] = "false"
+
+        return headers
 
     @classmethod
     def from_preset(cls, preset: PresetType, **overrides) -> "MemoryClient":
@@ -554,9 +592,7 @@ class MemoryClient:
                 # Detect conflicts with the newly stored memory
                 # Use LLM if available for better conflict detection
                 conflicts = self.conflict_resolver.detect_conflicts(
-                    memory,
-                    other_memories,
-                    check_llm=(self.llm is not None)
+                    memory, other_memories, check_llm=(self.llm is not None)
                 )
 
                 if conflicts:
@@ -579,7 +615,9 @@ class MemoryClient:
                                 # Delete the loser memory
                                 for mem_id in resolution.deleted_memory_ids:
                                     self.delete_memory(mem_id, user_id)
-                                    logger.info(f"Auto-resolve: Deleted conflicting memory {mem_id}")
+                                    logger.info(
+                                        f"Auto-resolve: Deleted conflicting memory {mem_id}"
+                                    )
 
                                 # If the new memory was deleted (keep_first), return the existing one
                                 if memory.id in resolution.deleted_memory_ids:
@@ -784,7 +822,11 @@ class MemoryClient:
                 tracker = get_tracker()
                 for result in results:
                     tracker.track_event(
-                        memory_id=result.memory_id if hasattr(result, "memory_id") else str(result.id) if hasattr(result, "id") else "unknown",
+                        memory_id=result.memory_id
+                        if hasattr(result, "memory_id")
+                        else str(result.id)
+                        if hasattr(result, "id")
+                        else "unknown",
                         user_id=user_id,
                         event_type=MemoryEventType.SEARCHED,
                         severity=MemoryEventSeverity.DEBUG,
@@ -800,7 +842,6 @@ class MemoryClient:
 
             # Track Prometheus metrics
             try:
-
                 from hippocampai.monitoring.prometheus_metrics import (
                     search_requests_total,
                     search_results_count,
@@ -4426,16 +4467,16 @@ class MemoryClient:
                 "access_count": temperature.access_count,
                 "days_since_creation": temperature.days_since_creation,
                 "days_since_last_access": temperature.days_since_last_access,
-                "last_access": temperature.last_access.isoformat() if temperature.last_access else None,
+                "last_access": temperature.last_access.isoformat()
+                if temperature.last_access
+                else None,
                 "created_at": temperature.created_at.isoformat(),
             }
         except Exception as e:
             logger.error(f"Failed to get memory temperature: {e}")
             return None
 
-    def migrate_memory_tier(
-        self, memory_id: str, target_tier: str
-    ) -> dict[str, Any]:
+    def migrate_memory_tier(self, memory_id: str, target_tier: str) -> dict[str, Any]:
         """
         Manually migrate a memory to a specific storage tier.
 
@@ -4479,7 +4520,9 @@ class MemoryClient:
                 memory_data["metadata"]["lifecycle"] = {}
 
             memory_data["metadata"]["lifecycle"]["tier"] = target_tier_enum.value
-            memory_data["metadata"]["lifecycle"]["last_tier_update"] = datetime.now(timezone.utc).isoformat()
+            memory_data["metadata"]["lifecycle"]["last_tier_update"] = datetime.now(
+                timezone.utc
+            ).isoformat()
 
             # Update in vector store
             collection = (
@@ -4652,15 +4695,11 @@ class MemoryClient:
             turn=turn,
         )
 
-        logger.info(
-            f"Added conversation turn {turn.turn_id} to {conversation_id} by {speaker}"
-        )
+        logger.info(f"Added conversation turn {turn.turn_id} to {conversation_id} by {speaker}")
 
         return turn
 
-    def get_conversation_summary(
-        self, conversation_id: str, use_llm: bool = True
-    ):
+    def get_conversation_summary(self, conversation_id: str, use_llm: bool = True):
         """
         Get a multi-level summary of a conversation.
 
@@ -4735,14 +4774,10 @@ class MemoryClient:
             ```
         """
         try:
-            summary = self.get_conversation_summary(
-                conversation_id=conversation_id, use_llm=True
-            )
+            summary = self.get_conversation_summary(conversation_id=conversation_id, use_llm=True)
 
             if not summary:
-                logger.warning(
-                    f"No summary available for conversation {conversation_id}"
-                )
+                logger.warning(f"No summary available for conversation {conversation_id}")
                 return []
 
             created_memories = []
@@ -4804,9 +4839,7 @@ class MemoryClient:
                         "source": "conversation_action",
                         "conversation_id": conversation_id,
                         "assignee": action.assignee,
-                        "deadline": action.deadline.isoformat()
-                        if action.deadline
-                        else None,
+                        "deadline": action.deadline.isoformat() if action.deadline else None,
                         "status": action.status,
                     },
                 )
@@ -4819,9 +4852,7 @@ class MemoryClient:
             return created_memories
 
         except Exception as e:
-            logger.error(
-                f"Failed to extract memories from conversation {conversation_id}: {e}"
-            )
+            logger.error(f"Failed to extract memories from conversation {conversation_id}: {e}")
             return []
 
     # Memory Merge Methods
@@ -4853,9 +4884,7 @@ class MemoryClient:
         """
         try:
             # Get recent memories
-            memories = self.search(
-                query="", user_id=user_id, k=limit, filters={}
-            )
+            memories = self.search(query="", user_id=user_id, k=limit, filters={})
 
             if len(memories) < 2:
                 logger.info(f"Not enough memories for user {user_id} to suggest merges")
@@ -4897,9 +4926,7 @@ class MemoryClient:
                 memories=memory_dicts, similarity_matrix=similarity_matrix
             )
 
-            logger.info(
-                f"Found {len(candidates)} merge candidates for user {user_id}"
-            )
+            logger.info(f"Found {len(candidates)} merge candidates for user {user_id}")
 
             return candidates
 
@@ -5082,9 +5109,7 @@ class MemoryClient:
                 return None
 
             # Get preview
-            preview = self.merge_engine.preview_merge(
-                memories=memories, strategy=strategy_enum
-            )
+            preview = self.merge_engine.preview_merge(memories=memories, strategy=strategy_enum)
 
             logger.info(f"Generated merge preview for {len(memory_ids)} memories")
 
@@ -5542,7 +5567,10 @@ class MemoryClient:
             if not dry_run:
                 # Update archived memories in store
                 for memory_dict in memory_dicts:
-                    if memory_dict.get("archived") and memory_dict["id"] in result.archived_memory_ids:
+                    if (
+                        memory_dict.get("archived")
+                        and memory_dict["id"] in result.archived_memory_ids
+                    ):
                         memory_dict["metadata"]["archived"] = True
                         memory_dict["metadata"]["archived_at"] = memory_dict.get(
                             "archived_at", datetime.now(timezone.utc)
@@ -5553,9 +5581,7 @@ class MemoryClient:
                         )
 
             mode = "DRY RUN: " if dry_run else ""
-            logger.info(
-                f"{mode}Archived {result.total_archived} memories for user {user_id}"
-            )
+            logger.info(f"{mode}Archived {result.total_archived} memories for user {user_id}")
 
             return result
 
@@ -5644,9 +5670,7 @@ class MemoryClient:
             )
 
             # Execute GC
-            result = self.memory_ops.garbage_collect(
-                memories=memory_dicts, config=config
-            )
+            result = self.memory_ops.garbage_collect(memories=memory_dicts, config=config)
 
             if not dry_run:
                 # Delete collected memories
@@ -5750,9 +5774,7 @@ class MemoryClient:
 
         return analysis
 
-    def get_refresh_recommendations(
-        self, user_id: str, limit: int = 20
-    ) -> list:
+    def get_refresh_recommendations(self, user_id: str, limit: int = 20) -> list:
         """
         Get recommendations for memories that should be refreshed.
 
@@ -5822,9 +5844,7 @@ class MemoryClient:
             logger.error(f"Failed to get refresh recommendations: {e}")
             return []
 
-    def get_compression_recommendations(
-        self, user_id: str, limit: int = 20
-    ) -> list:
+    def get_compression_recommendations(self, user_id: str, limit: int = 20) -> list:
         """
         Get recommendations for adaptive memory compression.
 
@@ -5859,9 +5879,7 @@ class MemoryClient:
 
             for mem in memories:
                 # Calculate age
-                age_days = (
-                    datetime.now(timezone.utc) - mem.created_at
-                ).total_seconds() / 86400
+                age_days = (datetime.now(timezone.utc) - mem.created_at).total_seconds() / 86400
 
                 # Get current compression level from metadata
                 from hippocampai.pipeline.adaptive_learning import CompressionLevel
@@ -5887,9 +5905,7 @@ class MemoryClient:
                     recommendations.append(rec)
 
             # Sort by space savings
-            recommendations.sort(
-                key=lambda r: r.estimated_space_savings, reverse=True
-            )
+            recommendations.sort(key=lambda r: r.estimated_space_savings, reverse=True)
 
             total_savings = sum(r.estimated_space_savings for r in recommendations)
 
@@ -5904,9 +5920,7 @@ class MemoryClient:
             logger.error(f"Failed to get compression recommendations: {e}")
             return []
 
-    def apply_compression_recommendation(
-        self, memory_id: str, compression_level: str
-    ):
+    def apply_compression_recommendation(self, memory_id: str, compression_level: str):
         """
         Apply compression to a memory.
 
