@@ -99,13 +99,13 @@ class ExpireMemoriesRequest(BaseModel):
 
 # Routes
 @app.get("/healthz")
-def health_check():
+def health_check() -> dict[str, str]:
     """Health check."""
     return {"status": "ok"}
 
 
 @app.post("/v1/memories:remember", response_model=Memory)
-def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory_client)):
+def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory_client)) -> Memory:
     """Store a memory."""
     try:
         memory = client.remember(
@@ -124,7 +124,7 @@ def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory
 
 
 @app.post("/v1/memories:recall", response_model=list[RetrievalResult])
-def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_client)):
+def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_client)) -> list[RetrievalResult]:
     """Retrieve memories."""
     try:
         results = client.recall(
@@ -141,7 +141,7 @@ def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_cli
 
 
 @app.post("/v1/memories:extract", response_model=list[Memory])
-def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)):
+def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)) -> list[Memory]:
     """Extract memories from conversation."""
     try:
         memories = client.extract_from_conversation(
@@ -156,7 +156,7 @@ def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_c
 
 
 @app.patch("/v1/memories:update", response_model=Memory)
-def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(get_memory_client)):
+def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(get_memory_client)) -> Memory:
     """Update an existing memory."""
     try:
         memory = client.update_memory(
@@ -178,7 +178,7 @@ def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(g
 
 
 @app.delete("/v1/memories:delete")
-def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(get_memory_client)):
+def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(get_memory_client)) -> dict[str, Any]:
     """Delete a memory."""
     try:
         deleted = client.delete_memory(
@@ -196,7 +196,7 @@ def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(g
 
 
 @app.post("/v1/memories:get", response_model=list[Memory])
-def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)):
+def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)) -> list[Memory]:
     """Get memories with advanced filtering."""
     try:
         memories = client.get_memories(
@@ -213,7 +213,7 @@ def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get
 @app.post("/v1/memories:expire")
 def expire_memories(
     request: ExpireMemoriesRequest, client: MemoryClient = Depends(get_memory_client)
-):
+) -> dict[str, Any]:
     """Clean up expired memories."""
     try:
         expired_count = client.expire_memories(user_id=request.user_id)
@@ -223,7 +223,7 @@ def expire_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000):
+def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Run FastAPI server."""
     uvicorn.run(app, host=host, port=port)
 

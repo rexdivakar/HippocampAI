@@ -3,7 +3,7 @@
 import json
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional, cast
 from uuid import UUID
 
 import bcrypt
@@ -183,35 +183,38 @@ class AuthService:
         Returns:
             Updated user if found, None otherwise
         """
-        updates = []
+        # Build update query by checking each field
+        set_clauses = []
         values = []
         param_idx = 1
 
+        # Map of field names to values - only include non-None values
+        field_map: dict[str, Any] = {}
         if user_data.full_name is not None:
-            updates.append(f"full_name = ${param_idx}")
-            values.append(user_data.full_name)
-            param_idx += 1
-
+            field_map["full_name"] = user_data.full_name
         if user_data.tier is not None:
-            updates.append(f"tier = ${param_idx}")
-            values.append(user_data.tier.value)
-            param_idx += 1
-
+            field_map["tier"] = user_data.tier.value
         if user_data.is_active is not None:
-            updates.append(f"is_active = ${param_idx}")
-            values.append(user_data.is_active)
-            param_idx += 1
-
+            field_map["is_active"] = user_data.is_active
         if user_data.is_admin is not None:
-            updates.append(f"is_admin = ${param_idx}")
-            values.append(user_data.is_admin)
-            param_idx += 1
+            field_map["is_admin"] = user_data.is_admin
 
-        if not updates:
+        if not field_map:
             return await self.get_user(user_id)
 
+        # Build SET clauses and values list
+        for field_name, value in field_map.items():
+            set_clauses.append(f"{field_name} = ${param_idx}")
+            values.append(value)
+            param_idx += 1
+
         values.append(user_id)
-        query = f"UPDATE users SET {', '.join(updates)} WHERE id = ${param_idx} RETURNING *"
+
+        # Construct query with fixed structure
+        query_parts = ["UPDATE users SET "]
+        query_parts.append(", ".join(set_clauses))
+        query_parts.append(f" WHERE id = ${param_idx} RETURNING *")
+        query = "".join(query_parts)
 
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(query, *values)
@@ -228,7 +231,7 @@ class AuthService:
         """
         async with self.db_pool.acquire() as conn:
             result = await conn.execute("DELETE FROM users WHERE id = $1", user_id)
-            return result.endswith("1")
+            return cast(bool, result.endswith("1"))
 
     async def list_users(
         self, limit: int = 100, offset: int = 0
@@ -375,7 +378,7 @@ class AuthService:
             result = await conn.execute(
                 "UPDATE api_keys SET is_active = false WHERE id = $1", key_id
             )
-            return result.endswith("1")
+            return cast(bool, result.endswith("1"))
 
     async def delete_api_key(self, key_id: UUID) -> bool:
         """Delete an API key permanently.
@@ -388,7 +391,7 @@ class AuthService:
         """
         async with self.db_pool.acquire() as conn:
             result = await conn.execute("DELETE FROM api_keys WHERE id = $1", key_id)
-            return result.endswith("1")
+            return cast(bool, result.endswith("1"))
 
     async def log_api_usage(
         self,

@@ -3,7 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, AsyncIterator, Optional, cast
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Response, status
@@ -48,7 +48,7 @@ _background_tasks: Optional[BackgroundTaskManager] = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown."""
     global _service, _redis_store, _background_tasks
 
@@ -396,7 +396,7 @@ async def metrics() -> Response:
 async def get_stats(service: MemoryManagementService = Depends(get_service)) -> dict[str, Any]:
     """Get Redis cache statistics."""
     stats = await service.redis.get_stats()
-    return stats
+    return cast(dict[str, Any], stats)
 
 
 # ============================================================================
@@ -545,7 +545,7 @@ async def delete_memory(
 @app.post("/v1/memories/query", response_model=list[Memory])
 async def query_memories(
     request: MemoryQuery, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[Memory]:
     """Query memories with advanced filters (type, tags, date range, importance threshold, text search)."""
     try:
         memories = await service.get_memories(
@@ -576,10 +576,10 @@ async def query_memories(
 @app.post("/v1/memories/batch", response_model=list[Memory], status_code=status.HTTP_201_CREATED)
 async def batch_create_memories(
     request: BatchCreateRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[Memory]:
     """Batch create multiple memories."""
     try:
-        memories_data = [mem.model_dump() for mem in request.memories]
+        memories_data = [mem.model_dump(exclude_none=True) for mem in request.memories]
         memories = await service.batch_create_memories(
             memories_data, check_duplicates=request.check_duplicates
         )
@@ -592,7 +592,7 @@ async def batch_create_memories(
 @app.patch("/v1/memories/batch", response_model=list[Memory])
 async def batch_update_memories(
     request: BatchUpdateRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[Memory]:
     """Batch update multiple memories."""
     try:
         updates_data = [upd.model_dump() for upd in request.updates]
@@ -606,7 +606,7 @@ async def batch_update_memories(
 @app.delete("/v1/memories/batch")
 async def batch_delete_memories(
     request: BatchDeleteRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """Batch delete multiple memories."""
     try:
         results = await service.batch_delete_memories(request.memory_ids, request.user_id)
@@ -624,7 +624,7 @@ async def batch_delete_memories(
 @app.post("/v1/memories/batch/get", response_model=list[Memory])
 async def batch_get_memories(
     request: BatchGetRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[Memory]:
     """Batch get multiple memories by IDs."""
     try:
         memories = []
@@ -646,7 +646,7 @@ async def batch_get_memories(
 @app.post("/v1/memories/recall", response_model=list[RetrievalResult])
 async def recall_memories(
     request: RecallRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[RetrievalResult]:
     """Recall memories using hybrid search with customizable weights."""
     try:
         results = await service.recall_memories(
@@ -671,7 +671,7 @@ async def recall_memories(
 @app.post("/v1/memories/extract", response_model=list[Memory])
 async def extract_from_conversation(
     request: ExtractRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> list[Memory]:
     """Extract memories from conversation logs."""
     try:
         memories = await service.extract_from_conversation(
@@ -695,7 +695,7 @@ async def extract_from_conversation(
 @app.post("/v1/memories/deduplicate")
 async def deduplicate_memories(
     request: DeduplicateRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """Deduplicate memories for a user."""
     try:
         result = await service.deduplicate_user_memories(
@@ -710,7 +710,7 @@ async def deduplicate_memories(
 @app.post("/v1/memories/consolidate")
 async def consolidate_memories(
     request: ConsolidateRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """Consolidate similar memories for a user."""
     try:
         result = await service.consolidate_memories(
@@ -732,7 +732,7 @@ async def consolidate_memories(
 @app.post("/v1/memories/expire")
 async def expire_memories(
     request: ExpireRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """Expire memories based on TTL."""
     try:
         expired_count = await service.expire_memories(user_id=request.user_id)
@@ -743,7 +743,7 @@ async def expire_memories(
 
 
 @app.post("/v1/memories/cleanup")
-async def cleanup_expired_memories(service: MemoryManagementService = Depends(get_service)):
+async def cleanup_expired_memories(service: MemoryManagementService = Depends(get_service)) -> dict[str, Any]:
     """Cleanup expired memories (alias for expire endpoint)."""
     try:
         expired_count = await service.expire_memories(user_id=None)
@@ -756,7 +756,7 @@ async def cleanup_expired_memories(service: MemoryManagementService = Depends(ge
 @app.get("/v1/memories/analytics")
 async def get_memory_analytics(
     user_id: str, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """Get analytics for user's memories."""
     try:
         # Get all memories for user
@@ -823,7 +823,7 @@ def get_background_tasks() -> BackgroundTaskManager:
 
 
 @app.get("/v1/background/status")
-async def get_background_status(tasks: BackgroundTaskManager = Depends(get_background_tasks)):
+async def get_background_status(tasks: BackgroundTaskManager = Depends(get_background_tasks)) -> dict[str, Any]:
     """Get status of background tasks."""
     return tasks.get_status()
 
@@ -833,7 +833,7 @@ async def trigger_background_dedup(
     user_id: str,
     dry_run: bool = True,
     tasks: BackgroundTaskManager = Depends(get_background_tasks),
-):
+) -> dict[str, Any]:
     """Manually trigger deduplication for a user via background task manager."""
     try:
         result = await tasks.trigger_deduplication(user_id=user_id, dry_run=dry_run)
@@ -849,7 +849,7 @@ async def trigger_background_consolidate(
     dry_run: bool = True,
     threshold: Optional[float] = None,
     tasks: BackgroundTaskManager = Depends(get_background_tasks),
-):
+) -> dict[str, Any]:
     """Manually trigger consolidation for a user via background task manager."""
     try:
         result = await tasks.trigger_consolidation(
@@ -867,19 +867,19 @@ async def trigger_background_consolidate(
 
 
 @app.post("/v1/memories:remember", response_model=Memory)
-async def remember(request: MemoryCreate, service: MemoryManagementService = Depends(get_service)):
+async def remember(request: MemoryCreate, service: MemoryManagementService = Depends(get_service)) -> Memory:
     """Legacy endpoint: Create a memory."""
     return await create_memory(request, skip_duplicate_check=False, service=service)
 
 
 @app.post("/v1/memories:recall", response_model=list[RetrievalResult])
-async def recall(request: RecallRequest, service: MemoryManagementService = Depends(get_service)):
+async def recall(request: RecallRequest, service: MemoryManagementService = Depends(get_service)) -> list[RetrievalResult]:
     """Legacy endpoint: Recall memories."""
     return await recall_memories(request, service)
 
 
 @app.post("/v1/memories:extract", response_model=list[Memory])
-async def extract(request: ExtractRequest, service: MemoryManagementService = Depends(get_service)):
+async def extract(request: ExtractRequest, service: MemoryManagementService = Depends(get_service)) -> list[Memory]:
     """Legacy endpoint: Extract from conversation."""
     return await extract_from_conversation(request, service)
 
@@ -924,7 +924,7 @@ class ProfileQueryRequest(BaseModel):
 async def explain_retrieval_results(
     request: ExplainRetrievalRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Explain why specific memories were retrieved.
 
     Returns detailed explanations including:
@@ -963,7 +963,7 @@ async def explain_retrieval_results(
 async def visualize_similarity(
     request: VisualizeScoresRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Visualize similarity scores and ranking factors.
 
     Returns visualization data including:
@@ -1007,7 +1007,7 @@ async def visualize_similarity(
 async def generate_heatmap(
     request: AccessHeatmapRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Generate memory access heatmap.
 
     Returns access patterns including:
@@ -1043,7 +1043,7 @@ async def generate_heatmap(
 async def profile_query(
     request: ProfileQueryRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Profile query performance.
 
     Returns performance metrics including:
@@ -1117,7 +1117,7 @@ class ContextWindowRequest(BaseModel):
 async def calculate_freshness(
     request: FreshnessScoreRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Calculate memory freshness score.
 
     Returns comprehensive freshness metrics including:
@@ -1157,7 +1157,7 @@ async def calculate_freshness(
 async def apply_decay(
     request: TimeDecayRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Apply time decay function to memory importance.
 
     Returns decayed importance score based on age and decay function.
@@ -1193,7 +1193,7 @@ async def apply_decay(
 async def forecast_patterns(
     request: ForecastRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Forecast future memory patterns.
 
     Predicts usage, topic trends, and importance patterns based on historical data.
@@ -1235,7 +1235,7 @@ async def forecast_patterns(
 async def get_context_window(
     request: ContextWindowRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Get adaptive temporal context window.
 
     Auto-adjusts time range based on query and context type.
@@ -1311,7 +1311,7 @@ class ProvenanceRequest(BaseModel):
 async def detect_conflicts(
     request: ConflictDetectionRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Detect memory conflicts (contradictions, duplicates).
 
     Returns list of detected conflicts with details.
@@ -1360,7 +1360,7 @@ async def detect_conflicts(
 async def resolve_conflict(
     request: ConflictResolutionRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Resolve a detected memory conflict.
 
     Applies specified resolution strategy.
@@ -1447,7 +1447,7 @@ async def resolve_conflict(
 async def get_health_score(
     request: HealthScoreRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Get comprehensive memory health score.
 
     Returns health metrics including:
@@ -1519,7 +1519,7 @@ async def get_health_score(
 async def get_provenance(
     request: ProvenanceRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """Get memory provenance and lineage.
 
     Returns complete history and source tracking.
@@ -1549,7 +1549,10 @@ async def get_provenance(
             if not current.metadata.get("parent_id"):
                 break
 
-            current = await service.get_memory(current.metadata["parent_id"])
+            parent_memory = await service.get_memory(current.metadata["parent_id"])
+            if not parent_memory:
+                break
+            current = parent_memory
 
         if not chain:
             raise HTTPException(status_code=404, detail="Provenance not found")
@@ -1603,7 +1606,7 @@ async def get_memory_events(
     user_id: Optional[str] = None,
     event_type: Optional[str] = None,
     limit: int = 100,
-):
+) -> dict[str, Any]:
     """Get memory lifecycle events.
 
     Returns list of events showing what's happening with memories on the backend:
@@ -1650,7 +1653,7 @@ async def get_memory_events(
 
 
 @app.post("/v1/monitoring/stats")
-async def get_memory_stats(request: MemoryStatsRequest):
+async def get_memory_stats(request: MemoryStatsRequest) -> dict[str, Any]:
     """Get comprehensive memory statistics for a user.
 
     Returns:
@@ -1672,7 +1675,7 @@ async def get_memory_stats(request: MemoryStatsRequest):
 
 
 @app.post("/v1/monitoring/access-pattern")
-async def get_access_pattern(request: AccessPatternRequest):
+async def get_access_pattern(request: AccessPatternRequest) -> dict[str, Any]:
     """Get access pattern for a specific memory.
 
     Returns:
@@ -1702,7 +1705,7 @@ async def get_access_pattern(request: AccessPatternRequest):
 
 
 @app.get("/v1/monitoring/access-patterns/{user_id}")
-async def get_all_access_patterns(user_id: str):
+async def get_all_access_patterns(user_id: str) -> dict[str, Any]:
     """Get all access patterns for a user.
 
     Returns list of all memories with their access statistics.
@@ -1724,7 +1727,7 @@ async def get_all_access_patterns(user_id: str):
 
 
 @app.post("/v1/monitoring/health-history")
-async def get_health_history(request: HealthHistoryRequest):
+async def get_health_history(request: HealthHistoryRequest) -> dict[str, Any]:
     """Get health history for a specific memory.
 
     Returns snapshots of memory health over time:
@@ -1761,7 +1764,7 @@ async def get_health_history(request: HealthHistoryRequest):
 @app.get("/v1/lifecycle/temperature/{memory_id}")
 async def get_memory_temperature(
     memory_id: str, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """
     Get temperature metrics for a specific memory.
 
@@ -1797,7 +1800,7 @@ class TierMigrationRequest(BaseModel):
 async def migrate_memory_tier(
     request: TierMigrationRequest,
     service: MemoryManagementService = Depends(get_service),
-):
+) -> dict[str, Any]:
     """
     Manually migrate a memory to a specific storage tier.
 
@@ -1844,7 +1847,7 @@ class TierStatsRequest(BaseModel):
 @app.post("/v1/lifecycle/stats")
 async def get_tier_statistics(
     request: TierStatsRequest, service: MemoryManagementService = Depends(get_service)
-):
+) -> dict[str, Any]:
     """
     Get statistics about memory tiers for a user.
 
@@ -1867,7 +1870,7 @@ async def get_tier_statistics(
 # ============================================================================
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000):
+def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Run FastAPI server."""
     uvicorn.run(app, host=host, port=port)
 

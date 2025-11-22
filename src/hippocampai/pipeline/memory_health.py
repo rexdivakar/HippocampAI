@@ -3,7 +3,7 @@
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -250,19 +250,20 @@ class MemoryHealthMonitor:
             return 0.0
 
         # Type diversity
-        type_counts = defaultdict(int)
+        type_counts: defaultdict[Any, int] = defaultdict(int)
         for m in memories:
             type_counts[m.type] += 1
 
         # Shannon entropy for type distribution
+        import math
         total = len(memories)
         entropy = 0.0
         for count in type_counts.values():
             if count > 0:
                 p = count / total
-                entropy -= p * (p.bit_length() if p > 0 else 0)
+                entropy -= p * math.log2(p)
 
-        max_entropy = len(MemoryType)
+        max_entropy = math.log2(len(MemoryType)) if len(MemoryType) > 0 else 0
         type_diversity = (entropy / max_entropy) * 100 if max_entropy > 0 else 0
 
         # Text length diversity (not all short or all long)
@@ -274,7 +275,7 @@ class MemoryHealthMonitor:
         else:
             length_diversity = 50.0
 
-        return (type_diversity * 0.7 + length_diversity * 0.3)
+        return cast(float, (type_diversity * 0.7 + length_diversity * 0.3))
 
     def _calculate_freshness_score(self, memories: list[Memory]) -> float:
         """Calculate freshness based on memory ages."""
@@ -531,13 +532,13 @@ class MemoryHealthMonitor:
             )
 
         # Topic distribution (based on tags)
-        topic_dist = defaultdict(int)
+        topic_dist: defaultdict[str, int] = defaultdict(int)
         for mem in memories:
             for tag in mem.tags:
                 topic_dist[tag] += 1
 
         # Type distribution
-        type_dist = defaultdict(int)
+        type_dist: defaultdict[str, int] = defaultdict(int)
         for mem in memories:
             type_dist[mem.type.value] += 1
 
@@ -581,7 +582,7 @@ class MemoryHealthMonitor:
         try:
             facts_results = self.qdrant.scroll(
                 collection_name=self.qdrant.collection_facts,
-                scroll_filter={"user_id": user_id},
+                filters={"user_id": user_id},
                 limit=10000,
             )
             for result in facts_results:
@@ -594,7 +595,7 @@ class MemoryHealthMonitor:
         try:
             prefs_results = self.qdrant.scroll(
                 collection_name=self.qdrant.collection_prefs,
-                scroll_filter={"user_id": user_id},
+                filters={"user_id": user_id},
                 limit=10000,
             )
             for result in prefs_results:

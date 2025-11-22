@@ -185,7 +185,7 @@ class EnhancedMemoryClient:
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory usage statistics."""
-        return cast(dict[str, Any], self.client.get_memory_statistics(user_id=user_id))
+        return self.client.get_memory_statistics(user_id=user_id)
 
     def get_memories(
         self,
@@ -194,13 +194,11 @@ class EnhancedMemoryClient:
         limit: int = 100,
     ) -> list[Memory]:
         """Get all memories for a user."""
-        return cast(
-            list[Any], self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
-        )
+        return self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
 
     def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a memory."""
-        return cast(bool, self.client.delete_memory(memory_id=memory_id, user_id=user_id))
+        return self.client.delete_memory(memory_id=memory_id, user_id=user_id)
 
     def update_memory(
         self,
@@ -227,7 +225,7 @@ class EnhancedMemoryClient:
         parent_session_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         tags: Optional[list[str]] = None,
-    ):
+    ) -> Any:
         """Create a conversation session."""
         return self.client.create_session(
             user_id=user_id,
@@ -246,7 +244,7 @@ class EnhancedMemoryClient:
         importance: Optional[float] = None,
         tags: Optional[list[str]] = None,
         auto_boundary_detect: bool = False,
-    ):
+    ) -> Any:
         """Track a message in a session."""
         return self.client.track_session_message(
             session_id=session_id,
@@ -271,7 +269,7 @@ class EnhancedMemoryClient:
         user_id: Optional[str] = None,
         k: int = 10,
         filters: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Any:
         """Search sessions semantically."""
         return self.client.search_sessions(
             query=query,
@@ -359,10 +357,10 @@ class EnhancedMemoryClient:
         self,
         granter_agent_id: str,
         grantee_agent_id: str,
-        permissions,
+        permissions: Any,
         memory_filters: Optional[dict[str, Any]] = None,
         expires_at: Optional[Any] = None,
-    ):
+    ) -> Any:
         """Grant permission for one agent to access another's memories."""
         return self.client.grant_agent_permission(
             granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at
@@ -374,7 +372,7 @@ class EnhancedMemoryClient:
         requesting_agent_id: Optional[str] = None,
         filters: Optional[dict[str, Any]] = None,
         limit: int = 100,
-    ):
+    ) -> Any:
         """Get memories for an agent, respecting permissions."""
         return self.client.get_agent_memories(agent_id, requesting_agent_id, filters, limit)
 
@@ -384,7 +382,7 @@ class EnhancedMemoryClient:
         source_agent_id: str,
         target_agent_id: str,
         transfer_type: str = "copy",
-    ):
+    ) -> Any:
         """Transfer a memory from one agent to another."""
         return self.client.transfer_memory(
             memory_id, source_agent_id, target_agent_id, transfer_type

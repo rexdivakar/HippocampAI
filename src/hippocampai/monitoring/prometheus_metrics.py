@@ -1,7 +1,7 @@
 """Prometheus metrics integration for HippocampAI."""
 
 import time
-from typing import Callable
+from typing import Any, Callable, cast
 
 from prometheus_client import Counter, Gauge, Histogram, Info, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -256,7 +256,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         """Process request and collect metrics."""
         # Skip metrics endpoint itself
         if request.url.path == "/metrics":
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         method = request.method
         endpoint = request.url.path
@@ -283,7 +283,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 endpoint=endpoint,
             ).observe(duration)
 
-            return response
+            return cast(Response, response)
 
         except Exception as e:
             # Record error
@@ -308,7 +308,7 @@ def record_memory_operation(
     duration: float,
     status: str = "success",
     memory_type: str = "unknown",
-):
+) -> None:
     """Record a memory operation metric."""
     memory_operations_total.labels(
         operation=operation,
@@ -324,7 +324,7 @@ def record_search_operation(
     duration: float,
     result_count: int,
     status: str = "success",
-):
+) -> None:
     """Record a search operation metric."""
     search_requests_total.labels(
         search_type=search_type,
@@ -336,7 +336,7 @@ def record_search_operation(
     search_results_count.observe(result_count)
 
 
-def record_cache_access(cache_type: str, hit: bool):
+def record_cache_access(cache_type: str, hit: bool) -> None:
     """Record a cache access metric."""
     if hit:
         cache_hits_total.labels(cache_type=cache_type).inc()
@@ -344,7 +344,7 @@ def record_cache_access(cache_type: str, hit: bool):
         cache_misses_total.labels(cache_type=cache_type).inc()
 
 
-def update_memory_health_metrics(user_id: str, health_data: dict):
+def update_memory_health_metrics(user_id: str, health_data: dict[str, Any]) -> None:
     """Update memory health metrics."""
     memory_health_score.labels(user_id=user_id).set(
         health_data.get("overall_score", 0)

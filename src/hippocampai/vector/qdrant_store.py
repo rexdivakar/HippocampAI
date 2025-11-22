@@ -51,7 +51,7 @@ class QdrantStore:
         logger.info(f"Connected to Qdrant at {url}")
         self._ensure_collections()
 
-    def _ensure_collections(self, collection_name: Optional[str] = None):
+    def _ensure_collections(self, collection_name: Optional[str] = None) -> None:
         """Create collections if they don't exist.
 
         Args:
@@ -132,7 +132,7 @@ class QdrantStore:
         collection_name: str,
         vector_size: Optional[int] = None,
         distance: str = "Cosine",
-    ):
+    ) -> None:
         """
         Public method to ensure a collection exists.
 
@@ -210,7 +210,7 @@ class QdrantStore:
                 logger.error(f"Error creating collection '{collection_name}': {e}")
                 raise
 
-    def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10):
+    def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10) -> None:
         """Wait for collection to be fully initialized and queryable."""
         for attempt in range(max_attempts):
             try:
@@ -231,7 +231,7 @@ class QdrantStore:
         )
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: dict[str, Any]):
+    def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: dict[str, Any]) -> None:
         """Insert or update a point (with automatic retry on transient failures)."""
         # Ensure collection exists before upserting (idempotent)
         self._ensure_collections(collection_name)
@@ -254,7 +254,7 @@ class QdrantStore:
         ids: list[str],
         vectors: list[np.ndarray],
         payloads: list[dict[str, Any]],
-    ):
+    ) -> None:
         """
         Bulk insert or update multiple points (3-5x faster than individual upserts).
 

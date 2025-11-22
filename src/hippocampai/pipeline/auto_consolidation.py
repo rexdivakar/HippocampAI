@@ -25,7 +25,7 @@ class ConsolidationTrigger(str, Enum):
 
     SCHEDULED = "scheduled"  # Time-based trigger
     THRESHOLD = "threshold"  # Memory count threshold
-    TOKEN_BUDGET = "token_budget"  # Token limit reached
+    SIZE_LIMIT = "size_limit"  # Token count limit reached
     MANUAL = "manual"  # Manually triggered
     SIMILARITY_DETECTED = "similarity_detected"  # Similar memories detected
 
@@ -83,8 +83,8 @@ class AutoConsolidator:
         self,
         schedule: Optional[ConsolidationSchedule] = None,
         consolidator: Optional[Any] = None,  # MemoryConsolidator instance
-        similarity_calculator: Optional[Callable] = None,
-    ):
+        similarity_calculator: Optional[Callable[[Any, Any], float]] = None,
+    ) -> None:
         """Initialize auto consolidator.
 
         Args:
@@ -129,7 +129,7 @@ class AutoConsolidator:
         # Check token budget trigger
         total_tokens = sum(Memory.estimate_tokens(m.text) for m in memories)
         if total_tokens >= self.schedule.token_budget_threshold:
-            return True, ConsolidationTrigger.TOKEN_BUDGET
+            return True, ConsolidationTrigger.SIZE_LIMIT
 
         return False, None
 
@@ -429,7 +429,7 @@ class AutoConsolidator:
                 return True
         return False
 
-    def update_schedule(self, **kwargs) -> None:
+    def update_schedule(self, **kwargs: Any) -> None:
         """Update consolidation schedule parameters.
 
         Args:

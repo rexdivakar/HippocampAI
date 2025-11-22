@@ -130,7 +130,7 @@ class TemporalAnalyticsResponse(BaseModel):
 
 
 @router.post("/facts:extract", response_model=FactExtractionResponse)
-async def extract_facts(request: FactExtractionRequest):
+async def extract_facts(request: FactExtractionRequest) -> FactExtractionResponse:
     """Extract structured facts from text with confidence scores.
 
     This endpoint performs intelligent fact extraction using both pattern matching
@@ -164,7 +164,7 @@ async def extract_facts(request: FactExtractionRequest):
 
 
 @router.post("/entities:extract", response_model=EntityExtractionResponse)
-async def extract_entities(request: EntityExtractionRequest):
+async def extract_entities(request: EntityExtractionRequest) -> EntityExtractionResponse:
     """Extract and recognize named entities from text.
 
     Supports recognition of people, organizations, locations, dates, skills,
@@ -191,7 +191,7 @@ async def extract_entities(request: EntityExtractionRequest):
 
 
 @router.post("/entities:search", response_model=dict[str, Any])
-async def search_entities(request: EntitySearchRequest):
+async def search_entities(request: EntitySearchRequest) -> dict[str, Any]:
     """Search for entities by query string.
 
     Searches across entity canonical names and aliases. Supports filtering
@@ -218,7 +218,7 @@ async def search_entities(request: EntitySearchRequest):
 
 
 @router.get("/entities/{entity_id}", response_model=dict[str, Any])
-async def get_entity_profile(entity_id: str):
+async def get_entity_profile(entity_id: str) -> dict[str, Any]:
     """Get complete profile for an entity.
 
     Returns the entity's canonical name, aliases, relationships, mentions,
@@ -248,7 +248,7 @@ async def get_entity_profile(entity_id: str):
 
 
 @router.post("/relationships:analyze", response_model=RelationshipAnalysisResponse)
-async def analyze_relationships(request: RelationshipAnalysisRequest):
+async def analyze_relationships(request: RelationshipAnalysisRequest) -> RelationshipAnalysisResponse:
     """Analyze relationships between entities.
 
     Extracts relationships from text and computes relationship strength scores,
@@ -292,7 +292,7 @@ async def get_entity_relationships(
     entity_id: str,
     relation_type: Optional[str] = None,
     min_strength: float = 0.0,
-):
+) -> dict[str, Any]:
     """Get all relationships for an entity.
 
     Returns relationships filtered by type and minimum strength, sorted by
@@ -323,7 +323,7 @@ async def get_entity_relationships(
 
 
 @router.get("/relationships:network", response_model=dict[str, Any])
-async def get_relationship_network():
+async def get_relationship_network() -> dict[str, Any]:
     """Get complete relationship network analysis.
 
     Returns comprehensive network analysis including entities, relationships,
@@ -349,7 +349,7 @@ async def get_relationship_network():
 
 
 @router.post("/clustering:analyze", response_model=SemanticClusteringResponse)
-async def cluster_memories(request: SemanticClusteringRequest):
+async def cluster_memories(request: SemanticClusteringRequest) -> SemanticClusteringResponse:
     """Cluster memories by semantic similarity.
 
     Groups memories into topical clusters using either standard or hierarchical
@@ -421,7 +421,7 @@ async def cluster_memories(request: SemanticClusteringRequest):
 
 
 @router.post("/clustering:optimize", response_model=dict[str, Any])
-async def optimize_cluster_count(request: dict[str, Any]):
+async def optimize_cluster_count(request: dict[str, Any]) -> dict[str, Any]:
     """Determine optimal number of clusters using elbow method.
 
     Analyzes different cluster counts to find the optimal balance between
@@ -449,7 +449,7 @@ async def optimize_cluster_count(request: dict[str, Any]):
 
 
 @router.post("/temporal:analyze", response_model=TemporalAnalyticsResponse)
-async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
+async def analyze_temporal_patterns(request: TemporalAnalyticsRequest) -> TemporalAnalyticsResponse:
     """Perform temporal analysis on memories.
 
     Supports multiple analysis types:
@@ -522,7 +522,7 @@ async def analyze_temporal_patterns(request: TemporalAnalyticsRequest):
 
 
 @router.post("/temporal:peak-times", response_model=dict[str, Any])
-async def get_peak_times(request: dict[str, Any]):
+async def get_peak_times(request: dict[str, Any]) -> dict[str, Any]:
     """Get peak activity times for memories.
 
     Returns detailed breakdown of activity by hour, day of week, and time period.
@@ -549,7 +549,7 @@ async def get_peak_times(request: dict[str, Any]):
 
 
 @router.get("/health", response_model=dict[str, str])
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint for intelligence services."""
     return {
         "status": "healthy",

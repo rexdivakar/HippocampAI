@@ -10,7 +10,7 @@ This module extends the memory graph with:
 
 import logging
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.graph.memory_graph import MemoryGraph, RelationType
 from hippocampai.pipeline.entity_recognition import Entity, EntityRelationship
@@ -31,7 +31,7 @@ class NodeType(str, Enum):
 class KnowledgeGraph(MemoryGraph):
     """Enhanced memory graph with entity and fact support."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize knowledge graph."""
         super().__init__()
 
@@ -320,7 +320,9 @@ class KnowledgeGraph(MemoryGraph):
         for neighbor in self.graph.predecessors(entity_node_id):
             node_data = self.graph.nodes[neighbor]
             if node_data.get("node_type") == NodeType.FACT.value:
-                facts.append(node_data.get("fact_id"))
+                fact_id = node_data.get("fact_id")
+                if fact_id is not None:
+                    facts.append(fact_id)
 
         return facts
 
@@ -379,6 +381,13 @@ class KnowledgeGraph(MemoryGraph):
                 node_data = self.graph.nodes[target_node]
                 if node_data.get("node_type") == NodeType.ENTITY.value:
                     target_entity_id = node_data.get("entity_id")
+
+                    # Skip if entity_id is None
+                    if target_entity_id is None:
+                        continue
+
+                    # Ensure it's a string
+                    target_entity_id = str(target_entity_id)
 
                     # Get relation type from edge
                     if self.graph.has_edge(entity_node_id, target_node):
@@ -496,7 +505,7 @@ class KnowledgeGraph(MemoryGraph):
                 )
 
         # Sort by timestamp
-        timeline.sort(key=lambda x: x.get("timestamp", ""))
+        timeline.sort(key=lambda x: str(x.get("timestamp", "")))
 
         return timeline
 

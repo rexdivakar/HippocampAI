@@ -60,8 +60,9 @@ print(f"Found: {results[0].memory.text}")
 | **Analytics** | Pattern detection, habit tracking, behavioral insights | [Analytics](docs/FEATURES.md#cross-session-insights) |
 | **AI Integration** | Works with OpenAI, Anthropic, Groq, Ollama, local models | [Providers](docs/PROVIDERS.md) |
 | **Session Management** | Conversation tracking, summaries, hierarchical sessions | [Sessions](docs/SESSION_MANAGEMENT.md) |
-| **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_USAGE_GUIDE.md) |
-| **Monitoring & Tracking** | Prometheus, Grafana dashboards, memory lifecycle tracking | [Monitoring](MONITORING_INTEGRATION_GUIDE.md) \| [Memory Tracking](MEMORY_TRACKING_GUIDE.md) |
+| **SaaS Platform** | Multi-tenant auth, rate limiting, background tasks | [SaaS Guide](docs/SAAS_GUIDE.md) |
+| **Memory Quality** | Health monitoring, duplicate detection, quality tracking | [Memory Management](docs/MEMORY_MANAGEMENT.md) |
+| **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_GUIDE.md) |
 
 ---
 
@@ -88,17 +89,23 @@ print(f"Found: {results[0].memory.text}")
 
 ## Documentation
 
+**Complete documentation is available in the [docs/](docs/) directory.**
+
 ### Quick Links
 
 | What do you want to do? | Go here |
 |--------------------------|---------|
-| **Get started in 5 minutes** | [Getting Started Guide](docs/GETTING_STARTED.md) |
-| **See all 102+ functions** | [Library Complete Reference](docs/LIBRARY_COMPLETE_REFERENCE.md) |
-| **Use REST APIs** | [SaaS API Complete Reference](docs/SAAS_API_COMPLETE_REFERENCE.md) |
-| **Deploy to production** | [User Guide](docs/USER_GUIDE.md) |
-| **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) |
-| **Optimize Celery workers** | [Celery Optimization & Tracing](docs/CELERY_OPTIMIZATION_AND_TRACING.md) |
-| **Troubleshoot issues** | [Troubleshooting Guide](docs/TROUBLESHOOTING.md) |
+| **Get started in 5 minutes** | [Getting Started Guide](docs/GETTING_STARTED.md) \| [Quickstart](docs/QUICKSTART.md) |
+| **Try interactive demo** | [Chat Demo Guide](docs/CHAT_DEMO_GUIDE.md) |
+| **See all 102+ functions** | [API Reference](docs/API_REFERENCE.md) \| [Library Reference](docs/LIBRARY_COMPLETE_REFERENCE.md) |
+| **Deploy as SaaS platform** | [SaaS Platform Guide](docs/SAAS_GUIDE.md) ⭐ NEW |
+| **Monitor memory quality** | [Memory Management](docs/MEMORY_MANAGEMENT.md) ⭐ NEW |
+| **Set up background tasks** | [Celery Guide](docs/CELERY_GUIDE.md) ⭐ NEW |
+| **Deploy to production** | [User Guide](docs/USER_GUIDE.md) \| [Deployment](docs/DEPLOYMENT_READINESS_REPORT.md) |
+| **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) \| [Providers](docs/PROVIDERS.md) |
+| **Monitor & observe** | [Monitoring](docs/MONITORING_INTEGRATION_GUIDE.md) \| [Telemetry](docs/TELEMETRY.md) |
+| **Troubleshoot issues** | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| **View all documentation** | [Documentation Hub](docs/README.md) |
 
 ### Documentation Index
 

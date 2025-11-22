@@ -193,7 +193,8 @@ class AdaptiveLearningEngine:
 
         # Track co-occurrences
         for co_id in event.co_accessed_ids:
-            pair = tuple(sorted([event.memory_id, co_id]))
+            sorted_ids = sorted([event.memory_id, co_id])
+            pair: tuple[str, str] = (sorted_ids[0], sorted_ids[1])
             self.co_occurrence_matrix[pair] += 1
 
         logger.debug(
@@ -280,11 +281,11 @@ class AdaptiveLearningEngine:
 
         # Peak hours
         hours = [e.timestamp.hour for e in events]
-        hour_counts = defaultdict(int)
+        hour_counts: defaultdict[int, int] = defaultdict(int)
         for h in hours:
             hour_counts[h] += 1
-        peak_hours = sorted(hour_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-        peak_hours = [h[0] for h in peak_hours]
+        peak_hours_with_counts = sorted(hour_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        peak_hours: list[int] = [h[0] for h in peak_hours_with_counts]
 
         # Detect pattern type
         pattern_type, pattern_confidence = self._detect_pattern_type(
@@ -424,7 +425,7 @@ class AdaptiveLearningEngine:
         last_third = events[2 * third :]
 
         # Count accesses per day in each period
-        def access_rate(event_list):
+        def access_rate(event_list: list[AccessEvent]) -> float:
             if not event_list:
                 return 0.0
             start = event_list[0].timestamp

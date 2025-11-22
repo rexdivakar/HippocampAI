@@ -11,7 +11,7 @@ This client provides:
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -30,8 +30,8 @@ class OptimizedMemoryClient:
         qdrant_url: str = "http://localhost:6333",
         enable_caching: bool = True,
         cache_size: int = 128,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """Initialize optimized memory client.
 
         Args:
@@ -98,7 +98,7 @@ class OptimizedMemoryClient:
         return os.getenv(env_var) if env_var else None
 
     @staticmethod
-    def _set_api_key_env(provider: str, api_key: str):
+    def _set_api_key_env(provider: str, api_key: str) -> None:
         """Set API key in environment."""
         import os
 
@@ -107,36 +107,37 @@ class OptimizedMemoryClient:
         if env_var:
             os.environ[env_var] = api_key
 
-    def _setup_cache(self, cache_size: int):
+    def _setup_cache(self, cache_size: int) -> None:
         """Setup LRU cache for recall operations."""
         # Wrap recall method with caching
         original_recall = self.client.recall
 
         @lru_cache(maxsize=cache_size)
-        def cached_recall(query: str, user_id: str, k: int = 5):
+        def cached_recall(query: str, user_id: str, k: int = 5) -> Any:
             return original_recall(query=query, user_id=user_id, k=k)
 
         self._cached_recall = cached_recall
 
     # Synchronous methods (delegate to base client)
-    def remember(self, text: str, user_id: str, **kwargs) -> Memory:
+    def remember(self, text: str, user_id: str, **kwargs: Any) -> Memory:
         """Store a memory (sync)."""
         return self.client.remember(text=text, user_id=user_id, **kwargs)
 
-    def recall(self, query: str, user_id: str, k: int = 5, **kwargs) -> list[RetrievalResult]:
+    def recall(self, query: str, user_id: str, k: int = 5, **kwargs: Any) -> list[RetrievalResult]:
         """Retrieve relevant memories (sync, with optional caching)."""
         if self.enable_caching and not kwargs:  # Only cache simple queries
-            return self._cached_recall(query, user_id, k)
+            result: list[RetrievalResult] = self._cached_recall(query, user_id, k)
+            return result
         return self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
 
-    def extract_from_conversation(self, conversation: str, user_id: str, **kwargs) -> list[Memory]:
+    def extract_from_conversation(self, conversation: str, user_id: str, **kwargs: Any) -> list[Memory]:
         """Extract memories from conversation (sync)."""
         return self.client.extract_from_conversation(
             conversation=conversation, user_id=user_id, **kwargs
         )
 
     # Async methods for I/O-bound operations
-    async def remember_async(self, text: str, user_id: str, **kwargs) -> Memory:
+    async def remember_async(self, text: str, user_id: str, **kwargs: Any) -> Memory:
         """Store a memory (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -144,7 +145,7 @@ class OptimizedMemoryClient:
         )
 
     async def recall_async(
-        self, query: str, user_id: str, k: int = 5, **kwargs
+        self, query: str, user_id: str, k: int = 5, **kwargs: Any
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories (async)."""
         loop = asyncio.get_event_loop()
@@ -153,7 +154,7 @@ class OptimizedMemoryClient:
         )
 
     async def extract_from_conversation_async(
-        self, conversation: str, user_id: str, **kwargs
+        self, conversation: str, user_id: str, **kwargs: Any
     ) -> list[Memory]:
         """Extract memories from conversation (async)."""
         loop = asyncio.get_event_loop()
@@ -244,11 +245,11 @@ class OptimizedMemoryClient:
         """Get memory statistics (sync)."""
         return self.client.get_memory_statistics(user_id=user_id)
 
-    def get_memories(self, user_id: str, limit: int = 100, **kwargs) -> list[Memory]:
+    def get_memories(self, user_id: str, limit: int = 100, **kwargs: Any) -> list[Memory]:
         """Get all memories (sync)."""
         return self.client.get_memories(user_id=user_id, limit=limit, **kwargs)
 
-    async def get_memories_async(self, user_id: str, limit: int = 100, **kwargs) -> list[Memory]:
+    async def get_memories_async(self, user_id: str, limit: int = 100, **kwargs: Any) -> list[Memory]:
         """Get all memories (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -256,73 +257,76 @@ class OptimizedMemoryClient:
         )
 
     # Session management (delegate to base client)
-    def create_session(self, user_id: str, **kwargs):
+    def create_session(self, user_id: str, **kwargs: Any) -> Any:
         """Create a session (sync)."""
         return self.client.create_session(user_id=user_id, **kwargs)
 
-    def track_session_message(self, session_id: str, text: str, user_id: str, **kwargs):
+    def track_session_message(self, session_id: str, text: str, user_id: str, **kwargs: Any) -> Any:
         """Track a session message (sync)."""
         return self.client.track_session_message(
             session_id=session_id, text=text, user_id=user_id, **kwargs
         )
 
-    def complete_session(self, session_id: str, **kwargs):
+    def complete_session(self, session_id: str, **kwargs: Any) -> Any:
         """Complete a session (sync)."""
         return self.client.complete_session(session_id=session_id, **kwargs)
 
     # Cache management
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the recall cache."""
         if hasattr(self, "_cached_recall"):
             self._cached_recall.cache_clear()
             logger.info("Recall cache cleared")
 
-    def get_cache_info(self):
+    def get_cache_info(self) -> Any:
         """Get cache statistics."""
         if hasattr(self, "_cached_recall"):
             return self._cached_recall.cache_info()
         return None
 
     @property
-    def llm(self):
+    def llm(self) -> Any:
         """Access underlying LLM."""
         return self.client.llm
 
     # Smart memory updates and clustering
-    def reconcile_user_memories(self, user_id: str):
+    def reconcile_user_memories(self, user_id: str) -> Any:
         """Reconcile and resolve conflicts in user's memories."""
         return self.client.reconcile_user_memories(user_id=user_id)
 
-    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> Any:
         """Cluster user's memories by topics."""
         return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
 
-    def suggest_memory_tags(self, memory, max_tags: int = 5):
+    def suggest_memory_tags(self, memory: Any, max_tags: int = 5) -> Any:
         """Suggest tags for a memory."""
         return self.client.suggest_memory_tags(memory=memory, max_tags=max_tags)
 
-    def refine_memory_quality(self, memory_id: str, context: Optional[str] = None):
+    def refine_memory_quality(self, memory_id: str, context: Optional[str] = None) -> Any:
         """Refine a memory's text quality using LLM."""
         return self.client.refine_memory_quality(memory_id=memory_id, context=context)
 
-    def detect_topic_shift(self, user_id: str, window_size: int = 10):
+    def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Any:
         """Detect if there's been a shift in conversation topics."""
         return self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
 
     # Multi-agent support
-    def create_agent(self, name: str, user_id: str, role=None, description=None, metadata=None):
+    def create_agent(self, name: str, user_id: str, role: Optional[str] = None, description: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> Any:
         """Create a new agent with its own memory space."""
-        return self.client.create_agent(name, user_id, role, description, metadata)
+        from hippocampai.models.agent import AgentRole
+        # Convert string role to AgentRole enum if provided
+        agent_role = AgentRole(role) if role else AgentRole.ASSISTANT  # Default to ASSISTANT
+        return self.client.create_agent(name, user_id, agent_role, description, metadata)
 
-    def get_agent(self, agent_id: str):
+    def get_agent(self, agent_id: str) -> Any:
         """Get agent by ID."""
         return self.client.get_agent(agent_id)
 
-    def list_agents(self, user_id=None):
+    def list_agents(self, user_id: Optional[str] = None) -> Any:
         """List all agents."""
         return self.client.list_agents(user_id)
 
-    def create_run(self, agent_id: str, user_id: str, name=None, metadata=None):
+    def create_run(self, agent_id: str, user_id: str, name: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> Any:
         """Create a new run for an agent."""
         return self.client.create_run(agent_id, user_id, name, metadata)
 
@@ -330,18 +334,18 @@ class OptimizedMemoryClient:
         self,
         granter_agent_id: str,
         grantee_agent_id: str,
-        permissions,
-        memory_filters=None,
-        expires_at=None,
-    ):
+        permissions: Any,
+        memory_filters: Optional[Any] = None,
+        expires_at: Optional[Any] = None,
+    ) -> Any:
         """Grant permission for one agent to access another's memories."""
         return self.client.grant_agent_permission(
             granter_agent_id, grantee_agent_id, permissions, memory_filters, expires_at
         )
 
     def get_agent_memories(
-        self, agent_id: str, requesting_agent_id=None, filters=None, limit: int = 100
-    ):
+        self, agent_id: str, requesting_agent_id: Optional[str] = None, filters: Optional[Any] = None, limit: int = 100
+    ) -> Any:
         """Get memories for an agent, respecting permissions."""
         return self.client.get_agent_memories(agent_id, requesting_agent_id, filters, limit)
 
@@ -351,7 +355,7 @@ class OptimizedMemoryClient:
         source_agent_id: str,
         target_agent_id: str,
         transfer_type: str = "copy",
-    ):
+    ) -> Any:
         """Transfer a memory from one agent to another."""
         return self.client.transfer_memory(
             memory_id, source_agent_id, target_agent_id, transfer_type

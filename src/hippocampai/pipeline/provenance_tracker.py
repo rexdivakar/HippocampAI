@@ -497,7 +497,7 @@ If no citations found, return empty array: []
             lineage = MemoryLineage(memory_id=memory.id)
 
         # Recursively build chain from parents
-        visited = set()
+        visited: set[str] = set()
         self._build_chain_recursive(lineage, chain, all_memories, visited)
 
         # Identify root memories
@@ -514,7 +514,7 @@ If no citations found, return empty array: []
         chain: ProvenanceChain,
         all_memories: dict[str, Memory],
         visited: set,
-    ):
+    ) -> None:
         """Recursively build provenance chain."""
         if lineage.memory_id in visited:
             return
@@ -532,7 +532,7 @@ If no citations found, return empty array: []
         # Add current lineage
         chain.add_link(lineage)
 
-    def _attach_lineage_to_memory(self, memory: Memory, lineage: MemoryLineage):
+    def _attach_lineage_to_memory(self, memory: Memory, lineage: MemoryLineage) -> None:
         """Attach lineage data to memory metadata."""
         memory.metadata["lineage"] = lineage.model_dump()
         memory.metadata["source"] = lineage.source.value
@@ -549,7 +549,7 @@ If no citations found, return empty array: []
                 logger.warning(f"Failed to parse lineage from metadata: {e}")
         return None
 
-    def record_access(self, memory: Memory, accessor_id: str):
+    def record_access(self, memory: Memory, accessor_id: str) -> None:
         """Record access to a memory for provenance tracking."""
         lineage = self._extract_lineage_from_memory(memory) or MemoryLineage(
             memory_id=memory.id

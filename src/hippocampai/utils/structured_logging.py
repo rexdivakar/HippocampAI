@@ -8,8 +8,9 @@ import contextvars
 import logging
 import sys
 import uuid
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from pythonjsonlogger import jsonlogger
 
@@ -20,7 +21,7 @@ request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id
 class StructuredLogger(logging.Logger):
     """Logger that automatically includes structured context."""
 
-    def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False, stacklevel=1):
+    def _log(self, level: int, msg: Any, args: Any, exc_info: Any = None, extra: Optional[Mapping[str, object]] = None, stack_info: bool = False, stacklevel: int = 1) -> None:
         """Override _log to inject request_id into all log records."""
         # Create mutable dict for extra fields
         extra_dict: dict = dict(extra) if extra else {}
@@ -39,7 +40,7 @@ class StructuredLogger(logging.Logger):
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter with additional fields."""
 
-    def add_fields(self, log_record, record, message_dict):
+    def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]) -> None:
         """Add custom fields to log record."""
         super().add_fields(log_record, record, message_dict)
 
@@ -207,7 +208,7 @@ class RequestContext:
         self.start_time: Optional[datetime] = None
         self.logger = get_logger(__name__)
 
-    def __enter__(self):
+    def __enter__(self) -> "RequestContext":
         """Enter context - set request ID."""
         set_request_id(self.request_id)
         self.start_time = datetime.now(timezone.utc)
@@ -220,7 +221,7 @@ class RequestContext:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
         """Exit context - clear request ID and log completion."""
         duration = (
             (datetime.now(timezone.utc) - self.start_time).total_seconds()
@@ -258,7 +259,7 @@ class RequestContext:
         return False  # Don't suppress exceptions
 
 
-def log_with_context(logger: logging.Logger, level: int, message: str, **kwargs):
+def log_with_context(logger: logging.Logger, level: int, message: str, **kwargs: Any) -> None:
     """Log message with additional context.
 
     Args:

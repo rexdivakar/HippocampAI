@@ -11,7 +11,7 @@ This module provides intelligent memory management including:
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from hippocampai.models.memory import Memory
 
@@ -37,7 +37,7 @@ class UpdateDecision:
 class SmartMemoryUpdater:
     """Handles intelligent memory updates and conflict resolution."""
 
-    def __init__(self, llm=None, similarity_threshold: float = 0.85):
+    def __init__(self, llm: Any = None, similarity_threshold: float = 0.85) -> None:
         """Initialize smart updater.
 
         Args:

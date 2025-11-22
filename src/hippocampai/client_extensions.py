@@ -11,7 +11,7 @@ This module extends the MemoryClient with additional capabilities:
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from hippocampai.graph import MemoryGraph, RelationType
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -82,7 +82,7 @@ class MemoryClientExtensions:
             filters: Optional[dict[str, Any]] = None,
         ) -> list[Memory]: ...
 
-    def __init_extensions__(self, enable_graph: bool = True, enable_versioning: bool = True):
+    def __init_extensions__(self, enable_graph: bool = True, enable_versioning: bool = True) -> None:
         """
         Initialize extended features.
 
@@ -318,7 +318,7 @@ class MemoryClientExtensions:
             logger.warning("Graph indexing not enabled")
             return {}
 
-        return self.graph.import_from_json(file_path, merge)
+        return cast(dict[str, Any], self.graph.import_from_json(file_path, merge))
 
     # === VERSION CONTROL ===
 
@@ -336,7 +336,7 @@ class MemoryClientExtensions:
             logger.warning("Version control not enabled")
             return []
 
-        return self.version_control.get_version_history(memory_id)
+        return cast(list[Any], self.version_control.get_version_history(memory_id))
 
     def rollback_memory(self, memory_id: str, version_number: int) -> Optional[Memory]:
         """
@@ -393,7 +393,7 @@ class MemoryClientExtensions:
 
     # === MEMORY ACCESS TRACKING ===
 
-    def track_memory_access(self, memory_id: str, user_id: str):
+    def track_memory_access(self, memory_id: str, user_id: str) -> None:
         """
         Track that a memory was accessed (updates access_count).
 

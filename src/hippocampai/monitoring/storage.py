@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+import numpy as np
 from qdrant_client.models import Distance, VectorParams
 
 from hippocampai.monitoring.memory_health import (
@@ -47,7 +48,7 @@ class MonitoringStorage:
         # Initialize collections
         self._init_collections()
 
-    def _init_collections(self):
+    def _init_collections(self) -> None:
         """Initialize Qdrant collections for monitoring data."""
         # Check if collections exist first
         try:
@@ -142,7 +143,7 @@ class MonitoringStorage:
         self.qdrant.upsert(
             collection_name=self.collection_health,
             id=report_uuid,
-            vector=[0.0],  # Dummy vector
+            vector=np.array([0.0]),  # Dummy vector
             payload=payload,
         )
 
@@ -230,7 +231,7 @@ class MonitoringStorage:
         self.qdrant.upsert(
             collection_name=self.collection_traces,
             id=trace_uuid,
-            vector=[0.0],  # Dummy vector
+            vector=np.array([0.0]),  # Dummy vector
             payload=payload,
         )
 
@@ -355,7 +356,7 @@ class MonitoringStorage:
             List of trace payloads
         """
         # Build filters
-        filters = {}
+        filters: dict[str, Any] = {}
 
         if operation:
             filters["operation"] = operation
@@ -505,7 +506,7 @@ class MonitoringStorage:
 
         durations = [t["duration_ms"] for t in traces if t.get("duration_ms") is not None]
 
-        stats = {
+        stats: dict[str, Any] = {
             "count": len(traces),
             "success_count": sum(1 for t in traces if t["success"]),
             "error_count": sum(1 for t in traces if not t["success"]),

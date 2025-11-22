@@ -496,7 +496,7 @@ class MemoryMergeEngine:
             if strategy == MergeStrategy.NEWEST:
                 # Get most recent value
                 sorted_mems = sorted(
-                    memories, key=lambda m: m.get("updated_at", m.get("created_at")), reverse=True
+                    memories, key=lambda m: m.get("updated_at") or m.get("created_at") or "", reverse=True
                 )
                 resolved[conflict.field] = sorted_mems[0].get(conflict.field)
 

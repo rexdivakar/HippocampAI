@@ -350,7 +350,7 @@ class ImportanceDecayEngine:
         )
 
         # Group by recommendation
-        recommendations = {}
+        recommendations: dict[str, list[str]] = {}
         for health in health_scores:
             rec = health.recommendation
             if rec not in recommendations:
@@ -464,7 +464,7 @@ class ImportanceDecayEngine:
         health_scores = [self.calculate_memory_health(m, current_time) for m in memories]
 
         # Group by recommendation
-        by_recommendation = {}
+        by_recommendation: dict[str, list[Any]] = {}
         for health in health_scores:
             rec = health.recommendation
             if rec not in by_recommendation:

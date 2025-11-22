@@ -45,7 +45,7 @@ class QualityMetrics(BaseModel):
     relevance: float = Field(default=0.5, ge=0.0, le=1.0)  # Relevant to user
     overall_score: float = Field(default=0.5, ge=0.0, le=1.0)  # Composite score
 
-    def calculate_overall(self):
+    def calculate_overall(self) -> float:
         """Calculate overall quality score."""
         self.overall_score = (
             self.specificity * 0.25
@@ -114,7 +114,7 @@ class MemoryLineage(BaseModel):
         parent_ids: Optional[list[str]] = None,
         description: str = "",
         metadata: Optional[dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Add a transformation record."""
         transformation = MemoryTransformation(
             transformation_type=transformation_type,
@@ -136,7 +136,7 @@ class MemoryLineage(BaseModel):
         source_text: Optional[str] = None,
         confidence: float = 1.0,
         metadata: Optional[dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Add a citation."""
         citation = Citation(
             source_type=source_type,
@@ -148,7 +148,7 @@ class MemoryLineage(BaseModel):
         )
         self.citations.append(citation)
 
-    def record_access(self, accessor_id: str):
+    def record_access(self, accessor_id: str) -> None:
         """Record an access to this memory."""
         self.access_count += 1
         self.last_accessed_at = datetime.now(timezone.utc)
@@ -179,7 +179,7 @@ class ProvenanceChain(BaseModel):
     total_generations: int = 0
     root_memory_ids: list[str] = Field(default_factory=list)  # Original source memories
 
-    def add_link(self, lineage: MemoryLineage):
+    def add_link(self, lineage: MemoryLineage) -> None:
         """Add a lineage link to the chain."""
         self.chain.append(lineage)
         self.total_generations = len(self.chain)

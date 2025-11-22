@@ -30,7 +30,7 @@ class SearchSuggestionEngine:
             Counter
         )  # user_id -> Counter(query)
 
-    def record_query(self, user_id: str, query: str, tags: Optional[list[str]] = None):
+    def record_query(self, user_id: str, query: str, tags: Optional[list[str]] = None) -> None:
         """
         Record a search query.
 
@@ -181,7 +181,7 @@ class SearchSuggestionEngine:
 
         return unique_queries
 
-    def clear_history(self, user_id: str, days_to_keep: Optional[int] = None):
+    def clear_history(self, user_id: str, days_to_keep: Optional[int] = None) -> None:
         """
         Clear query history for a user.
 
@@ -211,7 +211,7 @@ class SearchSuggestionEngine:
 
             logger.info(f"Cleared query history older than {days_to_keep} days for user {user_id}")
 
-    def _clean_old_history(self, user_id: str):
+    def _clean_old_history(self, user_id: str) -> None:
         """Remove queries older than history_days."""
         if user_id not in self._query_history:
             return

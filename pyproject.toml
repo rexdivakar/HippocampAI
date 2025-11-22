@@ -122,6 +122,9 @@ Changelog = "https://github.com/rexdivakar/HippocampAI/blob/main/CHANGELOG.md"
 where = ["src"]
 include = ["hippocampai*"]
 
+[tool.setuptools.package-data]
+hippocampai = ["py.typed", "**/*.typed"]
+
 [tool.black]
 line-length = 100
 target-version = ['py39']
@@ -193,6 +196,7 @@ module = [
     "celery.*",
     "kombu.*",
     "flower.*",
+    "asyncpg.*",
 ]
 ignore_missing_imports = true
 

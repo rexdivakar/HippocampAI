@@ -13,7 +13,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -82,7 +82,7 @@ class Timeline(BaseModel):
     end_time: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def add_event(self, event: TemporalEvent):
+    def add_event(self, event: TemporalEvent) -> None:
         """Add event to timeline in chronological order."""
         self.events.append(event)
         self.events.sort(key=lambda e: e.timestamp)
@@ -101,7 +101,7 @@ class Timeline(BaseModel):
 class TemporalAnalyzer:
     """Handles temporal reasoning and time-based analysis."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: Any = None) -> None:
         """Initialize temporal analyzer.
 
         Args:
@@ -438,7 +438,7 @@ JSON:"""
         # Exponential decay: (0.5)^(age / half_life)
         decay_factor = 0.5 ** (age_days / half_life_days)
 
-        return decay_factor
+        return cast(float, decay_factor)
 
     def schedule_memory(
         self,
@@ -520,7 +520,7 @@ JSON:"""
 
         return False
 
-    def _create_recurrence(self, original: ScheduledMemory):
+    def _create_recurrence(self, original: ScheduledMemory) -> None:
         """Create next occurrence for recurring scheduled memory."""
         if original.recurrence == "daily":
             next_time = original.scheduled_for + timedelta(days=1)

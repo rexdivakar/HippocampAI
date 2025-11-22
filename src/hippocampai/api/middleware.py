@@ -1,7 +1,7 @@
 """FastAPI middleware for authentication and rate limiting."""
 
 import time
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -37,11 +37,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app,
+        app: Any,
         auth_service: Optional[AuthService] = None,
         rate_limiter: Optional[RateLimiter] = None,
         user_auth_enabled: bool = True,
-    ):
+    ) -> None:
         """Initialize middleware.
 
         Args:
@@ -70,7 +70,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     def _get_user_auth_enabled(self, request: Request) -> bool:
         """Get user auth setting from instance or app state."""
         if hasattr(request.app.state, "user_auth_enabled"):
-            return request.app.state.user_auth_enabled
+            return cast(bool, request.app.state.user_auth_enabled)
         return self._user_auth_enabled
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -85,7 +85,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """
         # Skip authentication for public paths
         if request.url.path in self.PUBLIC_PATHS:
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         # Get services from app state (lazy loading)
         auth_service = self._get_auth_service(request)
@@ -94,7 +94,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # If auth service not available, skip auth
         if not auth_service:
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         # Start timing
         start_time = time.time()
@@ -112,7 +112,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.is_local_mode = True
 
             response = await call_next(request)
-            return response
+            return cast(Response, response)
 
         # Extract Authorization header
         authorization = request.headers.get("Authorization")
@@ -226,7 +226,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     response_time_ms=response_time_ms,
                 )
 
-            return response
+            return cast(Response, response)
 
         except HTTPException as e:
             # Log failed requests too

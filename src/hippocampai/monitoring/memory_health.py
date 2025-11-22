@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -286,7 +286,7 @@ class MemoryHealthMonitor:
         similarity_matrix = self._calculate_similarity_matrix(embeddings)
 
         # Find clusters
-        clusters = []
+        clusters: list[DuplicateCluster] = []
         processed = set()
 
         for i, memory in enumerate(memories):
@@ -337,14 +337,16 @@ class MemoryHealthMonitor:
                 # Generate merge suggestion
                 merge_suggestion = self._generate_merge_suggestion(cluster_memories)
 
+                # Convert similarity scores to list of floats to avoid type mismatch
+                all_scores: list[float] = [1.0] + [float(s) for s in similar_scores]
                 cluster = DuplicateCluster(
                     cluster_id=f"cluster_{i}_{len(clusters)}",
                     cluster_type=detected_type or DuplicateClusterType.SOFT,
                     memories=cluster_memories,
-                    similarity_scores=[1.0] + similar_scores,
+                    similarity_scores=all_scores,
                     representative_memory_id=representative.id,
                     merge_suggestion=merge_suggestion,
-                    confidence=min(float(np.mean([1.0] + similar_scores)), 1.0),  # Clamp to 1.0
+                    confidence=min(float(np.mean(all_scores)), 1.0),  # Clamp to 1.0
                 )
 
                 clusters.append(cluster)
@@ -534,7 +536,7 @@ class MemoryHealthMonitor:
         # Calculate cosine similarity
         similarity_matrix = np.dot(normalized, normalized.T)
 
-        return similarity_matrix
+        return cast(np.ndarray[Any, Any], similarity_matrix)
 
     def _calculate_freshness_score(self, memories: list[Memory], now: datetime) -> float:
         """Calculate freshness score (0-100) based on recency and access."""
@@ -766,7 +768,7 @@ class MemoryHealthMonitor:
 
     def _count_by_type(self, memories: list[Memory]) -> dict[str, int]:
         """Count memories by type."""
-        counts = defaultdict(int)
+        counts: defaultdict[str, int] = defaultdict(int)
         for memory in memories:
             counts[memory.type.value] += 1
         return dict(counts)

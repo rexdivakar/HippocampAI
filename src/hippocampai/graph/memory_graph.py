@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import networkx as nx
 
@@ -28,13 +28,13 @@ class RelationType(str, Enum):
 class MemoryGraph:
     """Graph-based index for tracking relationships between memories."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize memory graph."""
-        self.graph = nx.DiGraph()  # Directed graph for relationships
+        self.graph: nx.DiGraph = nx.DiGraph()  # Directed graph for relationships
         self._memory_index: dict[str, dict] = {}  # memory_id -> memory_data
         self._user_graphs: dict[str, set[str]] = defaultdict(set)  # user_id -> memory_ids
 
-    def add_memory(self, memory_id: str, user_id: str, metadata: Optional[dict] = None):
+    def add_memory(self, memory_id: str, user_id: str, metadata: Optional[dict] = None) -> None:
         """Add a memory node to the graph."""
         self.graph.add_node(memory_id, user_id=user_id, **(metadata or {}))
         self._memory_index[memory_id] = {"user_id": user_id, "metadata": metadata or {}}
@@ -48,7 +48,7 @@ class MemoryGraph:
         relation_type: RelationType,
         weight: float = 1.0,
         metadata: Optional[dict] = None,
-    ):
+    ) -> bool:
         """Add a relationship between two memories."""
         if source_id not in self.graph or target_id not in self.graph:
             logger.warning("Cannot add relationship: one or both memories not in graph")
@@ -175,7 +175,7 @@ class MemoryGraph:
         degrees.sort(key=lambda x: x[1], reverse=True)
         return degrees[:top_k]
 
-    def remove_memory(self, memory_id: str):
+    def remove_memory(self, memory_id: str) -> None:
         """Remove a memory and all its relationships from the graph."""
         if memory_id in self.graph:
             user_id = self._memory_index[memory_id]["user_id"]
@@ -258,9 +258,9 @@ class MemoryGraph:
         else:
             subgraph = self.graph
 
-        return nx.node_link_data(subgraph, edges="links")
+        return cast(dict[Any, Any], nx.node_link_data(subgraph, edges="links"))
 
-    def import_from_dict(self, data: dict):
+    def import_from_dict(self, data: dict) -> None:
         """Import graph from dictionary format."""
         imported_graph = nx.node_link_graph(data, edges="links")
         self.graph = nx.compose(self.graph, imported_graph)

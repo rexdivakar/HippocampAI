@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from hippocampai.services.memory_service import MemoryManagementService
 
@@ -56,7 +56,7 @@ class BackgroundTaskManager:
         self._tasks: list[asyncio.Task] = []
         self._running = False
 
-    async def start(self):
+    async def start(self) -> None:
         """Start all background tasks."""
         if self._running:
             logger.warning("Background tasks already running")
@@ -78,7 +78,7 @@ class BackgroundTaskManager:
 
         logger.info(f"Started {len(self._tasks)} background tasks")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop all background tasks."""
         if not self._running:
             return
@@ -96,7 +96,7 @@ class BackgroundTaskManager:
 
         logger.info("Background tasks stopped")
 
-    async def _expiration_loop(self):
+    async def _expiration_loop(self) -> None:
         """Periodic task to expire old memories."""
         logger.info(f"Expiration task started (interval: {self.expiration_interval_hours}h)")
 
@@ -104,9 +104,6 @@ class BackgroundTaskManager:
             try:
                 # Wait for interval
                 await asyncio.sleep(self.expiration_interval_hours * 3600)
-
-                if not self._running:
-                    break
 
                 logger.info("Running memory expiration...")
                 expired_count = await self.service.expire_memories()
@@ -120,7 +117,7 @@ class BackgroundTaskManager:
                 # Continue running despite errors
                 await asyncio.sleep(60)  # Wait a minute before retrying
 
-    async def _deduplication_loop(self):
+    async def _deduplication_loop(self) -> None:
         """Periodic task to deduplicate memories."""
         logger.info(f"Deduplication task started (interval: {self.dedup_interval_hours}h)")
 
@@ -128,9 +125,6 @@ class BackgroundTaskManager:
             try:
                 # Wait for interval
                 await asyncio.sleep(self.dedup_interval_hours * 3600)
-
-                if not self._running:
-                    break
 
                 logger.info("Running automatic deduplication...")
 
@@ -155,7 +149,7 @@ class BackgroundTaskManager:
                 logger.error(f"Error in deduplication task: {e}", exc_info=True)
                 await asyncio.sleep(60)
 
-    async def _consolidation_loop(self):
+    async def _consolidation_loop(self) -> None:
         """Periodic task to consolidate similar memories."""
         logger.info(f"Consolidation task started (interval: {self.consolidation_interval_hours}h)")
 
@@ -163,9 +157,6 @@ class BackgroundTaskManager:
             try:
                 # Wait for interval
                 await asyncio.sleep(self.consolidation_interval_hours * 3600)
-
-                if not self._running:
-                    break
 
                 logger.info("Running automatic consolidation...")
 
@@ -182,7 +173,7 @@ class BackgroundTaskManager:
                 logger.error(f"Error in consolidation task: {e}", exc_info=True)
                 await asyncio.sleep(60)
 
-    async def trigger_deduplication(self, user_id: str, dry_run: bool = False):
+    async def trigger_deduplication(self, user_id: str, dry_run: bool = False) -> dict[str, Any]:
         """
         Manually trigger deduplication for a user.
 
@@ -196,7 +187,7 @@ class BackgroundTaskManager:
 
     async def trigger_consolidation(
         self, user_id: str, dry_run: bool = False, threshold: Optional[float] = None
-    ):
+    ) -> dict[str, Any]:
         """
         Manually trigger consolidation for a user.
 

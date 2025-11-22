@@ -25,6 +25,7 @@ from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
 from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 from hippocampai.multiagent import MultiAgentManager
 from hippocampai.pipeline.consolidate import MemoryConsolidator
+from hippocampai.pipeline.conversation_memory import ConversationSummary, ConversationTurn
 from hippocampai.pipeline.dedup import MemoryDeduplicator
 from hippocampai.pipeline.entity_recognition import (
     Entity,
@@ -43,7 +44,8 @@ from hippocampai.pipeline.insights import (
     PreferenceDrift,
     Trend,
 )
-from hippocampai.pipeline.semantic_clustering import SemanticCategorizer
+from hippocampai.pipeline.memory_merge import MergeCandidate, MergeResult
+from hippocampai.pipeline.semantic_clustering import MemoryCluster, SemanticCategorizer
 from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
 from hippocampai.pipeline.summarization import SessionSummary, Summarizer, SummaryStyle
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalAnalyzer, Timeline, TimeRange
@@ -51,7 +53,7 @@ from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.session import SessionManager
 from hippocampai.storage import MemoryKVStore
-from hippocampai.telemetry import OperationType, get_telemetry
+from hippocampai.telemetry import MemoryTrace, OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
@@ -222,13 +224,16 @@ class MemoryClient:
         self.multiagent = MultiAgentManager()  # Multi-agent support
 
         # NEW: Conflict Resolution & Provenance Tracking
-        from hippocampai.pipeline.conflict_resolution import MemoryConflictResolver
+        from hippocampai.pipeline.conflict_resolution import (
+            ConflictResolutionStrategy,
+            MemoryConflictResolver,
+        )
         from hippocampai.pipeline.provenance_tracker import ProvenanceTracker
 
         self.conflict_resolver = MemoryConflictResolver(
             embedder=self.embedder,
             llm=self.llm,
-            default_strategy="temporal",
+            default_strategy=ConflictResolutionStrategy.TEMPORAL,
             similarity_threshold=0.75,
             contradiction_threshold=0.85,
         )
@@ -321,7 +326,7 @@ class MemoryClient:
         return headers
 
     @classmethod
-    def from_preset(cls, preset: PresetType, **overrides) -> "MemoryClient":
+    def from_preset(cls, preset: PresetType, **overrides: Any) -> "MemoryClient":
         """Create MemoryClient from preset configuration.
 
         Available presets:
@@ -620,7 +625,7 @@ class MemoryClient:
                                     )
 
                                 # If the new memory was deleted (keep_first), return the existing one
-                                if memory.id in resolution.deleted_memory_ids:
+                                if memory.id in resolution.deleted_memory_ids and resolution.updated_memory:
                                     memory = resolution.updated_memory
                                     logger.info(
                                         f"Auto-resolve: Keeping existing memory {memory.id} "
@@ -905,7 +910,7 @@ class MemoryClient:
         """Get telemetry metrics summary."""
         return self.telemetry.get_metrics_summary()
 
-    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None):
+    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[MemoryTrace]:
         """Get recent memory operations with traces."""
         from hippocampai.telemetry import OperationType
 
@@ -914,7 +919,7 @@ class MemoryClient:
 
     def export_telemetry(self, trace_ids: Optional[list[str]] = None) -> list[dict]:
         """Export telemetry data for external analysis."""
-        return self.telemetry.export_traces(trace_ids=trace_ids)
+        return cast(list[dict], self.telemetry.export_traces(trace_ids=trace_ids))
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory size and usage statistics for a user.
@@ -1505,7 +1510,7 @@ class MemoryClient:
         Returns:
             List of (memory_id, relation_type, weight) tuples
         """
-        return self.graph.get_related_memories(memory_id, relation_types, max_depth)
+        return cast(list[tuple], self.graph.get_related_memories(memory_id, relation_types, max_depth))
 
     def get_memory_clusters(self, user_id: str) -> list[set]:
         """Find clusters of related memories.
@@ -1516,7 +1521,7 @@ class MemoryClient:
         Returns:
             List of memory ID sets (clusters)
         """
-        return self.graph.get_clusters(user_id)
+        return cast(list[set], self.graph.get_clusters(user_id))
 
     def export_graph_to_json(
         self, file_path: str, user_id: Optional[str] = None, indent: int = 2
@@ -1575,7 +1580,7 @@ class MemoryClient:
         Returns:
             List of MemoryVersion objects
         """
-        return self.version_control.get_version_history(memory_id)
+        return cast(list, self.version_control.get_version_history(memory_id))
 
     def rollback_memory(self, memory_id: str, version_number: int) -> Optional[Memory]:
         """Rollback memory to a previous version.
@@ -1623,7 +1628,7 @@ class MemoryClient:
 
     # === MEMORY ACCESS TRACKING ===
 
-    def track_memory_access(self, memory_id: str, user_id: str):
+    def track_memory_access(self, memory_id: str, user_id: str) -> None:
         """Track that a memory was accessed (updates access_count).
 
         Args:
@@ -1755,7 +1760,7 @@ class MemoryClient:
 
     # === SCHEDULER METHODS ===
 
-    def start_scheduler(self):
+    def start_scheduler(self) -> None:
         """Start the background scheduler for memory maintenance tasks."""
         if self.scheduler:
             self.scheduler.start()
@@ -1765,7 +1770,7 @@ class MemoryClient:
                 "Scheduler not initialized (enable_scheduler=False or enable_telemetry=False)"
             )
 
-    def stop_scheduler(self):
+    def stop_scheduler(self) -> None:
         """Stop the background scheduler."""
         if self.scheduler:
             self.scheduler.stop()
@@ -2180,7 +2185,7 @@ class MemoryClient:
         Returns:
             List of SessionFact objects
         """
-        return self.session_manager.extract_session_facts(session_id, force)
+        return cast(list, self.session_manager.extract_session_facts(session_id, force))
 
     def extract_session_entities(self, session_id: str, force: bool = False) -> dict[str, Any]:
         """Extract entities from session.
@@ -2192,7 +2197,7 @@ class MemoryClient:
         Returns:
             Dictionary of entity_name -> Entity
         """
-        return self.session_manager.extract_session_entities(session_id, force)
+        return cast(dict[str, Any], self.session_manager.extract_session_entities(session_id, force))
 
     def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """Get statistics for a session.
@@ -2238,7 +2243,7 @@ class MemoryClient:
         )
         return reconciled
 
-    def cluster_user_memories(self, user_id: str, max_clusters: int = 10):
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> list[MemoryCluster]:
         """Cluster user's memories by topics.
 
         Args:
@@ -3058,7 +3063,7 @@ class MemoryClient:
             >>> # Search for frequently mentioned entities
             >>> results = client.search_entities("tesla", min_mentions=5)
         """
-        return self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+        return cast(list[Any], self.entity_recognizer.search_entities(query, entity_type, min_mentions))
 
     def summarize_conversation(
         self,
@@ -3464,7 +3469,7 @@ class MemoryClient:
         conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
 
         logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
-        return conflicts
+        return cast(list[Any], conflicts)
 
     def resolve_memory_conflict(
         self,
@@ -3563,9 +3568,8 @@ class MemoryClient:
                         self.remember(
                             text=resolution.updated_memory.text,
                             user_id=user_id,
-                            type=resolution.updated_memory.type,
+                            type=resolution.updated_memory.type.value,
                             importance=resolution.updated_memory.importance,
-                            confidence=resolution.updated_memory.confidence,
                         )
                         for mem_id in resolution.deleted_memory_ids:
                             self.delete_memory(mem_id)
@@ -3684,7 +3688,7 @@ class MemoryClient:
         memory = Memory(**memory_data["payload"])
 
         if "lineage" in memory.metadata:
-            return memory.metadata["lineage"]
+            return cast(Optional[dict[str, Any]], memory.metadata["lineage"])
 
         return None
 
@@ -3725,7 +3729,7 @@ class MemoryClient:
         # Build chain
         chain = self.provenance_tracker.build_provenance_chain(memory, all_memories)
 
-        return chain.model_dump()
+        return cast(Optional[dict[str, Any]], chain.model_dump())
 
     def assess_memory_quality(
         self, memory_id: str, use_llm: bool = True
@@ -3765,7 +3769,7 @@ class MemoryClient:
         memory.metadata["quality_assessed_at"] = datetime.now(timezone.utc).isoformat()
         self.update_memory(memory_id, metadata=memory.metadata)
 
-        return quality_metrics.model_dump()
+        return cast(Optional[dict[str, Any]], quality_metrics.model_dump())
 
     def add_memory_citation(
         self,
@@ -3823,7 +3827,7 @@ class MemoryClient:
         # Update memory
         self.update_memory(memory_id, metadata=memory.metadata)
 
-        return lineage.model_dump()
+        return cast(Optional[dict[str, Any]], lineage.model_dump())
 
     def extract_memory_citations(
         self, memory_id: str, context: Optional[str] = None
@@ -4633,7 +4637,7 @@ class MemoryClient:
         session_id: Optional[str] = None,
         role: str = "user",
         metadata: Optional[dict[str, Any]] = None,
-    ):
+    ) -> ConversationTurn:
         """
         Add a turn to a conversation and track it.
 
@@ -4699,7 +4703,7 @@ class MemoryClient:
 
         return turn
 
-    def get_conversation_summary(self, conversation_id: str, use_llm: bool = True):
+    def get_conversation_summary(self, conversation_id: str, use_llm: bool = True) -> Optional[ConversationSummary]:
         """
         Get a multi-level summary of a conversation.
 
@@ -4808,7 +4812,7 @@ class MemoryClient:
                 tags.extend(["decision", f"conversation:{conversation_id}"])
 
                 memory = self.add(
-                    text=f"Decision: {decision.decision}. Rationale: {decision.rationale}",
+                    text=f"Decision: {decision.text}. Rationale: {decision.rationale}",
                     user_id=user_id,
                     session_id=session_id,
                     memory_type="fact",
@@ -4817,8 +4821,8 @@ class MemoryClient:
                     metadata={
                         "source": "conversation_decision",
                         "conversation_id": conversation_id,
-                        "decision_maker": decision.decision_maker,
-                        "topic": decision.topic,
+                        "decision_maker": decision.made_by,
+                        "topic": decision.related_topic,
                     },
                 )
                 created_memories.append(memory)
@@ -4829,7 +4833,7 @@ class MemoryClient:
                 tags.extend(["action_item", f"conversation:{conversation_id}"])
 
                 memory = self.add(
-                    text=f"Action: {action.action} (Priority: {action.priority})",
+                    text=f"Action: {action.text} (Priority: {action.priority})",
                     user_id=user_id,
                     session_id=session_id,
                     memory_type="task",
@@ -4857,7 +4861,7 @@ class MemoryClient:
 
     # Memory Merge Methods
 
-    def suggest_memory_merges(self, user_id: str, limit: int = 100):
+    def suggest_memory_merges(self, user_id: str, limit: int = 100) -> list[MergeCandidate]:
         """
         Suggest memory merges based on similarity.
 
@@ -4910,16 +4914,20 @@ class MemoryClient:
             # Calculate similarity matrix using embeddings
             import numpy as np
 
-            similarity_matrix = {}
+            similarity_matrix: dict[tuple[str, str], float] = {}
             for i, mem1 in enumerate(memory_dicts):
-                emb1 = self.embedder.embed(mem1["text"])
+                mem1_text = str(mem1["text"])
+                mem1_id = str(mem1["id"])
+                emb1 = self.embedder.encode_single(mem1_text)
                 for j, mem2 in enumerate(memory_dicts):
                     if i < j:
-                        emb2 = self.embedder.embed(mem2["text"])
+                        mem2_text = str(mem2["text"])
+                        mem2_id = str(mem2["id"])
+                        emb2 = self.embedder.encode_single(mem2_text)
                         similarity = float(
                             np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
                         )
-                        similarity_matrix[(mem1["id"], mem2["id"])] = similarity
+                        similarity_matrix[(mem1_id, mem2_id)] = similarity
 
             # Get merge suggestions
             candidates = self.merge_engine.suggest_merges(
@@ -4940,7 +4948,7 @@ class MemoryClient:
         user_id: str,
         strategy: str = "combine",
         manual_resolutions: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Optional[MergeResult]:
         """
         Merge multiple memories into one.
 
@@ -5048,7 +5056,7 @@ class MemoryClient:
         memory_ids: list[str],
         user_id: str,
         strategy: str = "combine",
-    ):
+    ) -> Optional[dict[str, Any]]:
         """
         Preview what a memory merge would look like without executing it.
 
@@ -5128,7 +5136,7 @@ class MemoryClient:
         preserve_timestamps: bool = False,
         tag_additions: Optional[list[str]] = None,
         metadata_overrides: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Optional[Memory]:
         """
         Clone a memory with optional modifications.
 
@@ -5218,7 +5226,7 @@ class MemoryClient:
         default_importance: float = 5.0,
         default_type: str = "fact",
         default_tags: Optional[list[str]] = None,
-    ):
+    ) -> dict[str, Any]:
         """
         Create a reusable memory template.
 
@@ -5271,7 +5279,7 @@ class MemoryClient:
         user_id: str,
         session_id: Optional[str] = None,
         overrides: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Memory:
         """
         Create a memory from a template.
 
@@ -5318,7 +5326,7 @@ class MemoryClient:
         remove_tags: Optional[list[str]] = None,
         set_metadata: Optional[dict[str, Any]] = None,
         archive: bool = False,
-    ):
+    ) -> Any:
         """
         Batch update memories matching filter criteria.
 
@@ -5405,10 +5413,11 @@ class MemoryClient:
 
             # Update in store
             for memory_dict in memory_dicts:
-                if memory_dict["id"] in result.updated_memory_ids:
+                memory_id = str(memory_dict["id"])
+                if memory_id in result.updated_memory_ids:
                     # Update the memory
                     self.update(
-                        memory_id=memory_dict["id"],
+                        memory_id=memory_id,
                         text=memory_dict["text"],
                         importance=memory_dict["importance"],
                         tags=memory_dict["tags"],
@@ -5430,7 +5439,7 @@ class MemoryClient:
         action: str,
         interval_hours: int,
         filters: Optional[dict[str, Any]] = None,
-    ):
+    ) -> Any:
         """
         Schedule automatic memory maintenance.
 
@@ -5490,7 +5499,7 @@ class MemoryClient:
         stale_threshold_days: Optional[int] = None,
         low_importance_threshold: Optional[float] = None,
         dry_run: bool = True,
-    ):
+    ) -> Any:
         """
         Archive old or low-value memories.
 
@@ -5571,14 +5580,21 @@ class MemoryClient:
                         memory_dict.get("archived")
                         and memory_dict["id"] in result.archived_memory_ids
                     ):
-                        memory_dict["metadata"]["archived"] = True
-                        memory_dict["metadata"]["archived_at"] = memory_dict.get(
-                            "archived_at", datetime.now(timezone.utc)
-                        ).isoformat()
-                        self.update(
-                            memory_id=memory_dict["id"],
-                            metadata=memory_dict["metadata"],
-                        )
+                        # Ensure metadata is a dict
+                        if not isinstance(memory_dict.get("metadata"), dict):
+                            memory_dict["metadata"] = {}
+                        metadata = memory_dict["metadata"]
+                        if isinstance(metadata, dict):
+                            metadata["archived"] = True
+                            archived_at = memory_dict.get("archived_at", datetime.now(timezone.utc))
+                            if isinstance(archived_at, datetime):
+                                metadata["archived_at"] = archived_at.isoformat()
+                            else:
+                                metadata["archived_at"] = datetime.now(timezone.utc).isoformat()
+                            self.update(
+                                memory_id=str(memory_dict["id"]),
+                                metadata=metadata,
+                            )
 
             mode = "DRY RUN: " if dry_run else ""
             logger.info(f"{mode}Archived {result.total_archived} memories for user {user_id}")
@@ -5595,7 +5611,7 @@ class MemoryClient:
         policy: str = "moderate",
         min_age_days: int = 30,
         dry_run: bool = True,
-    ):
+    ) -> Any:
         """
         Garbage collect low-value memories.
 
@@ -5698,7 +5714,7 @@ class MemoryClient:
         context: Optional[str] = None,
         co_accessed_ids: Optional[list[str]] = None,
         relevance_score: Optional[float] = None,
-    ):
+    ) -> None:
         """
         Record a memory access event for learning patterns.
 
@@ -5739,7 +5755,7 @@ class MemoryClient:
 
         logger.debug(f"Recorded {access_type} access for memory {memory_id}")
 
-    def analyze_memory_access_pattern(self, memory_id: str, force_refresh: bool = False):
+    def analyze_memory_access_pattern(self, memory_id: str, force_refresh: bool = False) -> Any:
         """
         Analyze access pattern for a memory.
 
@@ -5920,7 +5936,7 @@ class MemoryClient:
             logger.error(f"Failed to get compression recommendations: {e}")
             return []
 
-    def apply_compression_recommendation(self, memory_id: str, compression_level: str):
+    def apply_compression_recommendation(self, memory_id: str, compression_level: str) -> Optional[Memory]:
         """
         Apply compression to a memory.
 
@@ -5970,9 +5986,9 @@ class MemoryClient:
             elif compression_enum == CompressionLevel.MODERATE:
                 # Moderate: Summarize if LLM available
                 if self.llm:
-                    compressed_text = self.llm.summarize(
-                        memory.text, max_length=len(memory.text) // 2
-                    )
+                    target_length = len(memory.text) // 2
+                    prompt = f"Summarize the following text in approximately {target_length} characters:\n\n{memory.text}"
+                    compressed_text = self.llm.generate(prompt, max_tokens=target_length // 4)
                 else:
                     # Truncate to 50%
                     compressed_text = memory.text[: len(memory.text) // 2] + "..."
@@ -5980,9 +5996,9 @@ class MemoryClient:
             elif compression_enum == CompressionLevel.AGGRESSIVE:
                 # Aggressive: Heavy summarization
                 if self.llm:
-                    compressed_text = self.llm.summarize(
-                        memory.text, max_length=len(memory.text) // 3
-                    )
+                    target_length = len(memory.text) // 3
+                    prompt = f"Provide a brief summary of the following text in approximately {target_length} characters:\n\n{memory.text}"
+                    compressed_text = self.llm.generate(prompt, max_tokens=target_length // 4)
                 else:
                     # Truncate to 30%
                     compressed_text = memory.text[: len(memory.text) // 3] + "..."
@@ -6040,3 +6056,25 @@ class MemoryClient:
         )
 
         return stats
+
+    # Convenience method aliases for common operations
+    def add(self, **kwargs: Any) -> Memory:
+        """Alias for remember() method."""
+        return self.remember(**kwargs)
+
+    def search(self, **kwargs: Any) -> list[Memory]:
+        """Alias for recall() method."""
+        results = self.recall(**kwargs)
+        return [r.memory for r in results]
+
+    def get(self, memory_id: str, **kwargs: Any) -> Optional[Memory]:
+        """Alias for get_memory() method."""
+        return self.get_memory(memory_id=memory_id, **kwargs)
+
+    def delete(self, memory_id: str, **kwargs: Any) -> bool:
+        """Alias for delete_memory() method."""
+        return self.delete_memory(memory_id=memory_id, **kwargs)
+
+    def update(self, memory_id: str, **kwargs: Any) -> Optional[Memory]:
+        """Alias for update_memory() method."""
+        return self.update_memory(memory_id=memory_id, **kwargs)

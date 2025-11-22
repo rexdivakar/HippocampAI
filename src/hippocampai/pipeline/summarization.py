@@ -13,7 +13,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -61,7 +61,7 @@ class SessionSummary(BaseModel):
 class Summarizer:
     """Generates summaries from conversations and sessions."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: Any = None) -> None:
         """Initialize summarizer.
 
         Args:
@@ -359,7 +359,7 @@ Summary:"""
             return self._generate_summary_template(key_points, topics, style)
         try:
             response = self.llm.generate(prompt, max_tokens=300)
-            return response.strip()
+            return cast(str, response.strip())
         except Exception as e:
             logger.warning(f"LLM summarization failed: {e}")
             return self._generate_summary_template(key_points, topics, style)

@@ -65,7 +65,7 @@ class TaskManager:
     Provides abstraction over different task backends (Celery, RQ, etc.)
     """
 
-    def __init__(self, automation_controller, backend: Optional[str] = None):
+    def __init__(self, automation_controller: Any, backend: Optional[str] = None) -> None:
         """
         Initialize task manager.
 
@@ -75,7 +75,7 @@ class TaskManager:
         """
         self.automation_controller = automation_controller
         self.backend = backend or "inline"
-        self.tasks = {}  # In-memory task store
+        self.tasks: dict[str, Any] = {}  # In-memory task store
 
         # Try to import task backend
         self.celery_app = None
@@ -94,7 +94,7 @@ class TaskManager:
         elif self.backend == "rq":
             try:
                 from redis import Redis
-                from rq import Queue
+                from rq import Queue  # type: ignore[import-not-found]
 
                 redis_conn = Redis()
                 self.rq_queue = Queue(connection=redis_conn)
@@ -283,7 +283,7 @@ class TaskManager:
         }
         return priority_map.get(priority, 5)
 
-    def run_scheduled_tasks(self, user_ids: Optional[list[str]] = None):
+    def run_scheduled_tasks(self, user_ids: Optional[list[str]] = None) -> None:
         """
         Run scheduled tasks for users based on their policies.
 

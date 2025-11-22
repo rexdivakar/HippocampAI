@@ -7,7 +7,7 @@ Library users can configure policies that the SaaS platform will execute.
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -95,11 +95,11 @@ class AutomationController:
 
     def __init__(
         self,
-        memory_service,
-        llm=None,
-        embedder=None,
-        storage_backend=None,
-    ):
+        memory_service: Any,
+        llm: Any = None,
+        embedder: Any = None,
+        storage_backend: Any = None,
+    ) -> None:
         """
         Initialize automation controller.
 
@@ -115,68 +115,60 @@ class AutomationController:
 
         # Storage backend for policies (default to in-memory)
         self.storage_backend = storage_backend or {}
-        self.policies = {}  # In-memory policy store
+        self.policies: dict[str, Any] = {}  # In-memory policy store
 
         # Initialize feature modules (lazy loaded)
-        self._summarizer = None
-        self._consolidator = None
-        self._compressor = None
-        self._decay = None
-        self._health_monitor = None
-        self._conflict_resolver = None
+        self._summarizer: Any = None
+        self._consolidator: Any = None
+        self._compressor: Any = None
+        self._decay: Any = None
+        self._health_monitor: Any = None
+        self._conflict_resolver: Any = None
 
         logger.info("AutomationController initialized")
 
     @property
-    def summarizer(self):
+    def summarizer(self) -> Any:
         """Lazy load auto-summarization."""
         if self._summarizer is None:
-            from hippocampai.pipeline import AutoSummarization
+            from hippocampai.pipeline import AutoSummarizer
 
-            self._summarizer = AutoSummarization(
+            self._summarizer = AutoSummarizer(
                 llm=self.llm,
-                embedder=self.embedder,
-                memory_service=self.memory_service,
             )
         return self._summarizer
 
     @property
-    def consolidator(self):
+    def consolidator(self) -> Any:
         """Lazy load auto-consolidation."""
         if self._consolidator is None:
-            from hippocampai.pipeline import AutoConsolidation
+            from hippocampai.pipeline import AutoConsolidator
 
-            self._consolidator = AutoConsolidation(
-                llm=self.llm,
-                embedder=self.embedder,
-                memory_service=self.memory_service,
-            )
+            self._consolidator = AutoConsolidator()
         return self._consolidator
 
     @property
-    def compressor(self):
+    def compressor(self) -> Any:
         """Lazy load advanced compression."""
         if self._compressor is None:
-            from hippocampai.pipeline import AdvancedCompression
+            from hippocampai.pipeline import AdvancedCompressor
 
-            self._compressor = AdvancedCompression(
+            self._compressor = AdvancedCompressor(
                 llm=self.llm,
-                embedder=self.embedder,
-                memory_service=self.memory_service,
             )
         return self._compressor
 
     @property
-    def decay(self):
+    def decay(self) -> Any:
         """Lazy load importance decay."""
         if self._decay is None:
-            from hippocampai.pipeline import ImportanceDecay
+            from hippocampai.pipeline import ImportanceDecayEngine
 
-            self._decay = ImportanceDecay(memory_service=self.memory_service)
+            self._decay = ImportanceDecayEngine()
         return self._decay
 
     @property
-    def health_monitor(self):
+    def health_monitor(self) -> Any:
         """Lazy load health monitor."""
         if self._health_monitor is None:
             from hippocampai.monitoring import MemoryHealthMonitor
@@ -185,7 +177,7 @@ class AutomationController:
         return self._health_monitor
 
     @property
-    def conflict_resolver(self):
+    def conflict_resolver(self) -> Any:
         """Lazy load conflict resolver."""
         if self._conflict_resolver is None:
             from hippocampai.pipeline import MemoryConflictResolver
@@ -233,7 +225,7 @@ class AutomationController:
         # Check threshold
         if policy.policy_type == PolicyType.THRESHOLD:
             stats = self.memory_service.get_memory_statistics(user_id=user_id)
-            memory_count = stats.get("total_memories", 0)
+            memory_count = int(stats.get("total_memories", 0))
             return memory_count >= policy.summarization_threshold
 
         return True
@@ -246,7 +238,7 @@ class AutomationController:
 
         if policy.policy_type == PolicyType.THRESHOLD:
             stats = self.memory_service.get_memory_statistics(user_id=user_id)
-            memory_count = stats.get("total_memories", 0)
+            memory_count = int(stats.get("total_memories", 0))
             return memory_count >= policy.consolidation_threshold
 
         return True
@@ -259,7 +251,7 @@ class AutomationController:
 
         if policy.policy_type == PolicyType.THRESHOLD:
             stats = self.memory_service.get_memory_statistics(user_id=user_id)
-            memory_count = stats.get("total_memories", 0)
+            memory_count = int(stats.get("total_memories", 0))
             return memory_count >= policy.compression_threshold
 
         return True
@@ -286,7 +278,7 @@ class AutomationController:
             user_id=user_id, time_window_days=time_window_days
         )
         result["status"] = "success"
-        return result
+        return cast(dict[str, Any], result)
 
     def run_consolidation(self, user_id: str, force: bool = False) -> dict[str, Any]:
         """
@@ -310,7 +302,7 @@ class AutomationController:
             user_id=user_id, similarity_threshold=similarity
         )
         result["status"] = "success"
-        return result
+        return cast(dict[str, Any], result)
 
     def run_compression(self, user_id: str, force: bool = False) -> dict[str, Any]:
         """
@@ -334,7 +326,7 @@ class AutomationController:
             user_id=user_id, target_reduction=target_reduction
         )
         result["status"] = "success"
-        return result
+        return cast(dict[str, Any], result)
 
     def run_decay(self, user_id: str, force: bool = False) -> dict[str, Any]:
         """
@@ -356,7 +348,7 @@ class AutomationController:
         logger.info(f"Running decay for user {user_id}")
         result = self.decay.apply_decay(user_id=user_id, half_life_days=half_life)
         result["status"] = "success"
-        return result
+        return cast(dict[str, Any], result)
 
     def run_health_check(self, user_id: str, force: bool = False) -> dict[str, Any]:
         """
@@ -445,4 +437,4 @@ class AutomationController:
                 "health_monitoring": policy.health_monitoring,
             }
 
-        return stats
+        return cast(dict[str, Any], stats)

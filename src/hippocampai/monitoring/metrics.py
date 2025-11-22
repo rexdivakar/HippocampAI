@@ -6,7 +6,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Generator, Optional
 
 from pydantic import BaseModel, Field
 
@@ -110,7 +110,7 @@ class MetricsCollector:
         value: float,
         metric_type: MetricType,
         tags: Optional[dict[str, str]] = None,
-    ):
+    ) -> None:
         """
         Record a metric measurement.
 
@@ -134,15 +134,15 @@ class MetricsCollector:
 
     def increment_counter(
         self, name: str, value: float = 1.0, tags: Optional[dict[str, str]] = None
-    ):
+    ) -> None:
         """Increment a counter metric."""
         self.record_metric(name, value, MetricType.COUNTER, tags)
 
-    def set_gauge(self, name: str, value: float, tags: Optional[dict[str, str]] = None):
+    def set_gauge(self, name: str, value: float, tags: Optional[dict[str, str]] = None) -> None:
         """Set a gauge metric."""
         self.record_metric(name, value, MetricType.GAUGE, tags)
 
-    def record_histogram(self, name: str, value: float, tags: Optional[dict[str, str]] = None):
+    def record_histogram(self, name: str, value: float, tags: Optional[dict[str, str]] = None) -> None:
         """Record a histogram value."""
         self.record_metric(name, value, MetricType.HISTOGRAM, tags)
 
@@ -157,7 +157,7 @@ class MetricsCollector:
         session_id: Optional[str] = None,
         memory_id: Optional[str] = None,
         memory_type: Optional[str] = None,
-    ):
+    ) -> Generator[Optional[Trace], None, None]:
         """
         Context manager for tracing operations with comprehensive tagging.
 
@@ -218,7 +218,7 @@ class MetricsCollector:
             )
 
     @contextmanager
-    def span(self, trace: Optional[Trace], name: str, tags: Optional[dict[str, Any]] = None):
+    def span(self, trace: Optional[Trace], name: str, tags: Optional[dict[str, Any]] = None) -> Generator[Optional[Span], None, None]:
         """
         Create a span within a trace.
 
@@ -247,7 +247,7 @@ class MetricsCollector:
 
             logger.debug(f"Span {name} completed in {span_obj.duration_ms:.2f}ms")
 
-    def time_function(self, operation: OperationType):
+    def time_function(self, operation: OperationType) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
         Decorator to automatically trace function execution.
 
@@ -258,14 +258,14 @@ class MetricsCollector:
         """
         import inspect
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 with self.trace_operation(operation, metadata={"function": func.__name__}):
                     return await func(*args, **kwargs)
 
             @functools.wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 with self.trace_operation(operation, metadata={"function": func.__name__}):
                     return func(*args, **kwargs)
 
@@ -288,7 +288,7 @@ class MetricsCollector:
         }
 
         # Calculate operation statistics
-        operation_stats = defaultdict(lambda: {"count": 0, "total_duration_ms": 0, "errors": 0})
+        operation_stats: defaultdict[str, dict[str, float]] = defaultdict(lambda: {"count": 0, "total_duration_ms": 0, "errors": 0})
 
         for trace in self.traces:
             stats = operation_stats[trace.operation.value]
@@ -444,7 +444,7 @@ class MetricsCollector:
 
         durations = [t.duration_ms for t in traces if t.duration_ms is not None]
 
-        stats = {
+        stats: dict[str, Any] = {
             "count": len(traces),
             "success_count": sum(1 for t in traces if t.success),
             "error_count": sum(1 for t in traces if not t.success),
@@ -467,7 +467,7 @@ class MetricsCollector:
 
         return stats
 
-    def reset_metrics(self):
+    def reset_metrics(self) -> None:
         """Reset all collected metrics and traces."""
         self.metrics.clear()
         self.traces.clear()
@@ -524,7 +524,7 @@ class MetricsCollector:
             import numpy as np
 
             for quantile in [0.5, 0.9, 0.95, 0.99]:
-                value = np.percentile(values, quantile * 100)
+                value = float(np.percentile(values, quantile * 100))
                 lines.append(f'{name}{{quantile="{quantile}"}} {value}')
 
         return "\n".join(lines)
@@ -548,7 +548,7 @@ def get_metrics_collector() -> MetricsCollector:
     return _metrics_collector
 
 
-def configure_metrics(enable_tracing: bool = True):
+def configure_metrics(enable_tracing: bool = True) -> None:
     """Configure global metrics collector."""
     global _metrics_collector
     _metrics_collector = MetricsCollector(enable_tracing=enable_tracing)
@@ -562,7 +562,7 @@ def record_memory_operation(
     success: bool = True,
     duration_ms: Optional[float] = None,
     metadata: Optional[dict[str, Any]] = None,
-):
+) -> None:
     """Record a memory operation metric."""
     collector = get_metrics_collector()
 
@@ -581,7 +581,7 @@ def record_memory_store_stats(
     stale_memories: int,
     duplicate_clusters: int,
     health_score: float,
-):
+) -> None:
     """Record memory store statistics."""
     collector = get_metrics_collector()
 
@@ -596,7 +596,7 @@ def record_search_metrics(
     query_time_ms: float,
     results_count: int,
     cache_hit: bool = False,
-):
+) -> None:
     """Record search operation metrics."""
     collector = get_metrics_collector()
 
@@ -614,7 +614,7 @@ def record_quality_metrics(
     diversity_score: float,
     consistency_score: float,
     coverage_score: float,
-):
+) -> None:
     """Record memory quality metrics."""
     collector = get_metrics_collector()
 

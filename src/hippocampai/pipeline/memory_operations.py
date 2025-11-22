@@ -258,7 +258,7 @@ class GarbageCollectionResult(BaseModel):
 class MemoryOperations:
     """Advanced memory operations manager."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize memory operations manager."""
         self.maintenance_schedules: dict[str, MaintenanceSchedule] = {}
         self.archival_policies: dict[str, ArchivalPolicy] = {}
@@ -460,7 +460,7 @@ class MemoryOperations:
         # Memory type filter
         if filter_criteria.memory_types:
             mem_type = memory.get("type")
-            if hasattr(mem_type, "value"):
+            if mem_type is not None and hasattr(mem_type, "value"):
                 mem_type = mem_type.value
             if mem_type not in filter_criteria.memory_types:
                 return False
@@ -735,12 +735,13 @@ class MemoryOperations:
                         updated_at = datetime.fromisoformat(
                             updated_at.replace("Z", "+00:00")
                         )
-                    if updated_at.tzinfo is None:
+                    if updated_at is not None and updated_at.tzinfo is None:
                         updated_at = updated_at.replace(tzinfo=timezone.utc)
 
-                    days_stale = (now - updated_at).total_seconds() / 86400
-                    if days_stale > policy.stale_threshold_days:
-                        should_archive = True
+                    if updated_at is not None:
+                        days_stale = (now - updated_at).total_seconds() / 86400
+                        if days_stale > policy.stale_threshold_days:
+                            should_archive = True
 
                 # Low importance check
                 if (
@@ -842,7 +843,7 @@ class MemoryOperations:
 
             # Skip preserved types
             mem_type = memory.get("type")
-            if hasattr(mem_type, "value"):
+            if mem_type is not None and hasattr(mem_type, "value"):
                 mem_type = mem_type.value
             if mem_type in config.preserve_types:
                 continue
@@ -856,12 +857,13 @@ class MemoryOperations:
             created_at = memory.get("created_at")
             if isinstance(created_at, str):
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            if created_at.tzinfo is None:
+            if created_at is not None and created_at.tzinfo is None:
                 created_at = created_at.replace(tzinfo=timezone.utc)
 
-            age_days = (now - created_at).total_seconds() / 86400
-            if age_days < config.min_age_days:
-                continue
+            if created_at is not None:
+                age_days = (now - created_at).total_seconds() / 86400
+                if age_days < config.min_age_days:
+                    continue
 
             # Evaluate for collection
             should_collect = False

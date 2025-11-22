@@ -4,7 +4,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Field
 
@@ -499,7 +499,7 @@ class MemoryObservabilityMonitor:
             ),
         }
 
-    def clear_history(self):
+    def clear_history(self) -> None:
         """Clear performance history."""
         self.query_times.clear()
         self.query_history.clear()
@@ -569,12 +569,12 @@ class PerformanceTimer:
         self.start_time: Optional[float] = None
         self.elapsed_ms: float = 0.0
 
-    def __enter__(self):
+    def __enter__(self) -> "PerformanceTimer":
         """Start timer."""
         self.start_time = time.perf_counter()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Stop timer and calculate elapsed time."""
         if self.start_time:
             elapsed = time.perf_counter() - self.start_time
@@ -590,9 +590,9 @@ def create_timing_context() -> dict[str, PerformanceTimer]:
     return {}
 
 
-def profile_operation(func):
+def profile_operation(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to profile function execution time."""
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         timer = PerformanceTimer(func.__name__)
         with timer:
             result = func(*args, **kwargs)

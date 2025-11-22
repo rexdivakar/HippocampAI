@@ -2,7 +2,7 @@
 
 from typing import Any, Optional
 
-from celery.result import AsyncResult  # type: ignore[import-untyped]
+from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -89,7 +89,7 @@ class MemoryDeleteRequest(BaseModel):
 
 
 @router.post("/memory/create", response_model=TaskSubmitResponse)
-async def submit_create_memory_task(request: MemoryCreateRequest):
+async def submit_create_memory_task(request: MemoryCreateRequest) -> TaskSubmitResponse:
     """
     Submit a memory creation task to Celery queue.
 
@@ -115,7 +115,7 @@ async def submit_create_memory_task(request: MemoryCreateRequest):
 
 
 @router.post("/memory/batch-create", response_model=TaskSubmitResponse)
-async def submit_batch_create_memories_task(request: BatchMemoryCreateRequest):
+async def submit_batch_create_memories_task(request: BatchMemoryCreateRequest) -> TaskSubmitResponse:
     """
     Submit a batch memory creation task to Celery queue.
 
@@ -137,7 +137,7 @@ async def submit_batch_create_memories_task(request: BatchMemoryCreateRequest):
 
 
 @router.post("/memory/recall", response_model=TaskSubmitResponse)
-async def submit_recall_memories_task(request: MemoryRecallRequest):
+async def submit_recall_memories_task(request: MemoryRecallRequest) -> TaskSubmitResponse:
     """
     Submit a memory recall task to Celery queue.
 
@@ -161,7 +161,7 @@ async def submit_recall_memories_task(request: MemoryRecallRequest):
 
 
 @router.post("/memory/update", response_model=TaskSubmitResponse)
-async def submit_update_memory_task(request: MemoryUpdateRequest):
+async def submit_update_memory_task(request: MemoryUpdateRequest) -> TaskSubmitResponse:
     """
     Submit a memory update task to Celery queue.
 
@@ -182,7 +182,7 @@ async def submit_update_memory_task(request: MemoryUpdateRequest):
 
 
 @router.post("/memory/delete", response_model=TaskSubmitResponse)
-async def submit_delete_memory_task(request: MemoryDeleteRequest):
+async def submit_delete_memory_task(request: MemoryDeleteRequest) -> TaskSubmitResponse:
     """
     Submit a memory deletion task to Celery queue.
 
@@ -207,7 +207,7 @@ async def submit_delete_memory_task(request: MemoryDeleteRequest):
 
 
 @router.get("/status/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status(task_id: str):
+async def get_task_status(task_id: str) -> TaskStatusResponse:
     """
     Check the status of a Celery task.
 
@@ -238,7 +238,7 @@ async def get_task_status(task_id: str):
 
 
 @router.post("/cancel/{task_id}")
-async def cancel_task(task_id: str):
+async def cancel_task(task_id: str) -> dict[str, str]:
     """
     Cancel a running or pending Celery task.
 
@@ -257,7 +257,7 @@ async def cancel_task(task_id: str):
 
 
 @router.get("/inspect/stats")
-async def get_worker_stats():
+async def get_worker_stats() -> dict[str, Any]:
     """
     Get Celery worker statistics.
 
@@ -278,7 +278,7 @@ async def get_worker_stats():
 
 
 @router.get("/inspect/queues")
-async def get_queue_info():
+async def get_queue_info() -> dict[str, Any]:
     """
     Get information about Celery queues.
 
@@ -299,7 +299,7 @@ async def get_queue_info():
 
 
 @router.get("/scheduled")
-async def list_scheduled_tasks():
+async def list_scheduled_tasks() -> dict[str, Any]:
     """
     List all scheduled (periodic) tasks configured in Celery Beat.
 
@@ -322,7 +322,7 @@ async def list_scheduled_tasks():
 
 
 @router.post("/scheduled/{task_name}/run")
-async def run_scheduled_task_now(task_name: str):
+async def run_scheduled_task_now(task_name: str) -> TaskSubmitResponse:
     """
     Manually trigger a scheduled task to run immediately.
 

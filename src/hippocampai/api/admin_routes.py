@@ -1,6 +1,6 @@
 """Admin API routes for user and API key management."""
 
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -32,7 +32,7 @@ def get_auth_service(request: Request) -> AuthService:
     Returns:
         AuthService instance
     """
-    return request.app.state.auth_service
+    return cast(AuthService, request.app.state.auth_service)
 
 
 # Authentication Endpoints
@@ -43,7 +43,7 @@ async def admin_login(
     credentials: UserLogin,
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, Any]:
     """Admin login endpoint.
 
     Args:
@@ -57,8 +57,8 @@ async def admin_login(
     Raises:
         HTTPException: If login fails
     """
-    user = await auth_service.authenticate_user(credentials.email, credentials.password)
-    if not user or not user.get("is_admin"):
+    user = await auth_service.authenticate_user(credentials)
+    if not user or not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials or not an admin user",
@@ -79,7 +79,7 @@ async def admin_login(
             INSERT INTO sessions (user_id, session_token, ip_address, user_agent, expires_at)
             VALUES ($1, $2, $3, $4, NOW() + INTERVAL '7 days')
             """,
-            user["id"],
+            user.id,
             session_token,
             ip_address,
             user_agent,
@@ -92,7 +92,7 @@ async def admin_login(
             SET last_login_at = NOW(), last_login_ip = $2
             WHERE id = $1
             """,
-            user["id"],
+            user.id,
             ip_address,
         )
 
@@ -107,7 +107,7 @@ async def admin_login(
 async def admin_logout(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, str]:
     """Admin logout endpoint.
 
     Args:
@@ -136,7 +136,7 @@ async def list_users(
     limit: int = 100,
     offset: int = 0,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> List[User]:
     """List all users with pagination (admin only).
 
     Args:
@@ -158,7 +158,7 @@ async def list_users(
 async def create_user(
     user_data: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> User:
     """Create a new user (admin only).
 
     Args:
@@ -185,7 +185,7 @@ async def create_user(
 async def get_user(
     user_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> User:
     """Get user by ID (admin only).
 
     Args:
@@ -212,7 +212,7 @@ async def update_user(
     user_id: UUID,
     user_data: UserUpdate,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> User:
     """Update user (admin only).
 
     Args:
@@ -242,7 +242,7 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> None:
     """Delete user (admin only).
 
     This will cascade delete all API keys.
@@ -272,7 +272,7 @@ async def delete_user(
 async def list_user_api_keys(
     user_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> List[APIKey]:
     """List all API keys for a user (admin only).
 
     Args:
@@ -296,7 +296,7 @@ async def create_api_key(
     user_id: UUID,
     key_data: APIKeyCreate,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> APIKeyResponse:
     """Create a new API key for a user (admin only).
 
     The secret_key in the response is shown ONLY ONCE.
@@ -329,7 +329,7 @@ async def create_api_key(
 async def get_api_key(
     key_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> APIKey:
     """Get API key by ID (admin only).
 
     Args:
@@ -358,7 +358,7 @@ async def get_api_key(
 async def revoke_api_key(
     key_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> None:
     """Revoke (deactivate) an API key (admin only).
 
     Args:
@@ -383,7 +383,7 @@ async def revoke_api_key(
 async def delete_api_key(
     key_id: UUID,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> None:
     """Delete an API key permanently (admin only).
 
     Args:
@@ -409,10 +409,10 @@ async def delete_api_key(
     dependencies=[Depends(require_admin)]
 )
 async def get_user_statistics(
+    request: Request,
     limit: int = 100,
     offset: int = 0,
-    request: Request = None,
-):
+) -> List[UserStatistics]:
     """Get user statistics (admin only).
 
     Args:
@@ -443,11 +443,11 @@ async def get_user_statistics(
     dependencies=[Depends(require_admin)]
 )
 async def get_api_key_statistics(
+    request: Request,
     user_id: Optional[UUID] = None,
     limit: int = 100,
     offset: int = 0,
-    request: Request = None,
-):
+) -> List[APIKeyStatistics]:
     """Get API key statistics (admin only).
 
     Args:
@@ -492,7 +492,7 @@ async def get_api_key_statistics(
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint (public).
 
     Returns:

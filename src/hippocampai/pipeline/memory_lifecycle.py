@@ -20,7 +20,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -303,7 +303,7 @@ class MemoryLifecycleManager:
 
         logger.debug(f"Decompressed memory {memory_data.get('id')}")
 
-        return memory_data
+        return cast(dict[str, Any], memory_data)
 
     def get_tier_metadata(self, tier: MemoryTier) -> dict[str, Any]:
         """

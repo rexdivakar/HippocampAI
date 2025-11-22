@@ -5,6 +5,7 @@ transient failures in external services (Qdrant, LLM providers, etc).
 """
 
 import logging
+from typing import Any, Callable, Literal, Optional, TypeVar
 
 from tenacity import (
     before_sleep_log,
@@ -13,6 +14,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,7 @@ def get_qdrant_retry_decorator(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     min_wait: int = DEFAULT_MIN_WAIT,
     max_wait: int = DEFAULT_MAX_WAIT,
-):
+) -> Callable[[F], F]:
     """Get retry decorator for Qdrant operations.
 
     Retries on common transient failures:
@@ -68,7 +71,7 @@ def get_llm_retry_decorator(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     min_wait: int = DEFAULT_MIN_WAIT,
     max_wait: int = DEFAULT_MAX_WAIT,
-):
+) -> Callable[[F], F]:
     """Get retry decorator for LLM operations.
 
     Retries on common transient failures:
@@ -112,7 +115,7 @@ def retry_on_exception(
     min_wait: int = DEFAULT_MIN_WAIT,
     max_wait: int = DEFAULT_MAX_WAIT,
     log_level: int = logging.WARNING,
-):
+) -> Callable[[F], F]:
     """Generic retry decorator for any operation.
 
     Args:
@@ -159,18 +162,23 @@ class RetryContext:
         self.attempt = 0
         self.succeeded = False
 
-    def __enter__(self):
+    def __enter__(self) -> "RetryContext":
         self.attempt += 1
         logger.debug(f"Starting {self.operation_name} (attempt {self.attempt})")
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         if exc_type is None and self.succeeded:
             logger.debug(f"{self.operation_name} succeeded on attempt {self.attempt}")
         elif exc_type is not None:
             logger.warning(f"{self.operation_name} failed on attempt {self.attempt}: {exc_val}")
         return False  # Don't suppress exceptions
 
-    def success(self):
+    def success(self) -> None:
         """Mark operation as successful."""
         self.succeeded = True

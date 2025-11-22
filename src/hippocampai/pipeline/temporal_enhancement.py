@@ -286,14 +286,14 @@ class EnhancedTemporalAnalyzer:
 
         return predictions
 
-    def register_decay_function(self, func: TimeDecayFunction):
+    def register_decay_function(self, func: TimeDecayFunction) -> None:
         """Register a custom decay function."""
         self.decay_functions[func.name] = func
         logger.info(f"Registered decay function: {func.name}")
 
     # Private helper methods
 
-    def _register_default_decay_functions(self):
+    def _register_default_decay_functions(self) -> None:
         """Register built-in decay functions."""
         # Exponential decay (default)
         self.decay_functions["default_exponential"] = TimeDecayFunction(

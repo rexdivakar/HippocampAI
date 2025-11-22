@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.backends.base import BaseBackend
 from hippocampai.models.memory import Memory, RetrievalResult

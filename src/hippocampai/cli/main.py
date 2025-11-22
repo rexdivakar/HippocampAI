@@ -16,7 +16,7 @@ app = typer.Typer(name="hippocampai", help="HippocampAI memory engine")
 
 
 @app.command()
-def init():
+def init() -> None:
     """Initialize HippocampAI (create collections)."""
     try:
         config = get_config()
@@ -35,7 +35,7 @@ def remember(
     text: Optional[str] = typer.Option(None, "--text", "-t", help="Memory text"),
     type: str = typer.Option("fact", "--type", help="Memory type"),
     session: Optional[str] = typer.Option(None, "--session", "-s", help="Session ID"),
-):
+) -> None:
     """Store a memory."""
     if not text:
         # Read from stdin
@@ -64,7 +64,7 @@ def recall(
     k: int = typer.Option(5, "-k", help="Number of results"),
     session: Optional[str] = typer.Option(None, "--session", "-s", help="Session ID"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-):
+) -> None:
     """Retrieve memories."""
     try:
         client = MemoryClient()
@@ -105,7 +105,7 @@ def recall(
 def run_api(
     host: str = typer.Option("127.0.0.1", "--host", help="Host to bind"),
     port: int = typer.Option(8000, "--port", "-p", help="Port to bind"),
-):
+) -> None:
     """Run FastAPI server."""
     print(f"[green]Starting HippocampAI API server at http://{host}:{port}[/green]")
     run_server(host=host, port=port)

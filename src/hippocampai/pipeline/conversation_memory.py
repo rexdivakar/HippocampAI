@@ -26,7 +26,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -783,7 +783,7 @@ Summary:"""
 
         try:
             response = self.llm.generate(prompt, max_tokens=200)
-            return response.strip()
+            return cast(str, response.strip())
         except Exception as e:
             logger.error(f"LLM summarization failed: {e}")
             return self._generate_simple_summary(context)
@@ -830,7 +830,7 @@ Topic:"""
 
         try:
             response = self.llm.generate(prompt, max_tokens=10)
-            return response.strip().lower()
+            return cast(str, response.strip().lower())
         except Exception as e:
             logger.error(f"LLM topic detection failed: {e}")
             return self._detect_current_topic(turns, use_llm=False)

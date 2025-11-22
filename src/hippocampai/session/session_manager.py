@@ -3,7 +3,7 @@
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder
@@ -105,7 +105,7 @@ Analysis:"""
         # Initialize collection
         self._initialize_collection()
 
-    def _initialize_collection(self):
+    def _initialize_collection(self) -> None:
         """Initialize Qdrant collection for sessions."""
         try:
             self.qdrant.client.get_collection(self.collection_name)
@@ -329,7 +329,7 @@ Analysis:"""
             return []
 
         if session.facts and not force:
-            return session.facts
+            return cast(list[Any], session.facts)
 
         if not self.llm:
             logger.warning("LLM not available for fact extraction")
@@ -361,7 +361,7 @@ Analysis:"""
                 ]
                 self._save_session(session)
                 logger.info(f"Extracted {len(session.facts)} facts from session {session_id}")
-                return session.facts
+                return cast(list[Any], session.facts)
         except Exception as e:
             logger.error(f"Failed to extract facts from session {session_id}: {e}")
 
@@ -382,7 +382,7 @@ Analysis:"""
             return {}
 
         if session.entities and not force:
-            return session.entities
+            return cast(dict[str, Any], session.entities)
 
         if not self.llm:
             # Fallback to simple regex-based extraction
@@ -411,7 +411,7 @@ Analysis:"""
                     )
                 self._save_session(session)
                 logger.info(f"Extracted {len(session.entities)} entities from session {session_id}")
-                return session.entities
+                return cast(dict[str, Any], session.entities)
         except Exception as e:
             logger.error(f"Failed to extract entities from session {session_id}: {e}")
 
@@ -441,9 +441,9 @@ Analysis:"""
                     session.add_entity(match.group(0), "unknown")
 
         self._save_session(session)
-        return session.entities
+        return cast(dict[str, Any], session.entities)
 
-    def _extract_and_update(self, session: Session, text: str):
+    def _extract_and_update(self, session: Session, text: str) -> None:
         """Quick extraction from single message (lighter than full session extraction)."""
         # Simple entity extraction
         tech_pattern = r"\b(Python|JavaScript|TypeScript|Java|Go|Rust|TensorFlow|PyTorch|React|Vue|Angular|Docker|Kubernetes|AWS|Azure|GCP)\b"
@@ -669,7 +669,7 @@ Analysis:"""
         logger.info(f"Completed session {session_id}")
         return session
 
-    def _save_session(self, session: Session):
+    def _save_session(self, session: Session) -> None:
         """Save session to Qdrant."""
         # Create embedding from session content
         text_for_embedding = f"{session.title} {session.summary or ''} {' '.join(session.tags)}"

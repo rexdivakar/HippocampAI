@@ -69,7 +69,7 @@ class Memory(BaseModel):
         """Estimate token count (rough approximation: 4 chars ≈ 1 token)."""
         return len(text) // 4
 
-    def calculate_size_metrics(self):
+    def calculate_size_metrics(self) -> None:
         """Calculate and update size metrics."""
         self.text_length = len(self.text)
         self.token_count = self.estimate_tokens(self.text)

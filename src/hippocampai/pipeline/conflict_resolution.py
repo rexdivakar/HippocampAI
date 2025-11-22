@@ -126,7 +126,7 @@ class MemoryConflictResolver:
         Returns:
             List of detected conflicts
         """
-        conflicts = []
+        conflicts: list[MemoryConflict] = []
 
         # Skip if no existing memories
         if not existing_memories:
@@ -335,10 +335,8 @@ Respond with JSON:
             return self._flag_for_review(conflict)
         elif strategy == ConflictResolutionStrategy.AUTO_MERGE:
             return self._auto_merge(conflict)
-        elif strategy == ConflictResolutionStrategy.KEEP_BOTH:
+        else:  # KEEP_BOTH
             return self._keep_both(conflict)
-        else:
-            return self._flag_for_review(conflict)
 
     def _resolve_temporal(self, conflict: MemoryConflict) -> ConflictResolution:
         """Resolve conflict by keeping the most recent memory."""

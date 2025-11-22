@@ -20,7 +20,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
@@ -213,8 +213,16 @@ class MemoryQualityMonitor:
         importance_score = (importance / 10.0) * 100
 
         # Create health score
+        overall_score = (
+            0.25 * completeness_score
+            + 0.20 * clarity_score
+            + 0.20 * freshness_score
+            + 0.20 * confidence_score
+            + 0.15 * importance_score
+        )
         health = MemoryHealthScore(
             memory_id=memory_id,
+            overall_score=overall_score,
             completeness_score=completeness_score,
             clarity_score=clarity_score,
             freshness_score=freshness_score,
@@ -330,7 +338,7 @@ class MemoryQualityMonitor:
         half_life = 30.0
         freshness = 100.0 * (0.5 ** (days_since_update / half_life))
 
-        return max(0.0, min(freshness, 100.0))
+        return cast(float, max(0.0, min(freshness, 100.0)))
 
     def detect_duplicate_clusters(
         self,
@@ -459,7 +467,7 @@ class MemoryQualityMonitor:
             )
 
             # Average recency
-            total_days = 0
+            total_days = 0.0
             for m in topic_mems:
                 updated_at = m.get("updated_at")
                 if isinstance(updated_at, datetime):
@@ -472,12 +480,12 @@ class MemoryQualityMonitor:
             # Extract keywords (top words from text)
             all_text = " ".join(m.get("text", "") for m in topic_mems)
             words = all_text.lower().split()
-            word_freq = defaultdict(int)
+            word_freq: dict[str, int] = defaultdict(int)
             for word in words:
                 if len(word) > 3:  # Filter short words
                     word_freq[word] += 1
-            keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
-            keywords = [word for word, _ in keywords]
+            top_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+            keywords = [word for word, _ in top_keywords]
 
             # Coverage score (based on count, quality, recency)
             count_score = min(memory_count / 10.0 * 50, 50)  # Max 50 points

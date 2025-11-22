@@ -198,7 +198,7 @@ class MemoryTracker:
 
     def _update_access_pattern(
         self, memory_id: str, user_id: str, event_type: MemoryEventType
-    ):
+    ) -> None:
         """Update access pattern for a memory."""
         key = f"{user_id}:{memory_id}"
         now = datetime.now(timezone.utc)
@@ -225,7 +225,7 @@ class MemoryTracker:
             if days_elapsed > 0:
                 pattern.access_frequency = pattern.access_count / days_elapsed
 
-    def _store_event(self, event: MemoryEvent):
+    def _store_event(self, event: MemoryEvent) -> None:
         """Store event to backend (placeholder for future implementation)."""
         # TODO: Implement Redis/file storage
         pass
@@ -293,7 +293,7 @@ class MemoryTracker:
         access_frequency: float,
         duplicate_likelihood: float,
         issues: Optional[list[str]] = None,
-    ):
+    ) -> None:
         """Record a health snapshot for a memory."""
         snapshot = MemoryHealthSnapshot(
             memory_id=memory_id,
@@ -379,7 +379,7 @@ class MemoryTracker:
             ],
         }
 
-    def clear_old_events(self, days: int = 30):
+    def clear_old_events(self, days: int = 30) -> None:
         """
         Clear events older than specified days.
 
@@ -409,7 +409,7 @@ def get_tracker() -> MemoryTracker:
     return _global_tracker
 
 
-def initialize_tracker(storage_backend: Optional[str] = None):
+def initialize_tracker(storage_backend: Optional[str] = None) -> MemoryTracker:
     """Initialize the global memory tracker."""
     global _global_tracker
     _global_tracker = MemoryTracker(storage_backend=storage_backend)

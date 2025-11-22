@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 
@@ -38,6 +38,7 @@ from hippocampai.pipeline.memory_merge import (
 )
 from hippocampai.pipeline.memory_quality import (
     DuplicateCluster,
+    HealthStatus,
     MemoryHealthScore,
     MemoryQualityMonitor,
     MemoryStoreHealth,
@@ -239,7 +240,7 @@ class MemoryManagementService:
         memory.calculate_size_metrics()
 
         action = None
-        duplicate_ids = []
+        duplicate_ids: list[str] = []
         # Check duplicates unless explicitly skipped
         if check_duplicate and not (metadata or {}).get("skip_duplicate_check", False):
             action, duplicate_ids = self.deduplicator.check_duplicate(memory, user_id)
@@ -279,9 +280,7 @@ class MemoryManagementService:
                         f"Failed to update memory {existing_id} - memory not found"
                     )
                 return updated_memory
-            elif action != "store":
-                logger.error(f"Unexpected deduplication action: {action}")
-                action = "store"  # Default to storing if unknown action
+            # If action is "store", continue with normal memory creation
 
         # Check for conflicts
         if check_conflicts and self.enable_conflict_resolution:
@@ -690,7 +689,7 @@ class MemoryManagementService:
             filtered_vectors: list[np.ndarray] = []
             for memory, vector in zip(memory_objects, vectors):
                 action, _ = self.deduplicator.check_duplicate(memory, memory.user_id)
-                if action == "add":
+                if action == "store":
                     filtered_memories.append(memory)
                     filtered_vectors.append(vector)
                 else:
@@ -865,7 +864,7 @@ class MemoryManagementService:
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
 
-            return results
+            return cast(list[Any], results)
         finally:
             # Restore original weights
             if custom_weights:
@@ -1348,7 +1347,7 @@ JSON:"""
             importance=memory.importance,
         )
 
-        return temperature.model_dump()
+        return cast(Optional[dict[str, Any]], temperature.model_dump())
 
     async def migrate_memory_tier(self, memory_id: str, target_tier: MemoryTier) -> bool:
         """
@@ -1418,7 +1417,7 @@ JSON:"""
         memories = await self.get_memories(user_id=user_id, limit=10000)
 
         tier_counts = {tier.value: 0 for tier in MemoryTier}
-        tier_temperatures = {tier.value: [] for tier in MemoryTier}
+        tier_temperatures: dict[str, list[float]] = {tier.value: [] for tier in MemoryTier}
         total_size = 0
         total_accesses = 0
 
@@ -1472,9 +1471,9 @@ JSON:"""
             memory_data = await self.redis.get_memory(memory_id)
             if not memory_data:
                 # Try vector store
-                results = await self.qdrant.get(self.qdrant.collection_facts, memory_id)
+                results = self.qdrant.get(self.qdrant.collection_facts, memory_id)
                 if not results:
-                    results = await self.qdrant.get(self.qdrant.collection_prefs, memory_id)
+                    results = self.qdrant.get(self.qdrant.collection_prefs, memory_id)
                 if not results:
                     return None
                 memory_data = results
@@ -1539,9 +1538,9 @@ JSON:"""
                     else:
                         # Fallback: use text similarity via reranker
                         sim_result = self.deduplicator.reranker.rerank(
-                            query=mem1.text, documents=[mem2.text]
+                            query=mem1.text, candidates=[(mem2.id, mem2.text, 1.0)]
                         )
-                        similarity = sim_result[0].score if sim_result else 0.0
+                        similarity = sim_result[0][3] if sim_result else 0.0
 
                     if similarity >= (
                         similarity_threshold or self.quality_monitor.near_duplicate_threshold
@@ -1558,7 +1557,7 @@ JSON:"""
 
             logger.info(f"Found {len(clusters)} duplicate clusters for user {user_id}")
 
-            return clusters
+            return cast(list[Any], clusters)
 
         except Exception as e:
             logger.error(f"Failed to detect duplicates for user {user_id}: {e}")
@@ -1603,7 +1602,7 @@ JSON:"""
 
             logger.info(f"Analyzed coverage for {len(coverage)} topics for user {user_id}")
 
-            return coverage
+            return cast(list[Any], coverage)
 
         except Exception as e:
             logger.error(f"Failed to analyze topic coverage for user {user_id}: {e}")
@@ -1627,7 +1626,7 @@ JSON:"""
                 return MemoryStoreHealth(
                     user_id=user_id,
                     overall_health_score=0.0,
-                    health_status="critical",
+                    health_status=HealthStatus.CRITICAL,
                     recommendations=["No memories found in store."],
                 )
 
@@ -1854,7 +1853,7 @@ JSON:"""
                 tags.extend(["decision", f"conversation:{conversation_id}"])
 
                 memory = await self.create_memory(
-                    text=f"Decision: {decision.decision}. Rationale: {decision.rationale}",
+                    text=f"Decision: {decision.text}. Rationale: {decision.rationale}",
                     user_id=user_id,
                     session_id=session_id,
                     memory_type="fact",
@@ -1863,8 +1862,8 @@ JSON:"""
                     metadata={
                         "source": "conversation_decision",
                         "conversation_id": conversation_id,
-                        "decision_maker": decision.decision_maker,
-                        "topic": decision.topic,
+                        "decision_maker": decision.made_by,
+                        "topic": decision.related_topic,
                     },
                 )
                 created_memories.append(memory)
@@ -1875,7 +1874,7 @@ JSON:"""
                 tags.extend(["action_item", f"conversation:{conversation_id}"])
 
                 memory = await self.create_memory(
-                    text=f"Action: {action.action} (Priority: {action.priority})",
+                    text=f"Action: {action.text} (Priority: {action.priority})",
                     user_id=user_id,
                     session_id=session_id,
                     memory_type="task",
@@ -1940,34 +1939,39 @@ JSON:"""
                 )
 
             # Calculate similarity matrix
-            similarity_matrix = {}
+            similarity_matrix: dict[tuple[str, str], float] = {}
             for i, mem1 in enumerate(memory_dicts):
                 for j, mem2 in enumerate(memory_dicts):
                     if i < j:
                         # Get embeddings and calculate similarity
-                        result1 = await self.retriever.search(
-                            query=mem1["text"],
+                        mem1_text = str(mem1["text"])
+                        mem2_text = str(mem2["text"])
+                        mem1_id = str(mem1["id"])
+                        mem2_id = str(mem2["id"])
+
+                        result1 = self.retriever.retrieve(
+                            query=mem1_text,
                             user_id=user_id,
                             k=1,
-                            filters={"id": mem1["id"]},
+                            filters={"id": mem1_id},
                         )
-                        result2 = await self.retriever.search(
-                            query=mem2["text"],
+                        result2 = self.retriever.retrieve(
+                            query=mem2_text,
                             user_id=user_id,
                             k=1,
-                            filters={"id": mem2["id"]},
+                            filters={"id": mem2_id},
                         )
 
                         if result1 and result2:
                             # Simple cosine similarity between embeddings
-                            emb1 = result1[0].metadata.get("embedding", [])
-                            emb2 = result2[0].metadata.get("embedding", [])
+                            emb1 = result1[0].memory.metadata.get("embedding", [])
+                            emb2 = result2[0].memory.metadata.get("embedding", [])
                             if emb1 and emb2:
                                 similarity = float(
                                     np.dot(emb1, emb2)
                                     / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
                                 )
-                                similarity_matrix[(mem1["id"], mem2["id"])] = similarity
+                                similarity_matrix[(mem1_id, mem2_id)] = similarity
 
             # Get merge suggestions
             candidates = self.merge_engine.suggest_merges(
@@ -1976,7 +1980,7 @@ JSON:"""
 
             logger.info(f"Found {len(candidates)} merge candidates for user {user_id}")
 
-            return candidates
+            return cast(list[Any], candidates)
 
         except Exception as e:
             logger.error(f"Failed to suggest merges for user {user_id}: {e}")
@@ -2117,7 +2121,7 @@ JSON:"""
 
             logger.info(f"Generated merge preview for {len(memory_ids)} memories")
 
-            return preview
+            return cast(Optional[dict[str, Any]], preview)
 
         except Exception as e:
             logger.error(f"Failed to preview merge: {e}")

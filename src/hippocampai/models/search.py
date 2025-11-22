@@ -33,7 +33,7 @@ class SavedSearch(BaseModel):
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def increment_usage(self):
+    def increment_usage(self) -> None:
         """Increment usage count and update last used timestamp."""
         self.use_count += 1
         self.last_used_at = datetime.now(timezone.utc)

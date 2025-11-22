@@ -60,7 +60,7 @@ class SummarizedMemory(BaseModel):
     importance_score: float = 5.0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def calculate_compression_ratio(self):
+    def calculate_compression_ratio(self) -> None:
         """Calculate actual compression ratio."""
         if self.original_token_count > 0:
             self.compression_ratio = self.compressed_token_count / self.original_token_count
@@ -94,7 +94,7 @@ class AutoSummarizer:
         hot_access_count: int = 10,
         max_tokens_per_summary: int = 150,
         hierarchical_batch_size: int = 5,
-    ):
+    ) -> None:
         """Initialize auto-summarizer.
 
         Args:
@@ -657,8 +657,8 @@ Combined summary (max {self.max_tokens_per_summary} tokens):"""
             return {"total_memories": 0, "opportunities": []}
 
         # Group by tier
-        tier_counts = defaultdict(int)
-        tier_tokens = defaultdict(int)
+        tier_counts: defaultdict[str, int] = defaultdict(int)
+        tier_tokens: defaultdict[str, int] = defaultdict(int)
         tier_memories = defaultdict(list)
 
         for memory in memories:
