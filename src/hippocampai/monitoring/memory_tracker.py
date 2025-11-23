@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,6 @@ class MemoryEvent(BaseModel):
     duration_ms: Optional[float] = Field(None, description="Operation duration in milliseconds")
     success: bool = Field(default=True, description="Whether operation succeeded")
     error_message: Optional[str] = Field(None, description="Error message if failed")
-
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class MemoryAccessPattern(BaseModel):
