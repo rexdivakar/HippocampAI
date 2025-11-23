@@ -23,8 +23,7 @@ Example (HippocampAI native):
     >>> results = m.recall("programming", user_id="alice")
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from hippocampai.client import MemoryClient as _MemoryClient
 from hippocampai.models.memory import Memory as _Memory
