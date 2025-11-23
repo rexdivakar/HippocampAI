@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+
 # Colors for output
 class Colors:
     GREEN = "\033[92m"
@@ -98,10 +99,7 @@ QUICK_TESTS = [
 
 
 def run_pytest(
-    test_files: List[str],
-    verbose: bool = True,
-    capture: str = "no",
-    markers: str = None
+    test_files: List[str], verbose: bool = True, capture: str = "no", markers: str = None
 ) -> int:
     """Run pytest with specified test files."""
     cmd = ["python", "-m", "pytest"]
@@ -197,7 +195,9 @@ def run_all_tests(verbose: bool = True) -> int:
         else:
             print_error(f"{category}: FAILED")
 
-    print(f"\n{Colors.BOLD}Total: {total} categories, {passed} passed, {failed} failed{Colors.END}\n")
+    print(
+        f"\n{Colors.BOLD}Total: {total} categories, {passed} passed, {failed} failed{Colors.END}\n"
+    )
 
     if failed == 0:
         print_success("All tests passed! 🎉")
@@ -226,6 +226,7 @@ def check_services() -> None:
     # Check Qdrant
     try:
         import httpx
+
         response = httpx.get("http://localhost:6333/health", timeout=2.0)
         if response.status_code == 200:
             print_success("Qdrant is running on localhost:6333")
@@ -238,7 +239,8 @@ def check_services() -> None:
     # Check Redis
     try:
         import redis
-        r = redis.Redis(host='localhost', port=6379, socket_connect_timeout=2)
+
+        r = redis.Redis(host="localhost", port=6379, socket_connect_timeout=2)
         r.ping()
         print_success("Redis is running on localhost:6379")
     except Exception as e:
@@ -263,60 +265,35 @@ Examples:
   %(prog)s --integration        # Show integration test info
   %(prog)s --list               # List all test categories
   %(prog)s --check-services     # Check service availability
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Run quick smoke tests only"
-    )
+    parser.add_argument("--quick", action="store_true", help="Run quick smoke tests only")
 
     parser.add_argument(
         "--category",
         type=str,
         choices=list(TEST_CATEGORIES.keys()),
-        help="Run specific test category"
+        help="Run specific test category",
+    )
+
+    parser.add_argument("--all", action="store_true", help="Run all unit tests")
+
+    parser.add_argument(
+        "--integration", action="store_true", help="Show integration test information"
+    )
+
+    parser.add_argument("--list", action="store_true", help="List all test categories")
+
+    parser.add_argument(
+        "--check-services", action="store_true", help="Check if required services are running"
     )
 
     parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Run all unit tests"
+        "--verbose", "-v", action="store_true", default=True, help="Verbose output (default)"
     )
 
-    parser.add_argument(
-        "--integration",
-        action="store_true",
-        help="Show integration test information"
-    )
-
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List all test categories"
-    )
-
-    parser.add_argument(
-        "--check-services",
-        action="store_true",
-        help="Check if required services are running"
-    )
-
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        default=True,
-        help="Verbose output (default)"
-    )
-
-    parser.add_argument(
-        "--quiet",
-        "-q",
-        action="store_true",
-        help="Quiet output"
-    )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Quiet output")
 
     args = parser.parse_args()
 

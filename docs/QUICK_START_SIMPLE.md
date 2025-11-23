@@ -1,6 +1,6 @@
-# HippocampAI Quick Start - Simple API (mem0/zep Compatible)
+# HippocampAI Quick Start - Simple API
 
-Get started with HippocampAI in 30 seconds! This guide shows the simplest possible API, compatible with mem0 and zep patterns.
+Get started with HippocampAI in 30 seconds! This guide shows the simplest possible API for memory management.
 
 ## Installation
 
@@ -10,7 +10,7 @@ pip install hippocampai
 
 ## 🚀 30-Second Quickstart
 
-### Option 1: mem0-style API
+### Option 1: Simple Memory API
 
 ```python
 from hippocampai import SimpleMemory as Memory
@@ -31,7 +31,7 @@ for result in results:
     print(f"Score {result.score:.2f}: {result.memory.text}")
 ```
 
-### Option 2: zep-style Session API
+### Option 2: Session-Based API
 
 ```python
 from hippocampai import SimpleSession as Session
@@ -52,7 +52,7 @@ summary = session.get_summary()
 print(summary)
 ```
 
-### Option 3: HippocampAI Native API (Cognitive Metaphors)
+### Option 3: Native API (Cognitive Metaphors)
 
 ```python
 from hippocampai import MemoryClient
@@ -73,8 +73,8 @@ habits = client.detect_habits(user_id="alice")
 
 ## 📚 Complete API Comparison
 
-| Operation | Simple API (mem0-style) | Native API (HippocampAI) | Session API (zep-style) |
-|-----------|------------------------|---------------------------|-------------------------|
+| Operation | Simple API | Native API | Session API |
+|-----------|------------|------------|-------------|
 | **Store** | `m.add(text, user_id)` | `client.remember(text, user_id)` | `session.add_message(role, content)` |
 | **Retrieve** | `m.search(query, user_id)` | `client.recall(query, user_id)` | `session.search(query)` |
 | **Get by ID** | `m.get(memory_id)` | `client.get_memory(memory_id)` | - |
@@ -86,19 +86,19 @@ habits = client.detect_habits(user_id="alice")
 
 ## 🎯 Choose Your API Style
 
-### Use Simple API (mem0-style) when:
+### Use Simple API when:
 - ✅ You want the simplest possible interface
-- ✅ You're migrating from mem0
 - ✅ You don't need advanced features
 - ✅ You prefer generic method names (add/search)
+- ✅ You're building a basic memory system
 
-### Use Session API (zep-style) when:
+### Use Session API when:
 - ✅ You're building a chatbot/conversation app
 - ✅ You want automatic session management
-- ✅ You're migrating from zep
 - ✅ You need conversation summaries
+- ✅ You work with message-based interactions
 
-### Use Native API (HippocampAI) when:
+### Use Native API when:
 - ✅ You want cognitive metaphors (remember/recall)
 - ✅ You need advanced features (patterns, habits, analytics)
 - ✅ You want fine-grained control
@@ -131,7 +131,7 @@ client.remember("text", user_id="alice")
 
 ## 💡 Examples
 
-### Example 1: Simple Memory Store (mem0-compatible)
+### Example 1: Simple Memory Store
 
 ```python
 from hippocampai import SimpleMemory as Memory
@@ -160,7 +160,7 @@ m.update(memory_id, text="I strongly prefer dark mode")
 m.delete(memory_id)
 ```
 
-### Example 2: Conversation Management (zep-compatible)
+### Example 2: Conversation Management
 
 ```python
 from hippocampai import SimpleSession as Session
@@ -187,7 +187,7 @@ count = session.clear()
 print(f"Cleared {count} messages")
 ```
 
-### Example 3: Cognitive Memory System (HippocampAI native)
+### Example 3: Cognitive Memory System
 
 ```python
 from hippocampai import MemoryClient
@@ -320,41 +320,6 @@ results = client.recall(
 
 ---
 
-## 🔄 Migration Guide
-
-### From mem0
-
-```python
-# Before (mem0)
-from mem0 import Memory
-m = Memory()
-m.add("text", user_id="alice")
-results = m.search("query", user_id="alice")
-
-# After (HippocampAI) - Exact same API!
-from hippocampai import SimpleMemory as Memory
-m = Memory()
-m.add("text", user_id="alice")
-results = m.search("query", user_id="alice")
-```
-
-### From zep
-
-```python
-# Before (zep)
-from zep_cloud.client import Zep
-client = Zep(api_key="...")
-messages = [Message(role="user", content="text")]
-client.memory.add(session_id="alice", messages=messages)
-
-# After (HippocampAI)
-from hippocampai import SimpleSession as Session
-session = Session(session_id="alice")
-session.add_message("user", "text")
-```
-
----
-
 ## 🆘 Troubleshooting
 
 ### "Failed to connect to Qdrant"
@@ -390,7 +355,7 @@ curl http://localhost:8000/health
 
 1. **Try the examples above** - Copy-paste and run!
 2. **Read the full docs** - `docs/API_REFERENCE.md`
-3. **Explore advanced features** - `docs/ADVANCED_FEATURES.md`
+3. **Explore advanced features** - `docs/FEATURES.md`
 4. **Join the community** - GitHub Discussions
 
 ---

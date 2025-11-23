@@ -10,6 +10,7 @@ To run via pytest, ensure Redis, Qdrant, and optionally Groq/OpenAI/Ollama are a
 """
 
 # ruff: noqa: S101  # Use of assert detected - expected in test files
+# ruff: noqa: E402  # Module level import not at top of file - required for sys.path setup
 
 import asyncio
 import os
@@ -21,12 +22,6 @@ import pytest
 
 # Must add src to path before importing hippocampai modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
-# Skip all tests in this module when run via pytest
-# These tests are designed to be run as a standalone script
-pytestmark = pytest.mark.skip(
-    reason="Standalone integration test. Run with: python tests/test_all_features_integration.py"
-)
 
 from dotenv import load_dotenv
 from qdrant_client import models
@@ -44,6 +39,12 @@ from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
 load_dotenv()
+
+# Skip all tests in this module when run via pytest
+# These tests are designed to be run as a standalone script
+pytestmark = pytest.mark.skip(
+    reason="Standalone integration test. Run with: python tests/test_all_features_integration.py"
+)
 
 
 # Colors for output

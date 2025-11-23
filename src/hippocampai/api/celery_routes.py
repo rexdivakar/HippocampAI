@@ -115,7 +115,9 @@ async def submit_create_memory_task(request: MemoryCreateRequest) -> TaskSubmitR
 
 
 @router.post("/memory/batch-create", response_model=TaskSubmitResponse)
-async def submit_batch_create_memories_task(request: BatchMemoryCreateRequest) -> TaskSubmitResponse:
+async def submit_batch_create_memories_task(
+    request: BatchMemoryCreateRequest,
+) -> TaskSubmitResponse:
     """
     Submit a batch memory creation task to Celery queue.
 

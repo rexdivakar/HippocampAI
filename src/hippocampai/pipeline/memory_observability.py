@@ -214,15 +214,17 @@ class MemoryObservabilityMonitor:
 
         for i, result in enumerate(top_results, start=1):
             scores.append(result.score)
-            viz_results.append({
-                "rank": i,
-                "memory_id": result.memory.id,
-                "score": result.score,
-                "text_preview": result.memory.text[:100],
-                "type": result.memory.type.value,
-                "importance": result.memory.importance,
-                "breakdown": result.breakdown,
-            })
+            viz_results.append(
+                {
+                    "rank": i,
+                    "memory_id": result.memory.id,
+                    "score": result.score,
+                    "text_preview": result.memory.text[:100],
+                    "type": result.memory.type.value,
+                    "importance": result.memory.importance,
+                    "breakdown": result.breakdown,
+                }
+            )
 
         # Score distribution (buckets)
         distribution: dict[str, int] = {
@@ -299,23 +301,19 @@ class MemoryObservabilityMonitor:
                 access_by_day[day_name] += 1
 
         # Identify hot and cold memories
-        sorted_memories = sorted(
-            memory_access_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        sorted_memories = sorted(memory_access_counts.items(), key=lambda x: x[1], reverse=True)
 
         hot_memories = sorted_memories[:10]  # Top 10
-        cold_memories = [
-            mem_id for mem_id, count in sorted_memories
-            if count == 0
-        ][:20]  # Up to 20 never-accessed
+        cold_memories = [mem_id for mem_id, count in sorted_memories if count == 0][
+            :20
+        ]  # Up to 20 never-accessed
 
         # Find peak hours
         if access_by_hour:
             max_accesses = max(access_by_hour.values())
             peak_hours = [
-                hour for hour, count in access_by_hour.items()
+                hour
+                for hour, count in access_by_hour.items()
                 if count >= max_accesses * 0.8  # Within 80% of peak
             ]
         else:
@@ -355,13 +353,15 @@ class MemoryObservabilityMonitor:
         bottlenecks = []
         for stage, timing in stage_timings.items():
             if timing > total_time * 0.3:
-                bottlenecks.append(f"{stage} ({timing:.2f}ms, {timing/total_time*100:.1f}%)")
+                bottlenecks.append(f"{stage} ({timing:.2f}ms, {timing / total_time * 100:.1f}%)")
 
         # Generate recommendations
         recommendations = []
 
         if stage_timings.get("vector_search", 0) > 500:
-            recommendations.append("Consider increasing HNSW ef_search parameter for faster vector search")
+            recommendations.append(
+                "Consider increasing HNSW ef_search parameter for faster vector search"
+            )
 
         if stage_timings.get("reranking", 0) > 300:
             recommendations.append("Reranking is slow - consider reducing candidate pool size")
@@ -418,7 +418,7 @@ class MemoryObservabilityMonitor:
         slow_score = (1 - slow_ratio) * 100
 
         # Combined score
-        performance_score = (time_score * 0.6 + slow_score * 0.4)
+        performance_score = time_score * 0.6 + slow_score * 0.4
 
         # Average results returned
         avg_results = 0.0
@@ -450,8 +450,7 @@ class MemoryObservabilityMonitor:
         threshold = threshold_ms or self.slow_query_threshold
 
         slow_queries = [
-            profile for profile in self.query_history
-            if profile.total_time_ms > threshold
+            profile for profile in self.query_history if profile.total_time_ms > threshold
         ]
 
         # Sort by time (slowest first)
@@ -475,8 +474,7 @@ class MemoryObservabilityMonitor:
                 stage_stats[stage].append(timing)
 
         stage_averages = {
-            stage: sum(timings) / len(timings)
-            for stage, timings in stage_stats.items()
+            stage: sum(timings) / len(timings) for stage, timings in stage_stats.items()
         }
 
         # Bottleneck analysis
@@ -531,17 +529,23 @@ class MemoryObservabilityMonitor:
         recommendations = []
 
         if snapshot.avg_query_time_ms > 500:
-            recommendations.append("Average query time is high - consider optimizing vector search parameters")
+            recommendations.append(
+                "Average query time is high - consider optimizing vector search parameters"
+            )
 
         if snapshot.slow_queries > snapshot.total_queries * 0.1:
             recommendations.append("More than 10% of queries are slow - investigate bottlenecks")
 
         # Stage-specific recommendations
         if stage_averages.get("vector_search", 0) > 300:
-            recommendations.append("Vector search is slow - increase ef_search or reduce vector dimensions")
+            recommendations.append(
+                "Vector search is slow - increase ef_search or reduce vector dimensions"
+            )
 
         if stage_averages.get("reranking", 0) > 200:
-            recommendations.append("Reranking is a bottleneck - reduce candidate pool or use faster reranker")
+            recommendations.append(
+                "Reranking is a bottleneck - reduce candidate pool or use faster reranker"
+            )
 
         # Bottleneck recommendations
         if bottlenecks:
@@ -592,10 +596,12 @@ def create_timing_context() -> dict[str, PerformanceTimer]:
 
 def profile_operation(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to profile function execution time."""
+
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         timer = PerformanceTimer(func.__name__)
         with timer:
             result = func(*args, **kwargs)
         logger.debug(f"{func.__name__} took {timer.elapsed_ms:.2f}ms")
         return result
+
     return wrapper

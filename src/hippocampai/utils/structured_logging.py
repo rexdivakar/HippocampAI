@@ -21,7 +21,16 @@ request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id
 class StructuredLogger(logging.Logger):
     """Logger that automatically includes structured context."""
 
-    def _log(self, level: int, msg: Any, args: Any, exc_info: Any = None, extra: Optional[Mapping[str, object]] = None, stack_info: bool = False, stacklevel: int = 1) -> None:
+    def _log(
+        self,
+        level: int,
+        msg: Any,
+        args: Any,
+        exc_info: Any = None,
+        extra: Optional[Mapping[str, object]] = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+    ) -> None:
         """Override _log to inject request_id into all log records."""
         # Create mutable dict for extra fields
         extra_dict: dict = dict(extra) if extra else {}
@@ -40,7 +49,9 @@ class StructuredLogger(logging.Logger):
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter with additional fields."""
 
-    def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]) -> None:
+    def add_fields(
+        self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
+    ) -> None:
         """Add custom fields to log record."""
         super().add_fields(log_record, record, message_dict)
 

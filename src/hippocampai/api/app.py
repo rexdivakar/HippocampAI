@@ -124,7 +124,9 @@ def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory
 
 
 @app.post("/v1/memories:recall", response_model=list[RetrievalResult])
-def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_client)) -> list[RetrievalResult]:
+def recall(
+    request: RecallRequest, client: MemoryClient = Depends(get_memory_client)
+) -> list[RetrievalResult]:
     """Retrieve memories."""
     try:
         results = client.recall(
@@ -141,7 +143,9 @@ def recall(request: RecallRequest, client: MemoryClient = Depends(get_memory_cli
 
 
 @app.post("/v1/memories:extract", response_model=list[Memory])
-def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)) -> list[Memory]:
+def extract(
+    request: ExtractRequest, client: MemoryClient = Depends(get_memory_client)
+) -> list[Memory]:
     """Extract memories from conversation."""
     try:
         memories = client.extract_from_conversation(
@@ -156,7 +160,9 @@ def extract(request: ExtractRequest, client: MemoryClient = Depends(get_memory_c
 
 
 @app.patch("/v1/memories:update", response_model=Memory)
-def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(get_memory_client)) -> Memory:
+def update_memory(
+    request: UpdateMemoryRequest, client: MemoryClient = Depends(get_memory_client)
+) -> Memory:
     """Update an existing memory."""
     try:
         memory = client.update_memory(
@@ -178,7 +184,9 @@ def update_memory(request: UpdateMemoryRequest, client: MemoryClient = Depends(g
 
 
 @app.delete("/v1/memories:delete")
-def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(get_memory_client)) -> dict[str, Any]:
+def delete_memory(
+    request: DeleteMemoryRequest, client: MemoryClient = Depends(get_memory_client)
+) -> dict[str, Any]:
     """Delete a memory."""
     try:
         deleted = client.delete_memory(
@@ -196,7 +204,9 @@ def delete_memory(request: DeleteMemoryRequest, client: MemoryClient = Depends(g
 
 
 @app.post("/v1/memories:get", response_model=list[Memory])
-def get_memories(request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)) -> list[Memory]:
+def get_memories(
+    request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)
+) -> list[Memory]:
     """Get memories with advanced filtering."""
     try:
         memories = client.get_memories(

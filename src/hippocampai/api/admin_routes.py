@@ -66,6 +66,7 @@ async def admin_login(
 
     # Create session
     import secrets
+
     session_token = secrets.token_urlsafe(32)
 
     # Get client info
@@ -152,8 +153,10 @@ async def list_users(
 
 
 @router.post(
-    "/users", response_model=User, status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)]
+    "/users",
+    response_model=User,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 async def create_user(
     user_data: UserCreate,
@@ -236,8 +239,9 @@ async def update_user(
 
 
 @router.delete(
-    "/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)]
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
 )
 async def delete_user(
     user_id: UUID,
@@ -266,8 +270,7 @@ async def delete_user(
 
 
 @router.get(
-    "/users/{user_id}/api-keys", response_model=List[APIKey],
-    dependencies=[Depends(require_admin)]
+    "/users/{user_id}/api-keys", response_model=List[APIKey], dependencies=[Depends(require_admin)]
 )
 async def list_user_api_keys(
     user_id: UUID,
@@ -352,8 +355,9 @@ async def get_api_key(
 
 
 @router.post(
-    "/api-keys/{key_id}/revoke", status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)]
+    "/api-keys/{key_id}/revoke",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
 )
 async def revoke_api_key(
     key_id: UUID,
@@ -377,8 +381,9 @@ async def revoke_api_key(
 
 
 @router.delete(
-    "/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)]
+    "/api-keys/{key_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
 )
 async def delete_api_key(
     key_id: UUID,
@@ -405,8 +410,7 @@ async def delete_api_key(
 
 
 @router.get(
-    "/statistics/users", response_model=List[UserStatistics],
-    dependencies=[Depends(require_admin)]
+    "/statistics/users", response_model=List[UserStatistics], dependencies=[Depends(require_admin)]
 )
 async def get_user_statistics(
     request: Request,
@@ -439,8 +443,9 @@ async def get_user_statistics(
 
 
 @router.get(
-    "/statistics/api-keys", response_model=List[APIKeyStatistics],
-    dependencies=[Depends(require_admin)]
+    "/statistics/api-keys",
+    response_model=List[APIKeyStatistics],
+    dependencies=[Depends(require_admin)],
 )
 async def get_api_key_statistics(
     request: Request,

@@ -15,7 +15,7 @@ from tenacity import (
     wait_exponential,
 )
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 

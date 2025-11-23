@@ -382,12 +382,16 @@ def demo_access_patterns(client: MemoryClient, user_id: str):
             print(f"  {hour:02d}:00 - {bar} ({count})")
 
         if heatmap["peak_hours"]:
-            print(f"\n  Peak hours: {', '.join(map(lambda h: f'{h:02d}:00', heatmap['peak_hours']))}")
+            print(
+                f"\n  Peak hours: {', '.join(map(lambda h: f'{h:02d}:00', heatmap['peak_hours']))}"
+            )
 
     # By day
     if heatmap["access_by_day"]:
         print("\n📅 Access by Day:")
-        for day, count in sorted(heatmap["access_by_day"].items(), key=lambda x: x[1], reverse=True):
+        for day, count in sorted(
+            heatmap["access_by_day"].items(), key=lambda x: x[1], reverse=True
+        ):
             bar = "█" * min(count // 2, 20)
             print(f"  {day:9s}: {bar} ({count})")
 

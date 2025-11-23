@@ -231,7 +231,9 @@ class QdrantStore:
         )
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
-    def upsert(self, collection_name: str, id: str, vector: np.ndarray, payload: dict[str, Any]) -> None:
+    def upsert(
+        self, collection_name: str, id: str, vector: np.ndarray, payload: dict[str, Any]
+    ) -> None:
         """Insert or update a point (with automatic retry on transient failures)."""
         # Ensure collection exists before upserting (idempotent)
         self._ensure_collections(collection_name)

@@ -12,19 +12,13 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 1. **[Quick Start - Simple API](QUICK_START_SIMPLE.md)** ⭐ **(30 seconds!)**
    - Fastest way to get started
-   - mem0 and zep compatible APIs
+   - Multiple API styles available
    - Zero configuration required
 
 2. **[Unified Guide](UNIFIED_GUIDE.md)** - Complete overview
    - All API styles explained
    - Testing guide
    - Deployment options
-   - Comparison with competitors
-
-3. **[Competitive Comparison](COMPETITIVE_COMPARISON.md)** - vs mem0, zep, LangMem
-   - Feature-by-feature comparison
-   - Migration guides
-   - Use case recommendations
 
 ---
 
@@ -32,11 +26,10 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 ### Getting Started
 
-- **[Quick Start - Simple API](QUICK_START_SIMPLE.md)** ⭐ - 30-second quickstart (mem0/zep compatible)
+- **[Quick Start - Simple API](QUICK_START_SIMPLE.md)** ⭐ - 30-second quickstart with simple API
 - **[Unified Guide](UNIFIED_GUIDE.md)** - Complete guide: testing, API, deployment
 - **[Getting Started Guide](GETTING_STARTED.md)** - Complete setup, configuration, and first steps
 - **[Chat Demo Guide](CHAT_DEMO_GUIDE.md)** - Interactive chatbot demo with persistent memory
-- **[Quickstart](QUICKSTART.md)** - 5-minute quick start guide
 
 ### Core Documentation
 
@@ -72,9 +65,12 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 - **[Testing Guide](TESTING_GUIDE.md)** - Comprehensive testing strategies
 - **[Contributing](CONTRIBUTING.md)** - Development setup and guidelines
 
-### Competitive Analysis & Status
+### About & Vision
 
-- **[Competitive Comparison](COMPETITIVE_COMPARISON.md)** - Complete comparison with mem0, zep, LangMem
+- **[Why We Built HippocampAI](WHY_WE_BUILT_HIPPOCAMPAI.md)** ⭐ - Our story, vision, and what makes us unique
+
+### Project Status
+
 - **[Project Status](PROJECT_STATUS.md)** - Current project status and production readiness
 - **[Implementation Complete](IMPLEMENTATION_COMPLETE.md)** - Recent implementation summary
 
@@ -98,7 +94,6 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 2. Read [Unified Guide](UNIFIED_GUIDE.md) (complete overview)
 3. Try [Getting Started Guide](GETTING_STARTED.md)
 4. Try [Chat Demo](CHAT_DEMO_GUIDE.md)
-5. Check [Quickstart](QUICKSTART.md)
 
 #### Deploy to Production
 
@@ -200,9 +195,8 @@ docs/
 
 **New Essential Guides:**
 
-1. **[QUICK_START_SIMPLE.md](QUICK_START_SIMPLE.md)** - 30-second quickstart with mem0/zep compatible API
+1. **[QUICK_START_SIMPLE.md](QUICK_START_SIMPLE.md)** - 30-second quickstart with simple API
 2. **[UNIFIED_GUIDE.md](UNIFIED_GUIDE.md)** - Complete overview: testing, API, deployment
-3. **[COMPETITIVE_COMPARISON.md](COMPETITIVE_COMPARISON.md)** - Merged comprehensive comparison with all competitors
 
 **Organizational Changes:**
 
@@ -229,8 +223,8 @@ All source files from these consolidations have been removed in v0.3.0
 | Task | Documentation |
 |------|---------------|
 | **Get started in 30 seconds** ⭐ | [Quick Start - Simple API](QUICK_START_SIMPLE.md) |
+| **Why HippocampAI?** ⭐ | [Why We Built HippocampAI](WHY_WE_BUILT_HIPPOCAMPAI.md) |
 | **Complete overview** | [Unified Guide](UNIFIED_GUIDE.md) |
-| **Compare with mem0/zep** | [Competitive Comparison](COMPETITIVE_COMPARISON.md) |
 | **Try interactive demo** | [Chat Demo Guide](CHAT_DEMO_GUIDE.md) |
 | **First time setup** | [Getting Started](GETTING_STARTED.md) |
 | **Configure LLM provider** | [Providers](PROVIDERS.md) |

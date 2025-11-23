@@ -42,8 +42,8 @@ class AuthService:
             Parsed row dict with scopes as list
         """
         row_dict = dict(row)
-        if isinstance(row_dict.get('scopes'), str):
-            row_dict['scopes'] = json.loads(row_dict['scopes'])
+        if isinstance(row_dict.get("scopes"), str):
+            row_dict["scopes"] = json.loads(row_dict["scopes"])
         return row_dict
 
     @staticmethod
@@ -141,9 +141,7 @@ class AuthService:
                 return None
 
             # Update last login time
-            await conn.execute(
-                "UPDATE users SET last_login_at = NOW() WHERE id = $1", row["id"]
-            )
+            await conn.execute("UPDATE users SET last_login_at = NOW() WHERE id = $1", row["id"])
 
             return User(**dict(row))
 
@@ -233,9 +231,7 @@ class AuthService:
             result = await conn.execute("DELETE FROM users WHERE id = $1", user_id)
             return cast(bool, result.endswith("1"))
 
-    async def list_users(
-        self, limit: int = 100, offset: int = 0
-    ) -> list[User]:
+    async def list_users(self, limit: int = 100, offset: int = 0) -> list[User]:
         """List all users with pagination.
 
         Args:
@@ -253,9 +249,7 @@ class AuthService:
             )
             return [User(**dict(row)) for row in rows]
 
-    async def create_api_key(
-        self, user_id: UUID, key_data: APIKeyCreate
-    ) -> APIKeyResponse:
+    async def create_api_key(self, user_id: UUID, key_data: APIKeyCreate) -> APIKeyResponse:
         """Create a new API key for a user.
 
         Args:

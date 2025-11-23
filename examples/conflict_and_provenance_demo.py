@@ -185,7 +185,7 @@ def demo_provenance_tracking():
     lineage = client.get_memory_lineage(memory.id)
     print(f"✓ Total citations: {len(lineage['citations'])}")
 
-    for i, citation in enumerate(lineage['citations'], 1):
+    for i, citation in enumerate(lineage["citations"], 1):
         print(f"\n  Citation {i}:")
         print(f"    Type: {citation['source_type']}")
         print(f"    Text: {citation.get('source_text', 'N/A')[:60]}...")
@@ -292,7 +292,7 @@ def demo_provenance_chains():
         print(f"  Parent memories: {len(lineage['parent_memory_ids'])}")
         print(f"  Transformations: {len(lineage['transformations'])}")
 
-        for transform in lineage['transformations']:
+        for transform in lineage["transformations"]:
             print(f"    - {transform['transformation_type']}: {transform['description']}")
 
 
@@ -389,7 +389,7 @@ def demo_complete_workflow():
             print(f"     Total citations: {len(lineage['citations'])}")
             print(f"     Transformations: {len(lineage['transformations'])}")
 
-            for citation in lineage['citations']:
+            for citation in lineage["citations"]:
                 print("\n     Citation:")
                 print(f"       Type: {citation['source_type']}")
                 print(f"       Text: {citation.get('source_text', 'N/A')[:50]}...")

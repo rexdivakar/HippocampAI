@@ -1,7 +1,7 @@
 """BM25 sparse retrieval."""
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from rank_bm25 import BM25Okapi
 
@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class BM25Retriever:
-    def __init__(self, corpus: list[str], tokenizer: Optional[Callable[[str], list[str]]] = None) -> None:
+    def __init__(
+        self, corpus: list[str], tokenizer: Optional[Callable[[str], list[str]]] = None
+    ) -> None:
         self.tokenizer = tokenizer or (lambda x: x.lower().split())
         self.corpus = corpus
         self.tokenized_corpus = [self.tokenizer(doc) for doc in corpus]

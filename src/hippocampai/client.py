@@ -625,7 +625,10 @@ class MemoryClient:
                                     )
 
                                 # If the new memory was deleted (keep_first), return the existing one
-                                if memory.id in resolution.deleted_memory_ids and resolution.updated_memory:
+                                if (
+                                    memory.id in resolution.deleted_memory_ids
+                                    and resolution.updated_memory
+                                ):
                                     memory = resolution.updated_memory
                                     logger.info(
                                         f"Auto-resolve: Keeping existing memory {memory.id} "
@@ -910,7 +913,9 @@ class MemoryClient:
         """Get telemetry metrics summary."""
         return self.telemetry.get_metrics_summary()
 
-    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[MemoryTrace]:
+    def get_recent_operations(
+        self, limit: int = 10, operation: Optional[str] = None
+    ) -> list[MemoryTrace]:
         """Get recent memory operations with traces."""
         from hippocampai.telemetry import OperationType
 
@@ -1510,7 +1515,9 @@ class MemoryClient:
         Returns:
             List of (memory_id, relation_type, weight) tuples
         """
-        return cast(list[tuple], self.graph.get_related_memories(memory_id, relation_types, max_depth))
+        return cast(
+            list[tuple], self.graph.get_related_memories(memory_id, relation_types, max_depth)
+        )
 
     def get_memory_clusters(self, user_id: str) -> list[set]:
         """Find clusters of related memories.
@@ -2197,7 +2204,9 @@ class MemoryClient:
         Returns:
             Dictionary of entity_name -> Entity
         """
-        return cast(dict[str, Any], self.session_manager.extract_session_entities(session_id, force))
+        return cast(
+            dict[str, Any], self.session_manager.extract_session_entities(session_id, force)
+        )
 
     def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """Get statistics for a session.
@@ -3063,7 +3072,9 @@ class MemoryClient:
             >>> # Search for frequently mentioned entities
             >>> results = client.search_entities("tesla", min_mentions=5)
         """
-        return cast(list[Any], self.entity_recognizer.search_entities(query, entity_type, min_mentions))
+        return cast(
+            list[Any], self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+        )
 
     def summarize_conversation(
         self,
@@ -4703,7 +4714,9 @@ class MemoryClient:
 
         return turn
 
-    def get_conversation_summary(self, conversation_id: str, use_llm: bool = True) -> Optional[ConversationSummary]:
+    def get_conversation_summary(
+        self, conversation_id: str, use_llm: bool = True
+    ) -> Optional[ConversationSummary]:
         """
         Get a multi-level summary of a conversation.
 
@@ -5936,7 +5949,9 @@ class MemoryClient:
             logger.error(f"Failed to get compression recommendations: {e}")
             return []
 
-    def apply_compression_recommendation(self, memory_id: str, compression_level: str) -> Optional[Memory]:
+    def apply_compression_recommendation(
+        self, memory_id: str, compression_level: str
+    ) -> Optional[Memory]:
         """
         Apply compression to a memory.
 

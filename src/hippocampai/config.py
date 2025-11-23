@@ -24,7 +24,9 @@ class Config(BaseSettings):
     postgres_port: int = Field(default=5432, validation_alias="POSTGRES_PORT")
     postgres_db: str = Field(default="hippocampai", validation_alias="POSTGRES_DB")
     postgres_user: str = Field(default="hippocampai", validation_alias="POSTGRES_USER")
-    postgres_password: str = Field(default="hippocampai_secret", validation_alias="POSTGRES_PASSWORD")
+    postgres_password: str = Field(
+        default="hippocampai_secret", validation_alias="POSTGRES_PASSWORD"
+    )
 
     # HNSW tuning
     hnsw_m: int = Field(default=48, validation_alias="HNSW_M")

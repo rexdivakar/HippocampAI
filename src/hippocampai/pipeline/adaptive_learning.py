@@ -68,28 +68,18 @@ class AccessPatternAnalysis(BaseModel):
     total_accesses: int = Field(description="Total number of accesses")
     first_access: datetime = Field(description="First access timestamp")
     last_access: datetime = Field(description="Most recent access")
-    access_frequency: float = Field(
-        description="Accesses per day"
-    )  # accesses / days_since_first
+    access_frequency: float = Field(description="Accesses per day")  # accesses / days_since_first
     pattern_type: AccessPattern = Field(description="Detected pattern type")
-    pattern_confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in pattern detection"
-    )
-    avg_time_between_accesses: float = Field(
-        description="Average hours between accesses"
-    )
-    access_contexts: list[str] = Field(
-        default_factory=list, description="Common access contexts"
-    )
+    pattern_confidence: float = Field(ge=0.0, le=1.0, description="Confidence in pattern detection")
+    avg_time_between_accesses: float = Field(description="Average hours between accesses")
+    access_contexts: list[str] = Field(default_factory=list, description="Common access contexts")
     co_occurring_memories: dict[str, int] = Field(
         default_factory=dict, description="Memories accessed together (id: count)"
     )
     peak_hours: list[int] = Field(
         default_factory=list, description="Hours of day with most access (0-23)"
     )
-    trend: str = Field(
-        description="Trend direction (increasing, stable, decreasing)"
-    )
+    trend: str = Field(description="Trend direction (increasing, stable, decreasing)")
     last_analyzed: datetime = Field(description="When analysis was performed")
 
 
@@ -99,19 +89,13 @@ class RefreshRecommendation(BaseModel):
     memory_id: str = Field(description="Memory to refresh")
     priority: RefreshPriority = Field(description="Refresh priority")
     reason: str = Field(description="Why refresh is needed")
-    staleness_score: float = Field(
-        ge=0.0, le=1.0, description="How stale the memory is"
-    )
-    importance_score: float = Field(
-        ge=0.0, le=10.0, description="Memory importance"
-    )
+    staleness_score: float = Field(ge=0.0, le=1.0, description="How stale the memory is")
+    importance_score: float = Field(ge=0.0, le=10.0, description="Memory importance")
     access_frequency: float = Field(description="Recent access frequency")
     suggested_sources: list[str] = Field(
         default_factory=list, description="Suggested sources for refresh"
     )
-    estimated_effort: str = Field(
-        description="Estimated effort (low, medium, high)"
-    )
+    estimated_effort: str = Field(description="Estimated effort (low, medium, high)")
     last_updated: datetime = Field(description="When memory was last updated")
 
 
@@ -125,16 +109,10 @@ class CompressionRecommendation(BaseModel):
     access_score: float = Field(
         ge=0.0, le=1.0, description="Access frequency score (0=never, 1=constant)"
     )
-    importance_score: float = Field(
-        ge=0.0, le=10.0, description="Memory importance"
-    )
+    importance_score: float = Field(ge=0.0, le=10.0, description="Memory importance")
     age_days: int = Field(description="Age in days")
-    estimated_space_savings: int = Field(
-        description="Estimated bytes saved"
-    )
-    reversible: bool = Field(
-        default=True, description="Can decompression restore full detail"
-    )
+    estimated_space_savings: int = Field(description="Estimated bytes saved")
+    reversible: bool = Field(default=True, description="Can decompression restore full detail")
 
 
 class AdaptiveLearningEngine:
@@ -264,9 +242,7 @@ class AdaptiveLearningEngine:
             avg_time_between = 0.0
 
         # Extract contexts
-        access_contexts = list(
-            set([e.context for e in events if e.context])
-        )[:10]  # Top 10
+        access_contexts = list(set([e.context for e in events if e.context]))[:10]  # Top 10
 
         # Co-occurring memories
         co_occurring: dict[str, int] = defaultdict(int)
@@ -360,9 +336,7 @@ class AdaptiveLearningEngine:
             # Calculate coefficient of variation
             if time_diffs:
                 mean_diff = sum(time_diffs) / len(time_diffs)
-                variance = sum((x - mean_diff) ** 2 for x in time_diffs) / len(
-                    time_diffs
-                )
+                variance = sum((x - mean_diff) ** 2 for x in time_diffs) / len(time_diffs)
                 std_dev = variance**0.5
                 cv = std_dev / mean_diff if mean_diff > 0 else float("inf")
 
@@ -372,9 +346,7 @@ class AdaptiveLearningEngine:
 
         # Burst: Sudden spikes
         recent_events = [
-            e
-            for e in events
-            if (datetime.now(timezone.utc) - e.timestamp).total_seconds() < 86400
+            e for e in events if (datetime.now(timezone.utc) - e.timestamp).total_seconds() < 86400
         ]
         if len(recent_events) > len(events) * 0.5:  # More than 50% in last day
             return (AccessPattern.BURST, 0.7)
@@ -494,29 +466,21 @@ class AdaptiveLearningEngine:
         effort = "low"
 
         # Critical: Important + frequently accessed + very stale
-        if (
-            current_importance >= 8.0
-            and access_frequency > 2.0
-            and staleness_score > 0.7
-        ):
+        if current_importance >= 8.0 and access_frequency > 2.0 and staleness_score > 0.7:
             priority = RefreshPriority.CRITICAL
             reason = "High importance memory with frequent access is very stale"
             effort = "high"
 
         # High: Important + moderately stale OR frequent + stale
-        elif (
-            current_importance >= 6.0 and staleness_score > 0.5
-        ) or (access_frequency > 1.0 and staleness_score > 0.6):
+        elif (current_importance >= 6.0 and staleness_score > 0.5) or (
+            access_frequency > 1.0 and staleness_score > 0.6
+        ):
             priority = RefreshPriority.HIGH
             reason = "Important or frequently accessed memory is becoming stale"
             effort = "medium"
 
         # Medium: Moderately important + accessed + somewhat stale
-        elif (
-            current_importance >= 4.0
-            and access_frequency > 0.1
-            and staleness_score > 0.4
-        ):
+        elif current_importance >= 4.0 and access_frequency > 0.1 and staleness_score > 0.4:
             priority = RefreshPriority.MEDIUM
             reason = "Moderately important memory with some access is aging"
             effort = "medium"
@@ -547,9 +511,7 @@ class AdaptiveLearningEngine:
             last_updated=last_updated,
         )
 
-        logger.info(
-            f"Refresh recommendation for {memory_id}: {priority.value} - {reason}"
-        )
+        logger.info(f"Refresh recommendation for {memory_id}: {priority.value} - {reason}")
 
         return recommendation
 
@@ -665,14 +627,14 @@ class AdaptiveLearningEngine:
         unique_memories = len(set(e.memory_id for e in self.access_history))
 
         # Top accessed memories
-        top_accessed = sorted(
-            self.memory_access_counts.items(), key=lambda x: x[1], reverse=True
-        )[:10]
+        top_accessed = sorted(self.memory_access_counts.items(), key=lambda x: x[1], reverse=True)[
+            :10
+        ]
 
         # Top contexts
-        top_contexts = sorted(
-            self.context_access_counts.items(), key=lambda x: x[1], reverse=True
-        )[:10]
+        top_contexts = sorted(self.context_access_counts.items(), key=lambda x: x[1], reverse=True)[
+            :10
+        ]
 
         # Top co-occurrences
         top_co_occurrences = sorted(
@@ -682,15 +644,10 @@ class AdaptiveLearningEngine:
         return {
             "total_access_events": total_events,
             "unique_memories_accessed": unique_memories,
-            "top_accessed_memories": [
-                {"memory_id": k, "access_count": v} for k, v in top_accessed
-            ],
-            "top_access_contexts": [
-                {"context": k, "count": v} for k, v in top_contexts
-            ],
+            "top_accessed_memories": [{"memory_id": k, "access_count": v} for k, v in top_accessed],
+            "top_access_contexts": [{"context": k, "count": v} for k, v in top_contexts],
             "top_co_occurrences": [
-                {"memory_pair": list(k), "co_occurrence_count": v}
-                for k, v in top_co_occurrences
+                {"memory_pair": list(k), "co_occurrence_count": v} for k, v in top_co_occurrences
             ],
             "patterns_analyzed": len(self.pattern_cache),
         }

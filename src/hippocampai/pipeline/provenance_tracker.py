@@ -274,9 +274,7 @@ class ProvenanceTracker:
         Returns:
             Updated lineage
         """
-        lineage = self._extract_lineage_from_memory(memory) or MemoryLineage(
-            memory_id=memory.id
-        )
+        lineage = self._extract_lineage_from_memory(memory) or MemoryLineage(memory_id=memory.id)
 
         lineage.add_citation(
             source_type=source_type,
@@ -551,9 +549,7 @@ If no citations found, return empty array: []
 
     def record_access(self, memory: Memory, accessor_id: str) -> None:
         """Record access to a memory for provenance tracking."""
-        lineage = self._extract_lineage_from_memory(memory) or MemoryLineage(
-            memory_id=memory.id
-        )
+        lineage = self._extract_lineage_from_memory(memory) or MemoryLineage(memory_id=memory.id)
 
         lineage.record_access(accessor_id)
         self._attach_lineage_to_memory(memory, lineage)

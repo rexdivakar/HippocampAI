@@ -23,9 +23,7 @@ Usage:
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-import json
+from datetime import datetime, timezone
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -99,7 +97,9 @@ class QAReport:
         # Feature Coverage
         report.append(f"\n{Colors.BOLD}FEATURE COVERAGE{Colors.END}")
         for feature, status in self.feature_coverage.items():
-            status_color = Colors.GREEN if status == "✓" else Colors.RED if status == "✗" else Colors.YELLOW
+            status_color = (
+                Colors.GREEN if status == "✓" else Colors.RED if status == "✗" else Colors.YELLOW
+            )
             report.append(f"  {status_color}{status}{Colors.END} {feature}")
 
         # Issues
@@ -156,6 +156,7 @@ def print_actual(message: str):
 # TEST 1: INITIALIZATION & HEALTH
 # ============================================================================
 
+
 def test_1_initialization_and_health():
     """
     Test 1: Initialization & Health
@@ -172,12 +173,9 @@ def test_1_initialization_and_health():
 
     if not api_key:
         qa_report.record_fail(
-            "Environment Setup",
-            "HIPPOCAMPAI_API_KEY not set. Required for authentication."
+            "Environment Setup", "HIPPOCAMPAI_API_KEY not set. Required for authentication."
         )
-        qa_report.add_suggestion(
-            "Document required environment variables in README with examples"
-        )
+        qa_report.add_suggestion("Document required environment variables in README with examples")
         return None
 
     print_actual(f"API Key: {'*' * (len(api_key) - 4)}{api_key[-4:]}")
@@ -189,11 +187,7 @@ def test_1_initialization_and_health():
     try:
         from hippocampai import UnifiedMemoryClient
 
-        client = UnifiedMemoryClient(
-            mode="remote",
-            api_url=base_url,
-            api_key=api_key
-        )
+        client = UnifiedMemoryClient(mode="remote", api_url=base_url, api_key=api_key)
 
         print_actual("Client initialized successfully")
         qa_report.record_pass("Client initialization")
@@ -202,9 +196,7 @@ def test_1_initialization_and_health():
     except Exception as e:
         qa_report.record_fail("Client Initialization", str(e))
         qa_report.mark_feature_tested("Client Initialization", "✗")
-        qa_report.add_suggestion(
-            "Add better error messages for initialization failures"
-        )
+        qa_report.add_suggestion("Add better error messages for initialization failures")
         return None
 
     # Test health endpoint
@@ -212,6 +204,7 @@ def test_1_initialization_and_health():
     try:
         # Try to call health endpoint
         import httpx
+
         response = httpx.get(f"{base_url}/health", timeout=5.0)
 
         print_expected("Status 200 with health info")
@@ -228,10 +221,7 @@ def test_1_initialization_and_health():
 
             qa_report.mark_feature_tested("Health Check", "✓")
         else:
-            qa_report.record_fail(
-                "Health Check",
-                f"Expected 200, got {response.status_code}"
-            )
+            qa_report.record_fail("Health Check", f"Expected 200, got {response.status_code}")
             qa_report.mark_feature_tested("Health Check", "✗")
 
     except Exception as e:
@@ -250,17 +240,14 @@ def test_1_initialization_and_health():
             f"{base_url}/v1/memories",
             headers={"Authorization": f"Bearer {api_key}"},
             params={"user_id": "test_qa_user", "limit": 1},
-            timeout=5.0
+            timeout=5.0,
         )
 
         if response.status_code in [200, 401, 403]:
             print_actual(f"Auth header processed (status: {response.status_code})")
             qa_report.record_pass("Authentication headers")
         else:
-            qa_report.record_fail(
-                "Authentication",
-                f"Unexpected status: {response.status_code}"
-            )
+            qa_report.record_fail("Authentication", f"Unexpected status: {response.status_code}")
 
     except Exception as e:
         qa_report.record_fail("Authentication Headers", str(e))
@@ -271,6 +258,7 @@ def test_1_initialization_and_health():
 # ============================================================================
 # TEST 2: SPACES, USERS & ISOLATION
 # ============================================================================
+
 
 def test_2_spaces_users_isolation(client):
     """
@@ -292,22 +280,22 @@ def test_2_spaces_users_isolation(client):
             "name": "Documentation Assistant",
             "description": "HippocampAI documentation and guides",
             "tags": ["docs", "qa"],
-            "test_memory": "HippocampAI uses Qdrant for vector storage"
+            "test_memory": "HippocampAI uses Qdrant for vector storage",
         },
         {
             "id": "opsai-slotting",
             "name": "Warehouse Optimization",
             "description": "Logistics and warehouse management",
             "tags": ["logistics", "ops"],
-            "test_memory": "OpsAI optimizes pick paths in warehouses"
+            "test_memory": "OpsAI optimizes pick paths in warehouses",
         },
         {
             "id": "personal-finance",
             "name": "Personal Finance Tracker",
             "description": "Credit cards and investment tracking",
             "tags": ["finance", "personal"],
-            "test_memory": "Use Amex Gold for groceries to get 4x points"
-        }
+            "test_memory": "Use Amex Gold for groceries to get 4x points",
+        },
     ]
 
     # Create spaces (using user_id as space identifier)
@@ -322,14 +310,11 @@ def test_2_spaces_users_isolation(client):
                 metadata={
                     "space_name": config["name"],
                     "space_description": config["description"],
-                    "tags": config["tags"]
-                }
+                    "tags": config["tags"],
+                },
             )
 
-            spaces[config["id"]] = {
-                "config": config,
-                "memory_ids": [memory.id]
-            }
+            spaces[config["id"]] = {"config": config, "memory_ids": [memory.id]}
 
             print_actual(f"Created space '{config['id']}' with initial memory")
             qa_report.record_pass(f"Space creation: {config['id']}")
@@ -347,15 +332,13 @@ def test_2_spaces_users_isolation(client):
         try:
             # Query this space
             results = client.recall(
-                query="optimization warehouse logistics",
-                user_id=space_id,
-                k=10
+                query="optimization warehouse logistics", user_id=space_id, k=10
             )
 
             # Check if any results belong to other spaces
             for result in results:
                 # The memory should only belong to this space (user_id)
-                if hasattr(result, 'memory') and hasattr(result.memory, 'user_id'):
+                if hasattr(result, "memory") and hasattr(result.memory, "user_id"):
                     if result.memory.user_id != space_id:
                         isolation_passed = False
                         qa_report.add_issue(
@@ -380,6 +363,7 @@ def test_2_spaces_users_isolation(client):
 # TEST 3: BASIC MEMORY WRITES
 # ============================================================================
 
+
 def test_3_basic_memory_writes(client, spaces):
     """
     Test 3: Basic Memory Writes
@@ -401,19 +385,19 @@ def test_3_basic_memory_writes(client, spaces):
             "role": "user",
             "content": "What is HippocampAI?",
             "importance": 5,
-            "tags": ["intro", "overview"]
+            "tags": ["intro", "overview"],
         },
         {
             "role": "assistant",
             "content": "HippocampAI is a long-term memory engine that uses Qdrant for vector storage, Redis for caching, and provides features like consolidation, importance scoring, and hybrid retrieval with BM25 + vector search + reranking.",
             "importance": 5,
-            "tags": ["intro", "architecture"]
+            "tags": ["intro", "architecture"],
         },
         {
             "role": "user",
             "content": "How do I integrate it with my Python app?",
             "importance": 4,
-            "tags": ["integration", "python"]
+            "tags": ["integration", "python"],
         },
         {
             "role": "assistant",
@@ -434,8 +418,8 @@ results = client.recall("UI preferences", user_id="alice")
 
 Set environment variables: HIPPOCAMPAI_API_KEY, HIPPOCAMPAI_BASE_URL.""",
             "importance": 5,
-            "tags": ["integration", "python", "code"]
-        }
+            "tags": ["integration", "python", "code"],
+        },
     ]
 
     conversation_ids = []
@@ -449,8 +433,8 @@ Set environment variables: HIPPOCAMPAI_API_KEY, HIPPOCAMPAI_BASE_URL.""",
                 metadata={
                     "role": msg["role"],
                     "source": "chat",
-                    "topic": "intro" if "intro" in msg["tags"] else "integration"
-                }
+                    "topic": "intro" if "intro" in msg["tags"] else "integration",
+                },
             )
             conversation_ids.append(memory.id)
             print_actual(f"Inserted {msg['role']} message: {memory.id}")
@@ -464,7 +448,7 @@ Set environment variables: HIPPOCAMPAI_API_KEY, HIPPOCAMPAI_BASE_URL.""",
     else:
         qa_report.record_fail(
             "Conversation Ingestion",
-            f"Only {len(conversation_ids)}/{len(conversation)} messages inserted"
+            f"Only {len(conversation_ids)}/{len(conversation)} messages inserted",
         )
         qa_report.mark_feature_tested("Conversation Memory", "✗")
 
@@ -493,11 +477,7 @@ Key Features:
             user_id=space_id,
             importance=5,
             tags=["architecture", "documentation", "technical"],
-            metadata={
-                "source": "doc",
-                "topic": "architecture",
-                "doc_type": "technical_design"
-            }
+            metadata={"source": "doc", "topic": "architecture", "doc_type": "technical_design"},
         )
 
         print_actual(f"Document inserted: {doc_memory.id}")
@@ -520,9 +500,7 @@ Key Features:
         if len(memories) >= expected_min:
             qa_report.record_pass("Memory count verification")
         else:
-            qa_report.add_issue(
-                f"Expected >= {expected_min} memories, found {len(memories)}"
-            )
+            qa_report.add_issue(f"Expected >= {expected_min} memories, found {len(memories)}")
 
     except Exception as e:
         qa_report.record_fail("Memory Count", str(e))
@@ -531,6 +509,7 @@ Key Features:
 # ============================================================================
 # TEST 4: RETRIEVAL (KEYWORD, SEMANTIC, HYBRID, FILTERS)
 # ============================================================================
+
 
 def test_4_retrieval_quality(client, spaces):
     """
@@ -550,11 +529,7 @@ def test_4_retrieval_quality(client, spaces):
     # Test 4.1: Keyword search
     print_test("4.1: Keyword search for 'Qdrant'")
     try:
-        results = client.recall(
-            query="Qdrant",
-            user_id=space_id,
-            k=5
-        )
+        results = client.recall(query="Qdrant", user_id=space_id, k=5)
 
         print_expected("Memories mentioning Qdrant vector DB")
         print_actual(f"Found {len(results)} results")
@@ -564,7 +539,7 @@ def test_4_retrieval_quality(client, spaces):
 
             # Verify Qdrant is mentioned
             if "qdrant" in result.memory.text.lower():
-                print(f"       ✓ Contains 'Qdrant'")
+                print("       ✓ Contains 'Qdrant'")
             else:
                 qa_report.add_issue(
                     f"Keyword search for 'Qdrant' returned irrelevant result: {result.memory.text[:50]}"
@@ -581,9 +556,7 @@ def test_4_retrieval_quality(client, spaces):
     print_test("4.2: Semantic search - 'How do I connect my Python app?'")
     try:
         results = client.recall(
-            query="How do I connect my Python app to HippocampAI?",
-            user_id=space_id,
-            k=5
+            query="How do I connect my Python app to HippocampAI?", user_id=space_id, k=5
         )
 
         print_expected("Integration-related memories even with different wording")
@@ -595,9 +568,12 @@ def test_4_retrieval_quality(client, spaces):
             print(f"    {i}. Score {result.score:.3f}: {text_preview}...")
 
             # Check if integration/python related
-            if any(keyword in result.memory.text.lower() for keyword in ["python", "integrate", "api_key", "client"]):
+            if any(
+                keyword in result.memory.text.lower()
+                for keyword in ["python", "integrate", "api_key", "client"]
+            ):
                 integration_found = True
-                print(f"       ✓ Integration-related")
+                print("       ✓ Integration-related")
 
         if integration_found:
             qa_report.record_pass("Semantic search")
@@ -616,11 +592,8 @@ def test_4_retrieval_quality(client, spaces):
         results = client.recall(
             query="architecture components",
             user_id=space_id,
-            filters={
-                "metadata.source": "chat",
-                "metadata.topic": "architecture"
-            },
-            k=5
+            filters={"metadata.source": "chat", "metadata.topic": "architecture"},
+            k=5,
         )
 
         print_expected("Only chat messages about architecture")
@@ -650,10 +623,7 @@ def test_4_retrieval_quality(client, spaces):
     print_test("4.4: Filter by importance >= 5")
     try:
         results = client.recall(
-            query="HippocampAI features",
-            user_id=space_id,
-            filters={"importance_min": 5.0},
-            k=10
+            query="HippocampAI features", user_id=space_id, filters={"importance_min": 5.0}, k=10
         )
 
         print_expected("Only high-importance memories (>= 5)")
@@ -680,6 +650,7 @@ def test_4_retrieval_quality(client, spaces):
 # TEST 5: ENTITY EXTRACTION & ENTITY-BASED RETRIEVAL
 # ============================================================================
 
+
 def test_5_entity_extraction(client, spaces):
     """
     Test 5: Entity Extraction & Entity-Based Retrieval
@@ -703,7 +674,7 @@ def test_5_entity_extraction(client, spaces):
         "SKU-67890 canned beans restocked in Bin C3, Zone A1",
         "Pick rate improved by 15% after optimizing Zone A1 layout",
         "Travel distance in Zone A1 decreased by 12% with new slotting",
-        "SKU-12345 is a fast-moving item, requires prime location in Zone A1"
+        "SKU-12345 is a fast-moving item, requires prime location in Zone A1",
     ]
 
     entity_memory_ids = []
@@ -713,13 +684,13 @@ def test_5_entity_extraction(client, spaces):
                 text=event,
                 user_id=space_id,
                 tags=["warehouse", "operations", "metrics"],
-                metadata={"source": "ops_log"}
+                metadata={"source": "ops_log"},
             )
             entity_memory_ids.append(memory.id)
             print_actual(f"Inserted: {event[:60]}...")
 
         except Exception as e:
-            qa_report.record_fail(f"Entity Event Insert", str(e))
+            qa_report.record_fail("Entity Event Insert", str(e))
 
     qa_report.record_pass("Entity-rich events ingestion")
 
@@ -727,7 +698,7 @@ def test_5_entity_extraction(client, spaces):
     print_test("5.2: Extract entities from text")
     try:
         # Check if entity extraction is available
-        if hasattr(client, 'extract_entities'):
+        if hasattr(client, "extract_entities"):
             entities = client.extract_entities(events[0])
 
             print_expected("Entities: SKU-12345, Zone A1, Rack B2, frozen pizza")
@@ -750,11 +721,7 @@ def test_5_entity_extraction(client, spaces):
     # Test entity-based retrieval
     print_test("5.3: Entity-centric query - 'Show all memories mentioning SKU-12345'")
     try:
-        results = client.recall(
-            query="SKU-12345",
-            user_id=space_id,
-            k=10
-        )
+        results = client.recall(query="SKU-12345", user_id=space_id, k=10)
 
         print_expected("All events mentioning SKU-12345")
         print_actual(f"Found {len(results)} results")
@@ -781,11 +748,7 @@ def test_5_entity_extraction(client, spaces):
     # Test location-based query
     print_test("5.4: Location-based query - 'What changes affected Zone A1?'")
     try:
-        results = client.recall(
-            query="changes in Zone A1",
-            user_id=space_id,
-            k=10
-        )
+        results = client.recall(query="changes in Zone A1", user_id=space_id, k=10)
 
         print_actual(f"Found {len(results)} results about Zone A1")
 
@@ -801,6 +764,7 @@ def test_5_entity_extraction(client, spaces):
 # ============================================================================
 # TEST 6: SUMMARIZATION & CONSOLIDATION
 # ============================================================================
+
 
 def test_6_summarization_consolidation(client, spaces):
     """
@@ -822,17 +786,27 @@ def test_6_summarization_consolidation(client, spaces):
 
     financial_memories = [
         # Credit cards
-        ("Amex Gold gives 4x points on groceries and restaurants", {"category": "credit_card", "card": "amex_gold"}),
-        ("Venture X has $300 travel credit and Priority Pass", {"category": "credit_card", "card": "venture_x"}),
-        ("Blue Cash Everyday gives 3% on groceries", {"category": "credit_card", "card": "blue_cash"}),
-        ("Use Amex Gold for dining out to maximize rewards", {"category": "credit_card", "card": "amex_gold"}),
-
+        (
+            "Amex Gold gives 4x points on groceries and restaurants",
+            {"category": "credit_card", "card": "amex_gold"},
+        ),
+        (
+            "Venture X has $300 travel credit and Priority Pass",
+            {"category": "credit_card", "card": "venture_x"},
+        ),
+        (
+            "Blue Cash Everyday gives 3% on groceries",
+            {"category": "credit_card", "card": "blue_cash"},
+        ),
+        (
+            "Use Amex Gold for dining out to maximize rewards",
+            {"category": "credit_card", "card": "amex_gold"},
+        ),
         # Monthly spending
         ("Rent is $2400/month due on the 1st", {"category": "expense", "type": "rent"}),
         ("Groceries budget: $600/month", {"category": "expense", "type": "groceries"}),
         ("Restaurant spending averages $300/month", {"category": "expense", "type": "dining"}),
         ("Gas costs about $150/month", {"category": "expense", "type": "gas"}),
-
         # Investments
         ("VOO (S&P 500 ETF) is my core holding", {"category": "investment", "ticker": "VOO"}),
         ("NET (Cloudflare) for cloud growth exposure", {"category": "investment", "ticker": "NET"}),
@@ -846,10 +820,10 @@ def test_6_summarization_consolidation(client, spaces):
                 text=text,
                 user_id=space_id,
                 metadata=metadata,
-                tags=[metadata.get("category", "other")]
+                tags=[metadata.get("category", "other")],
             )
         except Exception as e:
-            qa_report.record_fail(f"Financial Memory Insert", str(e))
+            qa_report.record_fail("Financial Memory Insert", str(e))
 
     print_actual(f"Inserted {len(financial_memories)} financial memories")
     qa_report.record_pass("Financial history ingestion")
@@ -857,7 +831,7 @@ def test_6_summarization_consolidation(client, spaces):
     # Test summarization (if available)
     print_test("6.2: Generate profile summary of financial habits")
     try:
-        if hasattr(client, 'get_memories'):
+        if hasattr(client, "get_memories"):
             # Get all memories
             all_memories = client.get_memories(user_id=space_id)
 
@@ -865,7 +839,7 @@ def test_6_summarization_consolidation(client, spaces):
             print_actual(f"Retrieved {len(all_memories)} memories for summarization")
 
             # If summarization endpoint exists
-            if hasattr(client, 'summarize_user'):
+            if hasattr(client, "summarize_user"):
                 summary = client.summarize_user(user_id=space_id)
                 print_actual(f"Generated summary: {summary[:200]}...")
                 qa_report.record_pass("User profile summarization")
@@ -888,7 +862,7 @@ def test_6_summarization_consolidation(client, spaces):
             query="credit cards rewards points",
             user_id=space_id,
             filters={"metadata.category": "credit_card"},
-            k=10
+            k=10,
         )
 
         print_expected("Summary of credit card strategies")
@@ -905,11 +879,9 @@ def test_6_summarization_consolidation(client, spaces):
     # Test consolidation (if available)
     print_test("6.4: Test memory consolidation")
     try:
-        if hasattr(client, 'consolidate_memories'):
+        if hasattr(client, "consolidate_memories"):
             result = client.consolidate_memories(
-                user_id=space_id,
-                similarity_threshold=0.85,
-                dry_run=True
+                user_id=space_id, similarity_threshold=0.85, dry_run=True
             )
 
             print_expected("Similar memories identified for merging")
@@ -930,6 +902,7 @@ def test_6_summarization_consolidation(client, spaces):
 # ============================================================================
 # TEST 7: TEMPORAL REASONING & RECENCY
 # ============================================================================
+
 
 def test_7_temporal_reasoning(client, spaces):
     """
@@ -953,34 +926,34 @@ def test_7_temporal_reasoning(client, spaces):
         {
             "text": "In January 2024, we used only Redis for caching",
             "timestamp": datetime(2024, 1, 15, tzinfo=timezone.utc),
-            "tags": ["architecture", "2024", "redis"]
+            "tags": ["architecture", "2024", "redis"],
         },
         {
             "text": "In March 2024, we added Qdrant for vector storage",
             "timestamp": datetime(2024, 3, 20, tzinfo=timezone.utc),
-            "tags": ["architecture", "2024", "qdrant"]
+            "tags": ["architecture", "2024", "qdrant"],
         },
         {
             "text": "In October 2024, we implemented hybrid search with BM25",
             "timestamp": datetime(2024, 10, 10, tzinfo=timezone.utc),
-            "tags": ["architecture", "2024", "search"]
+            "tags": ["architecture", "2024", "search"],
         },
         {
             "text": "Current setup (November 2024): Qdrant + Redis + BM25 hybrid search with reranking",
             "timestamp": datetime.now(timezone.utc),
-            "tags": ["architecture", "current", "search"]
-        }
+            "tags": ["architecture", "current", "search"],
+        },
     ]
 
     for memory_data in temporal_memories:
         try:
             # Note: HippocampAI may not support custom timestamps in remember()
             # This tests if the feature exists
-            memory = client.remember(
+            _memory = client.remember(
                 text=memory_data["text"],
                 user_id=space_id,
                 tags=memory_data["tags"],
-                metadata={"timestamp": memory_data["timestamp"].isoformat()}
+                metadata={"timestamp": memory_data["timestamp"].isoformat()},
             )
             print_actual(f"Inserted: {memory_data['text'][:50]}...")
 
@@ -992,16 +965,16 @@ def test_7_temporal_reasoning(client, spaces):
     # Test time-bounded retrieval
     print_test("7.2: Query for early 2024 (January-June)")
     try:
-        if hasattr(client, 'recall'):
+        if hasattr(client, "recall"):
             # Try time-bounded query
             results = client.recall(
                 query="database vector storage architecture",
                 user_id=space_id,
                 filters={
                     "created_after": datetime(2024, 1, 1, tzinfo=timezone.utc),
-                    "created_before": datetime(2024, 6, 30, tzinfo=timezone.utc)
+                    "created_before": datetime(2024, 6, 30, tzinfo=timezone.utc),
                 },
-                k=10
+                k=10,
             )
 
             print_expected("Memories from early 2024 mentioning Redis, Qdrant added")
@@ -1028,16 +1001,12 @@ def test_7_temporal_reasoning(client, spaces):
     try:
         # Query about past
         old_results = client.recall(
-            query="What database did we use for vectors in early 2024?",
-            user_id=space_id,
-            k=5
+            query="What database did we use for vectors in early 2024?", user_id=space_id, k=5
         )
 
         # Query about present
         current_results = client.recall(
-            query="What is our current vector store setup?",
-            user_id=space_id,
-            k=5
+            query="What is our current vector store setup?", user_id=space_id, k=5
         )
 
         print_actual(f"Historical query: {len(old_results)} results")
@@ -1055,6 +1024,7 @@ def test_7_temporal_reasoning(client, spaces):
 # ============================================================================
 # TEST 8: CROSS-INTERFACE CONSISTENCY (SaaS ↔ SDK)
 # ============================================================================
+
 
 def test_8_cross_interface_consistency(client, spaces):
     """
@@ -1078,7 +1048,7 @@ def test_8_cross_interface_consistency(client, spaces):
         memory = client.remember(
             text="This space was created via SDK for QA testing",
             user_id=test_space_id,
-            metadata={"created_by": "sdk", "test": "cross_interface"}
+            metadata={"created_by": "sdk", "test": "cross_interface"},
         )
 
         print_actual(f"Created space '{test_space_id}' via SDK")
@@ -1088,11 +1058,7 @@ def test_8_cross_interface_consistency(client, spaces):
 
         # Verify via SDK recall
         print_test("8.2: Verify SDK-created space is queryable via SDK")
-        results = client.recall(
-            query="SDK QA testing",
-            user_id=test_space_id,
-            k=5
-        )
+        results = client.recall(query="SDK QA testing", user_id=test_space_id, k=5)
 
         if len(results) > 0 and results[0].memory.id == memory.id:
             print_actual("✓ Memory found via SDK query")
@@ -1105,7 +1071,7 @@ def test_8_cross_interface_consistency(client, spaces):
         print_info(f"1. Open SaaS dashboard at {os.getenv('HIPPOCAMPAI_BASE_URL')}")
         print_info(f"2. Look for space/user: {test_space_id}")
         print_info(f"3. Verify memory ID {memory.id} is present")
-        print_info(f"4. Check metadata shows 'created_by: sdk'")
+        print_info("4. Check metadata shows 'created_by: sdk'")
 
         qa_report.add_suggestion(
             "Add automated API to list spaces/users for testing UI sync without manual checks"
@@ -1121,6 +1087,7 @@ def test_8_cross_interface_consistency(client, spaces):
 # ============================================================================
 # TEST 9: UPDATES, DELETES, SOFT DELETES & EXPORT
 # ============================================================================
+
 
 def test_9_updates_deletes_export(client, spaces):
     """
@@ -1144,11 +1111,11 @@ def test_9_updates_deletes_export(client, spaces):
             text="This memory will be updated and then deleted",
             user_id=space_id,
             importance=3,
-            tags=["test", "temporary"]
+            tags=["test", "temporary"],
         )
 
         print_actual(f"Created test memory: {test_memory.id}")
-        original_text = test_memory.text
+        _original_text = test_memory.text
         qa_report.record_pass("Test memory creation")
 
     except Exception as e:
@@ -1158,12 +1125,12 @@ def test_9_updates_deletes_export(client, spaces):
     # Test update
     print_test("9.2: Update memory content and metadata")
     try:
-        if hasattr(client, 'update_memory'):
+        if hasattr(client, "update_memory"):
             updated = client.update_memory(
                 memory_id=test_memory.id,
                 text="This memory was UPDATED - importance increased",
                 importance=8,
-                tags=["test", "updated", "important"]
+                tags=["test", "updated", "important"],
             )
 
             print_expected("Updated text and importance from 3 to 8")
@@ -1188,15 +1155,11 @@ def test_9_updates_deletes_export(client, spaces):
     # Test soft delete (if supported)
     print_test("9.3: Soft delete memory")
     try:
-        if hasattr(client, 'soft_delete_memory'):
+        if hasattr(client, "soft_delete_memory"):
             result = client.soft_delete_memory(test_memory.id)
 
             # Verify it doesn't appear in normal queries
-            results = client.recall(
-                query="updated",
-                user_id=space_id,
-                k=20
-            )
+            results = client.recall(query="updated", user_id=space_id, k=20)
 
             found = any(r.memory.id == test_memory.id for r in results)
 
@@ -1218,7 +1181,7 @@ def test_9_updates_deletes_export(client, spaces):
     # Test hard delete
     print_test("9.4: Hard delete memory")
     try:
-        if hasattr(client, 'delete_memory'):
+        if hasattr(client, "delete_memory"):
             result = client.delete_memory(test_memory.id)
 
             print_expected("Memory permanently deleted")
@@ -1233,7 +1196,7 @@ def test_9_updates_deletes_export(client, spaces):
                 else:
                     qa_report.record_fail("Hard Delete", "Memory still exists")
                     qa_report.mark_feature_tested("Hard Delete", "✗")
-            except:
+            except Exception:
                 # Exception means memory not found - that's good
                 qa_report.record_pass("Hard delete (memory not found)")
                 qa_report.mark_feature_tested("Hard Delete", "✓")
@@ -1247,7 +1210,7 @@ def test_9_updates_deletes_export(client, spaces):
     # Test export
     print_test("9.5: Export space data")
     try:
-        if hasattr(client, 'export_memories') or hasattr(client, 'get_memories'):
+        if hasattr(client, "export_memories") or hasattr(client, "get_memories"):
             memories = client.get_memories(user_id=space_id, limit=100)
 
             print_expected("JSON export with IDs, timestamps, metadata, text")
@@ -1256,12 +1219,14 @@ def test_9_updates_deletes_export(client, spaces):
             # Verify export format
             if len(memories) > 0:
                 sample = memories[0]
-                has_id = hasattr(sample, 'id')
-                has_timestamp = hasattr(sample, 'created_at')
-                has_text = hasattr(sample, 'text')
-                has_metadata = hasattr(sample, 'metadata')
+                has_id = hasattr(sample, "id")
+                has_timestamp = hasattr(sample, "created_at")
+                has_text = hasattr(sample, "text")
+                has_metadata = hasattr(sample, "metadata")
 
-                print_actual(f"Sample memory structure: id={has_id}, timestamp={has_timestamp}, text={has_text}, metadata={has_metadata}")
+                print_actual(
+                    f"Sample memory structure: id={has_id}, timestamp={has_timestamp}, text={has_text}, metadata={has_metadata}"
+                )
 
                 if all([has_id, has_timestamp, has_text]):
                     qa_report.record_pass("Export format validation")
@@ -1274,7 +1239,9 @@ def test_9_updates_deletes_export(client, spaces):
         else:
             qa_report.record_skip("Export", "Feature not available")
             qa_report.mark_feature_tested("Export", "⊘")
-            qa_report.add_suggestion("Add export_memories() method with format options (JSON/CSV/NDJSON)")
+            qa_report.add_suggestion(
+                "Add export_memories() method with format options (JSON/CSV/NDJSON)"
+            )
 
     except Exception as e:
         qa_report.record_fail("Export", str(e))
@@ -1284,6 +1251,7 @@ def test_9_updates_deletes_export(client, spaces):
 # ============================================================================
 # TEST 10: ERROR HANDLING & LIMITS
 # ============================================================================
+
 
 def test_10_error_handling(client):
     """
@@ -1300,11 +1268,12 @@ def test_10_error_handling(client):
     print_test("10.1: Test invalid API key")
     try:
         import httpx
+
         response = httpx.get(
             f"{base_url}/v1/memories",
             headers={"Authorization": "Bearer invalid_key_123"},
             params={"user_id": "test", "limit": 1},
-            timeout=5.0
+            timeout=5.0,
         )
 
         print_expected("401 Unauthorized or 403 Forbidden with clear error message")
@@ -1315,7 +1284,7 @@ def test_10_error_handling(client):
                 error_data = response.json()
                 print_actual(f"Error message: {error_data}")
                 qa_report.record_pass("Invalid API key handling")
-            except:
+            except Exception:
                 qa_report.add_issue("Error response not in JSON format")
         else:
             qa_report.add_issue(f"Expected 401/403 for invalid key, got {response.status_code}")
@@ -1329,13 +1298,14 @@ def test_10_error_handling(client):
     print_test("10.2: Test missing required fields")
     try:
         import httpx
+
         api_key = os.getenv("HIPPOCAMPAI_API_KEY")
 
         response = httpx.post(
             f"{base_url}/v1/memories",
             headers={"Authorization": f"Bearer {api_key}"},
             json={"text": "test"},  # Missing user_id
-            timeout=5.0
+            timeout=5.0,
         )
 
         print_expected("400 Bad Request with validation error")
@@ -1359,10 +1329,7 @@ def test_10_error_handling(client):
         try:
             huge_text = "A" * 1_000_000  # 1MB of text
 
-            memory = client.remember(
-                text=huge_text,
-                user_id="qa_test_limits"
-            )
+            _memory = client.remember(text=huge_text, user_id="qa_test_limits")
 
             print_actual("Large memory accepted (no size limit)")
             qa_report.add_suggestion("Consider adding memory size limits with clear error messages")
@@ -1378,7 +1345,7 @@ def test_10_error_handling(client):
             results = client.recall(
                 query="test",
                 user_id="qa_test_limits",
-                k=10000  # Very large k
+                k=10000,  # Very large k
             )
 
             print_expected("Capped at reasonable limit or warning")
@@ -1398,6 +1365,7 @@ def test_10_error_handling(client):
 # ============================================================================
 # MAIN TEST RUNNER
 # ============================================================================
+
 
 def main():
     """Main test execution."""
@@ -1433,5 +1401,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n{Colors.RED}Fatal error: {e}{Colors.END}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

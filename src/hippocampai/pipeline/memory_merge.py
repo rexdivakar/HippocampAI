@@ -67,9 +67,7 @@ class MergeCandidate(BaseModel):
     candidate_id: str = Field(default_factory=lambda: str(uuid4()))
     memory_ids: list[str]
     similarity_score: float = Field(ge=0.0, le=1.0)
-    merge_confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in merge suggestion"
-    )
+    merge_confidence: float = Field(ge=0.0, le=1.0, description="Confidence in merge suggestion")
     conflicts: list[MergeConflict] = Field(default_factory=list)
     suggested_strategy: MergeStrategy = MergeStrategy.COMBINE
     preview_text: Optional[str] = None
@@ -272,9 +270,7 @@ class MemoryMergeEngine:
 
             # Store in history
             merge_id = str(uuid4())
-            self.merge_history[merge_id] = MergeHistory(
-                merge_id=merge_id, result=result
-            )
+            self.merge_history[merge_id] = MergeHistory(merge_id=merge_id, result=result)
 
             logger.info(
                 f"Merged {len(memories)} memories into {merged_memory['id']} "
@@ -371,9 +367,7 @@ class MemoryMergeEngine:
     # HELPER METHODS
     # ========================================================================
 
-    def _detect_conflicts(
-        self, mem1: dict[str, Any], mem2: dict[str, Any]
-    ) -> list[MergeConflict]:
+    def _detect_conflicts(self, mem1: dict[str, Any], mem2: dict[str, Any]) -> list[MergeConflict]:
         """Detect conflicts between two memories."""
         conflicts: list[MergeConflict] = []
 
@@ -386,9 +380,7 @@ class MemoryMergeEngine:
                         conflict_type=MergeConflictType.TEXT_DIFFERENCE,
                         field="text",
                         source_values=[mem1["text"], mem2["text"]],
-                        suggested_resolution=self._combine_texts(
-                            mem1["text"], mem2["text"]
-                        ),
+                        suggested_resolution=self._combine_texts(mem1["text"], mem2["text"]),
                         resolution_strategy=MergeStrategy.COMBINE,
                     )
                 )
@@ -434,9 +426,7 @@ class MemoryMergeEngine:
 
         return conflicts
 
-    def _detect_multi_conflicts(
-        self, memories: list[dict[str, Any]]
-    ) -> list[MergeConflict]:
+    def _detect_multi_conflicts(self, memories: list[dict[str, Any]]) -> list[MergeConflict]:
         """Detect conflicts among multiple memories."""
         conflicts: list[MergeConflict] = []
 
@@ -496,15 +486,15 @@ class MemoryMergeEngine:
             if strategy == MergeStrategy.NEWEST:
                 # Get most recent value
                 sorted_mems = sorted(
-                    memories, key=lambda m: m.get("updated_at") or m.get("created_at") or "", reverse=True
+                    memories,
+                    key=lambda m: m.get("updated_at") or m.get("created_at") or "",
+                    reverse=True,
                 )
                 resolved[conflict.field] = sorted_mems[0].get(conflict.field)
 
             elif strategy == MergeStrategy.HIGHEST_CONFIDENCE:
                 # Get from most confident memory
-                sorted_mems = sorted(
-                    memories, key=lambda m: m.get("confidence", 0.5), reverse=True
-                )
+                sorted_mems = sorted(memories, key=lambda m: m.get("confidence", 0.5), reverse=True)
                 resolved[conflict.field] = sorted_mems[0].get(conflict.field)
 
             elif strategy == MergeStrategy.LONGEST:
@@ -539,7 +529,9 @@ class MemoryMergeEngine:
         merged["id"] = str(uuid4())
 
         # Update timestamps
-        merged["created_at"] = min(m.get("created_at", datetime.now(timezone.utc)) for m in memories)
+        merged["created_at"] = min(
+            m.get("created_at", datetime.now(timezone.utc)) for m in memories
+        )
         merged["updated_at"] = datetime.now(timezone.utc)
 
         # Combine metadata
@@ -548,9 +540,7 @@ class MemoryMergeEngine:
         merged["metadata"]["merge_timestamp"] = datetime.now(timezone.utc).isoformat()
 
         # Average confidence
-        merged["confidence"] = sum(m.get("confidence", 0.5) for m in memories) / len(
-            memories
-        )
+        merged["confidence"] = sum(m.get("confidence", 0.5) for m in memories) / len(memories)
 
         # Max importance
         merged["importance"] = max(m.get("importance", 5.0) for m in memories)

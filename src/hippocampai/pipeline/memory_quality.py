@@ -55,13 +55,9 @@ class MemoryHealthScore(BaseModel):
 
     memory_id: str
     overall_score: float = Field(ge=0.0, le=100.0, description="Overall quality score")
-    completeness_score: float = Field(
-        ge=0.0, le=100.0, description="Completeness of information"
-    )
+    completeness_score: float = Field(ge=0.0, le=100.0, description="Completeness of information")
     clarity_score: float = Field(ge=0.0, le=100.0, description="Clarity of content")
-    freshness_score: float = Field(
-        ge=0.0, le=100.0, description="How recent/up-to-date"
-    )
+    freshness_score: float = Field(ge=0.0, le=100.0, description="How recent/up-to-date")
     confidence_score: float = Field(ge=0.0, le=100.0, description="Confidence level")
     importance_score: float = Field(ge=0.0, le=100.0, description="Importance weight")
     issues: list[QualityIssue] = Field(default_factory=list)
@@ -89,9 +85,7 @@ class DuplicateCluster(BaseModel):
 
     cluster_id: str
     memory_ids: list[str]
-    similarity_score: float = Field(
-        ge=0.0, le=1.0, description="Average similarity within cluster"
-    )
+    similarity_score: float = Field(ge=0.0, le=1.0, description="Average similarity within cluster")
     suggested_action: str  # "merge", "keep_all", "review"
     canonical_memory_id: Optional[str] = None  # Best representative
 
@@ -253,24 +247,18 @@ class MemoryQualityMonitor:
 
         if len(text) < self.min_text_length:
             health.issues.append(QualityIssue.INCOMPLETE)
-            health.recommendations.append(
-                "Very short text. May lack sufficient detail."
-            )
+            health.recommendations.append("Very short text. May lack sufficient detail.")
 
         if not tags and not metadata:
             health.issues.append(QualityIssue.ORPHANED)
-            health.recommendations.append(
-                "No tags or metadata. Consider adding context."
-            )
+            health.recommendations.append("No tags or metadata. Consider adding context.")
 
         # Calculate overall score
         health.calculate_overall_score()
 
         return health
 
-    def _assess_completeness(
-        self, text: str, tags: list[str], metadata: dict[str, Any]
-    ) -> float:
+    def _assess_completeness(self, text: str, tags: list[str], metadata: dict[str, Any]) -> float:
         """Assess completeness of memory (0-100)."""
         score = 0.0
 
@@ -391,9 +379,7 @@ class MemoryQualityMonitor:
 
             # Only create cluster if > 1 member
             if len(cluster_members) > 1:
-                avg_similarity = (
-                    sum(similarities) / len(similarities) if similarities else 0.0
-                )
+                avg_similarity = sum(similarities) / len(similarities) if similarities else 0.0
 
                 # Determine suggested action
                 if avg_similarity >= self.duplicate_threshold:
@@ -406,9 +392,7 @@ class MemoryQualityMonitor:
                 # Find canonical (best quality) memory
                 canonical = max(
                     cluster_members,
-                    key=lambda mid: similarity_matrix.get(
-                        (mid, list(cluster_members)[0]), 0.0
-                    ),
+                    key=lambda mid: similarity_matrix.get((mid, list(cluster_members)[0]), 0.0),
                 )
 
                 cluster = DuplicateCluster(
@@ -462,9 +446,7 @@ class MemoryQualityMonitor:
             memory_count = len(topic_mems)
 
             # Average quality (using confidence as proxy)
-            avg_quality = (
-                sum(m.get("confidence", 0.5) for m in topic_mems) / memory_count * 100
-            )
+            avg_quality = sum(m.get("confidence", 0.5) for m in topic_mems) / memory_count * 100
 
             # Average recency
             total_days = 0.0
@@ -490,9 +472,7 @@ class MemoryQualityMonitor:
             # Coverage score (based on count, quality, recency)
             count_score = min(memory_count / 10.0 * 50, 50)  # Max 50 points
             quality_score = avg_quality * 0.3  # Max 30 points
-            recency_score = max(
-                0, 20 - (avg_recency / 30)
-            )  # Max 20 points, decay over 30 days
+            recency_score = max(0, 20 - (avg_recency / 30))  # Max 20 points, decay over 30 days
             coverage_score = min(count_score + quality_score + recency_score, 100)
 
             coverage = TopicCoverage(
@@ -563,9 +543,7 @@ class MemoryQualityMonitor:
         # Factors: avg quality (50%), duplicate ratio (20%), stale ratio (20%), coverage (10%)
         duplicate_penalty = min(len(duplicate_clusters) / total_memories * 100, 20)
         stale_penalty = min(stale_count / total_memories * 100, 20)
-        coverage_bonus = (
-            min(len(topic_coverage) / 10.0 * 10, 10) if topic_coverage else 0
-        )
+        coverage_bonus = min(len(topic_coverage) / 10.0 * 10, 10) if topic_coverage else 0
 
         overall_score = max(
             0, avg_quality * 0.5 - duplicate_penalty - stale_penalty + coverage_bonus

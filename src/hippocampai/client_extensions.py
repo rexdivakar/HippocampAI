@@ -82,7 +82,9 @@ class MemoryClientExtensions:
             filters: Optional[dict[str, Any]] = None,
         ) -> list[Memory]: ...
 
-    def __init_extensions__(self, enable_graph: bool = True, enable_versioning: bool = True) -> None:
+    def __init_extensions__(
+        self, enable_graph: bool = True, enable_versioning: bool = True
+    ) -> None:
         """
         Initialize extended features.
 

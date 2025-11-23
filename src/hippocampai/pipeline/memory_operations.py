@@ -47,23 +47,15 @@ class CloneOptions(BaseModel):
     """Options for cloning a memory."""
 
     preserve_id: bool = Field(default=False, description="Keep original ID")
-    preserve_timestamps: bool = Field(
-        default=False, description="Keep created/updated timestamps"
-    )
+    preserve_timestamps: bool = Field(default=False, description="Keep created/updated timestamps")
     preserve_metadata: bool = Field(default=True, description="Copy metadata")
     preserve_tags: bool = Field(default=True, description="Copy tags")
-    new_user_id: Optional[str] = Field(
-        default=None, description="Assign to different user"
-    )
-    new_session_id: Optional[str] = Field(
-        default=None, description="Assign to different session"
-    )
+    new_user_id: Optional[str] = Field(default=None, description="Assign to different user")
+    new_session_id: Optional[str] = Field(default=None, description="Assign to different session")
     metadata_overrides: dict[str, Any] = Field(
         default_factory=dict, description="Override specific metadata fields"
     )
-    tag_additions: list[str] = Field(
-        default_factory=list, description="Add these tags to clone"
-    )
+    tag_additions: list[str] = Field(default_factory=list, description="Add these tags to clone")
     tag_removals: list[str] = Field(
         default_factory=list, description="Remove these tags from clone"
     )
@@ -73,42 +65,18 @@ class BatchUpdateFilter(BaseModel):
     """Filter criteria for batch updates."""
 
     user_ids: Optional[list[str]] = Field(default=None, description="Filter by users")
-    session_ids: Optional[list[str]] = Field(
-        default=None, description="Filter by sessions"
-    )
-    memory_types: Optional[list[str]] = Field(
-        default=None, description="Filter by types"
-    )
-    tags_include: Optional[list[str]] = Field(
-        default=None, description="Must have all these tags"
-    )
-    tags_exclude: Optional[list[str]] = Field(
-        default=None, description="Must not have these tags"
-    )
-    importance_min: Optional[float] = Field(
-        default=None, description="Minimum importance"
-    )
-    importance_max: Optional[float] = Field(
-        default=None, description="Maximum importance"
-    )
-    confidence_min: Optional[float] = Field(
-        default=None, description="Minimum confidence"
-    )
-    confidence_max: Optional[float] = Field(
-        default=None, description="Maximum confidence"
-    )
-    created_before: Optional[datetime] = Field(
-        default=None, description="Created before this date"
-    )
-    created_after: Optional[datetime] = Field(
-        default=None, description="Created after this date"
-    )
-    updated_before: Optional[datetime] = Field(
-        default=None, description="Updated before this date"
-    )
-    updated_after: Optional[datetime] = Field(
-        default=None, description="Updated after this date"
-    )
+    session_ids: Optional[list[str]] = Field(default=None, description="Filter by sessions")
+    memory_types: Optional[list[str]] = Field(default=None, description="Filter by types")
+    tags_include: Optional[list[str]] = Field(default=None, description="Must have all these tags")
+    tags_exclude: Optional[list[str]] = Field(default=None, description="Must not have these tags")
+    importance_min: Optional[float] = Field(default=None, description="Minimum importance")
+    importance_max: Optional[float] = Field(default=None, description="Maximum importance")
+    confidence_min: Optional[float] = Field(default=None, description="Minimum confidence")
+    confidence_max: Optional[float] = Field(default=None, description="Maximum confidence")
+    created_before: Optional[datetime] = Field(default=None, description="Created before this date")
+    created_after: Optional[datetime] = Field(default=None, description="Created after this date")
+    updated_before: Optional[datetime] = Field(default=None, description="Updated before this date")
+    updated_after: Optional[datetime] = Field(default=None, description="Updated after this date")
     metadata_filters: dict[str, Any] = Field(
         default_factory=dict, description="Metadata key-value filters"
     )
@@ -131,9 +99,7 @@ class BatchUpdateOperation(BaseModel):
     )
     add_tags: list[str] = Field(default_factory=list, description="Tags to add")
     remove_tags: list[str] = Field(default_factory=list, description="Tags to remove")
-    set_metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Metadata to set/update"
-    )
+    set_metadata: dict[str, Any] = Field(default_factory=dict, description="Metadata to set/update")
     remove_metadata_keys: list[str] = Field(
         default_factory=list, description="Metadata keys to remove"
     )
@@ -165,17 +131,13 @@ class MaintenanceSchedule(BaseModel):
     schedule_id: str = Field(default_factory=lambda: f"schedule_{uuid4().hex[:8]}")
     action: MaintenanceAction = Field(description="Type of maintenance action")
     interval_hours: int = Field(description="Hours between executions")
-    last_run: Optional[datetime] = Field(
-        default=None, description="Last execution timestamp"
-    )
+    last_run: Optional[datetime] = Field(default=None, description="Last execution timestamp")
     next_run: datetime = Field(description="Next scheduled execution")
     enabled: bool = Field(default=True, description="Whether schedule is active")
     filter_criteria: Optional[BatchUpdateFilter] = Field(
         default=None, description="Optional filter for targeted maintenance"
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional configuration"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional configuration")
 
 
 class ArchivalPolicy(BaseModel):
@@ -202,9 +164,7 @@ class ArchivalPolicy(BaseModel):
     archive_reason: ArchivalReason = Field(
         default=ArchivalReason.RETENTION_POLICY, description="Reason for archival"
     )
-    dry_run: bool = Field(
-        default=False, description="Preview without actually archiving"
-    )
+    dry_run: bool = Field(default=False, description="Preview without actually archiving")
 
 
 class GarbageCollectionConfig(BaseModel):
@@ -213,9 +173,7 @@ class GarbageCollectionConfig(BaseModel):
     policy: GarbageCollectionPolicy = Field(
         default=GarbageCollectionPolicy.MODERATE, description="GC policy"
     )
-    min_age_days: int = Field(
-        default=30, description="Minimum age before considering for GC"
-    )
+    min_age_days: int = Field(default=30, description="Minimum age before considering for GC")
     importance_threshold: float = Field(
         default=3.0, description="Keep memories with importance above this"
     )
@@ -232,12 +190,8 @@ class GarbageCollectionConfig(BaseModel):
     preserve_tags: list[str] = Field(
         default_factory=list, description="Never GC memories with these tags"
     )
-    max_memories_per_run: int = Field(
-        default=1000, description="Maximum memories to GC in one run"
-    )
-    dry_run: bool = Field(
-        default=False, description="Preview without actually deleting"
-    )
+    max_memories_per_run: int = Field(default=1000, description="Maximum memories to GC in one run")
+    dry_run: bool = Field(default=False, description="Preview without actually deleting")
 
 
 class GarbageCollectionResult(BaseModel):
@@ -248,9 +202,7 @@ class GarbageCollectionResult(BaseModel):
     collected_memory_ids: list[str] = Field(
         default_factory=list, description="IDs of collected memories"
     )
-    space_reclaimed_bytes: int = Field(
-        default=0, description="Estimated space reclaimed"
-    )
+    space_reclaimed_bytes: int = Field(default=0, description="Estimated space reclaimed")
     execution_time_ms: float = Field(description="Execution time in milliseconds")
     dry_run: bool = Field(default=False, description="Was this a dry run")
 
@@ -323,9 +275,7 @@ class MemoryOperations:
                 if tag not in cloned["tags"]:
                     cloned["tags"].append(tag)
             # Remove tags
-            cloned["tags"] = [
-                tag for tag in cloned["tags"] if tag not in options.tag_removals
-            ]
+            cloned["tags"] = [tag for tag in cloned["tags"] if tag not in options.tag_removals]
         else:
             cloned["tags"] = list(options.tag_additions)
 
@@ -433,9 +383,7 @@ class MemoryOperations:
 
         return memory
 
-    def matches_filter(
-        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
-    ) -> bool:
+    def matches_filter(self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter) -> bool:
         """
         Check if a memory matches filter criteria.
 
@@ -479,16 +427,28 @@ class MemoryOperations:
 
         # Importance filter
         importance = memory.get("importance", 0.0)
-        if filter_criteria.importance_min is not None and importance < filter_criteria.importance_min:
+        if (
+            filter_criteria.importance_min is not None
+            and importance < filter_criteria.importance_min
+        ):
             return False
-        if filter_criteria.importance_max is not None and importance > filter_criteria.importance_max:
+        if (
+            filter_criteria.importance_max is not None
+            and importance > filter_criteria.importance_max
+        ):
             return False
 
         # Confidence filter
         confidence = memory.get("confidence", 0.0)
-        if filter_criteria.confidence_min is not None and confidence < filter_criteria.confidence_min:
+        if (
+            filter_criteria.confidence_min is not None
+            and confidence < filter_criteria.confidence_min
+        ):
             return False
-        if filter_criteria.confidence_max is not None and confidence > filter_criteria.confidence_max:
+        if (
+            filter_criteria.confidence_max is not None
+            and confidence > filter_criteria.confidence_max
+        ):
             return False
 
         # Timestamp filters
@@ -543,9 +503,7 @@ class MemoryOperations:
         """
         start_time = datetime.now()
 
-        result = BatchUpdateResult(
-            total_matched=0, total_updated=0, execution_time_ms=0.0
-        )
+        result = BatchUpdateResult(total_matched=0, total_updated=0, execution_time_ms=0.0)
 
         for memory in memories:
             if not self.matches_filter(memory, filter_criteria):
@@ -556,9 +514,7 @@ class MemoryOperations:
             try:
                 # Apply importance operations
                 if operation.set_importance is not None:
-                    memory["importance"] = max(
-                        0.0, min(10.0, operation.set_importance)
-                    )
+                    memory["importance"] = max(0.0, min(10.0, operation.set_importance))
                 elif operation.adjust_importance is not None:
                     memory["importance"] = max(
                         0.0,
@@ -588,9 +544,7 @@ class MemoryOperations:
 
                 if operation.remove_tags:
                     memory["tags"] = [
-                        tag
-                        for tag in memory.get("tags", [])
-                        if tag not in operation.remove_tags
+                        tag for tag in memory.get("tags", []) if tag not in operation.remove_tags
                     ]
 
                 # Metadata operations
@@ -636,9 +590,7 @@ class MemoryOperations:
 
         return result
 
-    def schedule_maintenance(
-        self, schedule: MaintenanceSchedule
-    ) -> MaintenanceSchedule:
+    def schedule_maintenance(self, schedule: MaintenanceSchedule) -> MaintenanceSchedule:
         """
         Schedule automatic memory maintenance.
 
@@ -651,8 +603,7 @@ class MemoryOperations:
         self.maintenance_schedules[schedule.schedule_id] = schedule
 
         logger.info(
-            f"Scheduled {schedule.action.value} maintenance "
-            f"every {schedule.interval_hours} hours"
+            f"Scheduled {schedule.action.value} maintenance every {schedule.interval_hours} hours"
         )
 
         return schedule
@@ -708,9 +659,7 @@ class MemoryOperations:
         policies = policies or list(self.archival_policies.values())
         now = datetime.now(timezone.utc)
 
-        total_result = BatchUpdateResult(
-            total_matched=0, total_updated=0, execution_time_ms=0.0
-        )
+        total_result = BatchUpdateResult(total_matched=0, total_updated=0, execution_time_ms=0.0)
         start_time = datetime.now()
 
         for policy in policies:
@@ -732,9 +681,7 @@ class MemoryOperations:
                 if policy.stale_threshold_days is not None:
                     updated_at = memory.get("updated_at")
                     if isinstance(updated_at, str):
-                        updated_at = datetime.fromisoformat(
-                            updated_at.replace("Z", "+00:00")
-                        )
+                        updated_at = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                     if updated_at is not None and updated_at.tzinfo is None:
                         updated_at = updated_at.replace(tzinfo=timezone.utc)
 
@@ -746,24 +693,21 @@ class MemoryOperations:
                 # Low importance check
                 if (
                     policy.low_importance_threshold is not None
-                    and memory.get("importance", 10.0)
-                    < policy.low_importance_threshold
+                    and memory.get("importance", 10.0) < policy.low_importance_threshold
                 ):
                     should_archive = True
 
                 # Low confidence check
                 if (
                     policy.low_confidence_threshold is not None
-                    and memory.get("confidence", 1.0)
-                    < policy.low_confidence_threshold
+                    and memory.get("confidence", 1.0) < policy.low_confidence_threshold
                 ):
                     should_archive = True
 
                 # Access count check
                 if (
                     policy.access_count_threshold is not None
-                    and memory.get("access_count", 0)
-                    < policy.access_count_threshold
+                    and memory.get("access_count", 0) < policy.access_count_threshold
                 ):
                     should_archive = True
 
@@ -784,9 +728,7 @@ class MemoryOperations:
                         total_result.archived_memory_ids.append(memory["id"])
 
         end_time = datetime.now()
-        total_result.execution_time_ms = (
-            end_time - start_time
-        ).total_seconds() * 1000
+        total_result.execution_time_ms = (end_time - start_time).total_seconds() * 1000
 
         logger.info(
             f"Archival policies: {total_result.total_archived} memories archived "

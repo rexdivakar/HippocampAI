@@ -278,6 +278,7 @@ class RemoteBackend(BaseBackend):
     ) -> list[Memory]:
         """Extract memories from a conversation via API."""
         import json
+
         # Convert conversation list to string format expected by API
         conversation_str = json.dumps(conversation)
         payload = {
@@ -289,9 +290,7 @@ class RemoteBackend(BaseBackend):
         data = self._post("/v1/memories/extract", payload)
         return [self._dict_to_memory(item) for item in data]
 
-    def deduplicate_memories(
-        self, user_id: str, dry_run: bool = True
-    ) -> dict[str, Any]:
+    def deduplicate_memories(self, user_id: str, dry_run: bool = True) -> dict[str, Any]:
         """Deduplicate memories for a user via API."""
         payload = {"user_id": user_id, "dry_run": dry_run}
         return cast(dict[str, Any], self._post("/v1/memories/deduplicate", payload))

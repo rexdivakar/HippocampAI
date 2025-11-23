@@ -1,6 +1,6 @@
 # HippocampAI: Unified Guide - Testing, API, and Usage
 
-Complete guide for using, testing, and deploying HippocampAI - as easy as mem0 and zep!
+Complete guide for using, testing, and deploying HippocampAI - the enterprise-grade memory engine for intelligent AI systems.
 
 ## 📑 Table of Contents
 
@@ -9,13 +9,12 @@ Complete guide for using, testing, and deploying HippocampAI - as easy as mem0 a
 3. [Testing Guide](#testing-guide)
 4. [Examples](#examples)
 5. [Deployment](#deployment)
-6. [Comparison with Competitors](#comparison)
 
 ---
 
 ## 🚀 Quick Start
 
-### Simplest Possible Usage (mem0-style)
+### Simplest Possible Usage
 
 ```python
 from hippocampai import SimpleMemory as Memory
@@ -36,9 +35,9 @@ results = m.search("preferences", user_id="alice")
 
 HippocampAI offers **3 different API styles** - choose what works best for you:
 
-### 1. Simple API (mem0-compatible)
+### 1. Simple API
 
-**Best for**: Quick prototyping, mem0 migration, simple use cases
+**Best for**: Quick prototyping, simple use cases
 
 ```python
 from hippocampai import SimpleMemory as Memory
@@ -52,9 +51,9 @@ m.delete(memory_id)                     # Delete
 
 📖 [Full Simple API Guide](QUICK_START_SIMPLE.md)
 
-### 2. Session API (zep-compatible)
+### 2. Session API
 
-**Best for**: Chatbots, conversation apps, zep migration
+**Best for**: Chatbots, conversation apps
 
 ```python
 from hippocampai import SimpleSession as Session
@@ -67,7 +66,7 @@ summary = session.get_summary()
 
 📖 [Full Session API Guide](QUICK_START_SIMPLE.md#session-api)
 
-### 3. Native API (HippocampAI)
+### 3. Native API
 
 **Best for**: Advanced features, fine control, cognitive metaphors
 
@@ -187,8 +186,8 @@ print(patterns[0].description)  # "Daily standup meetings at 9am"
 
 | Script | Description | API Style |
 |--------|-------------|-----------|
-| `examples/simple_api_mem0_style.py` | mem0-compatible Simple API | Simple |
-| `examples/simple_api_session_style.py` | zep-compatible Session API | Session |
+| `examples/simple_api_mem0_style.py` | Simple Memory API | Simple |
+| `examples/simple_api_session_style.py` | Session-based API | Session |
 | `examples/01_basic_usage.py` | Basic remember/recall | Native |
 | `examples/02_conversation_extraction.py` | Auto-extract from conversations | Native |
 | `examples/03_hybrid_retrieval.py` | Advanced search | Native |
@@ -243,57 +242,6 @@ docker-compose up -d
 
 ---
 
-## 🆚 Comparison with Competitors
-
-### Feature Comparison
-
-| Feature | HippocampAI | mem0 | zep |
-|---------|-------------|------|-----|
-| **Simple API** | ✅ mem0-compatible | ✅ | ❌ |
-| **Session API** | ✅ zep-compatible | ❌ | ✅ |
-| **Cognitive Metaphors** | ✅ remember/recall | ❌ | ❌ |
-| **Memory Types** | ✅ 6 types | ❌ Untyped | ❌ Message-based |
-| **Hybrid Search** | ✅ Vector+BM25+Rerank | ❌ Vector only | ❌ Vector only |
-| **Pattern Detection** | ✅ Built-in | ❌ Custom | ❌ Custom |
-| **Multi-agent** | ✅ Built-in | ❌ Limited | ❌ Session-based |
-| **Open Source** | ✅ No lock-in | ⚠️ Cloud-first | ⚠️ Cloud-first |
-| **Local + Remote** | ✅ Unified API | ⚠️ Different APIs | ⚠️ Different packages |
-
-### API Comparison
-
-```python
-# HippocampAI - mem0 style
-from hippocampai import SimpleMemory as Memory
-m = Memory()
-m.add("text", user_id="alice")
-
-# mem0
-from mem0 import Memory
-m = Memory()
-m.add("text", user_id="alice")
-
-# SAME API! ✅
-```
-
-```python
-# HippocampAI - zep style
-from hippocampai import SimpleSession as Session
-session = Session(session_id="123")
-session.add_message("user", "text")
-
-# zep
-from zep_cloud.client import Zep
-client = Zep()
-messages = [Message(role="user", content="text")]
-client.memory.add(session_id="123", messages=messages)
-
-# Similar patterns! ✅
-```
-
-📖 [Full Comparison](COMPETITIVE_COMPARISON.md)
-
----
-
 ## 📖 Documentation Structure
 
 ```
@@ -306,14 +254,13 @@ HippocampAI/
 ├── docs/
 │   ├── QUICK_START_SIMPLE.md      # 30-second quickstart (BEST PLACE TO START!)
 │   ├── UNIFIED_GUIDE.md           # This file - complete overview
-│   ├── COMPETITIVE_COMPARISON.md  # vs mem0, zep, others
 │   ├── API_REFERENCE.md           # Complete API docs (102 methods)
 │   ├── USER_GUIDE.md              # Deployment and production
 │   ├── FEATURES.md                # All features explained
 │   └── [48+ more docs]
 └── examples/
-    ├── simple_api_mem0_style.py   # mem0-compatible example
-    ├── simple_api_session_style.py # zep-compatible example
+    ├── simple_api_mem0_style.py   # Simple Memory API example
+    ├── simple_api_session_style.py # Session API example
     └── [25+ more examples]
 ```
 
@@ -347,10 +294,10 @@ HippocampAI/
 |----------|------|-------------|
 | **Quick Start** | [QUICK_START_SIMPLE.md](QUICK_START_SIMPLE.md) | 30-second start guide |
 | **API Docs** | [API_REFERENCE.md](API_REFERENCE.md) | All 102 methods |
-| **Testing** | [Testing Guide](TESTING_GUIDE.md) | How to run tests |
+| **Testing** | [TESTING_GUIDE.md](TESTING_GUIDE.md) | How to run tests |
 | **Examples** | [Examples](../examples) | 25+ working examples |
-| **Comparison** | [COMPETITIVE_COMPARISON.md](COMPETITIVE_COMPARISON.md) | vs mem0, zep |
-| **GitHub** | [GitHub Repo](https://github.com/yourusername/HippocampAI) | Source code |
+| **Features** | [FEATURES.md](FEATURES.md) | Complete feature list |
+| **GitHub** | [GitHub Repo](https://github.com/rexdivakar/HippocampAI) | Source code |
 
 ---
 
@@ -367,13 +314,13 @@ HippocampAI/
 ## ⭐ Why HippocampAI?
 
 1. **🚀 Easiest to start**: 30 seconds to first memory
-2. **🔄 Compatible**: Works with mem0 and zep patterns
-3. **🧠 Cognitive**: remember/recall metaphors feel natural
-4. **💪 Powerful**: 102 methods, 6 memory types, hybrid search
+2. **🧠 Cognitive**: remember/recall metaphors feel natural
+3. **💪 Powerful**: 102 methods, 6 memory types, hybrid search
+4. **🎯 Flexible**: 3 API styles for different use cases
 5. **🏢 Production-ready**: Battle-tested, well-documented
 6. **🆓 Open source**: No vendor lock-in
 
-**Choose HippocampAI for the best of all worlds!** 🎉
+**Choose HippocampAI for enterprise-grade memory management!** 🎉
 
 ---
 

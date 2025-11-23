@@ -23,11 +23,12 @@ Example (HippocampAI native):
     >>> results = m.recall("programming", user_id="alice")
 """
 
-from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from hippocampai.client import MemoryClient as _MemoryClient
-from hippocampai.models.memory import Memory as _Memory, RetrievalResult
+from hippocampai.models.memory import Memory as _Memory
+from hippocampai.models.memory import RetrievalResult
 
 
 class Memory:
@@ -49,7 +50,7 @@ class Memory:
         self,
         config: Optional[Dict[str, Any]] = None,
         api_key: Optional[str] = None,
-        api_url: Optional[str] = None
+        api_url: Optional[str] = None,
     ):
         """
         Initialize Memory client.
@@ -72,22 +73,13 @@ class Memory:
         # Determine mode
         if api_url:
             from hippocampai import UnifiedMemoryClient
-            self._client = UnifiedMemoryClient(
-                mode="remote",
-                api_url=api_url,
-                api_key=api_key
-            )
+
+            self._client = UnifiedMemoryClient(mode="remote", api_url=api_url, api_key=api_key)
         else:
-            self._client = _MemoryClient(
-                **(config or {})
-            )
+            self._client = _MemoryClient(**(config or {}))
 
     def add(
-        self,
-        text: str,
-        user_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        **kwargs
+        self, text: str, user_id: str, metadata: Optional[Dict[str, Any]] = None, **kwargs
     ) -> _Memory:
         """
         Add a memory (mem0-compatible API).
@@ -105,19 +97,10 @@ class Memory:
             >>> m.add("I prefer oat milk", user_id="alice")
             >>> m.add("Paris is in France", user_id="bob", metadata={"type": "fact"})
         """
-        return self._client.remember(
-            text=text,
-            user_id=user_id,
-            metadata=metadata,
-            **kwargs
-        )
+        return self._client.remember(text=text, user_id=user_id, metadata=metadata, **kwargs)
 
     def search(
-        self,
-        query: str,
-        user_id: str,
-        limit: int = 5,
-        filters: Optional[Dict[str, Any]] = None
+        self, query: str, user_id: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None
     ) -> List[RetrievalResult]:
         """
         Search memories (mem0-compatible API).
@@ -136,12 +119,7 @@ class Memory:
             >>> for result in results:
             ...     print(f"{result.score:.2f}: {result.memory.text}")
         """
-        return self._client.recall(
-            query=query,
-            user_id=user_id,
-            k=limit,
-            filters=filters or {}
-        )
+        return self._client.recall(query=query, user_id=user_id, k=limit, filters=filters or {})
 
     def get(self, memory_id: str) -> Optional[_Memory]:
         """
@@ -159,11 +137,7 @@ class Memory:
         """
         return self._client.get_memory(memory_id)
 
-    def get_all(
-        self,
-        user_id: str,
-        limit: Optional[int] = None
-    ) -> List[_Memory]:
+    def get_all(self, user_id: str, limit: Optional[int] = None) -> List[_Memory]:
         """
         Get all memories for a user.
 
@@ -184,7 +158,7 @@ class Memory:
         memory_id: str,
         text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> Optional[_Memory]:
         """
         Update a memory.
@@ -202,10 +176,7 @@ class Memory:
             >>> m.update("mem_123", text="Updated text")
         """
         return self._client.update_memory(
-            memory_id=memory_id,
-            text=text,
-            metadata=metadata,
-            **kwargs
+            memory_id=memory_id, text=text, metadata=metadata, **kwargs
         )
 
     def delete(self, memory_id: str) -> bool:
@@ -267,10 +238,7 @@ class Session:
     """
 
     def __init__(
-        self,
-        session_id: str,
-        user_id: Optional[str] = None,
-        client: Optional[_MemoryClient] = None
+        self, session_id: str, user_id: Optional[str] = None, client: Optional[_MemoryClient] = None
     ):
         """
         Initialize Session.
@@ -288,10 +256,7 @@ class Session:
         self._client = client or _MemoryClient()
 
     def add_message(
-        self,
-        role: str,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None
     ) -> _Memory:
         """
         Add a message to the session.
@@ -311,17 +276,10 @@ class Session:
             text=content,
             user_id=self.user_id,
             session_id=self.session_id,
-            metadata={
-                **(metadata or {}),
-                "role": role,
-                "timestamp": datetime.now().isoformat()
-            }
+            metadata={**(metadata or {}), "role": role, "timestamp": datetime.now().isoformat()},
         )
 
-    def get_messages(
-        self,
-        limit: Optional[int] = None
-    ) -> List[_Memory]:
+    def get_messages(self, limit: Optional[int] = None) -> List[_Memory]:
         """
         Get all messages in the session.
 
@@ -335,16 +293,10 @@ class Session:
             >>> messages = session.get_messages(limit=10)
         """
         return self._client.get_memories(
-            user_id=self.user_id,
-            session_id=self.session_id,
-            limit=limit
+            user_id=self.user_id, session_id=self.session_id, limit=limit
         )
 
-    def search(
-        self,
-        query: str,
-        limit: int = 5
-    ) -> List[RetrievalResult]:
+    def search(self, query: str, limit: int = 5) -> List[RetrievalResult]:
         """
         Search within session messages.
 
@@ -359,10 +311,7 @@ class Session:
             >>> results = session.search("weather", limit=3)
         """
         return self._client.recall(
-            query=query,
-            user_id=self.user_id,
-            k=limit,
-            filters={"session_id": self.session_id}
+            query=query, user_id=self.user_id, k=limit, filters={"session_id": self.session_id}
         )
 
     def get_summary(self) -> str:
@@ -382,13 +331,11 @@ class Session:
 
         # Convert to conversation format
         conversation = [
-            {"role": m.metadata.get("role", "user"), "content": m.text}
-            for m in messages
+            {"role": m.metadata.get("role", "user"), "content": m.text} for m in messages
         ]
 
         summary_obj = self._client.summarize_conversation(
-            messages=conversation,
-            session_id=self.session_id
+            messages=conversation, session_id=self.session_id
         )
 
         return summary_obj.summary if summary_obj else "Summary not available"

@@ -45,15 +45,9 @@ class MemoryTemperature(BaseModel):
     temperature_score: float = Field(
         default=0.0, ge=0.0, le=100.0, description="0=coldest, 100=hottest"
     )
-    access_frequency: float = Field(
-        ge=0.0, description="Accesses per day since creation"
-    )
-    recency_score: float = Field(
-        ge=0.0, le=1.0, description="How recently was it accessed"
-    )
-    importance_weight: float = Field(
-        ge=0.0, le=1.0, description="Memory importance factor"
-    )
+    access_frequency: float = Field(ge=0.0, description="Accesses per day since creation")
+    recency_score: float = Field(ge=0.0, le=1.0, description="How recently was it accessed")
+    importance_weight: float = Field(ge=0.0, le=1.0, description="Memory importance factor")
     last_access: Optional[datetime] = None
     created_at: datetime
     access_count: int = 0
@@ -79,9 +73,7 @@ class MemoryTemperature(BaseModel):
         importance_score = self.importance_weight * 100
 
         # Weighted average
-        self.temperature_score = (
-            0.4 * freq_score + 0.3 * recency_score + 0.3 * importance_score
-        )
+        self.temperature_score = 0.4 * freq_score + 0.3 * recency_score + 0.3 * importance_score
         return self.temperature_score
 
     def recommend_tier(self) -> MemoryTier:
@@ -231,9 +223,7 @@ class MemoryLifecycleManager:
 
         return temp
 
-    def should_migrate(
-        self, current_tier: MemoryTier, recommended_tier: MemoryTier
-    ) -> bool:
+    def should_migrate(self, current_tier: MemoryTier, recommended_tier: MemoryTier) -> bool:
         """
         Check if memory should be migrated to a different tier.
 

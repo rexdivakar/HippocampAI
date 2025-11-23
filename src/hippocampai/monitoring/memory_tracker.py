@@ -62,12 +62,8 @@ class MemoryEvent(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="When the event occurred",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional event metadata"
-    )
-    duration_ms: Optional[float] = Field(
-        None, description="Operation duration in milliseconds"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional event metadata")
+    duration_ms: Optional[float] = Field(None, description="Operation duration in milliseconds")
     success: bool = Field(default=True, description="Whether operation succeeded")
     error_message: Optional[str] = Field(None, description="Error message if failed")
 
@@ -86,9 +82,7 @@ class MemoryAccessPattern(BaseModel):
     search_hits: int = 0
     direct_retrievals: int = 0
     access_frequency: float = 0.0  # accesses per day
-    access_sources: dict[str, int] = Field(
-        default_factory=dict
-    )  # endpoint: count
+    access_sources: dict[str, int] = Field(default_factory=dict)  # endpoint: count
 
 
 class MemoryHealthSnapshot(BaseModel):
@@ -176,10 +170,7 @@ class MemoryTracker:
         self._update_access_pattern(memory_id, user_id, event_type)
 
         # Log event
-        log_msg = (
-            f"Memory {memory_id} [{event_type.value}] "
-            f"user={user_id} success={success}"
-        )
+        log_msg = f"Memory {memory_id} [{event_type.value}] user={user_id} success={success}"
         if duration_ms:
             log_msg += f" duration={duration_ms:.2f}ms"
 
@@ -265,16 +256,12 @@ class MemoryTracker:
 
         return filtered[:limit]
 
-    def get_access_pattern(
-        self, memory_id: str, user_id: str
-    ) -> Optional[MemoryAccessPattern]:
+    def get_access_pattern(self, memory_id: str, user_id: str) -> Optional[MemoryAccessPattern]:
         """Get access pattern for a specific memory."""
         key = f"{user_id}:{memory_id}"
         return self._access_patterns.get(key)
 
-    def get_all_access_patterns(
-        self, user_id: Optional[str] = None
-    ) -> list[MemoryAccessPattern]:
+    def get_all_access_patterns(self, user_id: Optional[str] = None) -> list[MemoryAccessPattern]:
         """Get all access patterns, optionally filtered by user."""
         patterns = list(self._access_patterns.values())
 
@@ -351,9 +338,7 @@ class MemoryTracker:
         success_rate = successful_ops / total_ops if total_ops > 0 else 0.0
 
         # Most accessed memories
-        most_accessed = sorted(patterns, key=lambda p: p.access_count, reverse=True)[
-            :10
-        ]
+        most_accessed = sorted(patterns, key=lambda p: p.access_count, reverse=True)[:10]
 
         # Calculate average operation duration
         durations = [e.duration_ms for e in events if e.duration_ms is not None]
@@ -371,9 +356,7 @@ class MemoryTracker:
                 {
                     "memory_id": p.memory_id,
                     "access_count": p.access_count,
-                    "last_accessed": p.last_accessed.isoformat()
-                    if p.last_accessed
-                    else None,
+                    "last_accessed": p.last_accessed.isoformat() if p.last_accessed else None,
                 }
                 for p in most_accessed
             ],
@@ -387,9 +370,7 @@ class MemoryTracker:
             days: Number of days to keep
         """
         cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
-        self._events = [
-            e for e in self._events if e.timestamp.timestamp() > cutoff
-        ]
+        self._events = [e for e in self._events if e.timestamp.timestamp() > cutoff]
         logger.info(f"Cleared events older than {days} days")
 
 

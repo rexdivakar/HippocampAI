@@ -311,7 +311,7 @@ class ConversationMemoryManager:
 
         # Detect topic if enough turns
         if len(context.turns) >= self.min_topic_turns:
-            current_topic = self._detect_current_topic(context.turns[-self.min_topic_turns:])
+            current_topic = self._detect_current_topic(context.turns[-self.min_topic_turns :])
             if current_topic != context.current_topic:
                 # Topic shift
                 if context.current_topic:
@@ -325,9 +325,7 @@ class ConversationMemoryManager:
 
         return context
 
-    def segment_by_topic(
-        self, conversation_id: str, use_llm: bool = True
-    ) -> list[TopicSegment]:
+    def segment_by_topic(self, conversation_id: str, use_llm: bool = True) -> list[TopicSegment]:
         """
         Segment conversation into topic-based sections.
 
@@ -388,11 +386,7 @@ class ConversationMemoryManager:
                 start_turn=current_segment_start,
                 end_turn=len(turns) - 1,
                 entities=list(
-                    set(
-                        e
-                        for t in turns[current_segment_start:]
-                        for e in t.entities_mentioned
-                    )
+                    set(e for t in turns[current_segment_start:] for e in t.entities_mentioned)
                 ),
             )
             segments.append(segment)
@@ -543,15 +537,11 @@ class ConversationMemoryManager:
         topics = list(set(s.topic for s in segments))
 
         # Sentiment trajectory
-        sentiment_trajectory = [
-            (i, t.sentiment.value) for i, t in enumerate(context.turns)
-        ]
+        sentiment_trajectory = [(i, t.sentiment.value) for i, t in enumerate(context.turns)]
 
         # Duration
         if context.turns:
-            duration = (
-                context.turns[-1].timestamp - context.turns[0].timestamp
-            ).total_seconds()
+            duration = (context.turns[-1].timestamp - context.turns[0].timestamp).total_seconds()
         else:
             duration = 0.0
 
@@ -584,7 +574,20 @@ class ConversationMemoryManager:
         # Question detection
         if "?" in text or any(
             text_lower.startswith(q)
-            for q in ["what", "who", "where", "when", "why", "how", "is", "are", "can", "could", "would", "should"]
+            for q in [
+                "what",
+                "who",
+                "where",
+                "when",
+                "why",
+                "how",
+                "is",
+                "are",
+                "can",
+                "could",
+                "would",
+                "should",
+            ]
         ):
             return TurnType.QUESTION
 
@@ -596,7 +599,17 @@ class ConversationMemoryManager:
             return TurnType.COMMAND
 
         # Acknowledgment
-        if text_lower in ["ok", "okay", "yes", "no", "sure", "right", "i see", "got it", "understood"]:
+        if text_lower in [
+            "ok",
+            "okay",
+            "yes",
+            "no",
+            "sure",
+            "right",
+            "i see",
+            "got it",
+            "understood",
+        ]:
             return TurnType.ACKNOWLEDGMENT
 
         # Clarification
@@ -673,9 +686,7 @@ class ConversationMemoryManager:
         ]
         return any(indicator in text_lower for indicator in decision_indicators)
 
-    def _detect_current_topic(
-        self, turns: list[ConversationTurn], use_llm: bool = False
-    ) -> str:
+    def _detect_current_topic(self, turns: list[ConversationTurn], use_llm: bool = False) -> str:
         """Detect topic from recent turns."""
         if use_llm and self.llm:
             # Use LLM for better topic detection
@@ -745,7 +756,13 @@ class ConversationMemoryManager:
 
         participants = list(set(t.speaker for t in context.turns))
         turn_count = len(context.turns)
-        topics = list(set(context.topic_history + [context.current_topic] if context.current_topic else context.topic_history))
+        topics = list(
+            set(
+                context.topic_history + [context.current_topic]
+                if context.current_topic
+                else context.topic_history
+            )
+        )
 
         summary = f"Conversation between {', '.join(participants)} with {turn_count} turns."
         if topics:
@@ -771,9 +788,7 @@ class ConversationMemoryManager:
             return self._generate_simple_summary(context)
 
         # Build prompt
-        conversation_text = "\n".join(
-            f"{t.speaker}: {t.text}" for t in context.turns
-        )
+        conversation_text = "\n".join(f"{t.speaker}: {t.text}" for t in context.turns)
 
         prompt = f"""Summarize the following conversation concisely:
 
@@ -793,9 +808,7 @@ Summary:"""
         if not self.llm:
             return self._extract_simple_key_points(context, [])
 
-        conversation_text = "\n".join(
-            f"{t.speaker}: {t.text}" for t in context.turns
-        )
+        conversation_text = "\n".join(f"{t.speaker}: {t.text}" for t in context.turns)
 
         prompt = f"""Extract 3-5 key points from this conversation:
 
@@ -806,9 +819,7 @@ Key points (one per line):"""
         try:
             response = self.llm.generate(prompt, max_tokens=150)
             key_points = [
-                line.strip("- ").strip()
-                for line in response.strip().split("\n")
-                if line.strip()
+                line.strip("- ").strip() for line in response.strip().split("\n") if line.strip()
             ]
             return key_points[:5]
         except Exception as e:

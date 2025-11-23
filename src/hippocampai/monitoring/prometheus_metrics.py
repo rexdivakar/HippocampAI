@@ -226,10 +226,12 @@ vector_search_latency_seconds = Histogram(
 
 # Application Info
 app_info = Info("hippocampai_app", "HippocampAI application information")
-app_info.info({
-    "version": "0.2.5",
-    "environment": "production",
-})
+app_info.info(
+    {
+        "version": "0.2.5",
+        "environment": "production",
+    }
+)
 
 # Active connections
 active_connections = Gauge(
@@ -346,15 +348,9 @@ def record_cache_access(cache_type: str, hit: bool) -> None:
 
 def update_memory_health_metrics(user_id: str, health_data: dict[str, Any]) -> None:
     """Update memory health metrics."""
-    memory_health_score.labels(user_id=user_id).set(
-        health_data.get("overall_score", 0)
-    )
-    stale_memories_count.labels(user_id=user_id).set(
-        len(health_data.get("stale_memories", []))
-    )
-    duplicate_memories_count.labels(user_id=user_id).set(
-        len(health_data.get("duplicates", []))
-    )
+    memory_health_score.labels(user_id=user_id).set(health_data.get("overall_score", 0))
+    stale_memories_count.labels(user_id=user_id).set(len(health_data.get("stale_memories", [])))
+    duplicate_memories_count.labels(user_id=user_id).set(len(health_data.get("duplicates", [])))
 
 
 def get_metrics() -> bytes:

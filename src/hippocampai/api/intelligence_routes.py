@@ -248,7 +248,9 @@ async def get_entity_profile(entity_id: str) -> dict[str, Any]:
 
 
 @router.post("/relationships:analyze", response_model=RelationshipAnalysisResponse)
-async def analyze_relationships(request: RelationshipAnalysisRequest) -> RelationshipAnalysisResponse:
+async def analyze_relationships(
+    request: RelationshipAnalysisRequest,
+) -> RelationshipAnalysisResponse:
     """Analyze relationships between entities.
 
     Extracts relationships from text and computes relationship strength scores,

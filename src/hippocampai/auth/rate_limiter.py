@@ -119,9 +119,7 @@ class RateLimiter:
             window="minute",
         )
 
-    async def get_current_usage(
-        self, api_key_id: UUID, tier: str = "free"
-    ) -> dict[str, dict]:
+    async def get_current_usage(self, api_key_id: UUID, tier: str = "free") -> dict[str, dict]:
         """Get current usage across all windows.
 
         Args:

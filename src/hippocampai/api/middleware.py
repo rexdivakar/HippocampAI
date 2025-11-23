@@ -194,9 +194,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                         "X-RateLimit-Limit": str(rate_info.limit),
                         "X-RateLimit-Remaining": str(rate_info.remaining),
                         "X-RateLimit-Reset": str(rate_info.reset_at),
-                        "Retry-After": str(
-                            max(1, rate_info.reset_at - int(time.time()))
-                        ),
+                        "Retry-After": str(max(1, rate_info.reset_at - int(time.time()))),
                     },
                 )
 

@@ -81,14 +81,18 @@ class Session(BaseModel):
         self.last_activity_at = datetime.now(timezone.utc)
         self.message_count += 1
 
-    def add_entity(self, name: str, entity_type: str, metadata: Optional[dict[str, Any]] = None) -> None:
+    def add_entity(
+        self, name: str, entity_type: str, metadata: Optional[dict[str, Any]] = None
+    ) -> None:
         """Add or update an entity."""
         if name in self.entities:
             self.entities[name].update_mention()
         else:
             self.entities[name] = Entity(name=name, type=entity_type, metadata=metadata or {})
 
-    def add_fact(self, fact: str, confidence: float = 0.9, sources: Optional[list[str]] = None) -> None:
+    def add_fact(
+        self, fact: str, confidence: float = 0.9, sources: Optional[list[str]] = None
+    ) -> None:
         """Add a fact to the session."""
         self.facts.append(
             SessionFact(

@@ -142,7 +142,9 @@ class MetricsCollector:
         """Set a gauge metric."""
         self.record_metric(name, value, MetricType.GAUGE, tags)
 
-    def record_histogram(self, name: str, value: float, tags: Optional[dict[str, str]] = None) -> None:
+    def record_histogram(
+        self, name: str, value: float, tags: Optional[dict[str, str]] = None
+    ) -> None:
         """Record a histogram value."""
         self.record_metric(name, value, MetricType.HISTOGRAM, tags)
 
@@ -218,7 +220,9 @@ class MetricsCollector:
             )
 
     @contextmanager
-    def span(self, trace: Optional[Trace], name: str, tags: Optional[dict[str, Any]] = None) -> Generator[Optional[Span], None, None]:
+    def span(
+        self, trace: Optional[Trace], name: str, tags: Optional[dict[str, Any]] = None
+    ) -> Generator[Optional[Span], None, None]:
         """
         Create a span within a trace.
 
@@ -247,7 +251,9 @@ class MetricsCollector:
 
             logger.debug(f"Span {name} completed in {span_obj.duration_ms:.2f}ms")
 
-    def time_function(self, operation: OperationType) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def time_function(
+        self, operation: OperationType
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
         Decorator to automatically trace function execution.
 
@@ -288,7 +294,9 @@ class MetricsCollector:
         }
 
         # Calculate operation statistics
-        operation_stats: defaultdict[str, dict[str, float]] = defaultdict(lambda: {"count": 0, "total_duration_ms": 0, "errors": 0})
+        operation_stats: defaultdict[str, dict[str, float]] = defaultdict(
+            lambda: {"count": 0, "total_duration_ms": 0, "errors": 0}
+        )
 
         for trace in self.traces:
             stats = operation_stats[trace.operation.value]

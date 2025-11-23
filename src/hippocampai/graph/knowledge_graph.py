@@ -10,7 +10,7 @@ This module extends the memory graph with:
 
 import logging
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from hippocampai.graph.memory_graph import MemoryGraph, RelationType
 from hippocampai.pipeline.entity_recognition import Entity, EntityRelationship

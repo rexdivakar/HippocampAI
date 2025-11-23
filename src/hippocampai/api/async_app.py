@@ -743,7 +743,9 @@ async def expire_memories(
 
 
 @app.post("/v1/memories/cleanup")
-async def cleanup_expired_memories(service: MemoryManagementService = Depends(get_service)) -> dict[str, Any]:
+async def cleanup_expired_memories(
+    service: MemoryManagementService = Depends(get_service),
+) -> dict[str, Any]:
     """Cleanup expired memories (alias for expire endpoint)."""
     try:
         expired_count = await service.expire_memories(user_id=None)
@@ -823,7 +825,9 @@ def get_background_tasks() -> BackgroundTaskManager:
 
 
 @app.get("/v1/background/status")
-async def get_background_status(tasks: BackgroundTaskManager = Depends(get_background_tasks)) -> dict[str, Any]:
+async def get_background_status(
+    tasks: BackgroundTaskManager = Depends(get_background_tasks),
+) -> dict[str, Any]:
     """Get status of background tasks."""
     return tasks.get_status()
 
@@ -867,19 +871,25 @@ async def trigger_background_consolidate(
 
 
 @app.post("/v1/memories:remember", response_model=Memory)
-async def remember(request: MemoryCreate, service: MemoryManagementService = Depends(get_service)) -> Memory:
+async def remember(
+    request: MemoryCreate, service: MemoryManagementService = Depends(get_service)
+) -> Memory:
     """Legacy endpoint: Create a memory."""
     return await create_memory(request, skip_duplicate_check=False, service=service)
 
 
 @app.post("/v1/memories:recall", response_model=list[RetrievalResult])
-async def recall(request: RecallRequest, service: MemoryManagementService = Depends(get_service)) -> list[RetrievalResult]:
+async def recall(
+    request: RecallRequest, service: MemoryManagementService = Depends(get_service)
+) -> list[RetrievalResult]:
     """Legacy endpoint: Recall memories."""
     return await recall_memories(request, service)
 
 
 @app.post("/v1/memories:extract", response_model=list[Memory])
-async def extract(request: ExtractRequest, service: MemoryManagementService = Depends(get_service)) -> list[Memory]:
+async def extract(
+    request: ExtractRequest, service: MemoryManagementService = Depends(get_service)
+) -> list[Memory]:
     """Legacy endpoint: Extract from conversation."""
     return await extract_from_conversation(request, service)
 

@@ -11,7 +11,7 @@ This client provides:
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -130,7 +130,9 @@ class OptimizedMemoryClient:
             return result
         return self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
 
-    def extract_from_conversation(self, conversation: str, user_id: str, **kwargs: Any) -> list[Memory]:
+    def extract_from_conversation(
+        self, conversation: str, user_id: str, **kwargs: Any
+    ) -> list[Memory]:
         """Extract memories from conversation (sync)."""
         return self.client.extract_from_conversation(
             conversation=conversation, user_id=user_id, **kwargs
@@ -249,7 +251,9 @@ class OptimizedMemoryClient:
         """Get all memories (sync)."""
         return self.client.get_memories(user_id=user_id, limit=limit, **kwargs)
 
-    async def get_memories_async(self, user_id: str, limit: int = 100, **kwargs: Any) -> list[Memory]:
+    async def get_memories_async(
+        self, user_id: str, limit: int = 100, **kwargs: Any
+    ) -> list[Memory]:
         """Get all memories (async)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -311,9 +315,17 @@ class OptimizedMemoryClient:
         return self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
 
     # Multi-agent support
-    def create_agent(self, name: str, user_id: str, role: Optional[str] = None, description: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> Any:
+    def create_agent(
+        self,
+        name: str,
+        user_id: str,
+        role: Optional[str] = None,
+        description: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Any:
         """Create a new agent with its own memory space."""
         from hippocampai.models.agent import AgentRole
+
         # Convert string role to AgentRole enum if provided
         agent_role = AgentRole(role) if role else AgentRole.ASSISTANT  # Default to ASSISTANT
         return self.client.create_agent(name, user_id, agent_role, description, metadata)
@@ -326,7 +338,13 @@ class OptimizedMemoryClient:
         """List all agents."""
         return self.client.list_agents(user_id)
 
-    def create_run(self, agent_id: str, user_id: str, name: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> Any:
+    def create_run(
+        self,
+        agent_id: str,
+        user_id: str,
+        name: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Any:
         """Create a new run for an agent."""
         return self.client.create_run(agent_id, user_id, name, metadata)
 
@@ -344,7 +362,11 @@ class OptimizedMemoryClient:
         )
 
     def get_agent_memories(
-        self, agent_id: str, requesting_agent_id: Optional[str] = None, filters: Optional[Any] = None, limit: int = 100
+        self,
+        agent_id: str,
+        requesting_agent_id: Optional[str] = None,
+        filters: Optional[Any] = None,
+        limit: int = 100,
     ) -> Any:
         """Get memories for an agent, respecting permissions."""
         return self.client.get_agent_memories(agent_id, requesting_agent_id, filters, limit)

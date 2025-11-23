@@ -29,9 +29,7 @@ class TimeDecayFunction(BaseModel):
     """Customizable time decay function."""
 
     name: str
-    decay_type: str = Field(
-        description="exponential, linear, logarithmic, or step"
-    )
+    decay_type: str = Field(description="exponential, linear, logarithmic, or step")
     half_life_days: Optional[float] = None  # For exponential
     decay_rate: Optional[float] = None  # For linear
     steps: Optional[list[tuple[int, float]]] = None  # For step functions
@@ -116,8 +114,7 @@ class EnhancedTemporalAnalyzer:
         if memory.updated_at:
             last_accessed_days = (reference_date - memory.updated_at).days
             access_factor = self._calculate_access_freshness(
-                memory.access_count,
-                last_accessed_days
+                memory.access_count, last_accessed_days
             )
 
         # Access frequency
@@ -130,11 +127,7 @@ class EnhancedTemporalAnalyzer:
         temporal_relevance = self._calculate_temporal_relevance(memory.text, reference_date)
 
         # Combined freshness score (weighted)
-        freshness_score = (
-            age_factor * 0.35 +
-            access_factor * 0.35 +
-            temporal_relevance * 0.30
-        )
+        freshness_score = age_factor * 0.35 + access_factor * 0.35 + temporal_relevance * 0.30
 
         return MemoryFreshnessScore(
             memory_id=memory.id,
@@ -324,10 +317,10 @@ class EnhancedTemporalAnalyzer:
             name="step",
             decay_type="step",
             steps=[
-                (0, 1.0),    # 0-7 days: 100%
-                (7, 0.9),    # 7-30 days: 90%
-                (30, 0.7),   # 30-90 days: 70%
-                (90, 0.5),   # 90-180 days: 50%
+                (0, 1.0),  # 0-7 days: 100%
+                (7, 0.9),  # 7-30 days: 90%
+                (30, 0.7),  # 30-90 days: 70%
+                (90, 0.5),  # 90-180 days: 50%
                 (180, 0.3),  # 180-365 days: 30%
                 (365, 0.1),  # 365+ days: 10%
             ],
@@ -402,7 +395,7 @@ class EnhancedTemporalAnalyzer:
         else:
             frequency = 1.0
 
-        return (recency * 0.6 + frequency * 0.4)
+        return recency * 0.6 + frequency * 0.4
 
     def _calculate_temporal_relevance(
         self,
@@ -416,8 +409,8 @@ class EnhancedTemporalAnalyzer:
         current_year = reference_date.year
 
         # Check for time-sensitive keywords
-        urgent_keywords = ['now', 'today', 'currently', 'latest', 'new']
-        time_neutral = ['always', 'forever', 'never', 'generally', 'usually']
+        urgent_keywords = ["now", "today", "currently", "latest", "new"]
+        time_neutral = ["always", "forever", "never", "generally", "usually"]
 
         if any(kw in text_lower for kw in urgent_keywords):
             # Time-sensitive content - check how old it is
@@ -428,7 +421,7 @@ class EnhancedTemporalAnalyzer:
             return 1.0
 
         # Check for year mentions
-        year_pattern = r'\b(20\d{2})\b'
+        year_pattern = r"\b(20\d{2})\b"
         years = [int(y) for y in re.findall(year_pattern, text)]
 
         if years:
@@ -448,10 +441,7 @@ class EnhancedTemporalAnalyzer:
 
         # Analyze memory frequency
         now = datetime.now(timezone.utc)
-        recent_count = sum(
-            1 for m in memories
-            if (now - m.created_at).days <= 7
-        )
+        recent_count = sum(1 for m in memories if (now - m.created_at).days <= 7)
 
         # More recent activity = shorter window
         if recent_count > 20:
@@ -472,17 +462,17 @@ class EnhancedTemporalAnalyzer:
         query_lower = query.lower()
 
         # Explicit time references
-        if any(word in query_lower for word in ['today', 'now', 'current']):
+        if any(word in query_lower for word in ["today", "now", "current"]):
             return (7, 0.9)
-        if any(word in query_lower for word in ['recent', 'lately', 'this week']):
+        if any(word in query_lower for word in ["recent", "lately", "this week"]):
             return (14, 0.85)
-        if any(word in query_lower for word in ['this month', 'past month']):
+        if any(word in query_lower for word in ["this month", "past month"]):
             return (30, 0.85)
-        if any(word in query_lower for word in ['this year', 'past year']):
+        if any(word in query_lower for word in ["this year", "past year"]):
             return (365, 0.8)
 
         # Historical references
-        if any(word in query_lower for word in ['ever', 'always', 'all time']):
+        if any(word in query_lower for word in ["ever", "always", "all time"]):
             return (3650, 0.9)  # 10 years
 
         # Default: analyze memory distribution
@@ -513,20 +503,19 @@ class EnhancedTemporalAnalyzer:
 
         # Simple trend analysis
         recent_days = 30
-        recent_accesses = sum(
-            count for day, count in daily_access.items()
-            if day <= recent_days
-        )
+        recent_accesses = sum(count for day, count in daily_access.items() if day <= recent_days)
         avg_daily = recent_accesses / recent_days if recent_days > 0 else 0
 
         # Forecast
         predictions = []
         for i in range(1, forecast_days + 1):
             predicted_accesses = avg_daily  # Simple constant forecast
-            predictions.append({
-                "day": i,
-                "predicted_accesses": round(predicted_accesses, 2),
-            })
+            predictions.append(
+                {
+                    "day": i,
+                    "predicted_accesses": round(predicted_accesses, 2),
+                }
+            )
 
         return MemoryForecast(
             forecast_type="usage",
@@ -564,11 +553,13 @@ class EnhancedTemporalAnalyzer:
             older_count = len(dates) - recent_count
 
             if recent_count > older_count:
-                trending.append({
-                    "topic": tag,
-                    "trend": "increasing",
-                    "recent_frequency": recent_count,
-                })
+                trending.append(
+                    {
+                        "topic": tag,
+                        "trend": "increasing",
+                        "recent_frequency": recent_count,
+                    }
+                )
 
         return MemoryForecast(
             forecast_type="topic",
@@ -600,20 +591,19 @@ class EnhancedTemporalAnalyzer:
             return None
 
         # Calculate trend
-        bucket_avgs = {
-            bucket: sum(scores) / len(scores)
-            for bucket, scores in time_buckets.items()
-        }
+        bucket_avgs = {bucket: sum(scores) / len(scores) for bucket, scores in time_buckets.items()}
 
         recent_avg = bucket_avgs.get(0, 5.0)
 
         return MemoryForecast(
             forecast_type="importance",
             time_period=f"next {forecast_days} days",
-            predictions=[{
-                "predicted_avg_importance": round(recent_avg, 2),
-                "trend": "stable",
-            }],
+            predictions=[
+                {
+                    "predicted_avg_importance": round(recent_avg, 2),
+                    "trend": "stable",
+                }
+            ],
             confidence=0.5,
             basis="Based on recent importance score patterns",
         )
@@ -638,8 +628,7 @@ class EnhancedTemporalAnalyzer:
 
             sorted_dates = sorted(dates)
             intervals = [
-                (sorted_dates[i + 1] - sorted_dates[i]).days
-                for i in range(len(sorted_dates) - 1)
+                (sorted_dates[i + 1] - sorted_dates[i]).days for i in range(len(sorted_dates) - 1)
             ]
 
             if not intervals:
@@ -684,8 +673,7 @@ class EnhancedTemporalAnalyzer:
         # Find peak months
         avg_activity = sum(monthly_activity.values()) / len(monthly_activity)
         peak_months = [
-            month for month, count in monthly_activity.items()
-            if count > avg_activity * 1.5
+            month for month, count in monthly_activity.items() if count > avg_activity * 1.5
         ]
 
         now = datetime.now(timezone.utc)

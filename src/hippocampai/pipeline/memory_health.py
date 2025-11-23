@@ -140,7 +140,9 @@ class MemoryHealthMonitor:
                 duplication_score=100.0,
                 staleness_score=100.0,
                 total_memories=0,
-                recommendations=["No memories found. Start adding memories to build your knowledge base."]
+                recommendations=[
+                    "No memories found. Start adding memories to build your knowledge base."
+                ],
             )
 
         # Component scores
@@ -169,12 +171,12 @@ class MemoryHealthMonitor:
 
         # Calculate overall score (weighted average)
         overall_score = (
-            quality_score * 0.25 +
-            diversity_score * 0.15 +
-            freshness_score * 0.15 +
-            coverage_score * 0.15 +
-            duplication_score * 0.15 +
-            staleness_score * 0.15
+            quality_score * 0.25
+            + diversity_score * 0.15
+            + freshness_score * 0.15
+            + coverage_score * 0.15
+            + duplication_score * 0.15
+            + staleness_score * 0.15
         )
 
         # Calculate statistics
@@ -236,13 +238,13 @@ class MemoryHealthMonitor:
         confidence_score = avg_confidence * 100
 
         # Metadata completeness
-        metadata_complete = sum(
-            1 for m in memories if m.tags or m.metadata or m.entities
-        ) / len(memories)
+        metadata_complete = sum(1 for m in memories if m.tags or m.metadata or m.entities) / len(
+            memories
+        )
         metadata_score = metadata_complete * 100
 
         # Weighted average
-        return (importance_score * 0.4 + confidence_score * 0.4 + metadata_score * 0.2)
+        return importance_score * 0.4 + confidence_score * 0.4 + metadata_score * 0.2
 
     def _calculate_diversity_score(self, memories: list[Memory]) -> float:
         """Calculate diversity based on memory types and content."""
@@ -256,6 +258,7 @@ class MemoryHealthMonitor:
 
         # Shannon entropy for type distribution
         import math
+
         total = len(memories)
         entropy = 0.0
         for count in type_counts.values():
@@ -271,7 +274,7 @@ class MemoryHealthMonitor:
         if lengths:
             avg_len = sum(lengths) / len(lengths)
             variance = sum((length - avg_len) ** 2 for length in lengths) / len(lengths)
-            length_diversity = min(100.0, (variance ** 0.5) / 10)
+            length_diversity = min(100.0, (variance**0.5) / 10)
         else:
             length_diversity = 50.0
 
@@ -297,11 +300,7 @@ class MemoryHealthMonitor:
         active_memories = sum(1 for m in memories if m.access_count > 0)
         activity_ratio = active_memories / len(memories) if len(memories) > 0 else 0
 
-        freshness = (
-            recent_ratio * 40 +
-            (100 - age_penalty) * 0.4 +
-            activity_ratio * 20
-        )
+        freshness = recent_ratio * 40 + (100 - age_penalty) * 0.4 + activity_ratio * 20
 
         return max(0.0, min(100.0, freshness))
 
@@ -326,7 +325,7 @@ class MemoryHealthMonitor:
         if entity_memories:
             entity_coverage = (len(entity_memories) / len(memories)) * 100
 
-        return (tag_coverage * 0.4 + type_coverage * 0.4 + entity_coverage * 0.2)
+        return tag_coverage * 0.4 + type_coverage * 0.4 + entity_coverage * 0.2
 
     def detect_stale_memories(
         self,
@@ -428,7 +427,7 @@ class MemoryHealthMonitor:
             similarities = []
 
             # Find similar memories
-            for j, mem_j in enumerate(memories[i + 1:], start=i + 1):
+            for j, mem_j in enumerate(memories[i + 1 :], start=i + 1):
                 if mem_j.id in visited:
                     continue
 
@@ -484,7 +483,7 @@ class MemoryHealthMonitor:
         warnings = []
 
         for i, mem_i in enumerate(memories):
-            for mem_j in memories[i + 1:]:
+            for mem_j in memories[i + 1 :]:
                 similarity = self._calculate_text_similarity(mem_i.text, mem_j.text)
 
                 # Near duplicate but not exact
@@ -501,7 +500,11 @@ class MemoryHealthMonitor:
                             text_2=mem_j.text[:200],
                             similarity_score=similarity,
                             merge_suggestion=merge_suggestion,
-                            confidence=min(1.0, (similarity - self.near_dup_threshold) / (1.0 - self.near_dup_threshold)),
+                            confidence=min(
+                                1.0,
+                                (similarity - self.near_dup_threshold)
+                                / (1.0 - self.near_dup_threshold),
+                            ),
                         )
                     )
 
@@ -544,8 +547,12 @@ class MemoryHealthMonitor:
 
         # Identify well-covered vs poorly-covered topics
         avg_topic_count = sum(topic_dist.values()) / len(topic_dist) if topic_dist else 0
-        well_covered = [topic for topic, count in topic_dist.items() if count >= avg_topic_count * 1.5]
-        poorly_covered = [topic for topic, count in topic_dist.items() if count < avg_topic_count * 0.5]
+        well_covered = [
+            topic for topic, count in topic_dist.items() if count >= avg_topic_count * 1.5
+        ]
+        poorly_covered = [
+            topic for topic, count in topic_dist.items() if count < avg_topic_count * 0.5
+        ]
 
         # Identify gaps
         gaps = []
@@ -559,9 +566,13 @@ class MemoryHealthMonitor:
         # Generate recommendations
         recommendations = []
         if poorly_covered:
-            recommendations.append(f"Consider adding more memories about: {', '.join(poorly_covered[:3])}")
+            recommendations.append(
+                f"Consider adding more memories about: {', '.join(poorly_covered[:3])}"
+            )
         if missing_types:
-            recommendations.append(f"Add {', '.join(missing_types)} type memories for better coverage")
+            recommendations.append(
+                f"Add {', '.join(missing_types)} type memories for better coverage"
+            )
         if len(topic_dist) < 5:
             recommendations.append("Diversify your memory topics with more tags")
 
@@ -614,6 +625,7 @@ class MemoryHealthMonitor:
 
             # Cosine similarity
             import numpy as np
+
             return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
         except Exception as e:
             logger.error(f"Error calculating similarity: {e}")
@@ -626,7 +638,7 @@ class MemoryHealthMonitor:
         current_year = datetime.now().year
 
         # Look for year mentions
-        year_pattern = r'\b(19|20)\d{2}\b'
+        year_pattern = r"\b(19|20)\d{2}\b"
         years = re.findall(year_pattern, text)
 
         for year_str in years:
@@ -636,8 +648,15 @@ class MemoryHealthMonitor:
 
         # Look for temporal keywords
         outdated_keywords = [
-            'currently', 'now', 'today', 'this year', 'this month',
-            'recently', 'latest', 'new', 'upcoming'
+            "currently",
+            "now",
+            "today",
+            "this year",
+            "this month",
+            "recently",
+            "latest",
+            "new",
+            "upcoming",
         ]
 
         text_lower = text.lower()
@@ -676,12 +695,16 @@ class MemoryHealthMonitor:
         recommendations = []
 
         if overall < 50:
-            recommendations.append("⚠️ Overall memory health is low. Consider the recommendations below.")
+            recommendations.append(
+                "⚠️ Overall memory health is low. Consider the recommendations below."
+            )
         elif overall > 80:
             recommendations.append("✓ Memory health is excellent!")
 
         if quality < 60:
-            recommendations.append("Improve memory quality by adding importance scores and metadata")
+            recommendations.append(
+                "Improve memory quality by adding importance scores and metadata"
+            )
 
         if diversity < 60:
             recommendations.append("Add more diverse memory types and topics")

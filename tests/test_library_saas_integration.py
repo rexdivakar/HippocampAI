@@ -11,8 +11,8 @@ Requirements: SaaS API must be running at http://localhost:8000
 """
 
 # ruff: noqa: S101  # Use of assert detected - expected in test files
+# ruff: noqa: E402  # Module level import not at top of file - required for sys.path setup
 
-import asyncio
 import os
 import sys
 import time
@@ -23,14 +23,15 @@ import pytest
 # Must add src to path before importing hippocampai modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from hippocampai.backends.remote import RemoteBackend
+from hippocampai.models.memory import MemoryType
+
 # Skip all tests in this module when run via pytest
 # These tests are designed to be run as a standalone script
 pytestmark = pytest.mark.skip(
     reason="Standalone integration test. Run with: python tests/test_library_saas_integration.py (requires SaaS API at localhost:8000)"
 )
 
-from hippocampai.backends.remote import RemoteBackend
-from hippocampai.models.memory import Memory, MemoryType
 
 # Colors for output
 class Colors:
@@ -74,6 +75,7 @@ def test_api_health():
     print_test("API Health Check")
 
     import httpx
+
     try:
         response = httpx.get("http://localhost:8000/health", timeout=5.0)
         response.raise_for_status()
@@ -107,7 +109,10 @@ def test_memory_creation(backend: RemoteBackend, user_id: str):
             text="The capital of France is Paris",
             user_id=user_id,
             memory_type=MemoryType.FACT,
-            metadata={"test": "library_saas_integration", "timestamp": datetime.now(timezone.utc).isoformat()}
+            metadata={
+                "test": "library_saas_integration",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
         )
 
         assert memory is not None, "Memory creation returned None"
@@ -120,6 +125,7 @@ def test_memory_creation(backend: RemoteBackend, user_id: str):
     except Exception as e:
         print_error(f"Memory creation failed: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -139,6 +145,7 @@ def test_memory_retrieval(backend: RemoteBackend, memory_id: str):
     except Exception as e:
         print_error(f"Memory retrieval failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -148,11 +155,7 @@ def test_memory_search(backend: RemoteBackend, user_id: str):
     print_test("Memory Search (Recall)")
 
     try:
-        results = backend.recall(
-            query="What is the capital of France?",
-            user_id=user_id,
-            limit=5
-        )
+        results = backend.recall(query="What is the capital of France?", user_id=user_id, limit=5)
 
         assert results is not None, "Search returned None"
         assert len(results) > 0, "Search returned no results"
@@ -165,6 +168,7 @@ def test_memory_search(backend: RemoteBackend, user_id: str):
     except Exception as e:
         print_error(f"Memory search failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -178,7 +182,7 @@ def test_memory_update(backend: RemoteBackend, memory_id: str, user_id: str):
             memory_id=memory_id,
             user_id=user_id,
             text="The capital of France is Paris, known as the City of Light",
-            metadata={"updated": True, "update_time": datetime.now(timezone.utc).isoformat()}
+            metadata={"updated": True, "update_time": datetime.now(timezone.utc).isoformat()},
         )
 
         assert updated_memory is not None, "Update returned None"
@@ -189,6 +193,7 @@ def test_memory_update(backend: RemoteBackend, memory_id: str, user_id: str):
     except Exception as e:
         print_error(f"Memory update failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -204,7 +209,7 @@ def test_batch_operations(backend: RemoteBackend, user_id: str):
                 "text": f"Test memory {i}: The color of the sky is blue",
                 "user_id": user_id,
                 "type": "fact",
-                "metadata": {"batch_test": True, "index": i}
+                "metadata": {"batch_test": True, "index": i},
             }
             for i in range(3)
         ]
@@ -219,6 +224,7 @@ def test_batch_operations(backend: RemoteBackend, user_id: str):
     except Exception as e:
         print_error(f"Batch operations failed: {e}")
         import traceback
+
         traceback.print_exc()
         return []
 
@@ -239,6 +245,7 @@ def test_memory_deletion(backend: RemoteBackend, memory_ids: list[str]):
     except Exception as e:
         print_error(f"Memory deletion failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -254,13 +261,13 @@ def test_advanced_features(backend: RemoteBackend, user_id: str):
         conversation = [
             {"role": "user", "content": "I love pizza"},
             {"role": "assistant", "content": "That's great! Pizza is delicious."},
-            {"role": "user", "content": "My favorite is Margherita"}
+            {"role": "user", "content": "My favorite is Margherita"},
         ]
 
         extracted = backend.extract_from_conversation(
             conversation=conversation,
             user_id=user_id,
-            session_id=f"test_session_{int(time.time())}"
+            session_id=f"test_session_{int(time.time())}",
         )
 
         print_success(f"Extracted {len(extracted)} memories from conversation")
@@ -286,11 +293,7 @@ def test_query_with_filters(backend: RemoteBackend, user_id: str):
     print_test("Query with Filters")
 
     try:
-        memories = backend.get_memories(
-            user_id=user_id,
-            filters={"memory_type": "fact"},
-            limit=10
-        )
+        memories = backend.get_memories(user_id=user_id, filters={"memory_type": "fact"}, limit=10)
 
         assert memories is not None
         print_success(f"Filtered query returned {len(memories)} memories")
@@ -298,6 +301,7 @@ def test_query_with_filters(backend: RemoteBackend, user_id: str):
     except Exception as e:
         print_error(f"Filtered query failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -305,7 +309,7 @@ def test_query_with_filters(backend: RemoteBackend, user_id: str):
 def run_all_tests():
     """Run all integration tests."""
     print_section("LIBRARY-SAAS INTEGRATION TEST SUITE")
-    print(f"Testing library connection to SaaS API at http://localhost:8000")
+    print("Testing library connection to SaaS API at http://localhost:8000")
     print(f"Started at: {datetime.now(timezone.utc).isoformat()}")
 
     # Generate unique user ID for this test run
@@ -387,7 +391,9 @@ def run_all_tests():
     if success_rate == 100:
         print_success("\n🎉 All tests passed! Library-SaaS integration is working perfectly.")
     elif success_rate >= 80:
-        print_warning(f"\n⚠️  Most tests passed ({success_rate:.1f}%), but some issues need attention.")
+        print_warning(
+            f"\n⚠️  Most tests passed ({success_rate:.1f}%), but some issues need attention."
+        )
     else:
         print_error(f"\n❌ Multiple tests failed ({success_rate:.1f}%). Integration needs fixes.")
 
@@ -404,5 +410,6 @@ if __name__ == "__main__":
     except Exception as e:
         print_error(f"\nFatal error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
