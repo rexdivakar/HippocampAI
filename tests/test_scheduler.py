@@ -76,6 +76,21 @@ class TestConsolidation:
 
     def test_consolidate_all_memories_empty(self, client_with_scheduler, test_user_id):
         """Test consolidation with no memories."""
+        # Clean up any existing memories from previous tests
+        for coll in [
+            client_with_scheduler.config.collection_facts,
+            client_with_scheduler.config.collection_prefs,
+        ]:
+            results = client_with_scheduler.qdrant.scroll(
+                collection_name=coll,
+                filters={},
+                limit=10000,
+            )
+            if results:
+                ids = [r["id"] for r in results]
+                client_with_scheduler.qdrant.delete(collection_name=coll, ids=ids)
+
+        # Now test consolidation with truly empty collections
         count = client_with_scheduler.consolidate_all_memories()
         assert count == 0
 

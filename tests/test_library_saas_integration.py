@@ -3,6 +3,11 @@ Comprehensive integration test for Library <-> SaaS connectivity.
 
 Tests the Python client library (RemoteBackend) connecting to the
 running SaaS API server to ensure all features work end-to-end.
+
+NOTE: This test file is designed to be run as a standalone script, not via pytest.
+Run it with: python tests/test_library_saas_integration.py
+
+Requirements: SaaS API must be running at http://localhost:8000
 """
 
 # ruff: noqa: S101  # Use of assert detected - expected in test files
@@ -13,8 +18,16 @@ import sys
 import time
 from datetime import datetime, timezone
 
+import pytest
+
 # Must add src to path before importing hippocampai modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+# Skip all tests in this module when run via pytest
+# These tests are designed to be run as a standalone script
+pytestmark = pytest.mark.skip(
+    reason="Standalone integration test. Run with: python tests/test_library_saas_integration.py (requires SaaS API at localhost:8000)"
+)
 
 from hippocampai.backends.remote import RemoteBackend
 from hippocampai.models.memory import Memory, MemoryType

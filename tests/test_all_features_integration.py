@@ -2,6 +2,11 @@
 Comprehensive integration tests for all Memory Management API features.
 
 Tests everything including Groq integration.
+
+NOTE: This test file is designed to be run as a standalone script, not via pytest.
+Run it with: python tests/test_all_features_integration.py
+
+To run via pytest, ensure Redis, Qdrant, and optionally Groq/OpenAI/Ollama are available.
 """
 
 # ruff: noqa: S101  # Use of assert detected - expected in test files
@@ -12,8 +17,16 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+import pytest
+
 # Must add src to path before importing hippocampai modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+# Skip all tests in this module when run via pytest
+# These tests are designed to be run as a standalone script
+pytestmark = pytest.mark.skip(
+    reason="Standalone integration test. Run with: python tests/test_all_features_integration.py"
+)
 
 from dotenv import load_dotenv
 from qdrant_client import models

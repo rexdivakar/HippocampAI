@@ -282,7 +282,8 @@ class MemoryScheduler:
                 }
             )
 
-        return {"running": self._running, "jobs": job_info}
+        status = "running" if self._running else "stopped"
+        return {"status": status, "jobs": job_info}
 
     def trigger_consolidation_now(self) -> None:
         """Manually trigger consolidation job immediately."""
