@@ -42,6 +42,11 @@ __all__ = [
     "Memory",
     "MemoryType",
     "RetrievalResult",
+    # Simplified API (mem0/zep compatible)
+    "SimpleMemory",
+    "SimpleSession",
+    "MemoryStore",
+    "MemoryManager",
     "get_config",
     "Config",
     "get_telemetry",
@@ -371,5 +376,26 @@ def __getattr__(name: str) -> Any:
         from hippocampai.saas.tasks import BackgroundTask as _ImportedBackgroundTask
 
         return _ImportedBackgroundTask
+
+    # Simplified API (mem0/zep compatible)
+    if name == "SimpleMemory":
+        from hippocampai.simple import Memory as _ImportedSimpleMemory
+
+        return _ImportedSimpleMemory
+
+    if name == "SimpleSession":
+        from hippocampai.simple import Session as _ImportedSimpleSession
+
+        return _ImportedSimpleSession
+
+    if name == "MemoryStore":
+        from hippocampai.simple import MemoryStore as _ImportedMemoryStore
+
+        return _ImportedMemoryStore
+
+    if name == "MemoryManager":
+        from hippocampai.simple import MemoryManager as _ImportedMemoryManager
+
+        return _ImportedMemoryManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")
