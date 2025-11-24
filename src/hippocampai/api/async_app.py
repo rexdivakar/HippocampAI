@@ -244,11 +244,29 @@ except ImportError as e:
     logger.warning(f"Could not load celery routes: {e}")
 
 # Include admin routes
+# SECURITY WARNING: Admin routes require authentication and authorization!
+# Only enable in production with proper auth middleware configured.
 try:
-    from hippocampai.api.admin_routes import router as admin_router
+    import os
 
-    app.include_router(admin_router)
-    logger.info("Admin routes registered successfully")
+    # Only register admin routes if explicitly enabled and auth is configured
+    ADMIN_ROUTES_ENABLED = os.getenv("ENABLE_ADMIN_ROUTES", "false").lower() == "true"
+    AUTH_CONFIGURED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
+
+    if ADMIN_ROUTES_ENABLED:
+        if not AUTH_CONFIGURED:
+            logger.critical(
+                "SECURITY RISK: Admin routes enabled without authentication! "
+                "Set AUTH_ENABLED=true and configure authentication middleware."
+            )
+        from hippocampai.api.admin_routes import router as admin_router
+
+        app.include_router(admin_router)
+        logger.warning(
+            "Admin routes registered. ENSURE authentication middleware is configured!"
+        )
+    else:
+        logger.info("Admin routes disabled (set ENABLE_ADMIN_ROUTES=true to enable)")
 except ImportError as e:
     logger.warning(f"Could not load admin routes: {e}")
 
@@ -1096,9 +1114,14 @@ async def profile_query(
 
 
 class FreshnessScoreRequest(BaseModel):
-    """Request to calculate memory freshness."""
+    """Request to calculate memory freshness.
+
+    Security: Requires user_id to verify ownership before exposing
+    behavioral metadata like access patterns and timing information.
+    """
 
     memory_id: str
+    user_id: str
     reference_date: Optional[datetime] = None
 
 
@@ -1133,29 +1156,48 @@ async def calculate_freshness(
 
     Returns comprehensive freshness metrics including:
     - Overall freshness score (0-1)
-    - Age factor
-    - Access frequency
+    - Age factor (sanitized)
+    - Access frequency (sanitized)
     - Temporal relevance
+
+    Security:
+        Requires user_id to verify ownership. Access patterns and timing
+        information are sanitized to prevent behavioral metadata leakage.
     """
     try:
         # Get the memory
-        memory = await service.get_memory(memory_id=request.memory_id)
+        memory = await service.get_memory(memory_id=request.memory_id, track_access=False)
         if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
-        if not memory:
-            raise HTTPException(status_code=404, detail="Memory not found")
+
+        # Authorization: Verify requester owns the memory
+        if memory.user_id != request.user_id:
+            logger.warning(
+                f"Unauthorized freshness access attempt: user {request.user_id} "
+                f"tried to access memory {request.memory_id} owned by {memory.user_id}"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You don't have permission to access this memory",
+            )
 
         # Calculate freshness
         reference = request.reference_date or datetime.now(timezone.utc)
-        age = (reference - memory.created_at).total_seconds()
-        last_access = (reference - memory.updated_at).total_seconds()
+        age = abs((reference - memory.created_at).total_seconds())
+        last_access = abs((reference - memory.updated_at).total_seconds())
+
+        # Sanitize access_count to prevent precise behavioral tracking
+        # Round to ranges instead of exact counts
+        sanitized_access_count = "low" if memory.access_count < 10 else (
+            "medium" if memory.access_count < 50 else "high"
+        )
 
         return {
             "memory_id": memory.id,
-            "age_days": age / (24 * 3600),
-            "last_access_days": last_access / (24 * 3600),
-            "access_count": memory.access_count,
-            "freshness_score": 1.0 / (1.0 + age / (30 * 24 * 3600)),  # 30-day half-life
+            "age_days": round(age / (24 * 3600), 1),  # Round to 1 decimal
+            "last_access_days": round(last_access / (24 * 3600), 1),  # Round to 1 decimal
+            "access_frequency": sanitized_access_count,  # Categorical instead of exact
+            "freshness_score": round(1.0 / (1.0 + age / (30 * 24 * 3600)), 3),
         }
     except HTTPException:
         raise
@@ -1409,7 +1451,7 @@ async def resolve_conflict(
                     "conflict_type": conflict["conflict_type"],
                 },
             )
-            await service.delete_memory(memory2_details["id"])
+            await service.delete_memory(memory2_details["id"], user_id=request.user_id)
 
         elif request.strategy == "keep_latest":
             # Keep the more recent memory
@@ -1420,10 +1462,14 @@ async def resolve_conflict(
             mem1_time = datetime.fromisoformat(memory1_details["created_at"])
             mem2_time = datetime.fromisoformat(memory2_details["created_at"])
 
-            to_delete = memory1_details["id"] if mem2_time > mem1_time else memory2_details["id"]
-            to_keep = memory2_details["id"] if mem2_time > mem1_time else memory1_details["id"]
+            if mem2_time > mem1_time:
+                to_delete = memory1_details["id"]
+                to_keep = memory2_details["id"]
+            else:  # Keep memory1 if newer or timestamps are equal
+                to_delete = memory2_details["id"]
+                to_keep = memory1_details["id"]
 
-            await service.delete_memory(to_delete)
+            await service.delete_memory(to_delete, user_id=request.user_id)
             # Update metadata on kept memory
             await service.update_memory(
                 memory_id=to_keep,
@@ -1611,6 +1657,17 @@ class HealthHistoryRequest(BaseModel):
     limit: int = 100
 
 
+class AccessPatternsRequest(BaseModel):
+    """Request for access patterns.
+
+    Security: Requires authenticated user_id. In production, implement
+    proper authentication middleware to verify the requester has
+    permission to access this user's data.
+    """
+
+    user_id: str
+
+
 @app.get("/v1/monitoring/events")
 async def get_memory_events(
     memory_id: Optional[str] = None,
@@ -1716,20 +1773,33 @@ async def get_access_pattern(request: AccessPatternRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/v1/monitoring/access-patterns/{user_id}")
-async def get_all_access_patterns(user_id: str) -> dict[str, Any]:
+@app.post("/v1/monitoring/access-patterns")
+async def get_all_access_patterns(request: AccessPatternsRequest) -> dict[str, Any]:
     """Get all access patterns for a user.
 
     Returns list of all memories with their access statistics.
+
+    Security Warning:
+        This endpoint requires authenticated user context. In production:
+        1. Implement authentication middleware (JWT, OAuth2, etc.)
+        2. Verify the authenticated user matches request.user_id
+        3. Or only return data for the authenticated user
+        4. Consider role-based access for admin users
+
+    Args:
+        request: AccessPatternsRequest with authenticated user_id
+
+    Returns:
+        Dictionary containing user_id, total_memories, and access patterns
     """
     try:
         from hippocampai.monitoring.memory_tracker import get_tracker
 
         tracker = get_tracker()
-        patterns = tracker.get_all_access_patterns(user_id=user_id)
+        patterns = tracker.get_all_access_patterns(user_id=request.user_id)
 
         return {
-            "user_id": user_id,
+            "user_id": request.user_id,
             "total_memories": len(patterns),
             "patterns": [p.model_dump() for p in patterns],
         }

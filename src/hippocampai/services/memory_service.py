@@ -513,34 +513,37 @@ class MemoryManagementService:
         Returns:
             True if deleted, False otherwise
         """
-        # Get or create lock for this memory ID
-        if memory_id not in MEMORY_LOCKS:
-            MEMORY_LOCKS[memory_id] = asyncio.Lock()
+        # Atomically get or create a lock for this memory ID
+        lock = MEMORY_LOCKS.setdefault(memory_id, asyncio.Lock())
 
-        async with MEMORY_LOCKS[memory_id]:
-            # Get memory to check ownership and determine collection
-            memory = await self.get_memory(memory_id)
-            if not memory:
-                return False
+        try:
+            async with lock:
+                # Get memory to check ownership and determine collection
+                memory = await self.get_memory(memory_id, track_access=False)
+                if not memory:
+                    return False
 
-        # Check authorization
-        if user_id and memory.user_id != user_id:
-            logger.warning(
-                f"User {user_id} attempted to delete memory {memory_id} of user {memory.user_id}"
-            )
-            return False
+                # Check authorization
+                if user_id and memory.user_id != user_id:
+                    logger.warning(
+                        f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
+                    )
+                    return False
 
-        # Delete from vector store
-        collection = memory.collection_name(
-            self.qdrant.collection_facts, self.qdrant.collection_prefs
-        )
-        self.qdrant.delete(collection_name=collection, ids=[memory_id])
+                # Delete from vector store
+                collection = memory.collection_name(
+                    self.qdrant.collection_facts, self.qdrant.collection_prefs
+                )
+                self.qdrant.delete(collection_name=collection, ids=[memory_id])
 
-        # Delete from cache
-        await self.redis.delete_memory(memory_id)
+                # Delete from Redis cache
+                await self.redis.delete_memory(memory_id)
 
-        logger.info(f"Deleted memory {memory_id}")
-        return True
+                logger.info(f"Deleted memory {memory_id}")
+                return True
+        finally:
+            # Clean up the lock to prevent memory leak
+            MEMORY_LOCKS.pop(memory_id, None)
 
     async def get_memories(
         self,
