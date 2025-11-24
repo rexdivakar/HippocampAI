@@ -589,10 +589,10 @@ class MemoryClient:
             if auto_resolve_conflicts:
                 self.telemetry.add_event(trace_id, "auto_conflict_resolution", status="in_progress")
 
-                # Refetch memories to include the newly stored one
-                all_memories = self.get_memories(user_id, limit=100)
-                # Remove the newly stored memory from the list to compare against others
-                other_memories = [m for m in all_memories if m.id != memory.id]
+                # Find semantically similar memories to check for conflicts
+                # This is more efficient and accurate than fetching all memories.
+                recalled_results = self.recall(query=memory.text, user_id=user_id, k=10)
+                other_memories = [res.memory for res in recalled_results if res.memory.id != memory.id]
 
                 # Detect conflicts with the newly stored memory
                 # Use LLM if available for better conflict detection
