@@ -19,11 +19,19 @@
 ### Installation
 
 ```bash
-# Install from PyPI
+# Core library (lightweight - 10 dependencies)
 pip install hippocampai
 
-# Or with all features
-pip install "hippocampai[all]"
+# With SaaS features (API, auth, background tasks)
+pip install "hippocampai[saas]"
+
+# With specific LLM providers
+pip install "hippocampai[openai]"     # OpenAI support
+pip install "hippocampai[anthropic]"  # Anthropic Claude
+pip install "hippocampai[groq]"       # Groq support
+
+# Everything (development, all features)
+pip install "hippocampai[all,dev]"
 ```
 
 ### Your First Memory (30 seconds)

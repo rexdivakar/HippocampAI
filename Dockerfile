@@ -20,10 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
+# Copy package files and install dependencies
+COPY pyproject.toml .
+COPY src/ ./src/
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install -r requirements.txt
+    pip install -e ".[saas]"
 
 # ==================== Stage 2: Runtime ====================
 FROM python:3.11-slim
@@ -51,9 +52,6 @@ WORKDIR /app
 
 # Copy application code
 COPY --chown=appuser:appuser . /app/
-
-# Install the package
-RUN pip install -e .
 
 # Switch to non-root user
 USER appuser
