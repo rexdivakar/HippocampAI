@@ -228,7 +228,7 @@ vector_search_latency_seconds = Histogram(
 app_info = Info("hippocampai_app", "HippocampAI application information")
 app_info.info(
     {
-        "version": "0.2.5",
+        "version": "0.3.0",
         "environment": "production",
     }
 )

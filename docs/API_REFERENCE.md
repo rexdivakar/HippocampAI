@@ -1,6 +1,6 @@
 # HippocampAI API Reference
 
-Complete API reference for HippocampAI v0.2.5. This document covers all public methods in `MemoryClient`, `AsyncMemoryClient`, and `UnifiedMemoryClient`.
+Complete API reference for HippocampAI v0.3.0. This document covers all public methods in `MemoryClient`, `AsyncMemoryClient`, and `UnifiedMemoryClient`.
 
 ## Table of Contents
 
@@ -1449,5 +1449,5 @@ See [CONFIGURATION.md](CONFIGURATION.md) for complete configuration options.
 
 ---
 
-**Version:** v0.2.5
+**Version:** v0.3.0
 **Last Updated:** November 2025

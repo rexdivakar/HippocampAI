@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval",
-    version="0.2.5",
+    version="0.3.0",
 )
 
 app.add_middleware(

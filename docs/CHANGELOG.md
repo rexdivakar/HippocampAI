@@ -7,15 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2025-11-23
+## [0.3.0] - 2025-11-24
 
 ### Major Release - Simplified API & Documentation Reorganization
 
 This release focuses on user experience improvements, making HippocampAI as easy to use as mem0 and zep while maintaining all advanced features. Includes comprehensive documentation reorganization and testing improvements.
 
-### Added
+### Fixed
 
-#### Simplified APIs (mem0/zep Compatible)
+#### Docker Deployment
+- **FIXED**: Docker Compose Celery services failing with `ModuleNotFoundError: No module named 'hippocampai'`
+  - Changed Dockerfile from editable install (`pip install -e`) to regular install
+  - Editable installs create symlinks that break in multi-stage Docker builds
+  - All Celery services (worker, beat, flower) now start successfully
+
+- **FIXED**: API container failing with `ModuleNotFoundError: No module named 'openai'`
+  - Added LLM provider packages to `saas` optional dependencies in pyproject.toml
+  - Added: `anthropic>=0.39`, `groq>=0.4`, `ollama>=0.3`, `openai>=1.0`
+  - SaaS deployments now include all necessary LLM provider dependencies
+
+- **FIXED**: Complete docker-compose stack now fully operational
+  - All 10 containers running and healthy
+  - API healthcheck passing
+  - Celery workers processing tasks
+  - Monitoring stack (Prometheus/Grafana) operational
+
+#### Code Quality & Testing
 
 - **NEW**: SimpleMemory class - mem0-compatible API
   - Drop-in replacement for mem0.Memory
@@ -75,6 +92,10 @@ This release focuses on user experience improvements, making HippocampAI as easy
   - Quick reference table
 
 ### Changed
+
+#### Docker & Deployment
+- Updated `Dockerfile` line 27: Removed `-e` flag from pip install command for proper multi-stage build support
+- Enhanced `pyproject.toml` `saas` extras to include all LLM provider packages (anthropic, groq, ollama, openai)
 
 #### Documentation Reorganization
 
@@ -662,7 +683,8 @@ Not applicable (initial release)
 
 ---
 
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/V0.2.5...HEAD
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.3.0
 [0.2.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.2.5
 [0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.5
 [0.1.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.0

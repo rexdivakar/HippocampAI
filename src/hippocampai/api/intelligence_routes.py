@@ -556,5 +556,5 @@ async def health_check() -> dict[str, str]:
     return {
         "status": "healthy",
         "services": "Advanced Intelligence APIs",
-        "version": "0.2.5",
+        "version": "0.3.0",
     }

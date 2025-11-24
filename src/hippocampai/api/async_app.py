@@ -198,7 +198,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval, batch operations, deduplication, and consolidation",
-    version="0.2.5",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -379,7 +379,7 @@ class ExpireRequest(BaseModel):
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "ok", "service": "hippocampai", "version": "0.2.5"}
+    return {"status": "ok", "service": "hippocampai", "version": "0.3.0"}
 
 
 @app.get("/metrics")
