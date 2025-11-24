@@ -1512,10 +1512,17 @@ async def get_health_score(
     - Quality indicators
     - Issues detected
     - Recommendations
+
+    Security:
+        Input capped at 100 memories to prevent timing/cost side-channel attacks.
+        Rate limiting recommended for production deployment.
     """
     try:
-        # Calculate overall memory health score
-        memories = await service.get_memories(user_id=request.user_id)
+        # Security: Cap memory count to prevent timing attacks via diversity scoring
+        MAX_MEMORIES_FOR_HEALTH = 100
+        memories = await service.get_memories(
+            user_id=request.user_id, limit=MAX_MEMORIES_FOR_HEALTH
+        )
         if not memories:
             return {
                 "user_id": request.user_id,

@@ -562,9 +562,24 @@ class MemoryHealthMonitor:
         return float(np.mean(freshness_scores))
 
     def _calculate_diversity_score(self, memories: list[Memory]) -> float:
-        """Calculate diversity score (0-100) based on variety."""
+        """Calculate diversity score (0-100) based on variety.
+
+        Security: Limits computation to prevent timing side-channel attacks.
+        Uses sampling to cap computational cost.
+        """
         if not memories:
             return 0.0
+
+        # Security: Cap input size to prevent DoS via timing attacks
+        MAX_MEMORIES_FOR_DIVERSITY = 50  # Reduced from 100
+        if len(memories) > MAX_MEMORIES_FOR_DIVERSITY:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Diversity calculation capped at {MAX_MEMORIES_FOR_DIVERSITY} memories "
+                f"(requested {len(memories)}) to prevent timing side-channel attacks"
+            )
 
         # Type diversity
         types = set(m.type for m in memories)
@@ -577,17 +592,29 @@ class MemoryHealthMonitor:
         tag_diversity = min((len(all_tags) / len(memories)) * 100, 100)
 
         # Text diversity (average pairwise similarity should be low)
+        # Security: Strict cap on embedding computation to prevent timing attacks
         if len(memories) > 1:
-            texts = [m.text for m in memories[:100]]  # Sample for performance
-            embeddings = self.embedder.encode(texts)
-            similarity_matrix = self._calculate_similarity_matrix(embeddings)
+            # Sample memories to cap computational cost
+            sample_size = min(len(memories), MAX_MEMORIES_FOR_DIVERSITY)
+            sampled_memories = memories[:sample_size]
+            texts = [m.text for m in sampled_memories]
 
-            # Get upper triangle (excluding diagonal)
-            upper_triangle = similarity_matrix[np.triu_indices_from(similarity_matrix, k=1)]
-            avg_similarity = np.mean(upper_triangle)
+            # Only compute if sample size is reasonable
+            if len(texts) <= MAX_MEMORIES_FOR_DIVERSITY:
+                embeddings = self.embedder.encode(texts)
+                similarity_matrix = self._calculate_similarity_matrix(embeddings)
 
-            # Lower similarity = higher diversity
-            text_diversity = (1 - avg_similarity) * 100
+                # Get upper triangle (excluding diagonal)
+                upper_triangle = similarity_matrix[
+                    np.triu_indices_from(similarity_matrix, k=1)
+                ]
+                avg_similarity = np.mean(upper_triangle)
+
+                # Lower similarity = higher diversity
+                text_diversity = (1 - avg_similarity) * 100
+            else:
+                # Fallback for safety
+                text_diversity = 50.0
         else:
             text_diversity = 50.0
 
