@@ -314,15 +314,22 @@ class MemoryClient:
         Returns:
             Dict with authentication headers
         """
-        headers = {}
+        headers: dict[str, str] = {}
 
-        if self.user_auth:
-            headers["X-User-Auth"] = "true"
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
-        else:
+        if not self.user_auth:
             headers["X-User-Auth"] = "false"
+            return headers
 
+        # Auth required
+        if not self.api_key:
+            # Fail fast to avoid sending misleading auth headers
+            raise RuntimeError(
+                "Authentication enabled but no API key provided. "
+                "Set api_key or HIPPOCAMPAI_API_KEY."
+            )
+
+        headers["X-User-Auth"] = "true"
+        headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
     @classmethod
