@@ -128,7 +128,9 @@ class OptimizedMemoryClient:
         if self.enable_caching and not kwargs:  # Only cache simple queries
             cached_result: list[RetrievalResult] = self._cached_recall(query, user_id, k)
             return cached_result
-        result: list[RetrievalResult] = self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
+        result: list[RetrievalResult] = self.client.recall(
+            query=query, user_id=user_id, k=k, **kwargs
+        )
         return result
 
     def extract_from_conversation(

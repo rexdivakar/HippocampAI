@@ -1637,7 +1637,9 @@ class MemoryClient:
         Returns:
             List of AuditEntry objects
         """
-        entries: list[Any] = self.version_control.get_audit_trail(memory_id, user_id, change_type, limit)
+        entries: list[Any] = self.version_control.get_audit_trail(
+            memory_id, user_id, change_type, limit
+        )
         return entries
 
     # === MEMORY ACCESS TRACKING ===
@@ -2350,7 +2352,9 @@ class MemoryClient:
         # Sort by creation time
         recent_memories.sort(key=lambda m: m.created_at)
 
-        topic: Optional[str] = self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
+        topic: Optional[str] = self.categorizer.detect_topic_shift(
+            recent_memories, window_size=window_size
+        )
         return topic
 
     # === MULTI-AGENT SUPPORT ===
@@ -2488,7 +2492,9 @@ class MemoryClient:
         self, agent_id: str, target_agent_id: str, permission: PermissionType
     ) -> bool:
         """Check if an agent has permission to access another agent's memories."""
-        has_permission: bool = self.multiagent.check_permission(agent_id, target_agent_id, permission)
+        has_permission: bool = self.multiagent.check_permission(
+            agent_id, target_agent_id, permission
+        )
         return has_permission
 
     def list_agent_permissions(
@@ -2497,7 +2503,9 @@ class MemoryClient:
         grantee_agent_id: Optional[str] = None,
     ) -> list[AgentPermission]:
         """List permissions, optionally filtered."""
-        permissions: list[Any] = self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
+        permissions: list[Any] = self.multiagent.list_permissions(
+            granter_agent_id, grantee_agent_id
+        )
         return permissions
 
     def transfer_memory(
@@ -2740,7 +2748,9 @@ class MemoryClient:
             >>>     print(f"Sequence {i+1}: {len(seq)} related events")
         """
         memories = self.get_memories(user_id, limit=1000)
-        sequences: list[list[Any]] = self.temporal_analyzer.analyze_event_sequences(memories, max_gap_hours)
+        sequences: list[list[Any]] = self.temporal_analyzer.analyze_event_sequences(
+            memories, max_gap_hours
+        )
         return sequences
 
     def schedule_memory(
@@ -2894,7 +2904,9 @@ class MemoryClient:
         old_memories = [m for m in all_memories if m.created_at < cutoff]
         new_memories = [m for m in all_memories if m.created_at >= cutoff]
 
-        changes: list[Any] = self.insight_analyzer.track_behavior_changes(old_memories, new_memories, user_id)
+        changes: list[Any] = self.insight_analyzer.track_behavior_changes(
+            old_memories, new_memories, user_id
+        )
         return changes
 
     def analyze_preference_drift(
@@ -2918,7 +2930,9 @@ class MemoryClient:
             >>>     print(f"  Drift score: {drift.drift_score:.2f}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        drifts: list[Any] = self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
+        drifts: list[Any] = self.insight_analyzer.analyze_preference_drift(
+            memories, user_id, category
+        )
         return drifts
 
     def detect_habits(self, user_id: str, min_occurrences: int = 5) -> list[HabitScore]:
@@ -2941,7 +2955,9 @@ class MemoryClient:
             >>>     print(f"  Consistency: {habit.consistency:.2f}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        habits: list[Any] = self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
+        habits: list[Any] = self.insight_analyzer.detect_habit_formation(
+            memories, user_id, min_occurrences
+        )
         return habits
 
     def analyze_trends(self, user_id: str, window_days: int = 30) -> list[Trend]:
@@ -3018,7 +3034,9 @@ class MemoryClient:
             ... '''
             >>> facts = client.extract_facts_from_conversation(conversation, "alice")
         """
-        facts: list[Any] = self.fact_extractor.extract_from_conversation(conversation, user_id, session_id)
+        facts: list[Any] = self.fact_extractor.extract_from_conversation(
+            conversation, user_id, session_id
+        )
         return facts
 
     def extract_entities(
@@ -3110,7 +3128,9 @@ class MemoryClient:
             >>> # Search for frequently mentioned entities
             >>> results = client.search_entities("tesla", min_mentions=5)
         """
-        results: list[Any] = self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+        results: list[Any] = self.entity_recognizer.search_entities(
+            query, entity_type, min_mentions
+        )
         return results
 
     def summarize_conversation(
@@ -3266,7 +3286,9 @@ class MemoryClient:
             ...     client.add_entity_to_graph(entity)
             ...     client.link_memory_to_entity(memory.id, entity.entity_id)
         """
-        linked: bool = self.graph.link_memory_to_entity(memory_id, entity_id, relation_type, confidence)
+        linked: bool = self.graph.link_memory_to_entity(
+            memory_id, entity_id, relation_type, confidence
+        )
         return linked
 
     def link_memory_to_fact(
@@ -3340,7 +3362,9 @@ class MemoryClient:
             >>> for relation_type, entities in connections.items():
             ...     print(f"{relation_type}: {len(entities)} connected entities")
         """
-        connections: dict[str, list[tuple[Any, ...]]] = self.graph.find_entity_connections(entity_id, max_distance)
+        connections: dict[str, list[tuple[Any, ...]]] = self.graph.find_entity_connections(
+            entity_id, max_distance
+        )
         return connections
 
     def get_knowledge_subgraph(
@@ -3527,7 +3551,9 @@ class MemoryClient:
             return []
 
         # Detect conflicts
-        conflicts: list[Any] = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+        conflicts: list[Any] = self.conflict_resolver.batch_detect_conflicts(
+            memories, check_llm=check_llm
+        )
 
         logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
         return conflicts
@@ -5195,7 +5221,9 @@ class MemoryClient:
                 return None
 
             # Get preview
-            preview: Optional[dict[str, Any]] = self.merge_engine.preview_merge(memories=memories, strategy=strategy_enum)
+            preview: Optional[dict[str, Any]] = self.merge_engine.preview_merge(
+                memories=memories, strategy=strategy_enum
+            )
 
             logger.info(f"Generated merge preview for {len(memory_ids)} memories")
 

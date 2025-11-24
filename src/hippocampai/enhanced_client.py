@@ -195,7 +195,9 @@ class EnhancedMemoryClient:
         limit: int = 100,
     ) -> list[Memory]:
         """Get all memories for a user."""
-        memories: list[Memory] = self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
+        memories: list[Memory] = self.client.get_memories(
+            user_id=user_id, filters=filters, limit=limit
+        )
         return memories
 
     def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool:
@@ -289,7 +291,9 @@ class EnhancedMemoryClient:
 
     def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[str]:
         """Get recent operations."""
-        operations: list[str] = cast(list[str], self.client.get_recent_operations(limit=limit, operation=operation))
+        operations: list[str] = cast(
+            list[str], self.client.get_recent_operations(limit=limit, operation=operation)
+        )
         return operations
 
     @property
@@ -324,7 +328,9 @@ class EnhancedMemoryClient:
 
     def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Optional[str]:
         """Detect if there's been a shift in conversation topics."""
-        topic: Optional[str] = self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
+        topic: Optional[str] = self.client.detect_topic_shift(
+            user_id=user_id, window_size=window_size
+        )
         return topic
 
     # Multi-agent support

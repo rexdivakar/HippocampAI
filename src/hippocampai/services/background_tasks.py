@@ -182,7 +182,9 @@ class BackgroundTaskManager:
             dry_run: Whether to only analyze without making changes
         """
         logger.info(f"Triggering deduplication for user {user_id} (dry_run={dry_run})")
-        result: dict[str, Any] = await self.service.deduplicate_user_memories(user_id=user_id, dry_run=dry_run)
+        result: dict[str, Any] = await self.service.deduplicate_user_memories(
+            user_id=user_id, dry_run=dry_run
+        )
         return result
 
     async def trigger_consolidation(

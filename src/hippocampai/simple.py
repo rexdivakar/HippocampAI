@@ -127,11 +127,15 @@ class Memory:
         """
         # Handle both MemoryClient (k parameter) and UnifiedMemoryClient (limit parameter)
         if isinstance(self._client, _MemoryClient):
-            results: List[RetrievalResult] = self._client.recall(query=query, user_id=user_id, k=limit, filters=filters or {})
+            results: List[RetrievalResult] = self._client.recall(
+                query=query, user_id=user_id, k=limit, filters=filters or {}
+            )
             return results
         else:
             # UnifiedMemoryClient uses limit instead of k
-            results = self._client.recall(query=query, user_id=user_id, limit=limit, filters=filters or {})
+            results = self._client.recall(
+                query=query, user_id=user_id, limit=limit, filters=filters or {}
+            )
             return results
 
     def get(self, memory_id: str) -> Optional[_Memory]:
