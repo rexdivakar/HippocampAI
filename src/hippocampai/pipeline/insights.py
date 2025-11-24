@@ -149,7 +149,7 @@ class Trend(BaseModel):
 class InsightAnalyzer:
     """Analyzes cross-session patterns and behavioral insights."""
 
-    def __init__(self, llm=None, min_pattern_occurrences: int = 3):
+    def __init__(self, llm: Any = None, min_pattern_occurrences: int = 3) -> None:
         """Initialize insight analyzer.
 
         Args:

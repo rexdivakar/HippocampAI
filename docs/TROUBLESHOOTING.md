@@ -1143,7 +1143,7 @@ Include this information:
 **Environment:**
 - OS: Ubuntu 22.04
 - Python: 3.11.5
-- HippocampAI: v0.2.5
+- HippocampAI: v0.3.0
 - Docker: 24.0.5
 
 **Steps to reproduce:**
@@ -1169,5 +1169,5 @@ Include this information:
 
 ---
 
-**Version:** v0.2.5
+**Version:** v0.3.0
 **Last Updated:** November 2025

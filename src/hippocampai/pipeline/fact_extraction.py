@@ -82,7 +82,7 @@ class FactQualityMetrics(BaseModel):
 class FactExtractionPipeline:
     """Pipeline for extracting structured facts from text and conversations."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: Any = None) -> None:
         """Initialize fact extraction pipeline.
 
         Args:

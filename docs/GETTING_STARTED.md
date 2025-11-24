@@ -127,10 +127,10 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # 3. Install in development mode with all dependencies
-pip install -e ".[all]"
+pip install -e ".[all,dev]"
 
 # This installs with:
-# - Core dependencies (qdrant-client, redis, etc.)
+# - Core dependencies (qdrant-client, sentence-transformers, etc.)
 # - All AI providers (groq, openai, anthropic)
 # - API server (fastapi, uvicorn)
 # - Web interface (flask)
@@ -152,18 +152,26 @@ pip install twine
 twine upload dist/*
 ```
 
-### Minimal Installation
+### Installation Options
 
 ```bash
-# Core functionality only
+# Core library only (lightweight - 10 dependencies)
 pip install hippocampai
 
-# With specific providers
-pip install "hippocampai[openai]"      # Just OpenAI
-pip install "hippocampai[groq]"        # Just Groq
-pip install "hippocampai[api]"         # API server
-pip install "hippocampai[web]"         # Web interface
-pip install "hippocampai[all]"         # Everything
+# With SaaS deployment features (API, auth, Celery, Redis, PostgreSQL)
+pip install "hippocampai[saas]"
+
+# With specific LLM providers
+pip install "hippocampai[openai]"      # OpenAI support
+pip install "hippocampai[anthropic]"   # Anthropic Claude
+pip install "hippocampai[groq]"        # Groq support
+pip install "hippocampai[ollama]"      # Ollama for local models
+
+# Grouped installations
+pip install "hippocampai[api]"         # FastAPI server only
+pip install "hippocampai[web]"         # Flask web interface
+pip install "hippocampai[all]"         # Everything (SaaS + all providers)
+pip install "hippocampai[all,dev]"     # Everything + dev tools
 ```
 
 ---

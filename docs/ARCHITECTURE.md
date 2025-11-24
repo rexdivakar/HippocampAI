@@ -32,7 +32,269 @@ await async_client.remember_async("text", user_id="alice")
 
 ## System Architecture
 
-### Core Components
+### High-Level System Diagram
+
+```mermaid
+graph TB
+    subgraph "Client Applications"
+        A[Python Application]
+        B[FastAPI App]
+        C[CLI Tool]
+    end
+
+    subgraph "HippocampAI Core"
+        D[MemoryClient]
+        E[AsyncMemoryClient]
+        F[UnifiedMemoryClient]
+
+        subgraph "Business Logic"
+            G[Memory Operations]
+            H[Hybrid Retrieval]
+            I[Knowledge Graph]
+            J[Telemetry System]
+        end
+
+        subgraph "Processing"
+            K[Embedding Pipeline]
+            L[Entity Recognition]
+            M[Background Scheduler]
+            N[Celery Tasks]
+        end
+    end
+
+    subgraph "Storage Layer"
+        O[(Qdrant Vector DB)]
+        P[(Redis Cache)]
+        Q[(PostgreSQL)]
+    end
+
+    subgraph "External Services"
+        R[OpenAI/Anthropic/Groq]
+        S[Sentence Transformers]
+        T[Prometheus]
+    end
+
+    A --> D
+    B --> E
+    C --> F
+
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H
+    G --> I
+    G --> J
+
+    H --> K
+    I --> L
+    J --> T
+
+    G --> M
+    M --> N
+
+    K --> O
+    H --> P
+    I --> Q
+
+    K --> R
+    K --> S
+
+    style A fill:#e1f5ff
+    style B fill:#e1f5ff
+    style C fill:#e1f5ff
+    style O fill:#ffe1e1
+    style P fill:#ffe1e1
+    style Q fill:#ffe1e1
+    style R fill:#fff4e1
+    style S fill:#fff4e1
+```
+
+### Data Flow Architecture
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant MemoryClient
+    participant Cache as Redis Cache
+    participant Vector as Qdrant Vector DB
+    participant LLM as LLM Provider
+    participant Tasks as Background Tasks
+
+    Client->>MemoryClient: remember(text, user_id)
+
+    activate MemoryClient
+    MemoryClient->>LLM: Generate embedding
+    LLM-->>MemoryClient: Embedding vector
+
+    MemoryClient->>Vector: Store memory + vector
+    Vector-->>MemoryClient: Memory ID
+
+    MemoryClient->>Cache: Cache metadata
+
+    MemoryClient->>Tasks: Schedule consolidation
+
+    MemoryClient-->>Client: Memory object
+    deactivate MemoryClient
+
+    Note over Client,MemoryClient: Query Flow
+
+    Client->>MemoryClient: recall(query, user_id)
+    activate MemoryClient
+
+    MemoryClient->>Cache: Check cache
+    alt Cache hit
+        Cache-->>MemoryClient: Cached results
+    else Cache miss
+        MemoryClient->>LLM: Generate query embedding
+        LLM-->>MemoryClient: Query vector
+
+        MemoryClient->>Vector: Semantic search
+        Vector-->>MemoryClient: Top candidates
+
+        MemoryClient->>MemoryClient: BM25 + Reranking
+        MemoryClient->>Cache: Cache results
+    end
+
+    MemoryClient-->>Client: Retrieval results
+    deactivate MemoryClient
+```
+
+### Component Architecture
+
+```mermaid
+graph LR
+    subgraph "Client Layer"
+        MC[MemoryClient<br/>Synchronous API]
+        AC[AsyncMemoryClient<br/>Async/Await API]
+        UC[UnifiedMemoryClient<br/>Local + Remote]
+    end
+
+    subgraph "Core Services"
+        MS[Memory Service<br/>CRUD Operations]
+        RS[Retrieval Service<br/>Hybrid Search]
+        GS[Graph Service<br/>Knowledge Graph]
+        TS[Telemetry Service<br/>Monitoring]
+    end
+
+    subgraph "Background Processing"
+        BT[Background Tasks<br/>Celery]
+        SCH[Scheduler<br/>APScheduler]
+        CON[Consolidation<br/>Memory Merging]
+        DUP[Deduplication<br/>Similarity Detection]
+    end
+
+    subgraph "Data Stores"
+        VDB[(Vector DB<br/>Qdrant)]
+        RC[(Cache<br/>Redis)]
+        PG[(Metadata<br/>PostgreSQL)]
+    end
+
+    MC --> MS
+    AC --> MS
+    UC --> MS
+
+    MS --> RS
+    MS --> GS
+    MS --> TS
+
+    RS --> VDB
+    RS --> RC
+
+    MS --> BT
+    BT --> SCH
+    SCH --> CON
+    SCH --> DUP
+
+    CON --> VDB
+    DUP --> VDB
+
+    GS --> PG
+
+    style MC fill:#4CAF50,color:#fff
+    style AC fill:#2196F3,color:#fff
+    style UC fill:#FF9800,color:#fff
+    style VDB fill:#f44336,color:#fff
+    style RC fill:#FF5722,color:#fff
+    style PG fill:#9C27B0,color:#fff
+```
+
+### Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Production Environment"
+        subgraph "Load Balancer"
+            LB[Nginx/Traefik]
+        end
+
+        subgraph "Application Tier"
+            API1[FastAPI<br/>Instance 1]
+            API2[FastAPI<br/>Instance 2]
+            API3[FastAPI<br/>Instance 3]
+        end
+
+        subgraph "Worker Tier"
+            W1[Celery Worker 1<br/>Memory Tasks]
+            W2[Celery Worker 2<br/>Background Jobs]
+            W3[Celery Worker 3<br/>Scheduled Tasks]
+        end
+
+        subgraph "Data Tier"
+            QDRANT[(Qdrant Cluster<br/>3 Nodes)]
+            REDIS[(Redis Cluster<br/>Master + Replicas)]
+            PG[(PostgreSQL<br/>Primary + Standby)]
+        end
+
+        subgraph "Monitoring"
+            PROM[Prometheus]
+            GRAF[Grafana]
+            ALERT[Alertmanager]
+        end
+    end
+
+    LB --> API1
+    LB --> API2
+    LB --> API3
+
+    API1 --> QDRANT
+    API2 --> QDRANT
+    API3 --> QDRANT
+
+    API1 --> REDIS
+    API2 --> REDIS
+    API3 --> REDIS
+
+    API1 --> W1
+    API2 --> W2
+    API3 --> W3
+
+    W1 --> QDRANT
+    W2 --> QDRANT
+    W3 --> QDRANT
+
+    W1 --> REDIS
+    W2 --> REDIS
+    W3 --> REDIS
+
+    QDRANT --> PG
+
+    API1 --> PROM
+    API2 --> PROM
+    API3 --> PROM
+
+    PROM --> GRAF
+    PROM --> ALERT
+
+    style LB fill:#00BCD4
+    style QDRANT fill:#f44336
+    style REDIS fill:#FF5722
+    style PG fill:#9C27B0
+    style PROM fill:#FFC107
+    style GRAF fill:#FF9800
+```
+
+### Core Components (Text View)
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐

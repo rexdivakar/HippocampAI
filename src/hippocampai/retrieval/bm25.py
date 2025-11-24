@@ -1,6 +1,7 @@
 """BM25 sparse retrieval."""
 
 import logging
+from typing import Callable, Optional
 
 from rank_bm25 import BM25Okapi
 
@@ -8,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class BM25Retriever:
-    def __init__(self, corpus: list[str], tokenizer=None):
+    def __init__(
+        self, corpus: list[str], tokenizer: Optional[Callable[[str], list[str]]] = None
+    ) -> None:
         self.tokenizer = tokenizer or (lambda x: x.lower().split())
         self.corpus = corpus
         self.tokenized_corpus = [self.tokenizer(doc) for doc in corpus]
@@ -20,7 +23,7 @@ class BM25Retriever:
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
         return [(idx, scores[idx]) for idx in top_indices]
 
-    def update(self, corpus: list[str]):
+    def update(self, corpus: list[str]) -> None:
         self.corpus = corpus
         self.tokenized_corpus = [self.tokenizer(doc) for doc in corpus]
         self.bm25 = BM25Okapi(self.tokenized_corpus)

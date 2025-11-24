@@ -11,6 +11,15 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
+      # PostgreSQL (for authentication)
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-hippocampai}:${POSTGRES_PASSWORD:-hippocampai_secret}@postgres:5432/${POSTGRES_DB:-hippocampai}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-hippocampai}
+      POSTGRES_USER: ${POSTGRES_USER:-hippocampai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hippocampai_secret}
+      USER_AUTH_ENABLED: ${USER_AUTH_ENABLED:-false}
+
       # Qdrant
       QDRANT_URL: http://qdrant:6333
       COLLECTION_FACTS: hippocampai_facts
@@ -67,6 +76,7 @@ services:
       PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-true}
 
     depends_on:
+      - postgres
       - qdrant
       - redis
     networks:
@@ -207,6 +217,30 @@ services:
 
   # ==================== Storage Services ====================
 
+  # PostgreSQL Database for Authentication
+  # Schema is automatically initialized on first start from schema.sql
+  postgres:
+    image: postgres:15-alpine
+    container_name: hippocampai-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hippocampai}
+      POSTGRES_USER: ${POSTGRES_USER:-hippocampai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hippocampai_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Schema auto-runs on first container start (docker-entrypoint-initdb.d)
+      - ./src/hippocampai/auth/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hippocampai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Qdrant Vector Database
   qdrant:
     image: qdrant/qdrant:v1.15.1
@@ -252,6 +286,25 @@ services:
       - hippocampai-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Admin UI ====================
+
+  # Admin Dashboard
+  admin:
+    image: nginx:alpine
+    container_name: hippocampai-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-3001}:80"
+    volumes:
+      - ./admin_ui:/usr/share/nginx/html:ro
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -320,6 +373,8 @@ networks:
 
 # ==================== Volumes ====================
 volumes:
+  postgres_data:
+    driver: local
   qdrant_data:
     driver: local
   redis_data:

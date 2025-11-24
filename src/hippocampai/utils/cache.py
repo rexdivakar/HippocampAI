@@ -9,7 +9,7 @@ _cache_instance = None
 
 class Cache:
     def __init__(self, maxsize: int = 10000, ttl: int = 86400):
-        self.cache = TTLCache(maxsize=maxsize, ttl=ttl)
+        self.cache: TTLCache[str, Any] = TTLCache(maxsize=maxsize, ttl=ttl)
 
     def get(self, key: str) -> Optional[Any]:
         return self.cache.get(key)

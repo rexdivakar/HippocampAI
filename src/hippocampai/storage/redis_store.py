@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import redis.asyncio as redis
 
@@ -101,14 +101,16 @@ class AsyncRedisKVStore:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         result = await self._client.delete(key)
         logger.debug(f"Deleted key: {key}, result: {result}")
-        return result > 0
+        deleted: bool = result > 0
+        return deleted
 
     async def exists(self, key: str) -> bool:
         """Check if key exists."""
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        return await self._client.exists(key) > 0
+        result: bool = await self._client.exists(key) > 0
+        return result
 
     async def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
@@ -131,7 +133,8 @@ class AsyncRedisKVStore:
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        return await self._client.dbsize()
+        size: int = await self._client.dbsize()
+        return size
 
     async def sadd(self, key: str, *values: str) -> int:
         """Add values to a set."""
@@ -205,15 +208,15 @@ class AsyncMemoryKVStore:
         self.cache_ttl = cache_ttl
 
     @property
-    def backend(self):
+    def backend(self) -> AsyncRedisKVStore:
         """Backward compatibility - alias for store."""
         return self.store
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Connect to Redis."""
         await self.backend.connect()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close Redis connection."""
         await self.backend.close()
 
@@ -229,7 +232,7 @@ class AsyncMemoryKVStore:
         """Generate key for tag index."""
         return f"tag:{tag}:memories"
 
-    async def set_memory(self, memory_id: str, memory_data: dict):
+    async def set_memory(self, memory_id: str, memory_data: dict) -> None:
         """Store memory data."""
         key = self._memory_key(memory_id)
         await self.backend.set(key, memory_data, ttl_seconds=self.cache_ttl)
@@ -247,7 +250,7 @@ class AsyncMemoryKVStore:
     async def get_memory(self, memory_id: str) -> Optional[dict]:
         """Retrieve memory data by ID."""
         key = self._memory_key(memory_id)
-        return await self.backend.get(key)
+        return cast(Optional[dict[Any, Any]], await self.backend.get(key))
 
     async def delete_memory(self, memory_id: str) -> bool:
         """Delete memory from store."""
@@ -282,7 +285,7 @@ class AsyncMemoryKVStore:
         memory_ids = await self.backend.smembers(key)
         return list(memory_ids)
 
-    async def batch_set_memories(self, memories: list[tuple[str, dict]]):
+    async def batch_set_memories(self, memories: list[tuple[str, dict]]) -> None:
         """Batch store multiple memories."""
         pipe = await self.backend.pipeline()
         for memory_id, memory_data in memories:
@@ -302,7 +305,7 @@ class AsyncMemoryKVStore:
 
         await pipe.execute()
 
-    async def batch_delete_memories(self, memory_ids: list[str]):
+    async def batch_delete_memories(self, memory_ids: list[str]) -> None:
         """Batch delete multiple memories."""
         pipe = await self.backend.pipeline()
         for memory_id in memory_ids:
@@ -325,7 +328,7 @@ class AsyncMemoryKVStore:
 
         await pipe.execute()
 
-    async def clear_user_cache(self, user_id: str):
+    async def clear_user_cache(self, user_id: str) -> None:
         """Clear all cached memories for a user."""
         memory_ids = await self.get_user_memories(user_id)
         await self.batch_delete_memories(memory_ids)

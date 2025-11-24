@@ -18,7 +18,7 @@ class JobScheduler:
         self.config = get_config()
         self.scheduler = BackgroundScheduler()
 
-    def start(self):
+    def start(self) -> None:
         """Start scheduler."""
         if not self.config.enable_scheduler:
             logger.info("Scheduler disabled")
@@ -47,22 +47,22 @@ class JobScheduler:
         self.scheduler.start()
         logger.info("Scheduler started")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop scheduler."""
         self.scheduler.shutdown()
         logger.info("Scheduler stopped")
 
-    def decay_importance(self):
+    def decay_importance(self) -> None:
         """Apply importance decay (daily)."""
         logger.info("Running importance decay job")
         # Placeholder: implement decay logic
 
-    def consolidate_memories(self):
+    def consolidate_memories(self) -> None:
         """Consolidate similar memories (weekly)."""
         logger.info("Running consolidation job")
         # Placeholder: implement consolidation logic
 
-    def create_snapshots(self):
+    def create_snapshots(self) -> None:
         """Create Qdrant snapshots (hourly)."""
         logger.info("Creating snapshots")
         try:

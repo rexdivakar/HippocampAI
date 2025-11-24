@@ -60,7 +60,7 @@ def get_service() -> MemoryManagementService:
             redis_store=redis_store,
         )
 
-    return _services["memory_service"]
+    return cast(MemoryManagementService, _services["memory_service"])
 
 
 # ============================================================================

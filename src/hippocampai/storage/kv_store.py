@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 class InMemoryKVStore:
     """In-memory key-value store with TTL support."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize in-memory store."""
         self._store: dict[str, Any] = {}
         self._ttl: dict[str, datetime] = {}
 
-    def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None):
+    def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
         """Set a key-value pair with optional TTL."""
         self._store[key] = value
         if ttl_seconds:
@@ -59,7 +59,7 @@ class InMemoryKVStore:
 
         return all_keys
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all keys."""
         self._store.clear()
         self._ttl.clear()
@@ -100,7 +100,7 @@ class MemoryKVStore:
         """Generate key for tag index."""
         return f"tag:{tag}:memories"
 
-    def set_memory(self, memory_id: str, memory_data: dict):
+    def set_memory(self, memory_id: str, memory_data: dict) -> None:
         """Store memory data."""
         key = self._memory_key(memory_id)
         self.backend.set(key, memory_data, ttl_seconds=self.cache_ttl)
@@ -153,7 +153,7 @@ class MemoryKVStore:
         memory_ids = self.backend.get(key)
         return memory_ids if memory_ids else []
 
-    def _add_to_index(self, index_key: str, value: str):
+    def _add_to_index(self, index_key: str, value: str) -> None:
         """Add value to an index (set)."""
         current = self.backend.get(index_key)
         if current is None:
@@ -164,7 +164,7 @@ class MemoryKVStore:
         current.add(value)
         self.backend.set(index_key, current)
 
-    def _remove_from_index(self, index_key: str, value: str):
+    def _remove_from_index(self, index_key: str, value: str) -> None:
         """Remove value from an index (set)."""
         current = self.backend.get(index_key)
         if current:
@@ -179,7 +179,7 @@ class MemoryKVStore:
             else:
                 self.backend.delete(index_key)
 
-    def clear_user_cache(self, user_id: str):
+    def clear_user_cache(self, user_id: str) -> None:
         """Clear all cached memories for a user."""
         memory_ids = self.get_user_memories(user_id)
         for memory_id in memory_ids:

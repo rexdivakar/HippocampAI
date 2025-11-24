@@ -8,22 +8,30 @@
 
 **HippocampAI** is a production-ready, enterprise-grade memory engine that transforms how AI systems remember, reason, and learn from interactions. It provides persistent, intelligent memory capabilities that enable AI agents to maintain context across sessions, understand user preferences, detect behavioral patterns, and deliver truly personalized experiences.
 
-> **🎯 The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
+> **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
 **Current Release:** v0.2.5 — Production-ready with 102+ methods, 50+ API endpoints, and comprehensive monitoring.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
 ```bash
-# Install from PyPI
+# Core library (lightweight - 10 dependencies)
 pip install hippocampai
 
-# Or with all features
-pip install "hippocampai[all]"
+# With SaaS features (API, auth, background tasks)
+pip install "hippocampai[saas]"
+
+# With specific LLM providers
+pip install "hippocampai[openai]"     # OpenAI support
+pip install "hippocampai[anthropic]"  # Anthropic Claude
+pip install "hippocampai[groq]"       # Groq support
+
+# Everything (development, all features)
+pip install "hippocampai[all,dev]"
 ```
 
 ### Your First Memory (30 seconds)
@@ -50,22 +58,23 @@ print(f"Found: {results[0].memory.text}")
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 | Feature | Description | Learn More |
 |---------|-------------|------------|
-| **🧠 Intelligent Memory** | Hybrid search, importance scoring, semantic clustering | [Features Guide](docs/FEATURES.md) |
-| **⚡ High Performance** | 50-100x faster with Redis caching, 500-1000+ RPS | [Performance](docs/ARCHITECTURE.md#performance) |
-| **🔍 Advanced Search** | Vector + BM25 + reranking, temporal queries | [Search Guide](docs/FEATURES.md#hybrid-retrieval) |
-| **📊 Analytics** | Pattern detection, habit tracking, behavioral insights | [Analytics](docs/FEATURES.md#cross-session-insights) |
-| **🤖 AI Integration** | Works with OpenAI, Anthropic, Groq, Ollama, local models | [Providers](docs/PROVIDERS.md) |
-| **📝 Session Management** | Conversation tracking, summaries, hierarchical sessions | [Sessions](docs/SESSION_MANAGEMENT.md) |
-| **🔄 Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_USAGE_GUIDE.md) |
-| **📈 Monitoring** | Prometheus, Grafana, Flower dashboards | [Monitoring](docs/TELEMETRY.md) |
+| **Intelligent Memory** | Hybrid search, importance scoring, semantic clustering | [Features Guide](docs/FEATURES.md) |
+| **High Performance** | 50-100x faster with Redis caching, 500-1000+ RPS | [Performance](docs/ARCHITECTURE.md#performance) |
+| **Advanced Search** | Vector + BM25 + reranking, temporal queries | [Search Guide](docs/FEATURES.md#hybrid-retrieval) |
+| **Analytics** | Pattern detection, habit tracking, behavioral insights | [Analytics](docs/FEATURES.md#cross-session-insights) |
+| **AI Integration** | Works with OpenAI, Anthropic, Groq, Ollama, local models | [Providers](docs/PROVIDERS.md) |
+| **Session Management** | Conversation tracking, summaries, hierarchical sessions | [Sessions](docs/SESSION_MANAGEMENT.md) |
+| **SaaS Platform** | Multi-tenant auth, rate limiting, background tasks | [SaaS Guide](docs/SAAS_GUIDE.md) |
+| **Memory Quality** | Health monitoring, duplicate detection, quality tracking | [Memory Management](docs/MEMORY_MANAGEMENT.md) |
+| **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_GUIDE.md) |
 
 ---
 
-## 🎯 Why Choose HippocampAI?
+## Why Choose HippocampAI?
 
 ### vs. Traditional Vector Databases
 - **Built-in Intelligence**: Pattern detection, insights, behavioral analysis
@@ -86,23 +95,29 @@ print(f"Found: {results[0].memory.text}")
 
 ---
 
-## 📚 Documentation
+## Documentation
+
+**Complete documentation is available in the [docs/](docs/) directory.**
 
 ### Quick Links
 
 | What do you want to do? | Go here |
 |--------------------------|---------|
-| **Get started in 5 minutes** | [Getting Started Guide](docs/GETTING_STARTED.md) |
-| **See all 102+ functions** | [Library Complete Reference](docs/LIBRARY_COMPLETE_REFERENCE.md) |
-| **Use REST APIs** | [SaaS API Complete Reference](docs/SAAS_API_COMPLETE_REFERENCE.md) |
-| **Deploy to production** | [User Guide](docs/USER_GUIDE.md) |
-| **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) |
-| **Optimize Celery workers** | [Celery Optimization & Tracing](docs/CELERY_OPTIMIZATION_AND_TRACING.md) |
-| **Troubleshoot issues** | [Troubleshooting Guide](docs/TROUBLESHOOTING.md) |
+| **Get started in 5 minutes** | [Getting Started Guide](docs/GETTING_STARTED.md) \| [Quickstart](docs/QUICKSTART.md) |
+| **Try interactive demo** | [Chat Demo Guide](docs/CHAT_DEMO_GUIDE.md) |
+| **See all 102+ functions** | [API Reference](docs/API_REFERENCE.md) \| [Library Reference](docs/LIBRARY_COMPLETE_REFERENCE.md) |
+| **Deploy as SaaS platform** | [SaaS Platform Guide](docs/SAAS_GUIDE.md) ⭐ NEW |
+| **Monitor memory quality** | [Memory Management](docs/MEMORY_MANAGEMENT.md) ⭐ NEW |
+| **Set up background tasks** | [Celery Guide](docs/CELERY_GUIDE.md) ⭐ NEW |
+| **Deploy to production** | [User Guide](docs/USER_GUIDE.md) \| [Deployment](docs/DEPLOYMENT_READINESS_REPORT.md) |
+| **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) \| [Providers](docs/PROVIDERS.md) |
+| **Monitor & observe** | [Monitoring](docs/MONITORING_INTEGRATION_GUIDE.md) \| [Telemetry](docs/TELEMETRY.md) |
+| **Troubleshoot issues** | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| **View all documentation** | [Documentation Hub](docs/README.md) |
 
 ### Documentation Index
 
-📖 **[Complete Documentation Index](docs/README.md)** - Browse all 26 documentation files organized by topic
+**[Complete Documentation Index](docs/README.md)** - Browse all 26 documentation files organized by topic
 
 **Core Documentation:**
 - [API Reference](docs/API_REFERENCE.md) - All 102+ methods with examples
@@ -124,7 +139,7 @@ print(f"Found: {results[0].memory.text}")
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Local Development
 
@@ -152,7 +167,7 @@ client = MemoryClient(
 
 ---
 
-## 🚢 Deployment Options
+## Deployment Options
 
 ### Local Development
 ```bash
@@ -178,7 +193,7 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 ---
 
-## 💡 Use Cases
+## Use Cases
 
 **AI Agents & Chatbots**
 - Personalized assistants with context across sessions
@@ -199,7 +214,7 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 ---
 
-## 📊 Performance
+## Performance
 
 | Metric | Performance |
 |--------|-------------|
@@ -212,16 +227,16 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 ---
 
-## 🤝 Community & Support
+## Community & Support
 
-- **📖 Documentation**: [Complete guides](docs/)
-- **🐛 Issues**: [GitHub Issues](https://github.com/rexdivakar/HippocampAI/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/rexdivakar/HippocampAI/discussions)
-- **👥 Discord**: [Join our community](https://discord.gg/pPSNW9J7gB)
+- **Documentation**: [Complete guides](docs/)
+- **Issues**: [GitHub Issues](https://github.com/rexdivakar/HippocampAI/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rexdivakar/HippocampAI/discussions)
+- **Discord**: [Join our community](https://discord.gg/pPSNW9J7gB)
 
 ---
 
-## 🛠️ Examples
+## Examples
 
 ### Interactive Chat Demo
 
@@ -265,7 +280,7 @@ python examples/14_cross_session_insights_demo.py
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See our [Contributing Guide](docs/CONTRIBUTING.md) for details.
 
@@ -278,19 +293,19 @@ pytest
 
 ---
 
-## 📄 License
+## License
 
 **Apache 2.0** - Use freely in commercial and open-source projects.
 
 ---
 
-## 🌟 Star History
+## Star History
 
 If you find HippocampAI useful, please star the repo! It helps others discover the project.
 
 ---
 
-**Built with ❤️ by the HippocampAI team**
+**Built with by the HippocampAI team**
 
 ---
 
@@ -324,4 +339,4 @@ client.complete_session(session.id, generate_summary=True)
 # See docs/LIBRARY_COMPLETE_REFERENCE.md for all 102+ methods
 ```
 
-**📚 [Full API Reference](docs/LIBRARY_COMPLETE_REFERENCE.md)** | **🌐 [REST API Reference](docs/SAAS_API_COMPLETE_REFERENCE.md)**
+**[Full API Reference](docs/LIBRARY_COMPLETE_REFERENCE.md)** | **[REST API Reference](docs/SAAS_API_COMPLETE_REFERENCE.md)**
