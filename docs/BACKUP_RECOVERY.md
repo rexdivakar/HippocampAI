@@ -82,16 +82,19 @@ Complete guide for backing up and recovering HippocampAI data in production envi
 **Description:** Complete snapshot of all data
 
 **Pros:**
+
 - Simple to implement
 - Fast recovery
 - Complete data integrity
 
 **Cons:**
+
 - Large storage requirements
 - Longer backup time
 - Higher network usage
 
 **Recommended for:**
+
 - Weekly baseline backups
 - Small deployments (<10GB)
 - Pre-upgrade snapshots
@@ -103,15 +106,18 @@ Complete guide for backing up and recovering HippocampAI data in production envi
 **Description:** Only changes since last backup
 
 **Pros:**
+
 - Fast backup time
 - Minimal storage
 - Low network usage
 
 **Cons:**
+
 - Complex recovery (need chain)
 - Risk of chain corruption
 
 **Recommended for:**
+
 - Daily/hourly backups
 - Large deployments
 - High-frequency changes
@@ -123,16 +129,19 @@ Complete guide for backing up and recovering HippocampAI data in production envi
 **Description:** Real-time replication to standby
 
 **Pros:**
+
 - Near-zero data loss
 - Fast failover
 - No backup windows
 
 **Cons:**
+
 - Higher cost
 - Complex setup
 - Requires dedicated infrastructure
 
 **Recommended for:**
+
 - Mission-critical production
 - High availability requirements
 - Large enterprises
@@ -299,6 +308,7 @@ if __name__ == "__main__":
 ```
 
 Run the backup:
+
 ```bash
 python export_memories.py
 ```
@@ -377,7 +387,7 @@ cat > ${BACKUP_DIR}/manifest.txt <<EOF
 HippocampAI Backup Manifest
 Timestamp: ${TIMESTAMP}
 Hostname: $(hostname)
-Version: v0.2.5
+Version: v0.3.0
 
 Components:
 - Qdrant Vector DB: $(du -sh ${BACKUP_DIR}/qdrant | awk '{print $1}')
@@ -395,6 +405,7 @@ echo "Total Size: $(du -sh ${BACKUP_DIR} | awk '{print $1}')"
 ```
 
 Make executable and run:
+
 ```bash
 chmod +x complete_backup.sh
 ./complete_backup.sh
@@ -407,6 +418,7 @@ chmod +x complete_backup.sh
 ### Scenario 1: Complete System Recovery
 
 **Prerequisites:**
+
 - Fresh HippocampAI installation
 - Access to backup files
 - Docker and dependencies installed
@@ -611,6 +623,7 @@ echo "✅ Incremental restoration completed"
 #### Phase 2: Containment (5-15 minutes)
 
 1. **Stop the bleeding**
+
 ```bash
 # Stop all services
 docker-compose down
@@ -620,6 +633,7 @@ docker-compose down
 ```
 
 2. **Preserve evidence**
+
 ```bash
 # Create forensic backup
 tar czf /forensics/incident_$(date +%Y%m%d_%H%M%S).tar.gz \
@@ -633,6 +647,7 @@ tar czf /forensics/incident_$(date +%Y%m%d_%H%M%S).tar.gz \
 #### Phase 3: Recovery (15-60 minutes)
 
 1. **Prepare clean environment**
+
 ```bash
 # Fresh Docker containers
 docker-compose pull
@@ -640,12 +655,14 @@ docker system prune -af
 ```
 
 2. **Restore from backup**
+
 ```bash
 # Use latest good backup
 ./restore_complete.sh /backups/20241102_000000
 ```
 
 3. **Verify integrity**
+
 ```python
 from hippocampai import MemoryClient
 
@@ -664,6 +681,7 @@ print("✅ System recovered successfully")
 #### Phase 4: Validation (60-120 minutes)
 
 1. **Data integrity checks**
+
 ```python
 # Verify memory counts
 stats = client.get_memory_statistics(user_id="all")
@@ -671,12 +689,14 @@ stats = client.get_memory_statistics(user_id="all")
 ```
 
 2. **Functional testing**
+
 ```bash
 # Run integration tests
 pytest tests/test_all_features_integration.py
 ```
 
 3. **Performance validation**
+
 ```bash
 # Run load tests
 locust -f tests/load_test.py --headless -u 100 -r 10
@@ -772,6 +792,7 @@ StandardError=journal
 ```
 
 Enable:
+
 ```bash
 sudo systemctl enable hippocampai-backup.timer
 sudo systemctl start hippocampai-backup.timer
@@ -825,6 +846,7 @@ aws s3api put-bucket-lifecycle-configuration \
 ```
 
 lifecycle.json:
+
 ```json
 {
   "Rules": [
@@ -899,6 +921,7 @@ az storage blob upload-batch \
 - **1** offsite copy
 
 Example:
+
 - Primary: Production Qdrant
 - Secondary: Local backup disk
 - Tertiary: Cloud storage (S3/GCS)
@@ -944,6 +967,7 @@ fi
 ### 4. Document Recovery Procedures
 
 Maintain runbook with:
+
 - Step-by-step recovery instructions
 - Contact information
 - Access credentials location
@@ -1046,5 +1070,5 @@ with backup_duration.time():
 
 ---
 
-**Version:** v0.2.5
+**Version:** v0.3.0
 **Last Updated:** November 2025

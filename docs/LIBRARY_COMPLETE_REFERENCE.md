@@ -1,7 +1,7 @@
 # HippocampAI Library Complete Function Reference
 
-**Version**: V0.2.5
-**Last Updated**: 2025-11-03
+**Version**: v0.3.0
+**Last Updated**: 2025-11-24
 **Total Functions**: 102+
 
 Complete reference for all HippocampAI library functions with usage examples.
@@ -54,6 +54,7 @@ Complete reference for all HippocampAI library functions with usage examples.
 Initialize the memory client.
 
 **Signature:**
+
 ```python
 def __init__(
     self,
@@ -66,6 +67,7 @@ def __init__(
 ```
 
 **Parameters:**
+
 - `qdrant_url` (str): Qdrant vector database URL
 - `redis_url` (str): Redis cache URL
 - `llm_provider` (BaseLLM): LLM provider instance (OllamaLLM, GroqLLM, etc.)
@@ -75,6 +77,7 @@ def __init__(
 **Returns:** MemoryClient instance
 
 **Example:**
+
 ```python
 from hippocampai import MemoryClient
 from hippocampai.adapters import OllamaLLM
@@ -103,6 +106,7 @@ client = MemoryClient(
 Create client from configuration preset.
 
 **Signature:**
+
 ```python
 @classmethod
 def from_preset(
@@ -113,12 +117,14 @@ def from_preset(
 ```
 
 **Parameters:**
+
 - `preset` (PresetType): "local", "cloud", "performance", or "quality"
 - `**overrides`: Override specific settings
 
 **Returns:** Configured MemoryClient
 
 **Example:**
+
 ```python
 # Local development preset
 client = MemoryClient.from_preset("local")
@@ -142,6 +148,7 @@ client = MemoryClient.from_preset("performance")
 Store a new memory.
 
 **Signature:**
+
 ```python
 def remember(
     self,
@@ -157,6 +164,7 @@ def remember(
 ```
 
 **Parameters:**
+
 - `text` (str): Memory content
 - `user_id` (str): User identifier
 - `session_id` (str, optional): Session identifier
@@ -169,6 +177,7 @@ def remember(
 **Returns:** Memory object with ID, timestamps, extracted facts
 
 **Example:**
+
 ```python
 # Basic memory
 memory = client.remember(
@@ -200,6 +209,7 @@ print(f"Memory size: {memory.text_length} chars, {memory.token_count} tokens")
 Retrieve relevant memories using hybrid search.
 
 **Signature:**
+
 ```python
 def recall(
     self,
@@ -214,6 +224,7 @@ def recall(
 ```
 
 **Parameters:**
+
 - `query` (str): Search query
 - `user_id` (str): User identifier
 - `session_id` (str, optional): Filter by session
@@ -225,6 +236,7 @@ def recall(
 **Returns:** List of RetrievalResult with memory and scores
 
 **Example:**
+
 ```python
 # Basic recall
 results = client.recall(
@@ -267,6 +279,7 @@ for result in results:
 Extract memories from conversation text.
 
 **Signature:**
+
 ```python
 def extract_from_conversation(
     self,
@@ -278,6 +291,7 @@ def extract_from_conversation(
 ```
 
 **Parameters:**
+
 - `conversation` (str): Conversation text
 - `user_id` (str): User identifier
 - `session_id` (str, optional): Session identifier
@@ -286,6 +300,7 @@ def extract_from_conversation(
 **Returns:** List of extracted Memory objects
 
 **Example:**
+
 ```python
 conversation = """
 User: I really enjoy drinking green tea in the morning.
@@ -320,6 +335,7 @@ for mem in memories:
 Get memories with advanced filtering.
 
 **Signature:**
+
 ```python
 def get_memories(
     self,
@@ -333,6 +349,7 @@ def get_memories(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `filters` (dict, optional): Filter conditions
 - `limit` (int): Maximum results
@@ -343,6 +360,7 @@ def get_memories(
 **Returns:** List of Memory objects
 
 **Example:**
+
 ```python
 # Get all preferences
 memories = client.get_memories(
@@ -377,6 +395,7 @@ page_2 = client.get_memories(user_id="alice", limit=10, offset=10)
 Advanced memory search with complex queries.
 
 **Signature:**
+
 ```python
 def get_memories_advanced(
     self,
@@ -389,6 +408,7 @@ def get_memories_advanced(
 ```
 
 **Example:**
+
 ```python
 memories = client.get_memories_advanced(
     user_id="alice",
@@ -406,6 +426,7 @@ memories = client.get_memories_advanced(
 Get comprehensive memory statistics.
 
 **Signature:**
+
 ```python
 def get_memory_statistics(
     self,
@@ -416,6 +437,7 @@ def get_memory_statistics(
 **Returns:** Statistics including counts, sizes, types
 
 **Example:**
+
 ```python
 stats = client.get_memory_statistics(user_id="alice")
 
@@ -454,6 +476,7 @@ print(f"Average importance: {stats['avg_importance']:.2f}")
 Update an existing memory.
 
 **Signature:**
+
 ```python
 def update_memory(
     self,
@@ -467,6 +490,7 @@ def update_memory(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Memory identifier
 - `text` (str, optional): New text content
 - `importance` (float, optional): New importance score
@@ -477,6 +501,7 @@ def update_memory(
 **Returns:** Updated Memory or None if not found
 
 **Example:**
+
 ```python
 # Update text
 updated = client.update_memory(
@@ -507,6 +532,7 @@ updated = client.update_memory(
 Delete a memory.
 
 **Signature:**
+
 ```python
 def delete_memory(
     self,
@@ -516,12 +542,14 @@ def delete_memory(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Memory identifier
 - `user_id` (str, optional): User ID for authorization
 
 **Returns:** True if deleted, False if not found
 
 **Example:**
+
 ```python
 deleted = client.delete_memory(memory_id="mem_abc123", user_id="alice")
 if deleted:
@@ -535,6 +563,7 @@ if deleted:
 Clean up expired memories.
 
 **Signature:**
+
 ```python
 def expire_memories(
     self,
@@ -543,11 +572,13 @@ def expire_memories(
 ```
 
 **Parameters:**
+
 - `user_id` (str, optional): User ID, if None expires all users
 
 **Returns:** Count of expired memories
 
 **Example:**
+
 ```python
 # Expire for specific user
 count = client.expire_memories(user_id="alice")
@@ -567,6 +598,7 @@ print(f"Expired {count} total memories")
 Batch create multiple memories.
 
 **Signature:**
+
 ```python
 def add_memories(
     self,
@@ -577,6 +609,7 @@ def add_memories(
 ```
 
 **Parameters:**
+
 - `memories_data` (list[dict]): List of memory data
 - `user_id` (str): User identifier
 - `check_duplicates` (bool): Check for duplicates
@@ -584,6 +617,7 @@ def add_memories(
 **Returns:** List of created Memory objects
 
 **Example:**
+
 ```python
 memories_data = [
     {"text": "I love Python", "type": "fact", "tags": ["programming"]},
@@ -609,6 +643,7 @@ for mem in created:
 Batch delete multiple memories.
 
 **Signature:**
+
 ```python
 def delete_memories(
     self,
@@ -618,12 +653,14 @@ def delete_memories(
 ```
 
 **Parameters:**
+
 - `memory_ids` (list[str]): List of memory IDs
 - `user_id` (str, optional): User ID for authorization
 
 **Returns:** Count of deleted memories
 
 **Example:**
+
 ```python
 memory_ids = ["mem_abc123", "mem_def456", "mem_ghi789"]
 deleted_count = client.delete_memories(
@@ -642,6 +679,7 @@ print(f"Deleted {deleted_count} memories")
 Add relationship between memories.
 
 **Signature:**
+
 ```python
 def add_relationship(
     self,
@@ -654,6 +692,7 @@ def add_relationship(
 ```
 
 **Parameters:**
+
 - `source_id` (str): Source memory ID
 - `target_id` (str): Target memory ID
 - `relation_type` (RelationType): Relationship type
@@ -663,6 +702,7 @@ def add_relationship(
 **Returns:** True if added successfully
 
 **Example:**
+
 ```python
 from hippocampai.models.memory import RelationType
 
@@ -691,6 +731,7 @@ client.add_relationship(
 Get memories related to a memory.
 
 **Signature:**
+
 ```python
 def get_related_memories(
     self,
@@ -702,6 +743,7 @@ def get_related_memories(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Source memory ID
 - `relation_type` (RelationType, optional): Filter by type
 - `min_strength` (float): Minimum relationship strength
@@ -710,6 +752,7 @@ def get_related_memories(
 **Returns:** List of related Memory objects
 
 **Example:**
+
 ```python
 # Get directly related memories
 related = client.get_related_memories(
@@ -738,6 +781,7 @@ extended_network = client.get_related_memories(
 Export memory graph to JSON file.
 
 **Signature:**
+
 ```python
 def export_graph_to_json(
     self,
@@ -748,6 +792,7 @@ def export_graph_to_json(
 ```
 
 **Parameters:**
+
 - `file_path` (str): Output file path
 - `user_id` (str, optional): Export for specific user
 - `include_vectors` (bool): Include vector embeddings
@@ -755,6 +800,7 @@ def export_graph_to_json(
 **Returns:** Export statistics
 
 **Example:**
+
 ```python
 stats = client.export_graph_to_json(
     file_path="memory_graph_alice.json",
@@ -773,6 +819,7 @@ print(f"Exported {stats['relationships']} relationships")
 Import memory graph from JSON file.
 
 **Signature:**
+
 ```python
 def import_graph_from_json(
     self,
@@ -782,12 +829,14 @@ def import_graph_from_json(
 ```
 
 **Parameters:**
+
 - `file_path` (str): Input file path
 - `merge` (bool): Merge with existing data
 
 **Returns:** Import statistics
 
 **Example:**
+
 ```python
 stats = client.import_graph_from_json(
     file_path="memory_graph_alice.json",
@@ -807,6 +856,7 @@ print(f"Imported {stats['relationships']} relationships")
 Get version history of a memory.
 
 **Signature:**
+
 ```python
 def get_memory_history(
     self,
@@ -815,11 +865,13 @@ def get_memory_history(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Memory identifier
 
 **Returns:** List of versions with diffs
 
 **Example:**
+
 ```python
 history = client.get_memory_history(memory_id="mem_abc123")
 
@@ -837,6 +889,7 @@ for version in history:
 Rollback memory to previous version.
 
 **Signature:**
+
 ```python
 def rollback_memory(
     self,
@@ -846,12 +899,14 @@ def rollback_memory(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Memory identifier
 - `version_number` (int): Target version number
 
 **Returns:** Rolled back Memory or None
 
 **Example:**
+
 ```python
 # Rollback to version 2
 memory = client.rollback_memory(
@@ -870,6 +925,7 @@ if memory:
 Get audit trail for user or memory.
 
 **Signature:**
+
 ```python
 def get_audit_trail(
     self,
@@ -880,6 +936,7 @@ def get_audit_trail(
 ```
 
 **Parameters:**
+
 - `user_id` (str, optional): Filter by user
 - `memory_id` (str, optional): Filter by memory
 - `limit` (int): Maximum results
@@ -887,6 +944,7 @@ def get_audit_trail(
 **Returns:** List of audit log entries
 
 **Example:**
+
 ```python
 # Get user audit trail
 audit = client.get_audit_trail(user_id="alice", limit=50)
@@ -907,6 +965,7 @@ audit = client.get_audit_trail(memory_id="mem_abc123")
 Create snapshot of collection.
 
 **Signature:**
+
 ```python
 def create_snapshot(
     self,
@@ -915,11 +974,13 @@ def create_snapshot(
 ```
 
 **Parameters:**
+
 - `collection` (str): Collection name
 
 **Returns:** Snapshot ID
 
 **Example:**
+
 ```python
 snapshot_id = client.create_snapshot(collection="facts")
 print(f"Created snapshot: {snapshot_id}")
@@ -934,6 +995,7 @@ print(f"Created snapshot: {snapshot_id}")
 Create a new conversation session.
 
 **Signature:**
+
 ```python
 def create_session(
     self,
@@ -946,6 +1008,7 @@ def create_session(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `session_id` (str, optional): Custom session ID
 - `title` (str, optional): Session title
@@ -955,6 +1018,7 @@ def create_session(
 **Returns:** Session object
 
 **Example:**
+
 ```python
 # Basic session
 session = client.create_session(
@@ -980,6 +1044,7 @@ print(f"Created session: {session.id}")
 Track a message in a session.
 
 **Signature:**
+
 ```python
 def track_session_message(
     self,
@@ -991,6 +1056,7 @@ def track_session_message(
 ```
 
 **Example:**
+
 ```python
 client.track_session_message(
     session_id=session.id,
@@ -1012,6 +1078,7 @@ client.track_session_message(
 Mark session as complete and generate summary.
 
 **Signature:**
+
 ```python
 def complete_session(
     self,
@@ -1021,12 +1088,14 @@ def complete_session(
 ```
 
 **Parameters:**
+
 - `session_id` (str): Session identifier
 - `generate_summary` (bool): Auto-generate summary
 
 **Returns:** Updated Session with summary
 
 **Example:**
+
 ```python
 session = client.complete_session(
     session_id="session_123",
@@ -1045,6 +1114,7 @@ print(f"Message Count: {session.message_count}")
 Generate summary for a session.
 
 **Signature:**
+
 ```python
 def summarize_session(
     self,
@@ -1054,12 +1124,14 @@ def summarize_session(
 ```
 
 **Parameters:**
+
 - `session_id` (str): Session identifier
 - `force` (bool): Regenerate even if exists
 
 **Returns:** Session summary
 
 **Example:**
+
 ```python
 summary = client.summarize_session(session_id="session_123")
 print(f"Summary: {summary}")
@@ -1072,6 +1144,7 @@ print(f"Summary: {summary}")
 Get all memories associated with a session.
 
 **Signature:**
+
 ```python
 def get_session_memories(
     self,
@@ -1081,6 +1154,7 @@ def get_session_memories(
 ```
 
 **Example:**
+
 ```python
 memories = client.get_session_memories(session_id="session_123")
 print(f"Found {len(memories)} memories in session")
@@ -1093,6 +1167,7 @@ print(f"Found {len(memories)} memories in session")
 Search sessions by query.
 
 **Signature:**
+
 ```python
 def search_sessions(
     self,
@@ -1103,6 +1178,7 @@ def search_sessions(
 ```
 
 **Example:**
+
 ```python
 sessions = client.search_sessions(
     query="project planning",
@@ -1120,6 +1196,7 @@ sessions = client.search_sessions(
 Extract structured facts from text.
 
 **Signature:**
+
 ```python
 def extract_facts(
     self,
@@ -1130,6 +1207,7 @@ def extract_facts(
 ```
 
 **Parameters:**
+
 - `text` (str): Text to analyze
 - `source` (str): Source identifier
 - `user_id` (str, optional): User context
@@ -1137,6 +1215,7 @@ def extract_facts(
 **Returns:** List of extracted facts with confidence scores
 
 **Example:**
+
 ```python
 facts = client.extract_facts(
     text="John works at Google in San Francisco. He studied CS at MIT and knows Python.",
@@ -1167,6 +1246,7 @@ for fact in facts:
 Extract named entities from text.
 
 **Signature:**
+
 ```python
 def extract_entities(
     self,
@@ -1176,12 +1256,14 @@ def extract_entities(
 ```
 
 **Parameters:**
+
 - `text` (str): Text to analyze
 - `context` (dict, optional): Additional context
 
 **Returns:** List of Entity objects
 
 **Example:**
+
 ```python
 entities = client.extract_entities(
     text="Elon Musk founded SpaceX in California. Tesla produces electric vehicles.",
@@ -1206,6 +1288,7 @@ for entity in entities:
 Extract relationships between entities.
 
 **Signature:**
+
 ```python
 def extract_relationships(
     self,
@@ -1215,6 +1298,7 @@ def extract_relationships(
 ```
 
 **Example:**
+
 ```python
 entities = client.extract_entities(text)
 relationships = client.extract_relationships(text, entities)
@@ -1235,6 +1319,7 @@ for rel in relationships:
 Enrich memory with all intelligence features.
 
 **Signature:**
+
 ```python
 def enrich_memory_with_intelligence(
     self,
@@ -1244,12 +1329,14 @@ def enrich_memory_with_intelligence(
 ```
 
 **Parameters:**
+
 - `memory` (Memory): Memory to enrich
 - `add_to_graph` (bool): Add entities to knowledge graph
 
 **Returns:** Enrichment data with facts, entities, relationships
 
 **Example:**
+
 ```python
 memory = client.remember(
     "Marie Curie was a physicist who won two Nobel Prizes",
@@ -1273,6 +1360,7 @@ print(f"Relationships: {enrichment['relationships']}")
 Infer new knowledge from existing patterns.
 
 **Signature:**
+
 ```python
 def infer_knowledge(
     self,
@@ -1282,12 +1370,14 @@ def infer_knowledge(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `min_confidence` (float): Minimum confidence threshold
 
 **Returns:** List of inferred facts
 
 **Example:**
+
 ```python
 inferred = client.infer_knowledge(user_id="alice", min_confidence=0.75)
 
@@ -1305,6 +1395,7 @@ for fact in inferred:
 Get memories within time range.
 
 **Signature:**
+
 ```python
 def get_memories_by_time_range(
     self,
@@ -1316,6 +1407,7 @@ def get_memories_by_time_range(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `time_range` (TimeRange): Predefined range (LAST_HOUR, LAST_DAY, LAST_WEEK, LAST_MONTH, CUSTOM)
 - `custom_start` (datetime, optional): Custom start time
@@ -1324,6 +1416,7 @@ def get_memories_by_time_range(
 **Returns:** List of Memory objects in time range
 
 **Example:**
+
 ```python
 from hippocampai.models.temporal import TimeRange
 from datetime import datetime, timedelta, timezone
@@ -1352,6 +1445,7 @@ memories = client.get_memories_by_time_range(
 Build chronological narrative from memories.
 
 **Signature:**
+
 ```python
 def build_memory_narrative(
     self,
@@ -1363,6 +1457,7 @@ def build_memory_narrative(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `time_range` (TimeRange): Time range
 - `title` (str): Narrative title
@@ -1371,6 +1466,7 @@ def build_memory_narrative(
 **Returns:** Formatted narrative string
 
 **Example:**
+
 ```python
 narrative = client.build_memory_narrative(
     user_id="alice",
@@ -1397,6 +1493,7 @@ print(narrative)
 Create structured timeline of memories.
 
 **Signature:**
+
 ```python
 def create_memory_timeline(
     self,
@@ -1409,6 +1506,7 @@ def create_memory_timeline(
 **Returns:** MemoryTimeline object with events
 
 **Example:**
+
 ```python
 timeline = client.create_memory_timeline(
     user_id="alice",
@@ -1431,6 +1529,7 @@ for event in timeline.events:
 Analyze sequential event patterns.
 
 **Signature:**
+
 ```python
 def analyze_event_sequences(
     self,
@@ -1440,12 +1539,14 @@ def analyze_event_sequences(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `max_gap_hours` (int): Maximum gap between events
 
 **Returns:** List of EventSequence objects
 
 **Example:**
+
 ```python
 sequences = client.analyze_event_sequences(
     user_id="alice",
@@ -1465,6 +1566,7 @@ for seq in sequences:
 Schedule future memory with recurrence.
 
 **Signature:**
+
 ```python
 def schedule_memory(
     self,
@@ -1476,6 +1578,7 @@ def schedule_memory(
 ```
 
 **Parameters:**
+
 - `text` (str): Memory content
 - `user_id` (str): User identifier
 - `scheduled_for` (datetime): Scheduled time
@@ -1484,6 +1587,7 @@ def schedule_memory(
 **Returns:** Scheduled Memory
 
 **Example:**
+
 ```python
 from datetime import datetime, timedelta, timezone
 
@@ -1512,6 +1616,7 @@ recurring = client.schedule_memory(
 Get temporal activity summary.
 
 **Signature:**
+
 ```python
 def get_temporal_summary(
     self,
@@ -1522,6 +1627,7 @@ def get_temporal_summary(
 **Returns:** Temporal statistics and patterns
 
 **Example:**
+
 ```python
 stats = client.get_temporal_summary(user_id="alice")
 
@@ -1540,6 +1646,7 @@ print(f"Busiest time period: {stats['busiest_period']}")
 Detect behavioral patterns across sessions.
 
 **Signature:**
+
 ```python
 def detect_patterns(
     self,
@@ -1549,12 +1656,14 @@ def detect_patterns(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `min_occurrences` (int): Minimum pattern occurrences
 
 **Returns:** List of detected patterns
 
 **Example:**
+
 ```python
 patterns = client.detect_patterns(user_id="alice", min_occurrences=5)
 
@@ -1580,6 +1689,7 @@ for pattern in patterns[:5]:
 Track changes in user behavior.
 
 **Signature:**
+
 ```python
 def track_behavior_changes(
     self,
@@ -1589,12 +1699,14 @@ def track_behavior_changes(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `comparison_days` (int): Days to compare (recent vs older)
 
 **Returns:** List of behavior changes
 
 **Example:**
+
 ```python
 changes = client.track_behavior_changes(
     user_id="alice",
@@ -1620,6 +1732,7 @@ for change in changes:
 Analyze how preferences change over time.
 
 **Signature:**
+
 ```python
 def analyze_preference_drift(
     self,
@@ -1630,6 +1743,7 @@ def analyze_preference_drift(
 **Returns:** List of preference drift analyses
 
 **Example:**
+
 ```python
 drifts = client.analyze_preference_drift(user_id="alice")
 
@@ -1648,6 +1762,7 @@ for drift in drifts:
 Detect habit formation.
 
 **Signature:**
+
 ```python
 def detect_habits(
     self,
@@ -1657,12 +1772,14 @@ def detect_habits(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `min_occurrences` (int): Minimum occurrences to qualify as habit
 
 **Returns:** List of detected habits
 
 **Example:**
+
 ```python
 habits = client.detect_habits(user_id="alice", min_occurrences=7)
 
@@ -1690,6 +1807,7 @@ for habit in habits[:3]:
 Analyze long-term trends.
 
 **Signature:**
+
 ```python
 def analyze_trends(
     self,
@@ -1699,12 +1817,14 @@ def analyze_trends(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `window_days` (int): Analysis window
 
 **Returns:** List of trends
 
 **Example:**
+
 ```python
 trends = client.analyze_trends(user_id="alice", window_days=30)
 
@@ -1725,6 +1845,7 @@ for trend in trends:
 Cluster memories by semantic similarity.
 
 **Signature:**
+
 ```python
 def cluster_user_memories(
     self,
@@ -1734,12 +1855,14 @@ def cluster_user_memories(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `max_clusters` (int): Maximum number of clusters
 
 **Returns:** List of MemoryCluster objects
 
 **Example:**
+
 ```python
 clusters = client.cluster_user_memories(
     user_id="alice",
@@ -1771,6 +1894,7 @@ for cluster in clusters:
 Suggest tags for a memory.
 
 **Signature:**
+
 ```python
 def suggest_memory_tags(
     self,
@@ -1780,12 +1904,14 @@ def suggest_memory_tags(
 ```
 
 **Parameters:**
+
 - `memory` (Memory): Memory object
 - `max_tags` (int): Maximum tags to suggest
 
 **Returns:** List of suggested tags
 
 **Example:**
+
 ```python
 memory = client.remember(
     "I completed the React tutorial and built my first app",
@@ -1805,6 +1931,7 @@ print(f"Suggested tags: {suggested_tags}")
 Detect topic shifts in conversation.
 
 **Signature:**
+
 ```python
 def detect_topic_shift(
     self,
@@ -1814,12 +1941,14 @@ def detect_topic_shift(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 - `window_size` (int): Analysis window size
 
 **Returns:** List of detected topic shifts
 
 **Example:**
+
 ```python
 shifts = client.detect_topic_shift(user_id="alice", window_size=10)
 
@@ -1839,6 +1968,7 @@ for shift in shifts:
 Create memory space for an agent.
 
 **Signature:**
+
 ```python
 def create_agent_space(
     self,
@@ -1850,6 +1980,7 @@ def create_agent_space(
 ```
 
 **Parameters:**
+
 - `agent_id` (str): Agent identifier
 - `agent_name` (str): Agent name
 - `capabilities` (list[str]): Agent capabilities
@@ -1858,6 +1989,7 @@ def create_agent_space(
 **Returns:** AgentSpace object
 
 **Example:**
+
 ```python
 agent_space = client.create_agent_space(
     agent_id="agent_researcher",
@@ -1881,6 +2013,7 @@ print(f"Created agent space: {agent_space.agent_id}")
 Transfer memory from one agent to another.
 
 **Signature:**
+
 ```python
 def transfer_memory_between_agents(
     self,
@@ -1892,6 +2025,7 @@ def transfer_memory_between_agents(
 ```
 
 **Parameters:**
+
 - `memory_id` (str): Memory to transfer
 - `from_agent_id` (str): Source agent
 - `to_agent_id` (str): Target agent
@@ -1900,6 +2034,7 @@ def transfer_memory_between_agents(
 **Returns:** True if successful
 
 **Example:**
+
 ```python
 transferred = client.transfer_memory_between_agents(
     memory_id="mem_abc123",
@@ -1916,6 +2051,7 @@ transferred = client.transfer_memory_between_agents(
 Get shared memories across agents.
 
 **Signature:**
+
 ```python
 def get_shared_memory_context(
     self,
@@ -1926,6 +2062,7 @@ def get_shared_memory_context(
 ```
 
 **Parameters:**
+
 - `agent_ids` (list[str]): List of agent IDs
 - `query` (str, optional): Filter by query
 - `k` (int): Maximum results
@@ -1933,6 +2070,7 @@ def get_shared_memory_context(
 **Returns:** List of shared memories
 
 **Example:**
+
 ```python
 shared_memories = client.get_shared_memory_context(
     agent_ids=["agent_researcher", "agent_writer", "agent_editor"],
@@ -1950,11 +2088,13 @@ shared_memories = client.get_shared_memory_context(
 Start background task scheduler.
 
 **Signature:**
+
 ```python
 def start_scheduler(self) -> None
 ```
 
 **Example:**
+
 ```python
 client.start_scheduler()
 print("Scheduler started")
@@ -1967,11 +2107,13 @@ print("Scheduler started")
 Stop background task scheduler.
 
 **Signature:**
+
 ```python
 def stop_scheduler(self) -> None
 ```
 
 **Example:**
+
 ```python
 client.stop_scheduler()
 print("Scheduler stopped")
@@ -1984,6 +2126,7 @@ print("Scheduler stopped")
 Get scheduler status and scheduled jobs.
 
 **Signature:**
+
 ```python
 def get_scheduler_status(self) -> dict[str, Any]
 ```
@@ -1991,6 +2134,7 @@ def get_scheduler_status(self) -> dict[str, Any]
 **Returns:** Scheduler status information
 
 **Example:**
+
 ```python
 status = client.get_scheduler_status()
 
@@ -2007,6 +2151,7 @@ for job in status['jobs']:
 Consolidate similar memories.
 
 **Signature:**
+
 ```python
 def consolidate_all_memories(
     self,
@@ -2015,11 +2160,13 @@ def consolidate_all_memories(
 ```
 
 **Parameters:**
+
 - `similarity_threshold` (float): Similarity threshold for consolidation
 
 **Returns:** Number of memories consolidated
 
 **Example:**
+
 ```python
 count = client.consolidate_all_memories(similarity_threshold=0.85)
 print(f"Consolidated {count} memories")
@@ -2032,6 +2179,7 @@ print(f"Consolidated {count} memories")
 Apply importance decay to all memories.
 
 **Signature:**
+
 ```python
 def apply_importance_decay(self) -> int
 ```
@@ -2039,6 +2187,7 @@ def apply_importance_decay(self) -> int
 **Returns:** Number of memories updated
 
 **Example:**
+
 ```python
 updated = client.apply_importance_decay()
 print(f"Applied decay to {updated} memories")
@@ -2053,6 +2202,7 @@ print(f"Applied decay to {updated} memories")
 Get comprehensive telemetry metrics.
 
 **Signature:**
+
 ```python
 def get_telemetry_metrics(self) -> dict[str, Any]
 ```
@@ -2060,6 +2210,7 @@ def get_telemetry_metrics(self) -> dict[str, Any]
 **Returns:** Telemetry data including operation counts, durations, sizes
 
 **Example:**
+
 ```python
 metrics = client.get_telemetry_metrics()
 
@@ -2079,6 +2230,7 @@ print(f"Cache hit rate: {metrics['cache_hit_rate']:.2%}")
 Get recent operations with details.
 
 **Signature:**
+
 ```python
 def get_recent_operations(
     self,
@@ -2088,12 +2240,14 @@ def get_recent_operations(
 ```
 
 **Parameters:**
+
 - `limit` (int): Maximum results
 - `operation` (str, optional): Filter by operation type
 
 **Returns:** List of operation logs
 
 **Example:**
+
 ```python
 # Get all recent operations
 operations = client.get_recent_operations(limit=20)
@@ -2114,6 +2268,7 @@ recalls = client.get_recent_operations(limit=10, operation="recall")
 Export telemetry data.
 
 **Signature:**
+
 ```python
 def export_telemetry(
     self,
@@ -2122,11 +2277,13 @@ def export_telemetry(
 ```
 
 **Parameters:**
+
 - `trace_ids` (list[str], optional): Specific trace IDs to export
 
 **Returns:** List of telemetry data
 
 **Example:**
+
 ```python
 telemetry_data = client.export_telemetry()
 
@@ -2145,6 +2302,7 @@ with open('telemetry_export.json', 'w') as f:
 Inject memory context into LLM prompt.
 
 **Signature:**
+
 ```python
 def inject_context(
     self,
@@ -2157,6 +2315,7 @@ def inject_context(
 ```
 
 **Parameters:**
+
 - `prompt` (str): Original prompt
 - `query` (str): Query for relevant memories
 - `user_id` (str): User identifier
@@ -2166,6 +2325,7 @@ def inject_context(
 **Returns:** Enhanced prompt with context
 
 **Example:**
+
 ```python
 enhanced_prompt = client.inject_context(
     prompt="What are my preferences?",
@@ -2194,6 +2354,7 @@ print(enhanced_prompt)
 Reconcile and deduplicate user memories.
 
 **Signature:**
+
 ```python
 def reconcile_user_memories(
     self,
@@ -2202,11 +2363,13 @@ def reconcile_user_memories(
 ```
 
 **Parameters:**
+
 - `user_id` (str): User identifier
 
 **Returns:** List of reconciled memories
 
 **Example:**
+
 ```python
 reconciled = client.reconcile_user_memories(user_id="alice")
 print(f"Reconciled {len(reconciled)} memories")
@@ -2313,7 +2476,7 @@ client.export_graph_to_json(
 
 ---
 
-**Last Updated**: 2025-11-03
-**Library Version**: V0.2.5
+**Last Updated**: 2025-11-24
+**Library Version**: v0.3.0
 **Total Functions**: 102+
 **Status**: Production Ready
