@@ -24,7 +24,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY pyproject.toml .
 COPY src/ ./src/
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install -e ".[saas]"
+    pip install ".[saas]"
 
 # ==================== Stage 2: Runtime ====================
 FROM python:3.11-slim
