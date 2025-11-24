@@ -23,11 +23,14 @@ Example (HippocampAI native):
     >>> results = m.recall("programming", user_id="alice")
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from hippocampai.client import MemoryClient as _MemoryClient
 from hippocampai.models.memory import Memory as _Memory
 from hippocampai.models.memory import RetrievalResult
+
+if TYPE_CHECKING:
+    from hippocampai.unified_client import UnifiedMemoryClient
 
 
 class Memory:
@@ -73,7 +76,7 @@ class Memory:
         if api_url:
             from hippocampai import UnifiedMemoryClient
 
-            self._client: Union[_MemoryClient, Any] = UnifiedMemoryClient(
+            self._client: Union[_MemoryClient, "UnifiedMemoryClient"] = UnifiedMemoryClient(
                 mode="remote", api_url=api_url, api_key=api_key
             )
         else:
@@ -99,7 +102,8 @@ class Memory:
             >>> m.add("Paris is in France", user_id="bob", type="fact")
         """
         # Note: metadata parameter is ignored to maintain API compatibility
-        return self._client.remember(text=text, user_id=user_id, **kwargs)
+        result: _Memory = self._client.remember(text=text, user_id=user_id, **kwargs)
+        return result
 
     def search(
         self, query: str, user_id: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None
@@ -122,10 +126,13 @@ class Memory:
             ...     print(f"{result.score:.2f}: {result.memory.text}")
         """
         # Handle both MemoryClient (k parameter) and UnifiedMemoryClient (limit parameter)
-        if hasattr(self._client.recall, "__code__") and "k" in self._client.recall.__code__.co_varnames:
-            return self._client.recall(query=query, user_id=user_id, k=limit, filters=filters or {})
+        if isinstance(self._client, _MemoryClient):
+            results: List[RetrievalResult] = self._client.recall(query=query, user_id=user_id, k=limit, filters=filters or {})
+            return results
         else:
-            return self._client.recall(query=query, user_id=user_id, limit=limit, filters=filters or {})  # type: ignore[call-arg]
+            # UnifiedMemoryClient uses limit instead of k
+            results = self._client.recall(query=query, user_id=user_id, limit=limit, filters=filters or {})
+            return results
 
     def get(self, memory_id: str) -> Optional[_Memory]:
         """
@@ -157,7 +164,8 @@ class Memory:
         Example:
             >>> memories = m.get_all(user_id="alice", limit=10)
         """
-        return self._client.get_memories(user_id=user_id, limit=limit or 100)
+        memories: List[_Memory] = self._client.get_memories(user_id=user_id, limit=limit or 100)
+        return memories
 
     def update(
         self,
@@ -198,7 +206,8 @@ class Memory:
         Example:
             >>> m.delete("mem_123")
         """
-        return self._client.delete_memory(memory_id)
+        result: bool = self._client.delete_memory(memory_id)
+        return result
 
     def delete_all(self, user_id: str) -> int:
         """
@@ -216,22 +225,25 @@ class Memory:
         """
         memories = self._client.get_memories(user_id=user_id, limit=1000)
         ids = [m.id for m in memories]
-        if hasattr(self._client, "delete_memories"):
-            return self._client.delete_memories(ids, user_id=user_id)
+        if isinstance(self._client, _MemoryClient):
+            count: int = self._client.delete_memories(ids, user_id=user_id)
+            return count
         else:
             # UnifiedMemoryClient uses batch_delete_memories
-            self._client.batch_delete_memories(ids)  # type: ignore[union-attr]
+            self._client.batch_delete_memories(ids)
             return len(ids)
 
     # HippocampAI native methods (keep for backward compatibility)
 
     def remember(self, *args: Any, **kwargs: Any) -> _Memory:
         """Alias for add() - HippocampAI native API."""
-        return self._client.remember(*args, **kwargs)
+        result: _Memory = self._client.remember(*args, **kwargs)
+        return result
 
     def recall(self, *args: Any, **kwargs: Any) -> List[RetrievalResult]:
         """Alias for search() - HippocampAI native API."""
-        return self._client.recall(*args, **kwargs)
+        results: List[RetrievalResult] = self._client.recall(*args, **kwargs)
+        return results
 
 
 class Session:
@@ -301,9 +313,10 @@ class Session:
         Example:
             >>> messages = session.get_messages(limit=10)
         """
-        return self._client.get_memories(
+        messages: List[_Memory] = self._client.get_memories(
             user_id=self.user_id, filters={"session_id": self.session_id}, limit=limit or 100
         )
+        return messages
 
     def search(self, query: str, limit: int = 5) -> List[RetrievalResult]:
         """
@@ -319,9 +332,10 @@ class Session:
         Example:
             >>> results = session.search("weather", limit=3)
         """
-        return self._client.recall(
+        results: List[RetrievalResult] = self._client.recall(
             query=query, user_id=self.user_id, k=limit, filters={"session_id": self.session_id}
         )
+        return results
 
     def get_summary(self) -> str:
         """
@@ -361,7 +375,8 @@ class Session:
         """
         memories = self.get_messages()
         ids = [m.id for m in memories]
-        return self._client.delete_memories(ids, user_id=self.user_id)
+        count: int = self._client.delete_memories(ids, user_id=self.user_id)
+        return count
 
 
 # Convenience aliases for different naming preferences

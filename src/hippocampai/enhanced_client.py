@@ -185,7 +185,8 @@ class EnhancedMemoryClient:
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory usage statistics."""
-        return self.client.get_memory_statistics(user_id=user_id)
+        stats: dict[str, Any] = self.client.get_memory_statistics(user_id=user_id)
+        return stats
 
     def get_memories(
         self,
@@ -194,11 +195,13 @@ class EnhancedMemoryClient:
         limit: int = 100,
     ) -> list[Memory]:
         """Get all memories for a user."""
-        return self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
+        memories: list[Memory] = self.client.get_memories(user_id=user_id, filters=filters, limit=limit)
+        return memories
 
     def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a memory."""
-        return self.client.delete_memory(memory_id=memory_id, user_id=user_id)
+        deleted: bool = self.client.delete_memory(memory_id=memory_id, user_id=user_id)
+        return deleted
 
     def update_memory(
         self,
@@ -281,11 +284,13 @@ class EnhancedMemoryClient:
     # Telemetry
     def get_telemetry_metrics(self) -> dict[str, Any]:
         """Get telemetry metrics."""
-        return self.client.get_telemetry_metrics()
+        metrics: dict[str, Any] = self.client.get_telemetry_metrics()
+        return metrics
 
     def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[str]:
         """Get recent operations."""
-        return cast(list[str], self.client.get_recent_operations(limit=limit, operation=operation))
+        operations: list[str] = cast(list[str], self.client.get_recent_operations(limit=limit, operation=operation))
+        return operations
 
     @property
     def llm(self) -> Optional[str]:
@@ -295,18 +300,21 @@ class EnhancedMemoryClient:
     # Smart memory updates and clustering
     def reconcile_user_memories(self, user_id: str) -> list[Memory]:
         """Reconcile and resolve conflicts in user's memories."""
-        return self.client.reconcile_user_memories(user_id=user_id)
+        memories: list[Memory] = self.client.reconcile_user_memories(user_id=user_id)
+        return memories
 
     def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> dict[str, Any]:
         """Cluster user's memories by topics."""
-        return cast(
+        clusters: dict[str, Any] = cast(
             dict[str, Any],
             self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters),
         )
+        return clusters
 
     def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory."""
-        return self.client.suggest_memory_tags(memory=memory, max_tags=max_tags)
+        tags: list[str] = self.client.suggest_memory_tags(memory=memory, max_tags=max_tags)
+        return tags
 
     def refine_memory_quality(
         self, memory_id: str, context: Optional[str] = None
@@ -316,7 +324,8 @@ class EnhancedMemoryClient:
 
     def detect_topic_shift(self, user_id: str, window_size: int = 10) -> Optional[str]:
         """Detect if there's been a shift in conversation topics."""
-        return self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
+        topic: Optional[str] = self.client.detect_topic_shift(user_id=user_id, window_size=window_size)
+        return topic
 
     # Multi-agent support
     def create_agent(

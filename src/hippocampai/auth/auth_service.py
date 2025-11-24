@@ -56,7 +56,8 @@ class AuthService:
         Returns:
             Bcrypt hash of password
         """
-        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        hashed: str = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        return hashed
 
     @staticmethod
     def verify_password(password: str, hashed: str) -> bool:
@@ -69,7 +70,8 @@ class AuthService:
         Returns:
             True if password matches hash
         """
-        return bcrypt.checkpw(password.encode(), hashed.encode())
+        result: bool = bcrypt.checkpw(password.encode(), hashed.encode())
+        return result
 
     @staticmethod
     def generate_api_key() -> tuple[str, str]:

@@ -879,7 +879,7 @@ class MemoryClient:
 
         try:
             self.telemetry.add_event(trace_id, "extraction", status="in_progress")
-            memories = self.extractor.extract(conversation, user_id, session_id)
+            memories: list[Memory] = self.extractor.extract(conversation, user_id, session_id)
             self.telemetry.add_event(
                 trace_id, "extraction", status="success", extracted_count=len(memories)
             )
@@ -911,7 +911,8 @@ class MemoryClient:
     # Telemetry Access Methods
     def get_telemetry_metrics(self) -> dict[str, Any]:
         """Get telemetry metrics summary."""
-        return self.telemetry.get_metrics_summary()
+        metrics: dict[str, Any] = self.telemetry.get_metrics_summary()
+        return metrics
 
     def get_recent_operations(
         self, limit: int = 10, operation: Optional[str] = None
@@ -920,11 +921,13 @@ class MemoryClient:
         from hippocampai.telemetry import OperationType
 
         op_type = OperationType(operation) if operation else None
-        return self.telemetry.get_recent_traces(limit=limit, operation=op_type)
+        traces: list[MemoryTrace] = self.telemetry.get_recent_traces(limit=limit, operation=op_type)
+        return traces
 
     def export_telemetry(self, trace_ids: Optional[list[str]] = None) -> list[dict]:
         """Export telemetry data for external analysis."""
-        return cast(list[dict], self.telemetry.export_traces(trace_ids=trace_ids))
+        traces: list[dict] = self.telemetry.export_traces(trace_ids=trace_ids)
+        return traces
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory size and usage statistics for a user.
@@ -1497,7 +1500,8 @@ class MemoryClient:
                 metadata={"target_id": target_id, "relation_type": relation_type.value},
             )
 
-        return self.graph.add_relationship(source_id, target_id, relation_type, weight)
+        result: bool = self.graph.add_relationship(source_id, target_id, relation_type, weight)
+        return result
 
     def get_related_memories(
         self,
@@ -1547,7 +1551,8 @@ class MemoryClient:
             >>> client.export_graph_to_json("memory_graph.json")
             >>> client.export_graph_to_json("alice_graph.json", user_id="alice")
         """
-        return self.graph.export_to_json(file_path, user_id, indent)
+        path: str = self.graph.export_to_json(file_path, user_id, indent)
+        return path
 
     def import_graph_from_json(self, file_path: str, merge: bool = True) -> dict:
         """Import memory graph from a JSON file.
@@ -1574,7 +1579,8 @@ class MemoryClient:
             >>> print(f"Imported {stats['nodes_imported']} nodes")
             >>> stats = client.import_graph_from_json("backup.json", merge=False)
         """
-        return self.graph.import_from_json(file_path, merge)
+        stats: dict[Any, Any] = self.graph.import_from_json(file_path, merge)
+        return stats
 
     # === VERSION CONTROL ===
 
@@ -1631,7 +1637,8 @@ class MemoryClient:
         Returns:
             List of AuditEntry objects
         """
-        return self.version_control.get_audit_trail(memory_id, user_id, change_type, limit)
+        entries: list[Any] = self.version_control.get_audit_trail(memory_id, user_id, change_type, limit)
+        return entries
 
     # === MEMORY ACCESS TRACKING ===
 
@@ -1676,7 +1683,7 @@ class MemoryClient:
             self.config.collection_facts if collection == "facts" else self.config.collection_prefs
         )
 
-        snapshot_name = self.qdrant.create_snapshot(coll_name)
+        snapshot_name: str = self.qdrant.create_snapshot(coll_name)
         logger.info(f"Created snapshot: {snapshot_name} for collection {coll_name}")
         return snapshot_name
 
@@ -1711,7 +1718,8 @@ class MemoryClient:
 
         # Inject into prompt
         self.context_injector.template = template
-        return self.context_injector.inject_retrieval_results(prompt, results)
+        injected_prompt: str = self.context_injector.inject_retrieval_results(prompt, results)
+        return injected_prompt
 
     # === ADVANCED FILTERS ===
 
@@ -1783,10 +1791,11 @@ class MemoryClient:
             self.scheduler.stop()
             logger.info("Background scheduler stopped")
 
-    def get_scheduler_status(self) -> dict:
+    def get_scheduler_status(self) -> dict[Any, Any]:
         """Get scheduler status and job information."""
         if self.scheduler:
-            return self.scheduler.get_job_status()
+            status: dict[Any, Any] = self.scheduler.get_job_status()
+            return status
         return {"status": "not_initialized", "jobs": []}
 
     def consolidate_all_memories(self, similarity_threshold: float = 0.85) -> int:
@@ -2127,7 +2136,8 @@ class MemoryClient:
         Returns:
             List of SessionSearchResult objects
         """
-        return self.session_manager.search_sessions(query, user_id, k, filters)
+        results: list[Any] = self.session_manager.search_sessions(query, user_id, k, filters)
+        return results
 
     def get_user_sessions(
         self,
@@ -2145,7 +2155,8 @@ class MemoryClient:
         Returns:
             List of Session objects sorted by date
         """
-        return self.session_manager.get_user_sessions(user_id, status, limit)
+        sessions: list[Any] = self.session_manager.get_user_sessions(user_id, status, limit)
+        return sessions
 
     def get_session_memories(self, session_id: str, limit: int = 100) -> list[Memory]:
         """Get all memories for a session.
@@ -2168,7 +2179,8 @@ class MemoryClient:
         Returns:
             List of child Session objects
         """
-        return self.session_manager.get_child_sessions(parent_session_id)
+        children: list[Any] = self.session_manager.get_child_sessions(parent_session_id)
+        return children
 
     def summarize_session(self, session_id: str, force: bool = False) -> Optional[str]:
         """Generate summary for a session.
@@ -2180,7 +2192,8 @@ class MemoryClient:
         Returns:
             Generated summary or None
         """
-        return self.session_manager.summarize_session(session_id, force)
+        summary: Optional[str] = self.session_manager.summarize_session(session_id, force)
+        return summary
 
     def extract_session_facts(self, session_id: str, force: bool = False) -> list:
         """Extract key facts from session.
@@ -2204,9 +2217,8 @@ class MemoryClient:
         Returns:
             Dictionary of entity_name -> Entity
         """
-        return cast(
-            dict[str, Any], self.session_manager.extract_session_entities(session_id, force)
-        )
+        entities: dict[str, Any] = self.session_manager.extract_session_entities(session_id, force)
+        return entities
 
     def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """Get statistics for a session.
@@ -2217,7 +2229,8 @@ class MemoryClient:
         Returns:
             Dictionary with session statistics
         """
-        return self.session_manager.get_session_statistics(session_id)
+        stats: dict[str, Any] = self.session_manager.get_session_statistics(session_id)
+        return stats
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session.
@@ -2228,7 +2241,8 @@ class MemoryClient:
         Returns:
             True if deleted successfully
         """
-        return self.session_manager.delete_session(session_id)
+        deleted: bool = self.session_manager.delete_session(session_id)
+        return deleted
 
     # === SMART MEMORY UPDATES & CLUSTERING ===
 
@@ -2245,7 +2259,7 @@ class MemoryClient:
         if not memories:
             return []
 
-        reconciled = self.smart_updater.reconcile_memories(memories, user_id)
+        reconciled: list[Any] = self.smart_updater.reconcile_memories(memories, user_id)
 
         logger.info(
             f"Reconciled {len(memories)} memories into {len(reconciled)} for user {user_id}"
@@ -2266,7 +2280,7 @@ class MemoryClient:
         if not memories:
             return []
 
-        clusters = self.categorizer.cluster_memories(memories, max_clusters=max_clusters)
+        clusters: list[Any] = self.categorizer.cluster_memories(memories, max_clusters=max_clusters)
 
         logger.info(
             f"Clustered {len(memories)} memories into {len(clusters)} topics for user {user_id}"
@@ -2283,7 +2297,8 @@ class MemoryClient:
         Returns:
             List of suggested tags
         """
-        return self.categorizer.suggest_tags(memory, max_tags=max_tags)
+        tags: list[str] = self.categorizer.suggest_tags(memory, max_tags=max_tags)
+        return tags
 
     def refine_memory_quality(
         self, memory_id: str, context: Optional[str] = None
@@ -2335,7 +2350,8 @@ class MemoryClient:
         # Sort by creation time
         recent_memories.sort(key=lambda m: m.created_at)
 
-        return self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
+        topic: Optional[str] = self.categorizer.detect_topic_shift(recent_memories, window_size=window_size)
+        return topic
 
     # === MULTI-AGENT SUPPORT ===
 
@@ -2362,7 +2378,8 @@ class MemoryClient:
         Example:
             >>> agent = client.create_agent("Research Assistant", "alice", role=AgentRole.SPECIALIST)
         """
-        return self.multiagent.create_agent(name, user_id, role, description, metadata)
+        agent: list[Any] = self.multiagent.create_agent(name, user_id, role, description, metadata)
+        return agent
 
     def get_agent(self, agent_id: str) -> Optional[Agent]:
         """Get agent by ID."""
@@ -2370,7 +2387,8 @@ class MemoryClient:
 
     def list_agents(self, user_id: Optional[str] = None) -> list[Agent]:
         """List all agents, optionally filtered by user."""
-        return self.multiagent.list_agents(user_id)
+        agents: list[Any] = self.multiagent.list_agents(user_id)
+        return agents
 
     def update_agent(
         self,
@@ -2386,7 +2404,8 @@ class MemoryClient:
 
     def delete_agent(self, agent_id: str) -> bool:
         """Delete an agent and its associated data."""
-        return self.multiagent.delete_agent(agent_id)
+        deleted: bool = self.multiagent.delete_agent(agent_id)
+        return deleted
 
     def create_run(
         self,
@@ -2412,7 +2431,8 @@ class MemoryClient:
             >>> run = client.create_run(agent.id, "alice", name="Research Session 1")
             >>> memory = client.remember("Key finding", "alice", agent_id=agent.id, run_id=run.id)
         """
-        return self.multiagent.create_run(agent_id, user_id, name, metadata)
+        run: list[Any] = self.multiagent.create_run(agent_id, user_id, name, metadata)
+        return run
 
     def get_run(self, run_id: str) -> Optional[Run]:
         """Get run by ID."""
@@ -2420,7 +2440,8 @@ class MemoryClient:
 
     def list_runs(self, agent_id: Optional[str] = None, user_id: Optional[str] = None) -> list[Run]:
         """List runs, optionally filtered by agent or user."""
-        return self.multiagent.list_runs(agent_id, user_id)
+        runs: list[Any] = self.multiagent.list_runs(agent_id, user_id)
+        return runs
 
     def complete_run(self, run_id: str, status: str = "completed") -> Optional[Run]:
         """Mark a run as completed."""
@@ -2460,13 +2481,15 @@ class MemoryClient:
 
     def revoke_agent_permission(self, permission_id: str) -> bool:
         """Revoke an agent permission."""
-        return self.multiagent.revoke_permission(permission_id)
+        revoked: bool = self.multiagent.revoke_permission(permission_id)
+        return revoked
 
     def check_agent_permission(
         self, agent_id: str, target_agent_id: str, permission: PermissionType
     ) -> bool:
         """Check if an agent has permission to access another agent's memories."""
-        return self.multiagent.check_permission(agent_id, target_agent_id, permission)
+        has_permission: bool = self.multiagent.check_permission(agent_id, target_agent_id, permission)
+        return has_permission
 
     def list_agent_permissions(
         self,
@@ -2474,7 +2497,8 @@ class MemoryClient:
         grantee_agent_id: Optional[str] = None,
     ) -> list[AgentPermission]:
         """List permissions, optionally filtered."""
-        return self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
+        permissions: list[Any] = self.multiagent.list_permissions(granter_agent_id, grantee_agent_id)
+        return permissions
 
     def transfer_memory(
         self,
@@ -2631,7 +2655,7 @@ class MemoryClient:
         all_memories = self.get_memories(user_id, filters=filters, limit=limit * 2)
 
         # Filter by time range
-        filtered = self.temporal_analyzer.filter_by_time_range(
+        filtered: list[Any] = self.temporal_analyzer.filter_by_time_range(
             all_memories, time_range, start_time, end_time
         )
 
@@ -2659,7 +2683,8 @@ class MemoryClient:
         if time_range:
             memories = self.temporal_analyzer.filter_by_time_range(memories, time_range)
 
-        return self.temporal_analyzer.build_chronological_narrative(memories, title)
+        narrative: str = self.temporal_analyzer.build_chronological_narrative(memories, title)
+        return narrative
 
     def create_memory_timeline(
         self,
@@ -2715,7 +2740,8 @@ class MemoryClient:
             >>>     print(f"Sequence {i+1}: {len(seq)} related events")
         """
         memories = self.get_memories(user_id, limit=1000)
-        return self.temporal_analyzer.analyze_event_sequences(memories, max_gap_hours)
+        sequences: list[list[Any]] = self.temporal_analyzer.analyze_event_sequences(memories, max_gap_hours)
+        return sequences
 
     def schedule_memory(
         self,
@@ -2776,7 +2802,8 @@ class MemoryClient:
             >>>     memory = client.remember(scheduled.text, scheduled.user_id)
             >>>     client.trigger_scheduled_memory(scheduled.id)
         """
-        return self.temporal_analyzer.get_due_scheduled_memories()
+        due: list[Any] = self.temporal_analyzer.get_due_scheduled_memories()
+        return due
 
     def trigger_scheduled_memory(self, scheduled_id: str) -> bool:
         """Mark a scheduled memory as triggered.
@@ -2787,7 +2814,8 @@ class MemoryClient:
         Returns:
             True if triggered successfully
         """
-        return self.temporal_analyzer.trigger_scheduled_memory(scheduled_id)
+        triggered: bool = self.temporal_analyzer.trigger_scheduled_memory(scheduled_id)
+        return triggered
 
     def get_temporal_summary(self, user_id: str) -> dict[str, Any]:
         """Get temporal statistics for user's memories.
@@ -2804,7 +2832,8 @@ class MemoryClient:
             >>> print(f"Peak activity: {stats['peak_activity_hour']}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        return self.temporal_analyzer.get_temporal_summary(memories, user_id)
+        summary: dict[str, Any] = self.temporal_analyzer.get_temporal_summary(memories, user_id)
+        return summary
 
     # === CROSS-SESSION INSIGHTS ===
 
@@ -2835,7 +2864,8 @@ class MemoryClient:
             sessions_list = [self.session_manager.get_session(sid) for sid in session_ids]
             sessions = [s for s in sessions_list if s is not None]
 
-        return self.insight_analyzer.detect_patterns(memories, user_id, sessions)
+        patterns: list[Any] = self.insight_analyzer.detect_patterns(memories, user_id, sessions)
+        return patterns
 
     def track_behavior_changes(
         self,
@@ -2864,7 +2894,8 @@ class MemoryClient:
         old_memories = [m for m in all_memories if m.created_at < cutoff]
         new_memories = [m for m in all_memories if m.created_at >= cutoff]
 
-        return self.insight_analyzer.track_behavior_changes(old_memories, new_memories, user_id)
+        changes: list[Any] = self.insight_analyzer.track_behavior_changes(old_memories, new_memories, user_id)
+        return changes
 
     def analyze_preference_drift(
         self, user_id: str, category: Optional[str] = None
@@ -2887,7 +2918,8 @@ class MemoryClient:
             >>>     print(f"  Drift score: {drift.drift_score:.2f}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        return self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
+        drifts: list[Any] = self.insight_analyzer.analyze_preference_drift(memories, user_id, category)
+        return drifts
 
     def detect_habits(self, user_id: str, min_occurrences: int = 5) -> list[HabitScore]:
         """Detect and score potential habits from user's memories.
@@ -2909,7 +2941,8 @@ class MemoryClient:
             >>>     print(f"  Consistency: {habit.consistency:.2f}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        return self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
+        habits: list[Any] = self.insight_analyzer.detect_habit_formation(memories, user_id, min_occurrences)
+        return habits
 
     def analyze_trends(self, user_id: str, window_days: int = 30) -> list[Trend]:
         """Analyze long-term trends in user behavior.
@@ -2929,7 +2962,8 @@ class MemoryClient:
             >>>     print(f"  Strength: {trend.strength:.2f}")
         """
         memories = self.get_memories(user_id, limit=10000)
-        return self.insight_analyzer.analyze_trends(memories, user_id, window_days)
+        trends: list[Any] = self.insight_analyzer.analyze_trends(memories, user_id, window_days)
+        return trends
 
     # === INTELLIGENCE FEATURES ===
 
@@ -2957,7 +2991,8 @@ class MemoryClient:
             >>> for fact in facts:
             ...     print(f"{fact.category.value}: {fact.fact}")
         """
-        return self.fact_extractor.extract_facts(text, source, user_id)
+        facts: list[Any] = self.fact_extractor.extract_facts(text, source, user_id)
+        return facts
 
     def extract_facts_from_conversation(
         self,
@@ -2983,7 +3018,8 @@ class MemoryClient:
             ... '''
             >>> facts = client.extract_facts_from_conversation(conversation, "alice")
         """
-        return self.fact_extractor.extract_from_conversation(conversation, user_id, session_id)
+        facts: list[Any] = self.fact_extractor.extract_from_conversation(conversation, user_id, session_id)
+        return facts
 
     def extract_entities(
         self,
@@ -3006,7 +3042,8 @@ class MemoryClient:
             >>> for entity in entities:
             ...     print(f"{entity.type.value}: {entity.text}")
         """
-        return self.entity_recognizer.extract_entities(text, context)
+        entities: list[Any] = self.entity_recognizer.extract_entities(text, context)
+        return entities
 
     def extract_relationships(
         self,
@@ -3029,7 +3066,8 @@ class MemoryClient:
             >>> for rel in relationships:
             ...     print(f"{rel.relation_type.value}: confidence {rel.confidence}")
         """
-        return self.entity_recognizer.extract_relationships(text, entities)
+        relationships: list[Any] = self.entity_recognizer.extract_relationships(text, entities)
+        return relationships
 
     def get_entity_profile(self, entity_id: str) -> Optional[Any]:
         """Get complete profile for an entity.
@@ -3072,9 +3110,8 @@ class MemoryClient:
             >>> # Search for frequently mentioned entities
             >>> results = client.search_entities("tesla", min_mentions=5)
         """
-        return cast(
-            list[Any], self.entity_recognizer.search_entities(query, entity_type, min_mentions)
-        )
+        results: list[Any] = self.entity_recognizer.search_entities(query, entity_type, min_mentions)
+        return results
 
     def summarize_conversation(
         self,
@@ -3108,7 +3145,8 @@ class MemoryClient:
             >>> print(f"Topics: {summary.topics}")
             >>> print(f"Action items: {summary.action_items}")
         """
-        return self.summarizer.summarize_session(messages, session_id, style, entities)
+        summary: str = self.summarizer.summarize_session(messages, session_id, style, entities)
+        return summary
 
     def create_rolling_summary(
         self,
@@ -3129,7 +3167,8 @@ class MemoryClient:
         Example:
             >>> summary = client.create_rolling_summary(messages, window_size=5)
         """
-        return self.summarizer.create_rolling_summary(messages, window_size, style)
+        rolling_summary: str = self.summarizer.create_rolling_summary(messages, window_size, style)
+        return rolling_summary
 
     def extract_conversation_insights(
         self,
@@ -3151,7 +3190,8 @@ class MemoryClient:
             >>> print(f"Sentiment: {insights['sentiment']}")
             >>> print(f"Key decisions: {insights['key_decisions']}")
         """
-        return self.summarizer.extract_insights(messages, user_id)
+        insights: dict[str, Any] = self.summarizer.extract_insights(messages, user_id)
+        return insights
 
     # === KNOWLEDGE GRAPH OPERATIONS ===
 
@@ -3174,7 +3214,8 @@ class MemoryClient:
             >>> for entity in entities:
             ...     node_id = client.add_entity_to_graph(entity)
         """
-        return self.graph.add_entity(entity, metadata)
+        node_id: str = self.graph.add_entity(entity, metadata)
+        return node_id
 
     def add_fact_to_graph(
         self,
@@ -3197,7 +3238,8 @@ class MemoryClient:
             >>> for fact in facts:
             ...     node_id = client.add_fact_to_graph(fact)
         """
-        return self.graph.add_fact(fact, fact_id, metadata)
+        fact_node_id: str = self.graph.add_fact(fact, fact_id, metadata)
+        return fact_node_id
 
     def link_memory_to_entity(
         self,
@@ -3224,7 +3266,8 @@ class MemoryClient:
             ...     client.add_entity_to_graph(entity)
             ...     client.link_memory_to_entity(memory.id, entity.entity_id)
         """
-        return self.graph.link_memory_to_entity(memory_id, entity_id, relation_type, confidence)
+        linked: bool = self.graph.link_memory_to_entity(memory_id, entity_id, relation_type, confidence)
+        return linked
 
     def link_memory_to_fact(
         self,
@@ -3242,7 +3285,8 @@ class MemoryClient:
         Returns:
             True if successful
         """
-        return self.graph.link_memory_to_fact(memory_id, fact_id, confidence)
+        fact_linked: bool = self.graph.link_memory_to_fact(memory_id, fact_id, confidence)
+        return fact_linked
 
     def get_entity_memories(self, entity_id: str) -> list[str]:
         """Get all memories mentioning an entity.
@@ -3259,7 +3303,8 @@ class MemoryClient:
             ...     # Fetch and process memories
             ...     pass
         """
-        return self.graph.get_entity_memories(entity_id)
+        memory_ids: list[str] = self.graph.get_entity_memories(entity_id)
+        return memory_ids
 
     def get_entity_facts(self, entity_id: str) -> list[str]:
         """Get all facts about an entity.
@@ -3273,7 +3318,8 @@ class MemoryClient:
         Example:
             >>> fact_ids = client.get_entity_facts("organization_google")
         """
-        return self.graph.get_entity_facts(entity_id)
+        fact_ids: list[str] = self.graph.get_entity_facts(entity_id)
+        return fact_ids
 
     def get_entity_connections(
         self,
@@ -3294,7 +3340,8 @@ class MemoryClient:
             >>> for relation_type, entities in connections.items():
             ...     print(f"{relation_type}: {len(entities)} connected entities")
         """
-        return self.graph.find_entity_connections(entity_id, max_distance)
+        connections: dict[str, list[tuple[Any, ...]]] = self.graph.find_entity_connections(entity_id, max_distance)
+        return connections
 
     def get_knowledge_subgraph(
         self,
@@ -3323,7 +3370,8 @@ class MemoryClient:
         if include_types:
             node_types = [NodeType(t) for t in include_types]
 
-        return self.graph.get_knowledge_subgraph(center_id, radius, node_types)
+        subgraph: dict[str, Any] = self.graph.get_knowledge_subgraph(center_id, radius, node_types)
+        return subgraph
 
     def get_entity_timeline(self, entity_id: str) -> list[dict[str, Any]]:
         """Get chronological timeline of facts and memories about an entity.
@@ -3339,7 +3387,8 @@ class MemoryClient:
             >>> for event in timeline:
             ...     print(f"{event['timestamp']}: {event['type']} - {event.get('text', '')}")
         """
-        return self.graph.get_entity_timeline(entity_id)
+        timeline: list[dict[str, Any]] = self.graph.get_entity_timeline(entity_id)
+        return timeline
 
     def infer_knowledge(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
         """Infer new facts from existing knowledge graph patterns.
@@ -3356,7 +3405,8 @@ class MemoryClient:
             ...     print(f"{fact['fact']} (confidence: {fact['confidence']:.2f})")
             ...     print(f"  Rule: {fact['rule']}")
         """
-        return self.graph.infer_new_facts(user_id)
+        inferred_facts: list[dict[str, Any]] = self.graph.infer_new_facts(user_id)
+        return inferred_facts
 
     def enrich_memory_with_intelligence(
         self,
@@ -3477,10 +3527,10 @@ class MemoryClient:
             return []
 
         # Detect conflicts
-        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+        conflicts: list[Any] = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
 
         logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
-        return cast(list[Any], conflicts)
+        return conflicts
 
     def resolve_memory_conflict(
         self,
@@ -3668,7 +3718,8 @@ class MemoryClient:
         # Update memory in storage
         self.update_memory(memory.id, metadata=memory.metadata)
 
-        return lineage.model_dump()
+        lineage_data: dict[str, Any] = lineage.model_dump()
+        return lineage_data
 
     def get_memory_lineage(self, memory_id: str) -> Optional[dict[str, Any]]:
         """
@@ -3699,7 +3750,8 @@ class MemoryClient:
         memory = Memory(**memory_data["payload"])
 
         if "lineage" in memory.metadata:
-            return cast(Optional[dict[str, Any]], memory.metadata["lineage"])
+            lineage: Optional[dict[str, Any]] = memory.metadata["lineage"]
+            return lineage
 
         return None
 
@@ -3740,7 +3792,8 @@ class MemoryClient:
         # Build chain
         chain = self.provenance_tracker.build_provenance_chain(memory, all_memories)
 
-        return cast(Optional[dict[str, Any]], chain.model_dump())
+        chain_dict: Optional[dict[str, Any]] = chain.model_dump()
+        return chain_dict
 
     def assess_memory_quality(
         self, memory_id: str, use_llm: bool = True
@@ -3780,7 +3833,8 @@ class MemoryClient:
         memory.metadata["quality_assessed_at"] = datetime.now(timezone.utc).isoformat()
         self.update_memory(memory_id, metadata=memory.metadata)
 
-        return cast(Optional[dict[str, Any]], quality_metrics.model_dump())
+        metrics_dict: Optional[dict[str, Any]] = quality_metrics.model_dump()
+        return metrics_dict
 
     def add_memory_citation(
         self,
@@ -3838,7 +3892,8 @@ class MemoryClient:
         # Update memory
         self.update_memory(memory_id, metadata=memory.metadata)
 
-        return cast(Optional[dict[str, Any]], lineage.model_dump())
+        lineage_dict: Optional[dict[str, Any]] = lineage.model_dump()
+        return lineage_dict
 
     def extract_memory_citations(
         self, memory_id: str, context: Optional[str] = None
@@ -3943,7 +3998,8 @@ class MemoryClient:
             include_stale_detection=include_stale_detection,
             include_duplicate_detection=include_duplicate_detection,
         )
-        return health_score.model_dump()
+        health_data: dict[str, Any] = health_score.model_dump()
+        return health_data
 
     def detect_stale_memories(self, user_id: str) -> list[dict[str, Any]]:
         """
@@ -4034,7 +4090,8 @@ class MemoryClient:
             >>> print(f"Gaps: {coverage['coverage_gaps']}")
         """
         report = self.health_monitor.analyze_coverage(user_id)
-        return report.model_dump()
+        coverage_data: dict[str, Any] = report.model_dump()
+        return coverage_data
 
     # ============================================================================
     # ENHANCED TEMPORAL FEATURES
@@ -4065,7 +4122,8 @@ class MemoryClient:
             memory=memory,
             reference_date=reference_date,
         )
-        return score.model_dump()
+        freshness_data: dict[str, Any] = score.model_dump()
+        return freshness_data
 
     def apply_time_decay(
         self,
@@ -4094,11 +4152,12 @@ class MemoryClient:
             logger.warning(f"Unknown decay type: {decay_type}, using default")
             decay_function = None
 
-        return self.enhanced_temporal.apply_time_decay(
+        decayed: float = self.enhanced_temporal.apply_time_decay(
             memory=memory,
             decay_function=decay_function,
             reference_date=reference_date,
         )
+        return decayed
 
     def get_adaptive_time_window(
         self,
@@ -4128,7 +4187,8 @@ class MemoryClient:
             memories=memories,
             context_type=context_type,
         )
-        return window.model_dump()
+        window_data: dict[str, Any] = window.model_dump()
+        return window_data
 
     def forecast_memory_patterns(
         self,
@@ -4245,7 +4305,8 @@ class MemoryClient:
             results=results,
             top_k=top_k,
         )
-        return viz.model_dump()
+        viz_data: dict[str, Any] = viz.model_dump()
+        return viz_data
 
     def generate_access_heatmap(
         self,
@@ -4274,7 +4335,8 @@ class MemoryClient:
             memories=memories,
             time_period_days=time_period_days,
         )
-        return heatmap.model_dump()
+        heatmap_data: dict[str, Any] = heatmap.model_dump()
+        return heatmap_data
 
     def profile_query_performance(
         self,
@@ -4375,7 +4437,8 @@ class MemoryClient:
             context_type=context_type,
         )
 
-        return window.model_dump()
+        window_result: dict[str, Any] = window.model_dump()
+        return window_result
 
     def get_performance_snapshot(self) -> dict[str, Any]:
         """
@@ -4390,7 +4453,8 @@ class MemoryClient:
             >>> print(f"Performance score: {snapshot['performance_score']:.1f}/100")
         """
         snapshot = self.observability.get_performance_snapshot()
-        return snapshot.model_dump()
+        snapshot_data: dict[str, Any] = snapshot.model_dump()
+        return snapshot_data
 
     def get_performance_report(self) -> dict[str, Any]:
         """
@@ -4405,7 +4469,8 @@ class MemoryClient:
             >>> print(f"Bottlenecks: {report['common_bottlenecks']}")
             >>> print(f"Recommendations: {report['recommendations']}")
         """
-        return self.observability.generate_performance_report()
+        report: dict[str, Any] = self.observability.generate_performance_report()
+        return report
 
     def identify_slow_queries(
         self,
@@ -4943,7 +5008,7 @@ class MemoryClient:
                         similarity_matrix[(mem1_id, mem2_id)] = similarity
 
             # Get merge suggestions
-            candidates = self.merge_engine.suggest_merges(
+            candidates: list[Any] = self.merge_engine.suggest_merges(
                 memories=memory_dicts, similarity_matrix=similarity_matrix
             )
 
@@ -5130,7 +5195,7 @@ class MemoryClient:
                 return None
 
             # Get preview
-            preview = self.merge_engine.preview_merge(memories=memories, strategy=strategy_enum)
+            preview: Optional[dict[str, Any]] = self.merge_engine.preview_merge(memories=memories, strategy=strategy_enum)
 
             logger.info(f"Generated merge preview for {len(memory_ids)} memories")
 
@@ -5226,7 +5291,8 @@ class MemoryClient:
 
             logger.info(f"Cloned memory {memory_id} to {cloned_memory.id}")
 
-            return cloned_memory
+            cloned_result: dict[str, Any] = cloned_memory
+            return cloned_result
 
         except Exception as e:
             logger.error(f"Failed to clone memory {memory_id}: {e}")
@@ -5273,7 +5339,7 @@ class MemoryClient:
             )
             ```
         """
-        template = self.memory_ops.create_template_memory(
+        template: dict[str, Any] = self.memory_ops.create_template_memory(
             template_name=template_name,
             text_template=text_template,
             default_importance=default_importance,
@@ -6063,7 +6129,7 @@ class MemoryClient:
             print(f"Top contexts: {stats['top_access_contexts'][:5]}")
             ```
         """
-        stats = self.adaptive_learning.get_access_statistics()
+        stats: dict[str, Any] = self.adaptive_learning.get_access_statistics()
 
         logger.info(
             f"Access statistics: {stats['total_access_events']} events, "

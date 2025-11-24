@@ -173,7 +173,8 @@ class EnhancedTemporalAnalyzer:
         decayed_importance = memory.importance * decay_multiplier
 
         # Apply floor
-        return max(decay_function.min_score, decayed_importance)
+        result: float = max(decay_function.min_score, decayed_importance)
+        return result
 
     def get_adaptive_context_window(
         self,

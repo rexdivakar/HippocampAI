@@ -126,17 +126,19 @@ class OptimizedMemoryClient:
     def recall(self, query: str, user_id: str, k: int = 5, **kwargs: Any) -> list[RetrievalResult]:
         """Retrieve relevant memories (sync, with optional caching)."""
         if self.enable_caching and not kwargs:  # Only cache simple queries
-            result: list[RetrievalResult] = self._cached_recall(query, user_id, k)
-            return result
-        return self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
+            cached_result: list[RetrievalResult] = self._cached_recall(query, user_id, k)
+            return cached_result
+        result: list[RetrievalResult] = self.client.recall(query=query, user_id=user_id, k=k, **kwargs)
+        return result
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, **kwargs: Any
     ) -> list[Memory]:
         """Extract memories from conversation (sync)."""
-        return self.client.extract_from_conversation(
+        result: list[Memory] = self.client.extract_from_conversation(
             conversation=conversation, user_id=user_id, **kwargs
         )
+        return result
 
     # Async methods for I/O-bound operations
     async def remember_async(self, text: str, user_id: str, **kwargs: Any) -> Memory:
@@ -245,11 +247,13 @@ class OptimizedMemoryClient:
     # Utility methods
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory statistics (sync)."""
-        return self.client.get_memory_statistics(user_id=user_id)
+        result: dict[str, Any] = self.client.get_memory_statistics(user_id=user_id)
+        return result
 
     def get_memories(self, user_id: str, limit: int = 100, **kwargs: Any) -> list[Memory]:
         """Get all memories (sync)."""
-        return self.client.get_memories(user_id=user_id, limit=limit, **kwargs)
+        result: list[Memory] = self.client.get_memories(user_id=user_id, limit=limit, **kwargs)
+        return result
 
     async def get_memories_async(
         self, user_id: str, limit: int = 100, **kwargs: Any

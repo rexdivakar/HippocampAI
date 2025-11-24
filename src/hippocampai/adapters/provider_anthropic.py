@@ -41,7 +41,8 @@ class AnthropicLLM(BaseLLM):
     ) -> str:
         """Generate completion."""
         messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
-        return self.chat(messages, max_tokens, temperature, system)
+        result: str = self.chat(messages, max_tokens, temperature, system)
+        return result
 
     @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(

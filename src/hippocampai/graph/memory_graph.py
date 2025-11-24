@@ -124,7 +124,8 @@ class MemoryGraph:
     def find_path(self, source_id: str, target_id: str) -> Optional[list[str]]:
         """Find shortest path between two memories."""
         try:
-            return nx.shortest_path(self.graph, source_id, target_id)
+            path: list[str] = nx.shortest_path(self.graph, source_id, target_id)
+            return path
         except nx.NetworkXNoPath:
             return None
 

@@ -220,7 +220,8 @@ class MemoryClientExtensions:
                 metadata={"target_id": target_id, "relation_type": relation_type.value},
             )
 
-        return self.graph.add_relationship(source_id, target_id, relation_type, weight)
+        result: bool = self.graph.add_relationship(source_id, target_id, relation_type, weight)
+        return result
 
     def get_related_memories(
         self,
@@ -242,7 +243,10 @@ class MemoryClientExtensions:
         if not self.graph:
             return []
 
-        return self.graph.get_related_memories(memory_id, relation_types, max_depth)
+        result: list[tuple[str, str, float]] = self.graph.get_related_memories(
+            memory_id, relation_types, max_depth
+        )
+        return result
 
     def get_memory_clusters(self, user_id: str) -> list[set[str]]:
         """
@@ -257,7 +261,8 @@ class MemoryClientExtensions:
         if not self.graph:
             return []
 
-        return self.graph.get_clusters(user_id)
+        result: list[set[str]] = self.graph.get_clusters(user_id)
+        return result
 
     def export_graph_to_json(
         self,
@@ -284,7 +289,8 @@ class MemoryClientExtensions:
             logger.warning("Graph indexing not enabled")
             return ""
 
-        return self.graph.export_to_json(file_path, user_id, indent)
+        result: str = self.graph.export_to_json(file_path, user_id, indent)
+        return result
 
     def import_graph_from_json(
         self,
@@ -391,7 +397,10 @@ class MemoryClientExtensions:
         if not self.version_control:
             return []
 
-        return self.version_control.get_audit_trail(memory_id, user_id, change_type, limit)
+        result: list[AuditEntry] = self.version_control.get_audit_trail(
+            memory_id, user_id, change_type, limit
+        )
+        return result
 
     # === MEMORY ACCESS TRACKING ===
 
@@ -438,7 +447,7 @@ class MemoryClientExtensions:
             self.config.collection_facts if collection == "facts" else self.config.collection_prefs
         )
 
-        snapshot_name = self.qdrant.create_snapshot(coll_name)
+        snapshot_name: str = self.qdrant.create_snapshot(coll_name)
         logger.info(f"Created snapshot: {snapshot_name} for collection {coll_name}")
         return snapshot_name
 
@@ -474,7 +483,8 @@ class MemoryClientExtensions:
 
         # Inject into prompt
         self.context_injector.template = template
-        return self.context_injector.inject_retrieval_results(prompt, results)
+        injected_prompt: str = self.context_injector.inject_retrieval_results(prompt, results)
+        return injected_prompt
 
     # === ADVANCED FILTERS ===
 

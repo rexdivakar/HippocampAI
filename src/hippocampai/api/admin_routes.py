@@ -148,7 +148,7 @@ async def list_users(
     Returns:
         List of users
     """
-    users = await auth_service.list_users(limit=limit, offset=offset)
+    users: List[User] = await auth_service.list_users(limit=limit, offset=offset)
     return users
 
 
@@ -285,7 +285,7 @@ async def list_user_api_keys(
     Returns:
         List of API keys
     """
-    keys = await auth_service.list_user_api_keys(user_id)
+    keys: List[APIKey] = await auth_service.list_user_api_keys(user_id)
     return keys
 
 

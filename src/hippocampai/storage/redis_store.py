@@ -101,14 +101,16 @@ class AsyncRedisKVStore:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         result = await self._client.delete(key)
         logger.debug(f"Deleted key: {key}, result: {result}")
-        return result > 0
+        deleted: bool = result > 0
+        return deleted
 
     async def exists(self, key: str) -> bool:
         """Check if key exists."""
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        return await self._client.exists(key) > 0
+        result: bool = await self._client.exists(key) > 0
+        return result
 
     async def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
@@ -131,7 +133,8 @@ class AsyncRedisKVStore:
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        return await self._client.dbsize()
+        size: int = await self._client.dbsize()
+        return size
 
     async def sadd(self, key: str, *values: str) -> int:
         """Add values to a set."""

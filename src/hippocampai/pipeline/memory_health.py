@@ -244,7 +244,8 @@ class MemoryHealthMonitor:
         metadata_score = metadata_complete * 100
 
         # Weighted average
-        return importance_score * 0.4 + confidence_score * 0.4 + metadata_score * 0.2
+        result: float = importance_score * 0.4 + confidence_score * 0.4 + metadata_score * 0.2
+        return result
 
     def _calculate_diversity_score(self, memories: list[Memory]) -> float:
         """Calculate diversity based on memory types and content."""
@@ -302,7 +303,8 @@ class MemoryHealthMonitor:
 
         freshness = recent_ratio * 40 + (100 - age_penalty) * 0.4 + activity_ratio * 20
 
-        return max(0.0, min(100.0, freshness))
+        result: float = max(0.0, min(100.0, freshness))
+        return result
 
     def _calculate_coverage_score(self, memories: list[Memory]) -> float:
         """Calculate topic coverage score."""

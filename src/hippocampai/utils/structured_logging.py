@@ -10,7 +10,7 @@ import sys
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from pythonjsonlogger import jsonlogger
 
@@ -49,11 +49,22 @@ class StructuredLogger(logging.Logger):
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter with additional fields."""
 
+    def __init__(self, fmt: Optional[str] = None, **kwargs: Any) -> None:
+        """Initialize the JSON formatter.
+
+        Args:
+            fmt: Log format string
+            **kwargs: Additional arguments passed to parent class
+        """
+        # Call parent init through cast to handle untyped parent
+        cast(Any, super()).__init__(fmt, **kwargs)
+
     def add_fields(
         self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
     ) -> None:
         """Add custom fields to log record."""
-        super().add_fields(log_record, record, message_dict)
+        # Cast to ensure proper typing, as parent class is untyped
+        cast(Any, super()).add_fields(log_record, record, message_dict)
 
         # Add standard fields
         log_record["timestamp"] = datetime.now(timezone.utc).isoformat()

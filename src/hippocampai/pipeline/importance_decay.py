@@ -129,7 +129,8 @@ class ImportanceDecayEngine:
         decayed *= confidence_factor
 
         # Enforce minimum
-        return max(decayed, self.config.min_importance)
+        result: float = max(decayed, self.config.min_importance)
+        return result
 
     def _linear_decay(self, age_days: float, half_life: int) -> float:
         """Linear decay function.
@@ -219,7 +220,8 @@ class ImportanceDecayEngine:
             # Weight by access frequency
             access_weight = min(memory.access_count / 10.0, 1.0)
             modified_decay = base_decay + (access_factor * access_weight * 0.3)
-            return min(modified_decay, 1.0)
+            result: float = min(modified_decay, 1.0)
+            return result
 
         return base_decay
 

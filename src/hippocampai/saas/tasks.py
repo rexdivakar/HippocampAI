@@ -94,7 +94,7 @@ class TaskManager:
         elif self.backend == "rq":
             try:
                 from redis import Redis
-                from rq import Queue  # type: ignore[import-not-found]
+                from rq import Queue
 
                 redis_conn = Redis()
                 self.rq_queue = Queue(connection=redis_conn)

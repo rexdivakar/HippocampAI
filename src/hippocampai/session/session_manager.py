@@ -287,7 +287,8 @@ Analysis:"""
             return None
 
         if session.summary and not force:
-            return session.summary
+            existing_summary: Optional[str] = session.summary
+            return existing_summary
 
         if not self.llm:
             logger.warning("LLM not available for summarization")
@@ -308,7 +309,8 @@ Analysis:"""
                 session.summary = summary.strip()
                 self._save_session(session)
                 logger.info(f"Generated summary for session {session_id}")
-                return session.summary
+                summary_text: Optional[str] = session.summary
+                return summary_text
         except Exception as e:
             logger.error(f"Failed to generate summary for session {session_id}: {e}")
 

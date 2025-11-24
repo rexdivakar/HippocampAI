@@ -492,7 +492,6 @@ Compressed version:"""
         pruned_tokens = Memory.estimate_tokens(pruned_text)
 
         # Calculate metrics
-        1 - (pruned_tokens / original_tokens) if original_tokens > 0 else 0
         semantic_similarity = self._estimate_semantic_similarity(text, pruned_text)
 
         metrics = CompressionMetrics(
@@ -741,7 +740,8 @@ Abstract {semantic_type.value}:"""
         avg_confidence = sum(m.confidence for m in memories) / len(memories)
         count_factor = min(len(memories) / 10.0, 1.0)  # More memories = higher confidence
 
-        return (avg_confidence * 0.7) + (count_factor * 0.3)
+        result: float = (avg_confidence * 0.7) + (count_factor * 0.3)
+        return result
 
     def _determine_abstraction_level(self, content: str) -> int:
         """Determine abstraction level (1-5)."""

@@ -129,7 +129,7 @@ def recall(
 ) -> list[RetrievalResult]:
     """Retrieve memories."""
     try:
-        results = client.recall(
+        results: list[RetrievalResult] = client.recall(
             query=request.query,
             user_id=request.user_id,
             session_id=request.session_id,
@@ -148,7 +148,7 @@ def extract(
 ) -> list[Memory]:
     """Extract memories from conversation."""
     try:
-        memories = client.extract_from_conversation(
+        memories: list[Memory] = client.extract_from_conversation(
             conversation=request.conversation,
             user_id=request.user_id,
             session_id=request.session_id,
@@ -209,7 +209,7 @@ def get_memories(
 ) -> list[Memory]:
     """Get memories with advanced filtering."""
     try:
-        memories = client.get_memories(
+        memories: list[Memory] = client.get_memories(
             user_id=request.user_id,
             filters=request.filters,
             limit=request.limit,

@@ -47,7 +47,8 @@ class GroqLLM(BaseLLM):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        return self.chat(messages, max_tokens, temperature)
+        result: str = self.chat(messages, max_tokens, temperature)
+        return result
 
     @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
     def chat(

@@ -144,13 +144,14 @@ class LocalBackend(BaseBackend):
         min_score: float = 0.0,
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories using MemoryClient."""
-        return self._client.recall(
+        results: list[RetrievalResult] = self._client.recall(
             query=query,
             user_id=user_id,
             session_id=session_id,
             k=limit,  # MemoryClient uses 'k' parameter instead of 'limit'
             filters=filters,
         )
+        return results
 
     def get_memory(self, memory_id: str) -> Optional[Memory]:
         """Get a memory by ID using MemoryClient."""
@@ -182,11 +183,12 @@ class LocalBackend(BaseBackend):
         if min_importance is not None:
             client_filters["min_importance"] = min_importance
 
-        return self._client.get_memories(
+        memories: list[Memory] = self._client.get_memories(
             user_id=user_id,
             filters=client_filters,
             limit=limit,
         )
+        return memories
 
     def update_memory(
         self,
@@ -209,7 +211,8 @@ class LocalBackend(BaseBackend):
 
     def delete_memory(self, memory_id: str) -> bool:
         """Delete a memory using MemoryClient."""
-        return self._client.delete_memory(memory_id)
+        result: bool = self._client.delete_memory(memory_id)
+        return result
 
     # Additional abstract methods from BaseBackend
     def batch_remember(self, memories: list[dict[str, Any]]) -> list[Memory]:
@@ -253,6 +256,7 @@ class LocalBackend(BaseBackend):
     def get_memory_analytics(self, user_id: str) -> dict[str, Any]:
         """Get analytics for user's memories."""
         try:
-            return self._client.get_memory_statistics(user_id)
+            analytics: dict[str, Any] = self._client.get_memory_statistics(user_id)
+            return analytics
         except Exception:
             return {}

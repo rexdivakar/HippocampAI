@@ -548,7 +548,7 @@ async def query_memories(
 ) -> list[Memory]:
     """Query memories with advanced filters (type, tags, date range, importance threshold, text search)."""
     try:
-        memories = await service.get_memories(
+        result: list[Memory] = await service.get_memories(
             user_id=request.user_id,
             filters=request.filters,
             limit=request.limit,
@@ -562,7 +562,7 @@ async def query_memories(
             updated_before=request.updated_before,
             search_text=request.search_text,
         )
-        return memories
+        return result
     except Exception as e:
         logger.error(f"Query memories failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -580,10 +580,10 @@ async def batch_create_memories(
     """Batch create multiple memories."""
     try:
         memories_data = [mem.model_dump(exclude_none=True) for mem in request.memories]
-        memories = await service.batch_create_memories(
+        result: list[Memory] = await service.batch_create_memories(
             memories_data, check_duplicates=request.check_duplicates
         )
-        return memories
+        return result
     except Exception as e:
         logger.error(f"Batch create failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -649,7 +649,7 @@ async def recall_memories(
 ) -> list[RetrievalResult]:
     """Recall memories using hybrid search with customizable weights."""
     try:
-        results = await service.recall_memories(
+        result: list[RetrievalResult] = await service.recall_memories(
             query=request.query,
             user_id=request.user_id,
             session_id=request.session_id,
@@ -657,7 +657,7 @@ async def recall_memories(
             filters=request.filters,
             custom_weights=request.custom_weights,
         )
-        return results
+        return result
     except Exception as e:
         logger.error(f"Recall failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -674,12 +674,12 @@ async def extract_from_conversation(
 ) -> list[Memory]:
     """Extract memories from conversation logs."""
     try:
-        memories = await service.extract_from_conversation(
+        result: list[Memory] = await service.extract_from_conversation(
             conversation=request.conversation,
             user_id=request.user_id,
             session_id=request.session_id,
         )
-        return memories
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -698,7 +698,7 @@ async def deduplicate_memories(
 ) -> dict[str, Any]:
     """Deduplicate memories for a user."""
     try:
-        result = await service.deduplicate_user_memories(
+        result: dict[str, Any] = await service.deduplicate_user_memories(
             user_id=request.user_id, dry_run=request.dry_run
         )
         return result
@@ -713,7 +713,7 @@ async def consolidate_memories(
 ) -> dict[str, Any]:
     """Consolidate similar memories for a user."""
     try:
-        result = await service.consolidate_memories(
+        result: dict[str, Any] = await service.consolidate_memories(
             user_id=request.user_id,
             similarity_threshold=request.similarity_threshold,
             dry_run=request.dry_run,
@@ -829,7 +829,8 @@ async def get_background_status(
     tasks: BackgroundTaskManager = Depends(get_background_tasks),
 ) -> dict[str, Any]:
     """Get status of background tasks."""
-    return tasks.get_status()
+    result: dict[str, Any] = tasks.get_status()
+    return result
 
 
 @app.post("/v1/background/dedup/trigger")
@@ -840,7 +841,7 @@ async def trigger_background_dedup(
 ) -> dict[str, Any]:
     """Manually trigger deduplication for a user via background task manager."""
     try:
-        result = await tasks.trigger_deduplication(user_id=user_id, dry_run=dry_run)
+        result: dict[str, Any] = await tasks.trigger_deduplication(user_id=user_id, dry_run=dry_run)
         return result
     except Exception as e:
         logger.error(f"Background dedup trigger failed: {e}", exc_info=True)
@@ -856,7 +857,7 @@ async def trigger_background_consolidate(
 ) -> dict[str, Any]:
     """Manually trigger consolidation for a user via background task manager."""
     try:
-        result = await tasks.trigger_consolidation(
+        result: dict[str, Any] = await tasks.trigger_consolidation(
             user_id=user_id, dry_run=dry_run, threshold=threshold
         )
         return result
@@ -1676,7 +1677,7 @@ async def get_memory_stats(request: MemoryStatsRequest) -> dict[str, Any]:
         from hippocampai.monitoring.memory_tracker import get_tracker
 
         tracker = get_tracker()
-        stats = tracker.get_memory_stats(user_id=request.user_id)
+        stats: dict[str, Any] = tracker.get_memory_stats(user_id=request.user_id)
 
         return stats
     except Exception as e:
@@ -1706,7 +1707,8 @@ async def get_access_pattern(request: AccessPatternRequest) -> dict[str, Any]:
                 detail=f"No access pattern found for memory {request.memory_id}",
             )
 
-        return pattern.model_dump()
+        result: dict[str, Any] = pattern.model_dump()
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -1785,7 +1787,7 @@ async def get_memory_temperature(
     - Recommended tier based on access patterns
     """
     try:
-        temperature = await service.get_memory_temperature(memory_id)
+        temperature: dict[str, Any] = await service.get_memory_temperature(memory_id)
         if not temperature:
             raise HTTPException(status_code=404, detail="Memory not found")
         return temperature
@@ -1868,7 +1870,7 @@ async def get_tier_statistics(
     - Lifecycle configuration
     """
     try:
-        stats = await service.get_tier_statistics(request.user_id)
+        stats: dict[str, Any] = await service.get_tier_statistics(request.user_id)
         return stats
     except Exception as e:
         logger.error(f"Error getting tier statistics: {e}")

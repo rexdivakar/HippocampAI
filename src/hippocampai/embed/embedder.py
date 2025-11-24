@@ -51,7 +51,8 @@ class Embedder:
 
     def encode_single(self, text: str) -> np.ndarray:
         """Encode single text."""
-        return self.encode([text])[0]
+        result: np.ndarray = self.encode([text])[0]
+        return result
 
 
 _embedder_instance = None

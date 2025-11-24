@@ -160,13 +160,14 @@ class KnowledgeGraph(MemoryGraph):
             logger.warning(f"Entity {entity_id} not found in graph")
             return False
 
-        return self.add_relationship(
+        result: bool = self.add_relationship(
             memory_id,
             entity_node_id,
             relation_type,
             weight=confidence,
             metadata={"edge_type": "memory_entity"},
         )
+        return result
 
     def link_memory_to_fact(self, memory_id: str, fact_id: str, confidence: float = 0.9) -> bool:
         """Link a memory to a fact extracted from it.
@@ -184,13 +185,14 @@ class KnowledgeGraph(MemoryGraph):
             logger.warning(f"Fact {fact_id} not found in graph")
             return False
 
-        return self.add_relationship(
+        result: bool = self.add_relationship(
             memory_id,
             fact_node_id,
             RelationType.SUPPORTS,
             weight=confidence,
             metadata={"edge_type": "memory_fact"},
         )
+        return result
 
     def link_fact_to_entity(self, fact_id: str, entity_id: str, confidence: float = 0.9) -> bool:
         """Link a fact to an entity it mentions.
@@ -210,13 +212,14 @@ class KnowledgeGraph(MemoryGraph):
             logger.warning("Fact or entity not found in graph")
             return False
 
-        return self.add_relationship(
+        result: bool = self.add_relationship(
             fact_node_id,
             entity_node_id,
             RelationType.RELATED_TO,
             weight=confidence,
             metadata={"edge_type": "fact_entity"},
         )
+        return result
 
     def link_entities(self, relationship: EntityRelationship) -> bool:
         """Link two entities with a relationship.
@@ -245,7 +248,7 @@ class KnowledgeGraph(MemoryGraph):
 
         relation_type = relation_mapping.get(relationship.relation_type, RelationType.RELATED_TO)
 
-        return self.add_relationship(
+        result: bool = self.add_relationship(
             from_node_id,
             to_node_id,
             relation_type,
@@ -256,6 +259,7 @@ class KnowledgeGraph(MemoryGraph):
                 "context": relationship.context,
             },
         )
+        return result
 
     def link_memory_to_topic(self, memory_id: str, topic: str, confidence: float = 0.8) -> bool:
         """Link a memory to a topic.
@@ -273,13 +277,14 @@ class KnowledgeGraph(MemoryGraph):
             # Create topic node if it doesn't exist
             topic_node_id = self.add_topic(topic)
 
-        return self.add_relationship(
+        result: bool = self.add_relationship(
             memory_id,
             topic_node_id,
             RelationType.PART_OF,
             weight=confidence,
             metadata={"edge_type": "memory_topic"},
         )
+        return result
 
     def get_entity_memories(self, entity_id: str) -> list[str]:
         """Get all memories mentioning an entity.
