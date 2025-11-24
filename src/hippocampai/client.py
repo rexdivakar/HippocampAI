@@ -3652,11 +3652,13 @@ class MemoryClient:
                 elif resolution.action == "merge":
                     # Create merged memory, delete originals
                     if resolution.updated_memory:
-                        self.remember(
+                        # Use `add` with auto_resolve_conflicts=False to prevent recursion
+                        self.add(
                             text=resolution.updated_memory.text,
                             user_id=user_id,
                             type=resolution.updated_memory.type.value,
                             importance=resolution.updated_memory.importance,
+                            auto_resolve_conflicts=False,
                         )
                         for mem_id in resolution.deleted_memory_ids:
                             self.delete_memory(mem_id)
