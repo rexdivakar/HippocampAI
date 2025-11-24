@@ -1,7 +1,7 @@
 """Saved searches manager for quick retrieval."""
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from hippocampai.models.search import SavedSearch, SearchMode
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class SavedSearchManager:
     """Manage saved searches for users."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize saved search manager."""
         self._searches: dict[str, SavedSearch] = {}  # search_id -> SavedSearch
         self._user_searches: dict[str, list[str]] = {}  # user_id -> [search_ids]
@@ -201,7 +201,7 @@ class SavedSearchManager:
         query_lower = name_query.lower()
         return [s for s in searches if query_lower in s.name.lower()]
 
-    def get_statistics(self, user_id: Optional[str] = None) -> dict:
+    def get_statistics(self, user_id: Optional[str] = None) -> dict[str, Any]:
         """
         Get usage statistics for saved searches.
 

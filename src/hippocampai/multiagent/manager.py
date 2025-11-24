@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class MultiAgentManager:
     """Manages multi-agent memory spaces, permissions, and transfers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize multi-agent manager."""
         self.agents: dict[str, Agent] = {}
         self.runs: dict[str, Run] = {}
@@ -430,7 +430,7 @@ class MultiAgentManager:
             can_access_from_agents=list(can_access_from),
         )
 
-    def update_agent_memory_counts(self, agent_id: str, memories: list[Memory]):
+    def update_agent_memory_counts(self, agent_id: str, memories: list[Memory]) -> None:
         """Update agent's memory counts."""
         agent = self.agents.get(agent_id)
         if not agent:

@@ -103,7 +103,7 @@ class EntityProfile(BaseModel):
 class EntityRecognizer:
     """Recognizes and tracks entities across memories."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: Optional[Any] = None) -> None:
         """Initialize entity recognizer.
 
         Args:
@@ -416,7 +416,7 @@ Entities:"""
 
     def _update_entity_profile(
         self, entity: Entity, source_text: str, context: Optional[dict[str, Any]] = None
-    ):
+    ) -> None:
         """Update or create entity profile."""
         if entity.entity_id in self.entities:
             # Update existing profile

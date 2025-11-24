@@ -120,7 +120,7 @@ class TemporalCluster(BaseModel):
 class TemporalAnalytics:
     """Advanced temporal analytics for memories."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize temporal analytics."""
 
     def analyze_peak_activity(

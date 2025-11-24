@@ -86,7 +86,7 @@ class RelationshipNetwork(BaseModel):
 class RelationshipMapper:
     """Advanced relationship mapping and analysis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize relationship mapper."""
         # Relationship storage: (from_entity, to_entity, relation_type) -> ScoredRelationship
         self.relationships: dict[tuple[str, str, RelationType], ScoredRelationship] = {}
@@ -371,7 +371,7 @@ class RelationshipMapper:
         visited = set()
         clusters: list[RelationshipCluster] = []
 
-        def dfs(node: str, cluster: set[str]):
+        def dfs(node: str, cluster: set[str]) -> None:
             visited.add(node)
             cluster.add(node)
             for neighbor in adjacency.get(node, set()):

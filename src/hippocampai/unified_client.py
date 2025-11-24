@@ -159,17 +159,20 @@ class UnifiedMemoryClient:
         Returns:
             Created Memory object
         """
-        return self._backend.remember(
-            text=text,
-            user_id=user_id,
-            session_id=session_id,
-            metadata=metadata,
-            tags=tags,
-            importance=importance,
-            expires_at=expires_at,
-            extract_entities=extract_entities,
-            extract_facts=extract_facts,
-            extract_relationships=extract_relationships,
+        return cast(
+            Memory,
+            self._backend.remember(
+                text=text,
+                user_id=user_id,
+                session_id=session_id,
+                metadata=metadata,
+                tags=tags,
+                importance=importance,
+                expires_at=expires_at,
+                extract_entities=extract_entities,
+                extract_facts=extract_facts,
+                extract_relationships=extract_relationships,
+            ),
         )
 
     def recall(
@@ -217,7 +220,7 @@ class UnifiedMemoryClient:
         Returns:
             Memory object or None if not found
         """
-        return self._backend.get_memory(memory_id)
+        return cast(Optional[Memory], self._backend.get_memory(memory_id))
 
     def get_memories(
         self,
@@ -280,13 +283,16 @@ class UnifiedMemoryClient:
         Returns:
             Updated Memory object or None if not found
         """
-        return self._backend.update_memory(
-            memory_id=memory_id,
-            text=text,
-            metadata=metadata,
-            tags=tags,
-            importance=importance,
-            expires_at=expires_at,
+        return cast(
+            Optional[Memory],
+            self._backend.update_memory(
+                memory_id=memory_id,
+                text=text,
+                metadata=metadata,
+                tags=tags,
+                importance=importance,
+                expires_at=expires_at,
+            ),
         )
 
     def delete_memory(self, memory_id: str) -> bool:

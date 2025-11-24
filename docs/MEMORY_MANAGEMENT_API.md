@@ -726,7 +726,7 @@ docker-compose up -d
 
 ## API Changelog
 
-### Version 0.2.5 (Current)
+### Version 0.3.0 (Current)
 
 - Added async/await support
 - Integrated Redis for caching

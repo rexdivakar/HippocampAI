@@ -1,7 +1,7 @@
 """Ollama LLM adapter."""
 
 import logging
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
 
@@ -43,7 +43,7 @@ class OllamaLLM(BaseLLM):
             with httpx.Client(timeout=60.0) as client:
                 response = client.post(url, json=payload)
                 response.raise_for_status()
-                return response.json()["response"]
+                return cast(str, response.json()["response"])
         except Exception as e:
             logger.error(f"Ollama generate failed: {e}")
             return ""
@@ -65,7 +65,7 @@ class OllamaLLM(BaseLLM):
             with httpx.Client(timeout=60.0) as client:
                 response = client.post(url, json=payload)
                 response.raise_for_status()
-                return response.json()["message"]["content"]
+                return cast(str, response.json()["message"]["content"])
         except Exception as e:
             logger.error(f"Ollama chat failed: {e}")
             return ""

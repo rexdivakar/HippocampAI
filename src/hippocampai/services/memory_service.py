@@ -1,24 +1,58 @@
 """Comprehensive memory management service with CRUD, batch, dedup, and consolidation."""
 
+import asyncio
 import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.pipeline.conflict_resolution import (
+    ConflictResolutionStrategy,
+    MemoryConflictResolver,
+)
 from hippocampai.pipeline.consolidate import MemoryConsolidator
+from hippocampai.pipeline.conversation_memory import (
+    ConversationMemoryManager,
+    ConversationSummary,
+    ConversationTurn,
+    SpeakerRole,
+)
 from hippocampai.pipeline.dedup import MemoryDeduplicator
+from hippocampai.pipeline.errors import MemoryNotFoundError
+from hippocampai.pipeline.memory_lifecycle import (
+    LifecycleConfig,
+    MemoryLifecycleManager,
+    MemoryTier,
+)
+from hippocampai.pipeline.memory_merge import (
+    MemoryMergeEngine,
+    MergeCandidate,
+    MergeResult,
+    MergeStrategy,
+)
+from hippocampai.pipeline.memory_quality import (
+    DuplicateCluster,
+    HealthStatus,
+    MemoryHealthScore,
+    MemoryQualityMonitor,
+    MemoryStoreHealth,
+    TopicCoverage,
+)
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
+
+# Memory locks to prevent concurrent modifications
+MEMORY_LOCKS = {}
 
 
 class MemoryManagementService:
@@ -32,6 +66,7 @@ class MemoryManagementService:
     - Hybrid search with customizable weights
     - Deduplication service
     - Consolidation service
+    - Conflict resolution for contradictory memories
     """
 
     def __init__(
@@ -44,6 +79,11 @@ class MemoryManagementService:
         weights: Optional[dict[str, float]] = None,
         half_lives: Optional[dict[str, int]] = None,
         dedup_threshold: float = 0.88,
+        enable_conflict_resolution: bool = True,
+        conflict_resolution_strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.TEMPORAL,
+        conflict_similarity_threshold: float = 0.75,
+        lifecycle_config: Optional[LifecycleConfig] = None,
+        enable_lifecycle_management: bool = True,
     ):
         """
         Initialize memory management service.
@@ -57,11 +97,19 @@ class MemoryManagementService:
             weights: Optional custom scoring weights
             half_lives: Optional custom half-lives for memory types
             dedup_threshold: Similarity threshold for deduplication
+            enable_conflict_resolution: Enable automatic conflict detection and resolution
+            conflict_resolution_strategy: Default strategy for resolving conflicts
+            conflict_similarity_threshold: Minimum similarity to check for conflicts
+            lifecycle_config: Optional lifecycle management configuration
+            enable_lifecycle_management: Enable automatic memory tiering and lifecycle management
         """
         self.qdrant = qdrant_store
         self.embedder = embedder
         self.redis = redis_store
         self.llm = llm
+        self.enable_conflict_resolution = enable_conflict_resolution
+        self.conflict_resolution_strategy = conflict_resolution_strategy
+        self.enable_lifecycle_management = enable_lifecycle_management
 
         # Initialize retriever
         self.retriever = HybridRetriever(
@@ -82,6 +130,38 @@ class MemoryManagementService:
 
         # Initialize consolidator
         self.consolidator = MemoryConsolidator(llm=llm)
+
+        # Initialize conflict resolver
+        self.conflict_resolver = MemoryConflictResolver(
+            embedder=embedder,
+            llm=llm,
+            default_strategy=conflict_resolution_strategy,
+            similarity_threshold=conflict_similarity_threshold,
+        )
+
+        # Initialize lifecycle manager
+        self.lifecycle_manager = MemoryLifecycleManager(
+            config=lifecycle_config or LifecycleConfig()
+        )
+
+        # Initialize quality monitor
+        self.quality_monitor = MemoryQualityMonitor(
+            stale_threshold_days=90,
+            duplicate_threshold=0.85,
+            near_duplicate_threshold=0.70,
+        )
+
+        # Initialize conversation memory manager
+        self.conversation_manager = ConversationMemoryManager(
+            llm=llm,
+        )
+
+        # Initialize memory merge engine
+        self.merge_engine = MemoryMergeEngine(
+            llm=llm,
+            similarity_threshold=0.85,
+            auto_merge_threshold=0.9,
+        )
 
         # Query cache TTL (60 seconds)
         self.query_cache_ttl = 60
@@ -119,9 +199,11 @@ class MemoryManagementService:
         ttl_days: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
         check_duplicate: bool = True,
+        check_conflicts: bool = True,
+        auto_resolve_conflicts: bool = True,
     ) -> Memory:
         """
-        Create a new memory with optional deduplication.
+        Create a new memory with optional deduplication and conflict resolution.
 
         Args:
             text: Memory content
@@ -133,11 +215,13 @@ class MemoryManagementService:
             ttl_days: Optional time-to-live in days
             metadata: Optional metadata
             check_duplicate: Whether to check for duplicates
+            check_conflicts: Whether to check for conflicting memories
+            auto_resolve_conflicts: Whether to automatically resolve conflicts
 
         Returns:
             Created memory
         """
-        # Create memory object
+        # Create memory object with all fields set
         memory = Memory(
             text=text,
             user_id=user_id,
@@ -155,20 +239,33 @@ class MemoryManagementService:
         # Calculate size metrics
         memory.calculate_size_metrics()
 
-        # Check for duplicates
-        if check_duplicate:
+        action = None
+        duplicate_ids: list[str] = []
+        # Check duplicates unless explicitly skipped
+        if check_duplicate and not (metadata or {}).get("skip_duplicate_check", False):
             action, duplicate_ids = self.deduplicator.check_duplicate(memory, user_id)
 
             if action == "skip":
                 logger.info(f"Skipping duplicate memory: {memory.id}")
                 # Return existing memory
                 existing_id = duplicate_ids[0]
-                existing_memory = await self.get_memory(existing_id)
-                if existing_memory is None:
-                    raise ValueError(f"Duplicate memory {existing_id} not found")
-                return existing_memory
-
-            if action == "update":
+                try:
+                    existing_memory = await self.get_memory(existing_id)
+                    if existing_memory is None:
+                        # If the memory was detected as duplicate but no longer exists,
+                        # we should create a new one
+                        logger.warning(
+                            f"Detected duplicate {existing_id} no longer exists, creating new memory"
+                        )
+                        # Continue with creation by setting action to store
+                        action = "store"
+                        duplicate_ids = []
+                    else:
+                        return existing_memory
+                except Exception as e:
+                    logger.error(f"Error retrieving duplicate memory {existing_id}: {e}")
+                    raise MemoryNotFoundError(f"Duplicate memory {existing_id} not found")
+            elif action == "update":
                 logger.info(f"Updating existing memory: {duplicate_ids[0]}")
                 # Update the first duplicate
                 existing_id = duplicate_ids[0]
@@ -179,8 +276,91 @@ class MemoryManagementService:
                     tags=memory.tags,
                 )
                 if updated_memory is None:
-                    raise ValueError(f"Failed to update memory {existing_id}")
+                    raise MemoryNotFoundError(
+                        f"Failed to update memory {existing_id} - memory not found"
+                    )
                 return updated_memory
+            # If action is "store", continue with normal memory creation
+
+        # Check for conflicts
+        if check_conflicts and self.enable_conflict_resolution:
+            # Get existing memories of the same type
+            existing_memories = await self.get_memories(
+                user_id=user_id,
+                memory_type=memory_type,
+                limit=100,  # Check recent memories
+            )
+
+            if existing_memories:
+                conflicts = self.conflict_resolver.detect_conflicts(
+                    memory, existing_memories, check_llm=bool(self.llm)
+                )
+
+                if conflicts:
+                    logger.info(
+                        f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'"
+                    )
+
+                    # Auto-resolve if enabled
+                    if auto_resolve_conflicts:
+                        # Track all resolutions before applying changes
+                        resolutions = []
+                        memories_to_delete = set()  # Use set to avoid duplicates
+                        keep_first_memory = None  # Track if we should keep an existing memory
+                        merged_memory = None  # Track if we should use a merged memory
+
+                        # First pass - collect all resolution decisions
+                        for conflict in conflicts:
+                            resolution = self.conflict_resolver.resolve_conflict(
+                                conflict, strategy=self.conflict_resolution_strategy
+                            )
+                            resolutions.append(resolution)
+
+                            if resolution.action == "keep_first":
+                                # Remember to keep existing and not create new
+                                keep_first_memory = conflict.memory_1
+                                break  # No need to continue if we're keeping an existing memory
+                            elif resolution.action == "keep_second":
+                                # Will keep new memory, mark old for deletion
+                                memories_to_delete.add(conflict.memory_1.id)
+                            elif resolution.action == "merge":
+                                # Use merged memory, mark both for deletion
+                                merged_memory = resolution.updated_memory
+                                memories_to_delete.update(resolution.deleted_memory_ids)
+                            elif resolution.action in ["flag", "keep_both"]:
+                                # Update metadata for both memories
+                                await self.update_memory(
+                                    memory_id=conflict.memory_1.id,
+                                    metadata=conflict.memory_1.metadata,
+                                )
+                                memory.metadata.update(conflict.memory_2.metadata)
+
+                        # Apply resolutions
+                        if keep_first_memory:
+                            # Use existing memory instead of creating new
+                            logger.info(
+                                f"Conflict resolved: keeping existing memory {keep_first_memory.id}"
+                            )
+                            return keep_first_memory
+                        elif merged_memory:
+                            # Use merged memory instead
+                            logger.info("Conflict resolved: merged memories into new memory")
+                            memory = merged_memory
+
+                        # Delete conflicting memories in a single batch
+                        for mem_id in memories_to_delete:
+                            try:
+                                await self.delete_memory(mem_id)
+                                logger.info(f"Deleted conflicting memory: {mem_id}")
+                            except Exception as e:
+                                logger.warning(f"Failed to delete memory {mem_id}: {e}")
+
+                    else:
+                        # Just flag for review without auto-resolving
+                        logger.info(f"Flagging {len(conflicts)} conflict(s) for user review")
+                        memory.metadata["has_conflicts"] = True
+                        memory.metadata["conflict_count"] = len(conflicts)
+                        memory.metadata["conflict_ids"] = [c.id for c in conflicts]
 
         # Store in vector database
         collection = memory.collection_name(
@@ -197,15 +377,32 @@ class MemoryManagementService:
         # Cache in Redis
         await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
 
+        # Track Prometheus metrics
+        try:
+            from hippocampai.monitoring.prometheus_metrics import (
+                memories_created_total,
+                memory_operations_total,
+                memory_size_bytes,
+            )
+
+            memory_operations_total.labels(operation="create", status="success").inc()
+            memories_created_total.labels(memory_type=memory.type.value).inc()
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(
+                len(text.encode("utf-8"))
+            )
+        except Exception as metrics_err:
+            logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+
         logger.info(f"Created memory {memory.id} for user {user_id}")
         return memory
 
-    async def get_memory(self, memory_id: str) -> Optional[Memory]:
+    async def get_memory(self, memory_id: str, track_access: bool = True) -> Optional[Memory]:
         """
         Get a memory by ID.
 
         Args:
             memory_id: Memory identifier
+            track_access: Whether to track this access and update lifecycle metrics
 
         Returns:
             Memory object or None if not found
@@ -213,7 +410,13 @@ class MemoryManagementService:
         # Try Redis cache first
         cached = await self.redis.get_memory(memory_id)
         if cached:
-            return Memory(**cached)
+            memory = Memory(**cached)
+            if track_access and self.enable_lifecycle_management:
+                # Increment access count asynchronously without mutating the returned object
+                memory_copy = memory.model_copy(deep=True)
+                memory_copy.access_count += 1
+                asyncio.create_task(self._update_memory_access(memory_copy))
+            return memory
 
         # Fall back to vector store
         # Try both collections
@@ -221,10 +424,18 @@ class MemoryManagementService:
             try:
                 point = self.qdrant.get(collection_name=collection, id=memory_id)
                 if point:
-                    payload = point
-                    # Cache in Redis
-                    await self.redis.set_memory(memory_id, payload)
-                    return Memory(**payload)
+                    payload = point["payload"]
+                    memory = Memory(**payload)
+
+                    if track_access and self.enable_lifecycle_management:
+                        # Update access metrics asynchronously using a copy
+                        memory_copy = memory.model_copy(deep=True)
+                        memory_copy.access_count += 1
+                        asyncio.create_task(self._update_memory_access(memory_copy))
+
+                    # Cache in Redis without in-place mutations
+                    await self.redis.set_memory(memory_id, memory.model_dump(mode="json"))
+                    return memory
             except Exception as e:
                 logger.debug(f"Memory {memory_id} not found in {collection}: {e}")
 
@@ -304,29 +515,37 @@ class MemoryManagementService:
         Returns:
             True if deleted, False otherwise
         """
-        # Get memory to check ownership and determine collection
-        memory = await self.get_memory(memory_id)
-        if not memory:
-            return False
+        # Atomically get or create a lock for this memory ID
+        lock = MEMORY_LOCKS.setdefault(memory_id, asyncio.Lock())
 
-        # Check authorization
-        if user_id and memory.user_id != user_id:
-            logger.warning(
-                f"User {user_id} attempted to delete memory {memory_id} of user {memory.user_id}"
-            )
-            return False
+        try:
+            async with lock:
+                # Get memory to check ownership and determine collection
+                memory = await self.get_memory(memory_id, track_access=False)
+                if not memory:
+                    return False
 
-        # Delete from vector store
-        collection = memory.collection_name(
-            self.qdrant.collection_facts, self.qdrant.collection_prefs
-        )
-        self.qdrant.delete(collection_name=collection, ids=[memory_id])
+                # Check authorization
+                if user_id and memory.user_id != user_id:
+                    logger.warning(
+                        f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
+                    )
+                    return False
 
-        # Delete from cache
-        await self.redis.delete_memory(memory_id)
+                # Delete from vector store
+                collection = memory.collection_name(
+                    self.qdrant.collection_facts, self.qdrant.collection_prefs
+                )
+                self.qdrant.delete(collection_name=collection, ids=[memory_id])
 
-        logger.info(f"Deleted memory {memory_id}")
-        return True
+                # Delete from Redis cache
+                await self.redis.delete_memory(memory_id)
+
+                logger.info(f"Deleted memory {memory_id}")
+                return True
+        finally:
+            # Clean up the lock to prevent memory leak
+            MEMORY_LOCKS.pop(memory_id, None)
 
     async def get_memories(
         self,
@@ -475,7 +694,7 @@ class MemoryManagementService:
             filtered_vectors: list[np.ndarray] = []
             for memory, vector in zip(memory_objects, vectors):
                 action, _ = self.deduplicator.check_duplicate(memory, memory.user_id)
-                if action == "add":
+                if action == "store":
                     filtered_memories.append(memory)
                     filtered_vectors.append(vector)
                 else:
@@ -638,7 +857,19 @@ class MemoryManagementService:
                 cache_key, serialized_results, ttl_seconds=self.query_cache_ttl
             )
 
-            return results
+            # Track Prometheus metrics
+            try:
+                from hippocampai.monitoring.prometheus_metrics import (
+                    search_requests_total,
+                    search_results_count,
+                )
+
+                search_requests_total.labels(search_type="hybrid", status="success").inc()
+                search_results_count.observe(len(results))
+            except Exception as metrics_err:
+                logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
+
+            return cast(list[Any], results)
         finally:
             # Restore original weights
             if custom_weights:
@@ -857,3 +1088,1046 @@ JSON:"""
 
         logger.info(f"Expired {expired_count} memories")
         return expired_count
+
+    async def detect_memory_conflicts(
+        self,
+        user_id: str,
+        memory_type: Optional[str] = None,
+        check_llm: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Detect conflicts in existing memories for a user.
+
+        Args:
+            user_id: User identifier
+            memory_type: Optional memory type filter
+            check_llm: Whether to use LLM for deep contradiction analysis
+
+        Returns:
+            List of detected conflicts with details
+        """
+        # Get user memories
+        memories = await self.get_memories(user_id=user_id, memory_type=memory_type, limit=1000)
+
+        if len(memories) < 2:
+            logger.info(f"No conflicts possible with {len(memories)} memories")
+            return []
+
+        # Detect conflicts
+        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+
+        # Format results
+        conflict_details = []
+        for conflict in conflicts:
+            conflict_details.append(
+                {
+                    "conflict_id": conflict.id,
+                    "memory_1": {
+                        "id": conflict.memory_1.id,
+                        "text": conflict.memory_1.text,
+                        "created_at": conflict.memory_1.created_at.isoformat(),
+                        "confidence": conflict.memory_1.confidence,
+                        "importance": conflict.memory_1.importance,
+                    },
+                    "memory_2": {
+                        "id": conflict.memory_2.id,
+                        "text": conflict.memory_2.text,
+                        "created_at": conflict.memory_2.created_at.isoformat(),
+                        "confidence": conflict.memory_2.confidence,
+                        "importance": conflict.memory_2.importance,
+                    },
+                    "conflict_type": conflict.conflict_type,
+                    "confidence_score": conflict.confidence_score,
+                    "similarity_score": conflict.similarity_score,
+                    "detected_at": conflict.detected_at.isoformat(),
+                }
+            )
+
+        logger.info(f"Detected {len(conflicts)} conflicts for user {user_id}")
+        return conflict_details
+
+    async def resolve_memory_conflicts(
+        self,
+        user_id: str,
+        strategy: Optional[ConflictResolutionStrategy] = None,
+        memory_type: Optional[str] = None,
+        dry_run: bool = False,
+        check_llm: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Detect and resolve conflicts in existing memories.
+
+        Args:
+            user_id: User identifier
+            strategy: Resolution strategy (uses default if not specified)
+            memory_type: Optional memory type filter
+            dry_run: If True, only report conflicts without resolving
+            check_llm: Whether to use LLM for deep contradiction analysis
+
+        Returns:
+            Dictionary with resolution results
+        """
+        # Get user memories
+        memories = await self.get_memories(user_id=user_id, memory_type=memory_type, limit=1000)
+
+        if len(memories) < 2:
+            return {
+                "user_id": user_id,
+                "total_memories": len(memories),
+                "conflicts_found": 0,
+                "conflicts_resolved": 0,
+                "dry_run": dry_run,
+            }
+
+        # Detect conflicts
+        conflicts = self.conflict_resolver.batch_detect_conflicts(memories, check_llm=check_llm)
+
+        if not conflicts:
+            return {
+                "user_id": user_id,
+                "total_memories": len(memories),
+                "conflicts_found": 0,
+                "conflicts_resolved": 0,
+                "dry_run": dry_run,
+            }
+
+        logger.info(f"Found {len(conflicts)} conflicts for user {user_id}")
+
+        resolved_count = 0
+        memories_deleted = 0
+        memories_updated = 0
+        memories_flagged = 0
+        resolution_details = []
+
+        if not dry_run:
+            for conflict in conflicts:
+                resolution = self.conflict_resolver.resolve_conflict(
+                    conflict, strategy=strategy or self.conflict_resolution_strategy
+                )
+
+                # Apply resolution
+                if resolution.action == "keep_first":
+                    # Delete second memory
+                    await self.delete_memory(conflict.memory_2.id)
+                    memories_deleted += 1
+                    resolved_count += 1
+
+                elif resolution.action == "keep_second":
+                    # Delete first memory
+                    await self.delete_memory(conflict.memory_1.id)
+                    memories_deleted += 1
+                    resolved_count += 1
+
+                elif resolution.action == "merge":
+                    # Create merged memory and delete originals
+                    if resolution.updated_memory:
+                        await self.create_memory(
+                            text=resolution.updated_memory.text,
+                            user_id=user_id,
+                            memory_type=resolution.updated_memory.type.value,
+                            importance=resolution.updated_memory.importance,
+                            tags=resolution.updated_memory.tags,
+                            metadata=resolution.updated_memory.metadata,
+                            check_duplicate=False,
+                            check_conflicts=False,
+                        )
+                        memories_updated += 1
+
+                    # Delete original memories
+                    for mem_id in resolution.deleted_memory_ids:
+                        await self.delete_memory(mem_id)
+                        memories_deleted += 1
+
+                    resolved_count += 1
+
+                elif resolution.action in ["flag", "keep_both"]:
+                    # Update both memories with conflict flags
+                    await self.update_memory(
+                        memory_id=conflict.memory_1.id,
+                        metadata=conflict.memory_1.metadata,
+                    )
+                    await self.update_memory(
+                        memory_id=conflict.memory_2.id,
+                        metadata=conflict.memory_2.metadata,
+                    )
+                    memories_flagged += 2
+                    resolved_count += 1
+
+                resolution_details.append(
+                    {
+                        "conflict_id": conflict.id,
+                        "action": resolution.action,
+                        "notes": resolution.notes,
+                    }
+                )
+
+        result = {
+            "user_id": user_id,
+            "total_memories": len(memories),
+            "conflicts_found": len(conflicts),
+            "conflicts_resolved": resolved_count if not dry_run else 0,
+            "memories_deleted": memories_deleted if not dry_run else 0,
+            "memories_updated": memories_updated if not dry_run else 0,
+            "memories_flagged": memories_flagged if not dry_run else 0,
+            "dry_run": dry_run,
+            "resolution_strategy": (strategy or self.conflict_resolution_strategy).value,
+            "details": resolution_details[:50],  # Limit details
+        }
+
+        logger.info(f"Conflict resolution for user {user_id}: {result}")
+        return result
+
+    async def _update_memory_access(self, memory: Memory) -> None:
+        """
+        Update memory access patterns and lifecycle tier.
+
+        Args:
+            memory: Memory object with updated access_count
+        """
+        try:
+            # Calculate temperature
+            temperature = self.lifecycle_manager.calculate_temperature(
+                memory_id=memory.id,
+                created_at=memory.created_at,
+                access_count=memory.access_count,
+                last_access=datetime.now(timezone.utc),
+                importance=memory.importance,
+            )
+
+            # Get current tier from metadata
+            current_tier_str = memory.metadata.get("lifecycle", {}).get("tier")
+            current_tier = MemoryTier(current_tier_str) if current_tier_str else MemoryTier.WARM
+
+            # Update metadata with lifecycle info
+            memory_data = memory.model_dump()
+            memory_data = self.lifecycle_manager.update_access_metadata(memory_data, temperature)
+
+            # Check if tier migration is needed
+            if self.lifecycle_manager.should_migrate(current_tier, temperature.tier):
+                logger.info(
+                    f"Memory {memory.id} tier change: {current_tier.value} -> {temperature.tier.value} "
+                    f"(temp: {temperature.temperature_score:.1f})"
+                )
+
+            # Update in vector store
+            collection = memory.collection_name(
+                self.qdrant.collection_facts, self.qdrant.collection_prefs
+            )
+            self.qdrant.update(
+                collection_name=collection,
+                id=memory.id,
+                payload=memory_data,
+            )
+
+            # Update cache
+            await self.redis.set_memory(memory.id, memory_data)
+
+            logger.debug(
+                f"Updated memory {memory.id} access: count={memory.access_count}, "
+                f"tier={temperature.tier.value}, temp={temperature.temperature_score:.1f}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update memory access for {memory.id}: {e}")
+
+    async def get_memory_temperature(self, memory_id: str) -> Optional[dict[str, Any]]:
+        """
+        Get temperature metrics for a memory.
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            Temperature metrics dictionary or None if memory not found
+        """
+        memory = await self.get_memory(memory_id, track_access=False)
+        if not memory:
+            return None
+
+        temperature = self.lifecycle_manager.calculate_temperature(
+            memory_id=memory.id,
+            created_at=memory.created_at,
+            access_count=memory.access_count,
+            last_access=memory.metadata.get("lifecycle", {}).get("last_tier_update"),
+            importance=memory.importance,
+        )
+
+        return cast(Optional[dict[str, Any]], temperature.model_dump())
+
+    async def migrate_memory_tier(self, memory_id: str, target_tier: MemoryTier) -> bool:
+        """
+        Manually migrate a memory to a specific tier.
+
+        Args:
+            memory_id: Memory identifier
+            target_tier: Target storage tier
+
+        Returns:
+            True if migration successful
+        """
+        memory = await self.get_memory(memory_id, track_access=False)
+        if not memory:
+            logger.warning(f"Memory {memory_id} not found for tier migration")
+            return False
+
+        # Calculate current temperature
+        temperature = self.lifecycle_manager.calculate_temperature(
+            memory_id=memory.id,
+            created_at=memory.created_at,
+            access_count=memory.access_count,
+            last_access=memory.metadata.get("lifecycle", {}).get("last_tier_update"),
+            importance=memory.importance,
+        )
+
+        # Override recommended tier with target tier
+        temperature.tier = target_tier
+
+        # Update metadata
+        memory_data = memory.model_dump()
+        memory_data = self.lifecycle_manager.update_access_metadata(memory_data, temperature)
+
+        # Handle compression for archived/hibernated tiers
+        if target_tier in {MemoryTier.ARCHIVED, MemoryTier.HIBERNATED}:
+            if self.lifecycle_manager.config.compress_archived or (
+                target_tier == MemoryTier.HIBERNATED
+                and self.lifecycle_manager.config.compress_hibernated
+            ):
+                # Store compression flag in metadata
+                memory_data["metadata"]["compressed"] = True
+                logger.info(f"Memory {memory_id} will be compressed in tier {target_tier.value}")
+
+        # Update in vector store
+        collection = memory.collection_name(
+            self.qdrant.collection_facts, self.qdrant.collection_prefs
+        )
+        self.qdrant.update(collection_name=collection, id=memory.id, payload=memory_data)
+
+        # Update cache
+        await self.redis.set_memory(memory.id, memory_data)
+
+        logger.info(f"Migrated memory {memory_id} to tier {target_tier.value}")
+        return True
+
+    async def get_tier_statistics(self, user_id: str) -> dict[str, Any]:
+        """
+        Get statistics about memory tiers for a user.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Dictionary with tier statistics
+        """
+        # Get all user memories
+        memories = await self.get_memories(user_id=user_id, limit=10000)
+
+        tier_counts = {tier.value: 0 for tier in MemoryTier}
+        tier_temperatures: dict[str, list[float]] = {tier.value: [] for tier in MemoryTier}
+        total_size = 0
+        total_accesses = 0
+
+        for mem in memories:
+            # Calculate temperature
+            temperature = self.lifecycle_manager.calculate_temperature(
+                memory_id=mem.id,
+                created_at=mem.created_at,
+                access_count=mem.access_count,
+                last_access=mem.metadata.get("lifecycle", {}).get("last_tier_update"),
+                importance=mem.importance,
+            )
+
+            tier = temperature.tier.value
+            tier_counts[tier] += 1
+            tier_temperatures[tier].append(temperature.temperature_score)
+            total_size += mem.text_length
+            total_accesses += mem.access_count
+
+        # Calculate average temperatures
+        tier_avg_temps = {}
+        for tier, temps in tier_temperatures.items():
+            tier_avg_temps[tier] = sum(temps) / len(temps) if temps else 0.0
+
+        return {
+            "user_id": user_id,
+            "total_memories": len(memories),
+            "total_size_bytes": total_size,
+            "total_accesses": total_accesses,
+            "tier_counts": tier_counts,
+            "tier_average_temperatures": tier_avg_temps,
+            "lifecycle_config": self.lifecycle_manager.config.model_dump(),
+        }
+
+    # ========================================================================
+    # MEMORY QUALITY & HEALTH MONITORING
+    # ========================================================================
+
+    async def assess_memory_health(self, memory_id: str) -> Optional[MemoryHealthScore]:
+        """
+        Assess health of a single memory.
+
+        Args:
+            memory_id: Memory identifier
+
+        Returns:
+            MemoryHealthScore or None if memory not found
+        """
+        try:
+            # Get memory from cache or vector store
+            memory_data = await self.redis.get_memory(memory_id)
+            if not memory_data:
+                # Try vector store
+                results = self.qdrant.get(self.qdrant.collection_facts, memory_id)
+                if not results:
+                    results = self.qdrant.get(self.qdrant.collection_prefs, memory_id)
+                if not results:
+                    return None
+                memory_data = results
+
+            # Parse to Memory object
+            memory = Memory(**memory_data)
+
+            # Assess health
+            health = self.quality_monitor.assess_memory_health(
+                memory_id=memory.id,
+                text=memory.text,
+                confidence=memory.confidence,
+                importance=memory.importance,
+                created_at=memory.created_at,
+                updated_at=memory.updated_at,
+                tags=memory.tags,
+                metadata=memory.metadata,
+            )
+
+            return health
+
+        except Exception as e:
+            logger.error(f"Failed to assess memory health for {memory_id}: {e}")
+            return None
+
+    async def detect_duplicates(
+        self, user_id: str, similarity_threshold: Optional[float] = None
+    ) -> list[DuplicateCluster]:
+        """
+        Detect duplicate and near-duplicate memory clusters.
+
+        Args:
+            user_id: User identifier
+            similarity_threshold: Custom threshold (uses default if not provided)
+
+        Returns:
+            List of duplicate clusters
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if len(memories) < 2:
+                return []
+
+            # Build similarity matrix using embeddings
+            similarity_matrix: dict[tuple[str, str], float] = {}
+
+            logger.info(f"Computing similarity matrix for {len(memories)} memories...")
+
+            for i, mem1 in enumerate(memories):
+                for j, mem2 in enumerate(memories[i + 1 :], start=i + 1):
+                    # Use embeddings if available
+                    if mem1.embedding and mem2.embedding:
+                        # Cosine similarity
+                        dot_product = np.dot(mem1.embedding, mem2.embedding)
+                        norm1 = np.linalg.norm(mem1.embedding)
+                        norm2 = np.linalg.norm(mem2.embedding)
+                        similarity = (
+                            dot_product / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0.0
+                        )
+                    else:
+                        # Fallback: use text similarity via reranker
+                        sim_result = self.deduplicator.reranker.rerank(
+                            query=mem1.text, candidates=[(mem2.id, mem2.text, 1.0)]
+                        )
+                        similarity = sim_result[0][3] if sim_result else 0.0
+
+                    if similarity >= (
+                        similarity_threshold or self.quality_monitor.near_duplicate_threshold
+                    ):
+                        similarity_matrix[(mem1.id, mem2.id)] = similarity
+
+            # Detect clusters
+            memory_dicts = [
+                {"id": m.id, "text": m.text, "confidence": m.confidence} for m in memories
+            ]
+            clusters = self.quality_monitor.detect_duplicate_clusters(
+                memories=memory_dicts, similarity_matrix=similarity_matrix
+            )
+
+            logger.info(f"Found {len(clusters)} duplicate clusters for user {user_id}")
+
+            return cast(list[Any], clusters)
+
+        except Exception as e:
+            logger.error(f"Failed to detect duplicates for user {user_id}: {e}")
+            return []
+
+    async def analyze_topic_coverage(
+        self, user_id: str, topics: Optional[list[str]] = None
+    ) -> list[TopicCoverage]:
+        """
+        Analyze memory coverage across topics.
+
+        Args:
+            user_id: User identifier
+            topics: Optional predefined topics (extracts from tags if not provided)
+
+        Returns:
+            List of topic coverage analysis
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if not memories:
+                return []
+
+            # Convert to dicts for analyzer
+            memory_dicts = [
+                {
+                    "id": m.id,
+                    "text": m.text,
+                    "tags": m.tags,
+                    "confidence": m.confidence,
+                    "updated_at": m.updated_at,
+                }
+                for m in memories
+            ]
+
+            # Analyze coverage
+            coverage = self.quality_monitor.analyze_topic_coverage(
+                memories=memory_dicts, topics=topics
+            )
+
+            logger.info(f"Analyzed coverage for {len(coverage)} topics for user {user_id}")
+
+            return cast(list[Any], coverage)
+
+        except Exception as e:
+            logger.error(f"Failed to analyze topic coverage for user {user_id}: {e}")
+            return []
+
+    async def assess_memory_store_health(self, user_id: str) -> Optional[MemoryStoreHealth]:
+        """
+        Assess overall health of user's memory store.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            MemoryStoreHealth with comprehensive assessment
+        """
+        try:
+            # Get all user memories
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+
+            if not memories:
+                return MemoryStoreHealth(
+                    user_id=user_id,
+                    overall_health_score=0.0,
+                    health_status=HealthStatus.CRITICAL,
+                    recommendations=["No memories found in store."],
+                )
+
+            # Assess each memory
+            health_scores: list[MemoryHealthScore] = []
+            for memory in memories:
+                health = self.quality_monitor.assess_memory_health(
+                    memory_id=memory.id,
+                    text=memory.text,
+                    confidence=memory.confidence,
+                    importance=memory.importance,
+                    created_at=memory.created_at,
+                    updated_at=memory.updated_at,
+                    tags=memory.tags,
+                    metadata=memory.metadata,
+                )
+                health_scores.append(health)
+
+            # Detect duplicates
+            duplicate_clusters = await self.detect_duplicates(user_id)
+
+            # Analyze topic coverage
+            topic_coverage = await self.analyze_topic_coverage(user_id)
+
+            # Assess overall store health
+            store_health = self.quality_monitor.assess_memory_store_health(
+                user_id=user_id,
+                memory_health_scores=health_scores,
+                duplicate_clusters=duplicate_clusters,
+                topic_coverage=topic_coverage,
+            )
+
+            logger.info(
+                f"Memory store health for user {user_id}: "
+                f"{store_health.health_status.value} ({store_health.overall_health_score:.1f}/100)"
+            )
+
+            return store_health
+
+        except Exception as e:
+            logger.error(f"Failed to assess memory store health for user {user_id}: {e}")
+            return None
+
+    async def get_stale_memories(
+        self, user_id: str, threshold_days: Optional[int] = None
+    ) -> list[Memory]:
+        """
+        Get memories that are stale (not updated recently).
+
+        Args:
+            user_id: User identifier
+            threshold_days: Custom threshold (uses default if not provided)
+
+        Returns:
+            List of stale memories
+        """
+        try:
+            memories = await self.get_memories(user_id=user_id, limit=10000)
+            threshold = threshold_days or self.quality_monitor.stale_threshold_days
+
+            stale_memories = []
+            now = datetime.now(timezone.utc)
+
+            for memory in memories:
+                updated_at = memory.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+
+                days_since_update = (now - updated_at).total_seconds() / 86400
+
+                if days_since_update > threshold:
+                    stale_memories.append(memory)
+
+            logger.info(
+                f"Found {len(stale_memories)} stale memories "
+                f"(>{threshold} days old) for user {user_id}"
+            )
+
+            return stale_memories
+
+        except Exception as e:
+            logger.error(f"Failed to get stale memories for user {user_id}: {e}")
+            return []
+
+    # Conversation-Aware Memory Methods
+
+    async def add_conversation_turn(
+        self,
+        conversation_id: str,
+        session_id: str,
+        user_id: str,
+        speaker: str,
+        text: str,
+        role: SpeakerRole = SpeakerRole.USER,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> ConversationTurn:
+        """
+        Add a turn to a conversation and track it.
+
+        Args:
+            conversation_id: Unique conversation identifier
+            session_id: Session identifier
+            user_id: User identifier
+            speaker: Name of the speaker
+            text: Content of the turn
+            role: Speaker role (USER, ASSISTANT, SYSTEM, PARTICIPANT)
+            metadata: Optional metadata
+
+        Returns:
+            Parsed conversation turn
+        """
+        try:
+            # Parse the turn
+            turn = self.conversation_manager.parse_turn(
+                text=text,
+                speaker=speaker,
+                role=role,
+                conversation_id=conversation_id,
+                metadata=metadata,
+            )
+
+            # Add to conversation context
+            self.conversation_manager.add_turn(
+                conversation_id=conversation_id,
+                session_id=session_id,
+                user_id=user_id,
+                turn=turn,
+            )
+
+            logger.info(
+                f"Added turn {turn.turn_id} to conversation {conversation_id} by {speaker} ({role})"
+            )
+
+            return turn
+
+        except Exception as e:
+            logger.error(f"Failed to add conversation turn to {conversation_id}: {e}")
+            raise
+
+    async def get_conversation_summary(
+        self, conversation_id: str, use_llm: bool = True
+    ) -> Optional[ConversationSummary]:
+        """
+        Get a multi-level summary of a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            use_llm: Whether to use LLM for better summarization
+
+        Returns:
+            Conversation summary with key points, decisions, action items, etc.
+        """
+        try:
+            summary = self.conversation_manager.summarize_conversation(
+                conversation_id=conversation_id, use_llm=use_llm
+            )
+
+            if summary:
+                logger.info(
+                    f"Generated summary for conversation {conversation_id}: "
+                    f"{summary.total_turns} turns, {len(summary.key_points)} key points, "
+                    f"{len(summary.decisions)} decisions, {len(summary.action_items)} actions"
+                )
+
+            return summary
+
+        except Exception as e:
+            logger.error(f"Failed to get conversation summary for {conversation_id}: {e}")
+            return None
+
+    async def extract_conversation_memories(
+        self,
+        conversation_id: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        auto_tag: bool = True,
+    ) -> list[Memory]:
+        """
+        Extract and store memories from a conversation.
+
+        Args:
+            conversation_id: Conversation identifier
+            user_id: User identifier
+            session_id: Optional session identifier
+            auto_tag: Whether to auto-tag with conversation topics
+
+        Returns:
+            List of created memories
+        """
+        try:
+            summary = await self.get_conversation_summary(
+                conversation_id=conversation_id, use_llm=True
+            )
+
+            if not summary:
+                logger.warning(f"No summary available for conversation {conversation_id}")
+                return []
+
+            created_memories = []
+
+            # Create memory from key points
+            for idx, point in enumerate(summary.key_points):
+                tags = summary.topics_discussed if auto_tag else []
+                tags.append(f"conversation:{conversation_id}")
+
+                memory = await self.create_memory(
+                    text=point,
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=7.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation",
+                        "conversation_id": conversation_id,
+                        "key_point_index": idx,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from decisions
+            for decision in summary.decisions:
+                tags = summary.topics_discussed if auto_tag else []
+                tags.extend(["decision", f"conversation:{conversation_id}"])
+
+                memory = await self.create_memory(
+                    text=f"Decision: {decision.text}. Rationale: {decision.rationale}",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="fact",
+                    importance=9.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_decision",
+                        "conversation_id": conversation_id,
+                        "decision_maker": decision.made_by,
+                        "topic": decision.related_topic,
+                    },
+                )
+                created_memories.append(memory)
+
+            # Create memories from action items
+            for action in summary.action_items:
+                tags = summary.topics_discussed if auto_tag else []
+                tags.extend(["action_item", f"conversation:{conversation_id}"])
+
+                memory = await self.create_memory(
+                    text=f"Action: {action.text} (Priority: {action.priority})",
+                    user_id=user_id,
+                    session_id=session_id,
+                    memory_type="task",
+                    importance=8.0,
+                    tags=tags,
+                    metadata={
+                        "source": "conversation_action",
+                        "conversation_id": conversation_id,
+                        "assignee": action.assignee,
+                        "deadline": action.deadline.isoformat() if action.deadline else None,
+                        "status": action.status,
+                    },
+                )
+                created_memories.append(memory)
+
+            logger.info(
+                f"Extracted {len(created_memories)} memories from conversation {conversation_id}"
+            )
+
+            return created_memories
+
+        except Exception as e:
+            logger.error(f"Failed to extract memories from conversation {conversation_id}: {e}")
+            return []
+
+    # Memory Merge Methods
+
+    async def suggest_memory_merges(self, user_id: str, limit: int = 100) -> list[MergeCandidate]:
+        """
+        Suggest memory merges based on similarity.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum number of memories to analyze
+
+        Returns:
+            List of merge candidates with similarity scores and conflicts
+        """
+        try:
+            # Get recent memories
+            memories = await self.get_memories(user_id=user_id, limit=limit)
+
+            if len(memories) < 2:
+                logger.info(f"Not enough memories for user {user_id} to suggest merges")
+                return []
+
+            # Convert to dict format for merge engine
+            memory_dicts = []
+            for mem in memories:
+                memory_dicts.append(
+                    {
+                        "id": mem.id,
+                        "text": mem.text,
+                        "type": mem.type.value,
+                        "importance": mem.importance,
+                        "confidence": mem.confidence,
+                        "tags": mem.tags,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "updated_at": mem.updated_at,
+                    }
+                )
+
+            # Calculate similarity matrix
+            similarity_matrix: dict[tuple[str, str], float] = {}
+            for i, mem1 in enumerate(memory_dicts):
+                for j, mem2 in enumerate(memory_dicts):
+                    if i < j:
+                        # Get embeddings and calculate similarity
+                        mem1_text = str(mem1["text"])
+                        mem2_text = str(mem2["text"])
+                        mem1_id = str(mem1["id"])
+                        mem2_id = str(mem2["id"])
+
+                        result1 = self.retriever.retrieve(
+                            query=mem1_text,
+                            user_id=user_id,
+                            k=1,
+                            filters={"id": mem1_id},
+                        )
+                        result2 = self.retriever.retrieve(
+                            query=mem2_text,
+                            user_id=user_id,
+                            k=1,
+                            filters={"id": mem2_id},
+                        )
+
+                        if result1 and result2:
+                            # Simple cosine similarity between embeddings
+                            emb1 = result1[0].memory.metadata.get("embedding", [])
+                            emb2 = result2[0].memory.metadata.get("embedding", [])
+                            if emb1 and emb2:
+                                similarity = float(
+                                    np.dot(emb1, emb2)
+                                    / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+                                )
+                                similarity_matrix[(mem1_id, mem2_id)] = similarity
+
+            # Get merge suggestions
+            candidates = self.merge_engine.suggest_merges(
+                memories=memory_dicts, similarity_matrix=similarity_matrix
+            )
+
+            logger.info(f"Found {len(candidates)} merge candidates for user {user_id}")
+
+            return cast(list[Any], candidates)
+
+        except Exception as e:
+            logger.error(f"Failed to suggest merges for user {user_id}: {e}")
+            return []
+
+    async def merge_memories(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: Optional[MergeStrategy] = None,
+        manual_resolutions: Optional[dict[str, Any]] = None,
+    ) -> Optional[MergeResult]:
+        """
+        Merge multiple memories into one.
+
+        Args:
+            memory_ids: List of memory IDs to merge
+            user_id: User identifier
+            strategy: Merge strategy (NEWEST, HIGHEST_CONFIDENCE, LONGEST, COMBINE, MANUAL)
+            manual_resolutions: Manual conflict resolutions
+
+        Returns:
+            Merge result with merged memory ID and metrics
+        """
+        try:
+            if len(memory_ids) < 2:
+                logger.warning("Need at least 2 memories to merge")
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = await self.get_memory(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                logger.error("Some memories not found or don't belong to user")
+                return None
+
+            # Execute merge
+            result = self.merge_engine.merge_memories(
+                memories=memories,
+                strategy=strategy,
+                user_id=user_id,
+                manual_resolutions=manual_resolutions,
+            )
+
+            if result.success:
+                # Create the merged memory in the store
+                merged_data = result.rollback_data.get("merged_memory", {})
+
+                merged_memory = await self.create_memory(
+                    text=merged_data["text"],
+                    user_id=user_id,
+                    memory_type=merged_data["type"],
+                    importance=merged_data["importance"],
+                    tags=merged_data["tags"],
+                    metadata=merged_data.get("metadata", {}),
+                    check_duplicate=False,  # Already verified
+                )
+
+                # Delete original memories
+                for mem_id in memory_ids:
+                    await self.delete_memory(memory_id=mem_id)
+
+                # Update result with actual merged memory ID
+                result.merged_memory_id = merged_memory.id
+
+                logger.info(
+                    f"Successfully merged {len(memory_ids)} memories into {merged_memory.id} "
+                    f"using {result.strategy_used} strategy"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to merge memories: {e}")
+            return None
+
+    async def preview_memory_merge(
+        self,
+        memory_ids: list[str],
+        user_id: str,
+        strategy: Optional[MergeStrategy] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Preview what a memory merge would look like without executing it.
+
+        Args:
+            memory_ids: List of memory IDs to preview merge
+            user_id: User identifier
+            strategy: Optional merge strategy
+
+        Returns:
+            Preview of merged memory with conflicts and quality metrics
+        """
+        try:
+            if len(memory_ids) < 2:
+                return None
+
+            # Fetch memories
+            memories = []
+            for mem_id in memory_ids:
+                mem = await self.get_memory(memory_id=mem_id)
+                if mem and mem.user_id == user_id:
+                    memories.append(
+                        {
+                            "id": mem.id,
+                            "text": mem.text,
+                            "type": mem.type.value,
+                            "importance": mem.importance,
+                            "confidence": mem.confidence,
+                            "tags": mem.tags,
+                            "metadata": mem.metadata,
+                            "created_at": mem.created_at,
+                            "updated_at": mem.updated_at,
+                        }
+                    )
+
+            if len(memories) != len(memory_ids):
+                return None
+
+            # Get preview
+            preview = self.merge_engine.preview_merge(memories=memories, strategy=strategy)
+
+            logger.info(f"Generated merge preview for {len(memory_ids)} memories")
+
+            return cast(Optional[dict[str, Any]], preview)
+
+        except Exception as e:
+            logger.error(f"Failed to preview merge: {e}")
+            return None

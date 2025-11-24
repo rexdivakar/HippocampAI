@@ -2306,7 +2306,7 @@ client.export_graph_to_json(
 ## 📚 Additional Resources
 
 - **[API Reference](API_REFERENCE.md)** - REST API documentation
-- **[SaaS API Reference](SAAS_API_COMPLETE_REFERENCE.md)** - Complete API endpoints
+- **[SaaS Guide](SAAS_GUIDE.md)** - Complete SaaS platform guide
 - **[Configuration](CONFIGURATION.md)** - Configuration options
 - **[Examples](../examples/)** - Working code examples
 - **[User Guide](USER_GUIDE.md)** - Production deployment

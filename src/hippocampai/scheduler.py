@@ -272,29 +272,18 @@ class MemoryScheduler:
 
         for job in jobs:
             # The SchedulerWrapper returns dicts, not job objects
-            if isinstance(job, dict):
-                next_run = job.get("next_run_time")
-                job_info.append(
-                    {
-                        "id": job.get("id"),
-                        "name": job.get("name"),
-                        "next_run": next_run.isoformat() if next_run else None,
-                        "trigger": job.get("trigger", "cron"),
-                    }
-                )
-            else:
-                # Fallback for actual job objects if present
-                next_run = getattr(job, "next_run_time", None)
-                job_info.append(
-                    {
-                        "id": getattr(job, "id", "unknown"),
-                        "name": getattr(job, "name", "unknown"),
-                        "next_run": next_run.isoformat() if next_run else None,
-                        "trigger": str(getattr(job, "trigger", "unknown")),
-                    }
-                )
+            next_run = job.get("next_run_time")
+            job_info.append(
+                {
+                    "id": job.get("id"),
+                    "name": job.get("name"),
+                    "next_run": next_run.isoformat() if next_run else None,
+                    "trigger": job.get("trigger", "cron"),
+                }
+            )
 
-        return {"running": self._running, "jobs": job_info}
+        status = "running" if self._running else "stopped"
+        return {"status": status, "jobs": job_info}
 
     def trigger_consolidation_now(self) -> None:
         """Manually trigger consolidation job immediately."""

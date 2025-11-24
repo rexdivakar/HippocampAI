@@ -27,7 +27,7 @@ class Entity(BaseModel):
     last_mentioned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def update_mention(self):
+    def update_mention(self) -> None:
         """Update mention count and timestamp."""
         self.mentions += 1
         self.last_mentioned_at = datetime.now(timezone.utc)
@@ -76,19 +76,23 @@ class Session(BaseModel):
     total_tokens: int = 0
     total_characters: int = 0
 
-    def update_activity(self):
+    def update_activity(self) -> None:
         """Update last activity timestamp."""
         self.last_activity_at = datetime.now(timezone.utc)
         self.message_count += 1
 
-    def add_entity(self, name: str, entity_type: str, metadata: Optional[dict] = None):
+    def add_entity(
+        self, name: str, entity_type: str, metadata: Optional[dict[str, Any]] = None
+    ) -> None:
         """Add or update an entity."""
         if name in self.entities:
             self.entities[name].update_mention()
         else:
             self.entities[name] = Entity(name=name, type=entity_type, metadata=metadata or {})
 
-    def add_fact(self, fact: str, confidence: float = 0.9, sources: Optional[list[str]] = None):
+    def add_fact(
+        self, fact: str, confidence: float = 0.9, sources: Optional[list[str]] = None
+    ) -> None:
         """Add a fact to the session."""
         self.facts.append(
             SessionFact(
@@ -98,17 +102,17 @@ class Session(BaseModel):
             )
         )
 
-    def add_child_session(self, child_id: str):
+    def add_child_session(self, child_id: str) -> None:
         """Add a child session ID."""
         if child_id not in self.child_session_ids:
             self.child_session_ids.append(child_id)
 
-    def complete(self):
+    def complete(self) -> None:
         """Mark session as completed."""
         self.status = SessionStatus.COMPLETED
         self.ended_at = datetime.now(timezone.utc)
 
-    def archive(self):
+    def archive(self) -> None:
         """Mark session as archived."""
         self.status = SessionStatus.ARCHIVED
         if not self.ended_at:

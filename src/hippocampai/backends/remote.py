@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import httpx
 
@@ -129,6 +129,7 @@ class RemoteBackend(BaseBackend):
             "text": text,
             "user_id": user_id,
             "session_id": session_id,
+            "type": "fact",
             "metadata": metadata or {},
             "tags": tags or [],
             "importance": importance,
@@ -187,24 +188,22 @@ class RemoteBackend(BaseBackend):
         after: Optional[datetime] = None,
         before: Optional[datetime] = None,
     ) -> list[Memory]:
-        """Get all memories for a user via API."""
-        params = {
+        """Get all memories for a user via API using query endpoint."""
+        payload = {
             "user_id": user_id,
             "session_id": session_id,
-            "limit": limit,
+            "k": limit,  # The query endpoint uses 'k' parameter
+            "filters": filters or {},
             "min_importance": min_importance,
             "after": after.isoformat() if after else None,
             "before": before.isoformat() if before else None,
         }
-        # Add filters to params
-        if filters:
-            for key, value in filters.items():
-                params[key] = value
 
         # Remove None values
-        params = {k: v for k, v in params.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None}
 
-        data = self._get("/v1/memories", params)
+        # Use the query endpoint which accepts POST
+        data = self._post("/v1/memories/query", payload)
         return [self._dict_to_memory(item) for item in data]
 
     def update_memory(
@@ -251,6 +250,10 @@ class RemoteBackend(BaseBackend):
         data = self._post("/v1/memories/batch", payload)
         return [self._dict_to_memory(item) for item in data]
 
+    def batch_create_memories(self, memories: list[dict[str, Any]]) -> list[Memory]:
+        """Store multiple memories via API (alias for batch_remember)."""
+        return self.batch_remember(memories)
+
     def batch_get_memories(self, memory_ids: list[str]) -> list[Memory]:
         """Get multiple memories by IDs via API."""
         payload = {"memory_ids": memory_ids}
@@ -267,24 +270,52 @@ class RemoteBackend(BaseBackend):
             logger.error(f"Batch delete failed: {e}")
             return False
 
+    def extract_from_conversation(
+        self,
+        conversation: list[dict[str, str]],
+        user_id: str,
+        session_id: Optional[str] = None,
+    ) -> list[Memory]:
+        """Extract memories from a conversation via API."""
+        import json
+
+        # Convert conversation list to string format expected by API
+        conversation_str = json.dumps(conversation)
+        payload = {
+            "conversation": conversation_str,
+            "user_id": user_id,
+            "session_id": session_id,
+        }
+        payload = {k: v for k, v in payload.items() if v is not None}
+        data = self._post("/v1/memories/extract", payload)
+        return [self._dict_to_memory(item) for item in data]
+
+    def deduplicate_memories(self, user_id: str, dry_run: bool = True) -> dict[str, Any]:
+        """Deduplicate memories for a user via API."""
+        payload = {"user_id": user_id, "dry_run": dry_run}
+        return cast(dict[str, Any], self._post("/v1/memories/deduplicate", payload))
+
     def consolidate_memories(
         self, user_id: str, session_id: Optional[str] = None
     ) -> list[dict[str, Any]]:
         """Consolidate related memories via API."""
-        payload = {"user_id": user_id, "session_id": session_id}
+        payload = {
+            "user_id": user_id,
+            "session_id": session_id,
+        }
         payload = {k: v for k, v in payload.items() if v is not None}
-        return self._post("/v1/memories/consolidate", payload)
+        return cast(list[dict[str, Any]], self._post("/v1/memories/consolidate", payload))
 
     def cleanup_expired_memories(self) -> int:
         """Remove expired memories via API."""
         data = self._post("/v1/memories/cleanup", {})
-        return data.get("deleted_count", 0)
+        return cast(int, data.get("deleted_count", 0))
 
     def get_memory_analytics(self, user_id: str) -> dict[str, Any]:
         """Get analytics for user's memories via API."""
         params = {"user_id": user_id}
-        return self._get("/v1/memories/analytics", params)
+        return cast(dict[str, Any], self._get("/v1/memories/analytics", params))
 
     def health_check(self) -> dict[str, Any]:
         """Check API server health."""
-        return self._get("/health")
+        return cast(dict[str, Any], self._get("/health"))
