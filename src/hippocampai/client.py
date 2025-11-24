@@ -635,65 +635,48 @@ class MemoryClient:
                                 if (
                                     memory.id in resolution.deleted_memory_ids
                                     and resolution.updated_memory
-                                elif resolution.action == "merge":
-                                    # Delete originals, store merged atomically as best as possible
-                                    if resolution.updated_memory:
-                                        try:
-                                            # Prepare merged payload/vector first to reduce failure window
-                                            merged_collection = resolution.updated_memory.collection_name(
-                                                self.config.collection_facts, self.config.collection_prefs
-                                            )
-                                            merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
-                                            merged_payload = resolution.updated_memory.model_dump(mode="json")
-
-                                            # Upsert merged memory first
-                                            self.qdrant.upsert(
-                                                collection_name=merged_collection,
-                                                id=resolution.updated_memory.id,
-                                                vector=merged_vector,
-                                                payload=merged_payload,
-                                            )
-
-                                            # Only delete originals after successful upsert
-                                            for mem_id in resolution.deleted_memory_ids:
-                                                self.delete_memory(mem_id, user_id)
-
-                                            memory = resolution.updated_memory
-                                            logger.info(
-                                                f"Auto-resolve: Merged into memory {memory.id}, "
-                                                f"deleted {len(resolution.deleted_memory_ids)} memories"
-                                            )
-
-                                            # Track provenance for merged memory
-                                            self.provenance_tracker.track_merge(
-                                                memory,
-                                                [conflict.memory_1, conflict.memory_2],
-                                                merge_strategy=resolution_strategy,
-                                            )
-                                        except Exception as merge_err:
-                                            logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
-                                            # Do not delete originals if upsert failed
-                                            # Optionally add conflict flags for manual review
-                                    )
-                                    self.qdrant.upsert(
-                                        collection_name=merged_collection,
-                                        id=resolution.updated_memory.id,
-                                        vector=merged_vector,
-                                        payload=resolution.updated_memory.model_dump(mode="json"),
-                                    )
-
+                                ):
                                     memory = resolution.updated_memory
-                                    logger.info(
-                                        f"Auto-resolve: Merged into memory {memory.id}, "
-                                        f"deleted {len(resolution.deleted_memory_ids)} memories"
-                                    )
 
-                                    # Track provenance for merged memory
-                                    self.provenance_tracker.track_merge(
-                                        memory,
-                                        [conflict.memory_1, conflict.memory_2],
-                                        merge_strategy=resolution_strategy,
-                                    )
+                            elif resolution.action == "merge":
+                                # Delete originals, store merged atomically as best as possible
+                                if resolution.updated_memory:
+                                    try:
+                                        # Prepare merged payload/vector first to reduce failure window
+                                        merged_collection = resolution.updated_memory.collection_name(
+                                            self.config.collection_facts, self.config.collection_prefs
+                                        )
+                                        merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
+                                        merged_payload = resolution.updated_memory.model_dump(mode="json")
+
+                                        # Upsert merged memory first
+                                        self.qdrant.upsert(
+                                            collection_name=merged_collection,
+                                            id=resolution.updated_memory.id,
+                                            vector=merged_vector,
+                                            payload=merged_payload,
+                                        )
+
+                                        # Only delete originals after successful upsert
+                                        for mem_id in resolution.deleted_memory_ids:
+                                            self.delete_memory(mem_id, user_id)
+
+                                        memory = resolution.updated_memory
+                                        logger.info(
+                                            f"Auto-resolve: Merged into memory {memory.id}, "
+                                            f"deleted {len(resolution.deleted_memory_ids)} memories"
+                                        )
+
+                                        # Track provenance for merged memory
+                                        self.provenance_tracker.track_merge(
+                                            memory,
+                                            [conflict.memory_1, conflict.memory_2],
+                                            merge_strategy=resolution_strategy,
+                                        )
+                                    except Exception as merge_err:
+                                        logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
+                                        # Do not delete originals if upsert failed
+                                        # Optionally add conflict flags for manual review
 
                             elif resolution.action in ["flag", "keep_both"]:
                                 # Update both memories with conflict metadata

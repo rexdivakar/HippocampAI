@@ -412,9 +412,10 @@ class MemoryManagementService:
         if cached:
             memory = Memory(**cached)
             if track_access and self.enable_lifecycle_management:
-                # Update access count and track in background
-                memory.access_count += 1
-                await self._update_memory_access(memory)
+                # Increment access count asynchronously without mutating the returned object
+                memory_copy = memory.model_copy(deep=True)
+                memory_copy.access_count += 1
+                asyncio.create_task(self._update_memory_access(memory_copy))
             return memory
 
         # Fall back to vector store
@@ -427,12 +428,13 @@ class MemoryManagementService:
                     memory = Memory(**payload)
 
                     if track_access and self.enable_lifecycle_management:
-                        # Update access count
-                        memory.access_count += 1
-                        await self._update_memory_access(memory)
+                        # Update access metrics asynchronously using a copy
+                        memory_copy = memory.model_copy(deep=True)
+                        memory_copy.access_count += 1
+                        asyncio.create_task(self._update_memory_access(memory_copy))
 
-                    # Cache in Redis
-                    await self.redis.set_memory(memory_id, memory.model_dump())
+                    # Cache in Redis without in-place mutations
+                    await self.redis.set_memory(memory_id, memory.model_dump(mode="json"))
                     return memory
             except Exception as e:
                 logger.debug(f"Memory {memory_id} not found in {collection}: {e}")
