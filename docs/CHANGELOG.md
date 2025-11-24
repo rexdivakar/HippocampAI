@@ -5,7 +5,7 @@ All notable changes to HippocampAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Latest Version]
 
 ## [0.3.0] - 2025-11-24
 
@@ -16,6 +16,7 @@ This release focuses on user experience improvements, making HippocampAI as easy
 ### Fixed
 
 #### Docker Deployment
+
 - **FIXED**: Docker Compose Celery services failing with `ModuleNotFoundError: No module named 'hippocampai'`
   - Changed Dockerfile from editable install (`pip install -e`) to regular install
   - Editable installs create symlinks that break in multi-stage Docker builds
@@ -94,6 +95,7 @@ This release focuses on user experience improvements, making HippocampAI as easy
 ### Changed
 
 #### Docker & Deployment
+
 - Updated `Dockerfile` line 27: Removed `-e` flag from pip install command for proper multi-stage build support
 - Enhanced `pyproject.toml` `saas` extras to include all LLM provider packages (anthropic, groq, ollama, openai)
 

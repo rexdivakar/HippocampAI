@@ -22,11 +22,14 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/HippocampAI.git
    cd HippocampAI
    ```
+
 3. **Add upstream remote**:
+
    ```bash
    git remote add upstream https://github.com/rexdivakar/HippocampAI.git
    ```
@@ -42,29 +45,34 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Installation
 
 1. **Create a virtual environment**:
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 2. **Install in development mode**:
+
    ```bash
    # Install with all dependencies
    pip install -e ".[dev,test,all]"
    ```
 
 3. **Start Qdrant**:
+
    ```bash
    docker run -p 6333:6333 qdrant/qdrant
    ```
 
 4. **Set up environment**:
+
    ```bash
    cp .env.example .env
    # Edit .env with your settings
    ```
 
 5. **Install pre-commit hooks** (optional but recommended):
+
    ```bash
    pre-commit install
    ```
@@ -74,6 +82,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Branching Strategy
 
 1. **Create a feature branch** from `main`:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -86,6 +95,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
    - `test/` - Test improvements
 
 2. **Keep your branch updated**:
+
    ```bash
    git fetch upstream
    git rebase upstream/main
@@ -151,6 +161,7 @@ pytest -m "not slow"
 3. **Name test functions** with `test_*` pattern
 4. **Use fixtures** from `conftest.py`
 5. **Mark tests** appropriately:
+
    ```python
    import pytest
 
@@ -216,12 +227,14 @@ pre-commit run --all-files
 ### Pull Request Process
 
 1. **Update your branch**:
+
    ```bash
    git fetch upstream
    git rebase upstream/main
    ```
 
 2. **Run tests and checks**:
+
    ```bash
    pytest
    black src/ tests/
@@ -230,6 +243,7 @@ pre-commit run --all-files
    ```
 
 3. **Commit your changes**:
+
    ```bash
    git add .
    git commit -m "feat: add new feature"
@@ -245,6 +259,7 @@ pre-commit run --all-files
    - `chore:` - Build/tooling changes
 
 4. **Push to your fork**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -297,21 +312,26 @@ client = MemoryClient()
 ```
 
 ### Expected Behavior
+
 [What should happen]
 
 ### Actual Behavior
+
 [What actually happens]
 
 ### Environment
+
 - Python: 3.11
 - HippocampAI: 0.1.5
 - OS: macOS 13.0
 - Qdrant: 1.7.0
 
 ### Error Messages
+
 ```
 [Full error output]
 ```
+
 ```
 
 ## Feature Requests
@@ -340,7 +360,9 @@ client.new_feature(param=value)
 ```
 
 ### Alternatives Considered
+
 [Other approaches you've thought about]
+
 ```
 
 ## Development Tips
@@ -431,8 +453,8 @@ def function(arg1: str, arg2: int) -> bool:
 
 1. Update version in `pyproject.toml`
 2. Update `CHANGELOG.md`
-3. Create git tag: `git tag -a V0.2.5 -m "Release 0.2.5"`
-4. Push tag: `git push origin V0.2.5`
+3. Create git tag: `git tag -a v0.3.0 -m "Release 0.2.5"`
+4. Push tag: `git push origin v0.3.0`
 5. Build: `python -m build`
 6. Upload: `python -m twine upload dist/*`
 7. Create GitHub release with changelog
@@ -441,11 +463,12 @@ def function(arg1: str, arg2: int) -> bool:
 
 - **Issues**: [GitHub Issues](https://github.com/rexdivakar/HippocampAI/issues)
 - **Discord**: [Join our community](https://discord.gg/pPSNW9J7gB)
-- **Email**: rexdivakar@hotmail.com
+- **Email**: <rexdivakar@hotmail.com>
 
 ## Recognition
 
 Contributors will be recognized in:
+
 - `README.md` contributors section
 - Release notes
 - GitHub contributors page

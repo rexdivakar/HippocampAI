@@ -10,7 +10,7 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.2.5 — Production-ready with 102+ methods, 50+ API endpoints, and comprehensive monitoring.
+**Current Release:** v0.3.0 — Production-ready with 102+ methods, 50+ API endpoints, and comprehensive monitoring.
 
 ---
 
