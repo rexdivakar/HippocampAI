@@ -10,17 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # actions/checkout v4.3.0 (full SHA)
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
+          # Shallow clones should be disabled for better analysis
           fetch-depth: 0
 
-      # SonarQube Scan action v6.0.0 (full SHA)
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          # OAuth client from https://tailscale.com/s/oauth-clients
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          # Optional but recommended: tag this CI node
+          tags: tag:ci
+
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          # Your SonarQube URL inside the tailnet
+          SONAR_HOST_URL: https://sonar.laperm-dragon.ts.net
 
       # If you want to enforce the Quality Gate, un-comment and keep the pin:
       # - name: SonarQube Quality Gate
