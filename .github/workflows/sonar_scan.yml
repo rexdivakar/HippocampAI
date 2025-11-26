@@ -4,6 +4,7 @@ on:
   push:
     branches: ['*']
 
+
 jobs:
   build:
     name: Build and analyze
@@ -11,23 +12,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # actions/checkout@v6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           # Shallow clones should be disabled for better analysis
           fetch-depth: 0
 
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v4
+        # tailscale/github-action@v4.1.0
+        uses: tailscale/github-action@a392da0a182bba0e9613b6243ebd69529b1878aa
         with:
-          # OAuth client from https://tailscale.com/s/oauth-clients
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          # Optional but recommended: tag this CI node
           tags: tag:ci
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        # SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          # Your SonarQube URL inside the tailnet
-          SONAR_HOST_URL: https://sonar.laperm-dragon.ts.net
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
