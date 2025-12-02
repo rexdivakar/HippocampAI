@@ -4,12 +4,14 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
+import socketio
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from hippocampai.api.deps import get_memory_client
+from hippocampai.api.websocket import sio
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
 
@@ -20,6 +22,9 @@ app = FastAPI(
     description="Autonomous memory engine with hybrid retrieval",
     version="0.3.0",
 )
+
+# Mount Socket.IO app
+socket_app = socketio.ASGIApp(sio, app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +51,33 @@ try:
     logger.info("Admin routes registered successfully")
 except ImportError as e:
     logger.warning(f"Could not load admin routes: {e}")
+
+# Include collaboration routes
+try:
+    from hippocampai.api.collaboration_routes import router as collaboration_router
+
+    app.include_router(collaboration_router)
+    logger.info("Collaboration routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load collaboration routes: {e}")
+
+# Include prediction routes
+try:
+    from hippocampai.api.prediction_routes import router as prediction_router
+
+    app.include_router(prediction_router)
+    logger.info("Prediction routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load prediction routes: {e}")
+
+# Include healing routes
+try:
+    from hippocampai.api.healing_routes import router as healing_router
+
+    app.include_router(healing_router)
+    logger.info("Healing routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load healing routes: {e}")
 
 
 # Request/Response models
@@ -234,8 +266,8 @@ def expire_memories(
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
-    """Run FastAPI server."""
-    uvicorn.run(app, host=host, port=port)
+    """Run FastAPI server with WebSocket support."""
+    uvicorn.run(socket_app, host=host, port=port)
 
 
 if __name__ == "__main__":
