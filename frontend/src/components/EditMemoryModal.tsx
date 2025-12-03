@@ -74,29 +74,31 @@ export function EditMemoryModal({ memory, isOpen, onClose, onSubmit }: EditMemor
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full my-8 overflow-hidden border border-gray-100">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <Edit className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+              <Edit className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold">Edit Memory</h2>
-              <p className="text-sm text-amber-100">Update memory details and metadata</p>
+              <h2 className="text-xl font-semibold text-gray-900">Edit Memory</h2>
+              <p className="text-sm text-gray-500">Update memory details and metadata</p>
             </div>
           </div>
 
           <button
             onClick={handleClose}
             disabled={loading}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 text-gray-400 hover:text-gray-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
             {/* Memory ID Display */}
             <div className="bg-gray-50 rounded-lg p-3">
@@ -219,19 +221,19 @@ export function EditMemoryModal({ memory, isOpen, onClose, onSubmit }: EditMemor
         </form>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
           <button
             type="button"
             onClick={handleClose}
             disabled={loading}
-            className="btn-secondary disabled:opacity-50"
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading || !text.trim()}
-            className="btn-primary flex items-center space-x-2 disabled:opacity-50 bg-amber-600 hover:bg-amber-700"
+            className="px-4 py-2.5 text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-sm"
           >
             <Save className="w-4 h-4" />
             <span>{loading ? 'Saving...' : 'Save Changes'}</span>

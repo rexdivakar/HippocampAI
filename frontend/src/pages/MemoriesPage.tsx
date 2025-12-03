@@ -6,7 +6,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import type { Memory, MemoryFilters } from '../types';
 import { MemoryCard } from '../components/MemoryCard';
 import { MemoryFiltersComponent } from '../components/MemoryFilters';
-import { MemoryDetailModal } from '../components/MemoryDetailModal';
+import { MemoryDetailDrawer } from '../components/MemoryDetailDrawer';
 import { AddMemoryModal } from '../components/AddMemoryModal';
 import { EditMemoryModal } from '../components/EditMemoryModal';
 import { ShareMemoryModal } from '../components/ShareMemoryModal';
@@ -265,12 +265,11 @@ export function MemoriesPage({ userId }: MemoriesPageProps) {
         </div>
       )}
 
-      {/* Memory detail modal */}
-      <MemoryDetailModal
+      {/* Memory detail drawer */}
+      <MemoryDetailDrawer
         memory={selectedMemory}
+        isOpen={!!selectedMemory}
         onClose={() => setSelectedMemory(null)}
-        onEdit={setEditingMemory}
-        onDelete={handleDelete}
       />
 
       {/* Add memory modal */}

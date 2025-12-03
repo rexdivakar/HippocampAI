@@ -223,3 +223,5 @@ debug_output/
 dist
 .pytest_cache
 .ruff_cache
+frontend/node_modules/*
+frontend/node_modules

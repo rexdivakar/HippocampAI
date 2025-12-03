@@ -30,28 +30,30 @@ export function MemoryDetailModal({
   if (!memory) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8 overflow-hidden border border-gray-100">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-primary text-white">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <Brain className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold">Memory Details</h2>
-              <p className="text-sm text-primary-100">ID: {memory.id.slice(0, 8)}...</p>
+              <h2 className="text-xl font-semibold text-gray-900">Memory Details</h2>
+              <p className="text-sm text-gray-500">ID: {memory.id.slice(0, 8)}...</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="p-6">
           {/* Memory Text */}
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -200,11 +202,11 @@ export function MemoryDetailModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
           {onEdit && (
             <button
               onClick={() => onEdit(memory)}
-              className="btn-secondary flex items-center space-x-2"
+              className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-2"
             >
               <Edit className="w-4 h-4" />
               <span>Edit</span>
@@ -213,13 +215,16 @@ export function MemoryDetailModal({
           {onDelete && (
             <button
               onClick={() => onDelete(memory)}
-              className="btn-danger flex items-center space-x-2"
+              className="px-4 py-2.5 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2 shadow-sm"
             >
               <Trash2 className="w-4 h-4" />
               <span>Delete</span>
             </button>
           )}
-          <button onClick={onClose} className="btn-primary">
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm"
+          >
             Close
           </button>
         </div>

@@ -84,21 +84,23 @@ export function ShareMemoryModal({ memory, isOpen, onClose }: ShareMemoryModalPr
   const shareableLink = `${window.location.origin}/memory/${memory.id}`;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full my-8 overflow-hidden border border-gray-100">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <Share2 className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+              <Share2 className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold">Share Memory</h2>
-              <p className="text-sm text-green-100">Export or copy memory data</p>
+              <h2 className="text-xl font-semibold text-gray-900">Share Memory</h2>
+              <p className="text-sm text-gray-500">Export or copy memory data</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
           >
             <X className="w-5 h-5" />
           </button>
@@ -177,7 +179,7 @@ export function ShareMemoryModal({ memory, isOpen, onClose }: ShareMemoryModalPr
           {/* Export Button */}
           <button
             onClick={handleExport}
-            className="btn-primary w-full flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
           >
             <Download className="w-4 h-4" />
             <span>Download as {exportFormat.toUpperCase()}</span>
