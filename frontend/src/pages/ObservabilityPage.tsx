@@ -104,7 +104,7 @@ export function ObservabilityPage({ userId }: ObservabilityPageProps) {
       {
         name: 'Replication',
         status: 'healthy',
-        value: '3 nodes',
+        value: 'Disabled (Single node)',
         timestamp: new Date(),
       },
     ];

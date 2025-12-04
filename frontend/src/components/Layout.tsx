@@ -23,6 +23,7 @@ import {
   Bot,
   Shield,
   Server,
+  Moon,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -167,6 +168,20 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
               >
                 <Brain className="w-5 h-5" />
                 <span>Memories</span>
+              </Link>
+
+              {/* Sleep Phase - Primary */}
+              <Link
+                to="/sleep-phase"
+                className={clsx(
+                  'flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200',
+                  location.pathname === '/sleep-phase'
+                    ? 'bg-primary-100 text-primary-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-100'
+                )}
+              >
+                <Moon className="w-5 h-5" />
+                <span>Sleep Phase</span>
               </Link>
 
               {/* Visualization Dropdown */}
@@ -361,7 +376,7 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-200 bg-white">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
-              {/* Primary Link */}
+              {/* Primary Links */}
               <Link
                 to="/memories"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -374,6 +389,20 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
               >
                 <Brain className="w-5 h-5" />
                 <span>Memories</span>
+              </Link>
+
+              <Link
+                to="/sleep-phase"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={clsx(
+                  'flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors',
+                  location.pathname === '/sleep-phase'
+                    ? 'bg-primary-100 text-primary-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                )}
+              >
+                <Moon className="w-5 h-5" />
+                <span>Sleep Phase</span>
               </Link>
 
               {/* Visualization Group */}

@@ -79,13 +79,22 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load healing routes: {e}")
 
+# Include consolidation routes (Sleep Phase)
+try:
+    from hippocampai.api.consolidation_routes import router as consolidation_router
+
+    app.include_router(consolidation_router)
+    logger.info("Consolidation routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load consolidation routes: {e}")
+
 
 # Request/Response models
 class RememberRequest(BaseModel):
     text: str
     user_id: str
     session_id: Optional[str] = None
-    type: str = "fact"
+    type: Optional[str] = None  # Auto-detect if not provided
     importance: Optional[float] = None
     tags: Optional[list[str]] = None
     ttl_days: Optional[int] = None
@@ -138,13 +147,36 @@ def health_check() -> dict[str, str]:
 
 @app.post("/v1/memories:remember", response_model=Memory)
 def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory_client)) -> Memory:
-    """Store a memory."""
+    """
+    Store a memory with automatic type detection.
+
+    If type is not provided, it will be automatically detected based on content patterns:
+    - fact: Personal information, identity statements
+    - preference: Likes, dislikes, opinions
+    - goal: Intentions, aspirations, plans
+    - habit: Routines, regular activities
+    - event: Specific occurrences, meetings
+    - context: General conversation (default)
+    """
     try:
+        # Automatic type detection if not provided (LLM-based with fallback)
+        memory_type = request.type
+        if not memory_type:
+            from hippocampai.utils.llm_classifier import get_llm_classifier
+
+            llm_classifier = get_llm_classifier(use_cache=True)
+            detected_type, confidence = llm_classifier.classify_with_confidence(request.text)
+            memory_type = detected_type.value
+            logger.info(
+                f"Auto-detected memory type: {memory_type} (confidence: {confidence:.2f}) "
+                f"for text: {request.text[:50]}..."
+            )
+
         memory = client.remember(
             text=request.text,
             user_id=request.user_id,
             session_id=request.session_id,
-            type=request.type,
+            type=memory_type,
             importance=request.importance,
             tags=request.tags,
             ttl_days=request.ttl_days,

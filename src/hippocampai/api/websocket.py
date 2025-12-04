@@ -13,7 +13,11 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
     logger=True,
-    engineio_logger=False,
+    engineio_logger=True,
+    allow_upgrades=True,
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1000000,
 )
 
 # Store connected clients and their subscriptions

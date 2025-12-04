@@ -72,22 +72,45 @@ class LocalBackend(BaseBackend):
             delta = expires_at - now
             ttl_days = max(1, int(delta.total_seconds() / (24 * 3600)))
 
-        # Determine memory type from metadata or default to "fact"
-        memory_type = "fact"
-        if metadata and "type" in metadata:
+        # Determine memory type with automatic detection
+        memory_type = None
+
+        # Priority 1: Explicit type in metadata
+        if metadata and "type" in metadata and metadata["type"]:
             memory_type = metadata["type"]
+            logger.debug(f"Using explicit type from metadata: {memory_type}")
+        # Priority 2: Infer from tags
         elif tags:
-            # Infer type from tags if possible
             type_mapping = {
                 "preference": "preference",
                 "event": "event",
                 "fact": "fact",
-                "opinion": "opinion",
+                "goal": "goal",
+                "habit": "habit",
+                "context": "context",
             }
             for tag in tags:
                 if tag in type_mapping:
                     memory_type = type_mapping[tag]
+                    logger.debug(f"Using type inferred from tag '{tag}': {memory_type}")
                     break
+
+        # Priority 3: Automatic detection from text content (LLM-based with fallback)
+        if not memory_type:
+            try:
+                # Try LLM-based classification first (with automatic fallback to patterns)
+                from hippocampai.utils.llm_classifier import get_llm_classifier
+
+                llm_classifier = get_llm_classifier(use_cache=True)
+                detected_type, confidence = llm_classifier.classify_with_confidence(text)
+                memory_type = detected_type.value
+                logger.info(
+                    f"Auto-detected memory type: {memory_type} (confidence: {confidence:.2f}) "
+                    f"for text: {text[:50]}..."
+                )
+            except Exception as e:
+                logger.warning(f"Failed to auto-detect memory type: {e}. Using default: fact")
+                memory_type = "fact"
 
         # Filter parameters that MemoryClient.remember() accepts
         memory_kwargs = {

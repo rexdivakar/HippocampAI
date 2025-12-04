@@ -233,6 +233,62 @@ class APIClient {
   }
 
   // ============================================================================
+  // CONSOLIDATION (SLEEP PHASE)
+  // ============================================================================
+
+  async getConsolidationStatus(userId: string) {
+    const response = await this.client.get('/consolidation/status', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getConsolidationStats(userId: string) {
+    const response = await this.client.get('/consolidation/stats', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getConsolidationRuns(userId: string, limit: number = 50) {
+    const response = await this.client.get('/consolidation/runs', {
+      params: { user_id: userId, limit },
+    });
+    return response.data;
+  }
+
+  async getConsolidationRun(runId: string, userId: string) {
+    const response = await this.client.get(`/consolidation/runs/${runId}`, {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getConsolidationConfig(userId: string) {
+    const response = await this.client.get('/consolidation/config', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getLatestConsolidationRun(userId: string) {
+    const response = await this.client.get('/consolidation/latest', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async triggerConsolidation(userId: string, dryRun: boolean = true, lookbackHours: number = 24) {
+    const response = await this.client.post('/consolidation/trigger', {
+      dry_run: dryRun,
+      lookback_hours: lookbackHours,
+    }, {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  // ============================================================================
   // AUTH
   // ============================================================================
 

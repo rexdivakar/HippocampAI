@@ -71,12 +71,12 @@ def get_beat_schedule() -> dict[str, dict[str, Any]]:
             "options": {"queue": "scheduled"},
         }
 
-    # Memory consolidation
-    if os.getenv("AUTO_CONSOLIDATION_ENABLED", "false").lower() == "true":
-        consolidation_interval = int(os.getenv("CONSOLIDATION_INTERVAL_HOURS", "168"))
-        schedule["auto-consolidate-memories"] = {
-            "task": "hippocampai.tasks.consolidate_all_memories",
-            "schedule": crontab(hour=f"*/{consolidation_interval}"),
+    # Memory consolidation (Sleep Phase)
+    if os.getenv("ACTIVE_CONSOLIDATION_ENABLED", "false").lower() == "true":
+        consolidation_hour = int(os.getenv("CONSOLIDATION_SCHEDULE_HOUR", "3"))
+        schedule["sleep-phase-consolidation"] = {
+            "task": "hippocampai.consolidation.run_daily_consolidation",
+            "schedule": crontab(hour=consolidation_hour, minute=0),
             "options": {"queue": "scheduled"},
         }
 
@@ -128,6 +128,9 @@ celery_app.conf.task_routes = {
     "hippocampai.tasks.decay_memory_importance": {"queue": "scheduled"},
     "hippocampai.tasks.create_collection_snapshots": {"queue": "scheduled"},
     "hippocampai.tasks.health_check_task": {"queue": "background"},
+    # Sleep Phase consolidation tasks
+    "hippocampai.consolidation.run_daily_consolidation": {"queue": "scheduled"},
+    "hippocampai.consolidation.consolidate_user_memories": {"queue": "scheduled"},
 }
 
 if __name__ == "__main__":

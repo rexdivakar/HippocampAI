@@ -25,4 +25,20 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 8081,
+    host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'http://hippocampai:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/socket.io': {
+        target: 'http://hippocampai:8000',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+  },
 })
