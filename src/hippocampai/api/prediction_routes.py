@@ -1,15 +1,13 @@
 """REST API routes for predictive analytics."""
 
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from hippocampai.client import MemoryClient
+from hippocampai.models.prediction import ForecastHorizon, ForecastMetric
 from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
 from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
-from hippocampai.models.prediction import ForecastMetric, ForecastHorizon
-
 
 router = APIRouter(prefix="/v1/predictions", tags=["predictions"])
 

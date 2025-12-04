@@ -1,7 +1,6 @@
 """LLM-based dynamic memory classification for intelligent and consistent type detection."""
 
 import hashlib
-import json
 import logging
 from typing import Optional, Tuple
 
@@ -67,8 +66,9 @@ class LLMMemoryClassifier:
 
         # Import here to avoid circular dependency
         try:
-            from hippocampai.config import get_config
             from hippocampai.llm import get_llm_provider
+
+            from hippocampai.config import get_config
 
             self.config = get_config()
             if not self.llm_provider:

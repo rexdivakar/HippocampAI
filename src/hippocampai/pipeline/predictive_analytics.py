@@ -23,8 +23,8 @@ from hippocampai.models.prediction import (
     ForecastMetric,
     MemoryForecast,
     MemoryPrediction,
-    PredictiveInsight,
     PredictionType,
+    PredictiveInsight,
     Recommendation,
     RecommendationType,
 )
@@ -345,7 +345,7 @@ class PredictiveAnalyticsEngine:
                 anomaly_type=AnomalyType.UNUSUAL_ACTIVITY,
                 severity=AnomalySeverity.MEDIUM if recent_rate < baseline_rate else AnomalySeverity.LOW,
                 title="Unusual memory activity detected",
-                description=f"Your memory creation rate has changed significantly",
+                description="Your memory creation rate has changed significantly",
                 expected_behavior=f"Typical: {baseline_rate:.1f} memories/day",
                 actual_behavior=f"Recent: {recent_rate:.1f} memories/day",
                 suggestions=[

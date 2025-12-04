@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from fastapi import Header, HTTPException
+from fastapi import Header
 
 from hippocampai.client import MemoryClient
 from hippocampai.config import get_config

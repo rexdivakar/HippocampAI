@@ -116,7 +116,7 @@ class ConsolidationPolicyEngine:
 
         # Archive low-importance, unaccessed memories
         if memory.importance < self.policy.archive_importance_threshold and memory.access_count == 0:
-            return True, f"Low importance + never accessed"
+            return True, "Low importance + never accessed"
 
         return False, "Does not meet archival criteria"
 
@@ -381,8 +381,9 @@ def apply_consolidation_decisions(
 
 if __name__ == "__main__":
     # Demo policy engine
+    from datetime import datetime, timedelta, timezone
+
     from hippocampai.models import Memory, MemoryType
-    from datetime import datetime, timezone, timedelta
 
     policy = ConsolidationPolicy()
     engine = ConsolidationPolicyEngine(policy)
@@ -423,6 +424,6 @@ if __name__ == "__main__":
     should_prom, new_imp, reason = engine.should_promote(important_goal)
     print(f"   Promote: {should_prom} to {new_imp:.1f} ({reason})")
 
-    print(f"\n3. Apply decay to old event")
+    print("\n3. Apply decay to old event")
     new_importance = engine.apply_decay(old_event, days_elapsed=5)
     print(f"   {old_event.importance:.2f} -> {new_importance:.2f}")

@@ -1,11 +1,12 @@
 """Celery tasks for scheduled memory maintenance."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
+
+from celery.schedules import crontab
 
 from hippocampai.celery_app import celery_app
-from hippocampai.models.healing import AutoHealingConfig, MaintenanceRun, MaintenanceStatus
+from hippocampai.models.healing import AutoHealingConfig
 
 logger = logging.getLogger(__name__)
 

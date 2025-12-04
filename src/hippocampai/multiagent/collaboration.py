@@ -16,7 +16,6 @@ from hippocampai.models.collaboration import (
     ResolutionStrategy,
     SharedMemorySpace,
 )
-from hippocampai.models.memory import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +260,7 @@ class CollaborationManager:
                 notification_type=NotificationType.PERMISSION_GRANTED,
                 priority=NotificationPriority.MEDIUM,
                 title=f"Permissions updated in '{space.name}'",
-                message=f"Your permissions have been updated",
+                message="Your permissions have been updated",
                 data={"space_id": space_id, "permissions": [p.value for p in permissions]},
             )
 
@@ -405,7 +404,7 @@ class CollaborationManager:
                 notification_type=NotificationType.CONFLICT_DETECTED,
                 priority=NotificationPriority.HIGH,
                 title=f"Conflict detected in '{space.name}'",
-                message=f"A memory conflict needs resolution",
+                message="A memory conflict needs resolution",
                 data={
                     "conflict_id": conflict.id,
                     "memory_id": memory_id,

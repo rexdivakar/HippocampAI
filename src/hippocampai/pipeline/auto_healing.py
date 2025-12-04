@@ -8,7 +8,7 @@ This module provides:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from hippocampai.embed.embedder import Embedder
@@ -19,7 +19,6 @@ from hippocampai.models.healing import (
     HealingAction,
     HealingActionType,
     HealingReport,
-    HealthImprovement,
 )
 from hippocampai.models.memory import Memory
 from hippocampai.monitoring.memory_health import MemoryHealthMonitor
@@ -87,7 +86,7 @@ class AutoHealingEngine:
                 else HealingActionType.DELETE,
                 memory_ids=[stale_mem.memory.id],
                 reason=f"Stale memory ({stale_mem.reason.value}): {stale_mem.staleness_score:.2f} staleness",
-                impact=f"Will free up storage and improve health score",
+                impact="Will free up storage and improve health score",
                 reversible=True,
                 auto_applicable=not config.require_user_approval
                 and stale_mem.staleness_score > 0.8,

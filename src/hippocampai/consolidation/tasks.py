@@ -8,26 +8,22 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from celery import chain, chord, group
+from celery import group
+
 from hippocampai.celery_app import celery_app
-from hippocampai.client import MemoryClient
 from hippocampai.consolidation.models import (
-    ConsolidationDecision,
     ConsolidationRun,
     ConsolidationStatus,
     MemoryCluster,
 )
 from hippocampai.consolidation.policy import (
     ConsolidationPolicy,
-    ConsolidationPolicyEngine,
     apply_consolidation_decisions,
 )
 from hippocampai.consolidation.prompts import (
-    CONSOLIDATION_SYSTEM_MESSAGE,
     build_consolidation_prompt,
-    build_cluster_theme_prompt,
 )
-from hippocampai.models import Memory, MemoryType
+from hippocampai.models import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +151,85 @@ def run_daily_consolidation(self):
         return {"status": "failed", "error": str(e)}
 
 
+def cluster_memories(memories: list[Memory]) -> list[MemoryCluster]:
+    """
+    Group related memories into clusters for batch processing.
+
+    Args:
+        memories: List of memories to cluster
+
+    Returns:
+        List of MemoryCluster objects
+    """
+    clusters = []
+
+    # Strategy 1: Cluster by session_id
+    by_session: dict[str, list[Memory]] = {}
+    no_session: list[Memory] = []
+
+    for mem in memories:
+        if mem.session_id:
+            by_session.setdefault(mem.session_id, []).append(mem)
+        else:
+            no_session.append(mem)
+
+    # Create clusters from sessions
+    for session_id, session_memories in by_session.items():
+        cluster = MemoryCluster(
+            cluster_id=f"session-{session_id}",
+            memories=[m.id for m in session_memories],
+            theme=f"Session {session_id[:8]}",
+            time_window_start=min(m.created_at for m in session_memories),
+            time_window_end=max(m.created_at for m in session_memories),
+            avg_importance=sum(m.importance for m in session_memories) / len(session_memories),
+        )
+        clusters.append(cluster)
+
+    # Strategy 2: Cluster no-session memories by time windows (4-hour blocks)
+    if no_session:
+        # Sort by time
+        no_session.sort(key=lambda m: m.created_at)
+
+        # Group into 4-hour windows
+        window_hours = 4
+        current_cluster = []
+        window_start = no_session[0].created_at
+
+        for mem in no_session:
+            if (mem.created_at - window_start).total_seconds() / 3600 <= window_hours:
+                current_cluster.append(mem)
+            else:
+                # Start new cluster
+                if current_cluster:
+                    cluster = MemoryCluster(
+                        cluster_id=f"time-{window_start.isoformat()}",
+                        memories=[m.id for m in current_cluster],
+                        theme=f"Memories from {window_start.strftime('%Y-%m-%d %H:%M')}",
+                        time_window_start=current_cluster[0].created_at,
+                        time_window_end=current_cluster[-1].created_at,
+                        avg_importance=sum(m.importance for m in current_cluster) / len(current_cluster),
+                    )
+                    clusters.append(cluster)
+
+                current_cluster = [mem]
+                window_start = mem.created_at
+
+        # Add final cluster
+        if current_cluster:
+            cluster = MemoryCluster(
+                cluster_id=f"time-{window_start.isoformat()}",
+                memories=[m.id for m in current_cluster],
+                theme=f"Memories from {window_start.strftime('%Y-%m-%d %H:%M')}",
+                time_window_start=current_cluster[0].created_at,
+                time_window_end=current_cluster[-1].created_at,
+                avg_importance=sum(m.importance for m in current_cluster) / len(current_cluster),
+            )
+            clusters.append(cluster)
+
+    logger.info(f"Created {len(clusters)} clusters from {len(memories)} memories")
+    return clusters
+
+
 @celery_app.task(
     name="hippocampai.consolidation.consolidate_user_memories",
     bind=True,
@@ -213,10 +288,10 @@ def consolidate_user_memories(
 
         for cluster in clusters:
             try:
-                cluster_memories = [m for m in memories if m.id in cluster.memories]
+                memories_in_cluster = [m for m in memories if m.id in cluster.memories]
 
                 # Call LLM for review
-                llm_decision = llm_review_cluster(cluster_memories, user_id, cluster.theme)
+                llm_decision = llm_review_cluster(memories_in_cluster, user_id, cluster.theme)
                 run.llm_calls_made += 1
 
                 # Merge decisions
@@ -316,8 +391,9 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
         List of Memory objects
     """
     try:
-        # Use HippocampAI client to fetch memories
-        client = HippocampAIClient()
+        # Use MemoryClient to fetch memories
+        from hippocampai.client import MemoryClient
+        client = MemoryClient()
 
         # Calculate time threshold
         threshold = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
@@ -349,83 +425,6 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
         return []
 
 
-def cluster_memories(memories: list[Memory]) -> list[MemoryCluster]:
-    """
-    Group related memories into clusters for batch processing.
-
-    Args:
-        memories: List of memories to cluster
-
-    Returns:
-        List of MemoryCluster objects
-    """
-    clusters = []
-
-    # Strategy 1: Cluster by session_id
-    by_session: dict[str, list[Memory]] = {}
-    no_session: list[Memory] = []
-
-    for mem in memories:
-        if mem.session_id:
-            by_session.setdefault(mem.session_id, []).append(mem)
-        else:
-            no_session.append(mem)
-
-    # Create clusters from sessions
-    for session_id, session_memories in by_session.items():
-        cluster = MemoryCluster(
-            cluster_id=f"session-{session_id}",
-            memories=[m.id for m in session_memories],
-            theme=f"Session {session_id[:8]}",
-            time_window_start=min(m.created_at for m in session_memories),
-            time_window_end=max(m.created_at for m in session_memories),
-            avg_importance=sum(m.importance for m in session_memories) / len(session_memories),
-        )
-        clusters.append(cluster)
-
-    # Strategy 2: Cluster no-session memories by time windows (4-hour blocks)
-    if no_session:
-        # Sort by time
-        no_session.sort(key=lambda m: m.created_at)
-
-        # Group into 4-hour windows
-        window_hours = 4
-        current_cluster = []
-        window_start = no_session[0].created_at
-
-        for mem in no_session:
-            if (mem.created_at - window_start).total_seconds() / 3600 <= window_hours:
-                current_cluster.append(mem)
-            else:
-                # Start new cluster
-                if current_cluster:
-                    cluster = MemoryCluster(
-                        cluster_id=f"time-{window_start.isoformat()}",
-                        memories=[m.id for m in current_cluster],
-                        theme=f"Memories from {window_start.strftime('%Y-%m-%d %H:%M')}",
-                        time_window_start=current_cluster[0].created_at,
-                        time_window_end=current_cluster[-1].created_at,
-                        avg_importance=sum(m.importance for m in current_cluster) / len(current_cluster),
-                    )
-                    clusters.append(cluster)
-
-                current_cluster = [mem]
-                window_start = mem.created_at
-
-        # Add final cluster
-        if current_cluster:
-            cluster = MemoryCluster(
-                cluster_id=f"time-{window_start.isoformat()}",
-                memories=[m.id for m in current_cluster],
-                theme=f"Memories from {window_start.strftime('%Y-%m-%d %H:%M')}",
-                time_window_start=current_cluster[0].created_at,
-                time_window_end=current_cluster[-1].created_at,
-                avg_importance=sum(m.importance for m in current_cluster) / len(current_cluster),
-            )
-            clusters.append(cluster)
-
-    logger.info(f"Created {len(clusters)} clusters from {len(memories)} memories")
-    return clusters
 
 
 def llm_review_cluster(
@@ -455,12 +454,7 @@ def llm_review_cluster(
             cluster_theme=cluster_theme,
         )
 
-        # Call LLM via your UnifiedClient or similar
-        # This is a placeholder - replace with your actual LLM client
-        client = HippocampAIClient()
-
-        # Use the chat/completion endpoint
-        # NOTE: Adjust based on your actual LLM client interface
+        # Call LLM for consolidation decision
         response_text = call_llm_for_consolidation(
             prompt=prompt,
             model=CONSOLIDATION_LLM_MODEL,
@@ -563,7 +557,8 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
         user_id: User ID
         actions: Actions dictionary from apply_consolidation_decisions
     """
-    client = HippocampAIClient()
+    from hippocampai.client import MemoryClient
+    client = MemoryClient()
 
     # Delete memories
     for delete_action in actions["to_delete"]:

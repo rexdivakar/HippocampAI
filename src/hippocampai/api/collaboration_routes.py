@@ -1,19 +1,16 @@
 """REST API routes for collaboration features."""
 
-from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from hippocampai.multiagent.collaboration import CollaborationManager
 from hippocampai.models.agent import PermissionType
 from hippocampai.models.collaboration import (
     CollaborationEventType,
-    ConflictType,
     ResolutionStrategy,
 )
-
+from hippocampai.multiagent.collaboration import CollaborationManager
 
 router = APIRouter(prefix="/v1/collaboration", tags=["collaboration"])
 

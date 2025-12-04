@@ -6,11 +6,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from hippocampai.client import MemoryClient
-from hippocampai.pipeline.auto_healing import AutoHealingEngine
-from hippocampai.monitoring.memory_health import MemoryHealthMonitor
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.healing import AutoHealingConfig, HealingActionType
-
+from hippocampai.monitoring.memory_health import MemoryHealthMonitor
+from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
 router = APIRouter(prefix="/v1/healing", tags=["healing"])
 

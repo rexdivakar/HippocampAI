@@ -3,8 +3,8 @@
 from hippocampai.consolidation.models import (
     ConsolidationDecision,
     ConsolidationRun,
-    ConsolidationStatus,
     ConsolidationStats,
+    ConsolidationStatus,
     MemoryCluster,
     MemoryConsolidationFields,
 )
@@ -15,16 +15,16 @@ from hippocampai.consolidation.policy import (
 )
 from hippocampai.consolidation.prompts import (
     CONSOLIDATION_SYSTEM_MESSAGE,
+    build_cluster_theme_prompt,
     build_consolidation_prompt,
     build_simple_review_prompt,
-    build_cluster_theme_prompt,
     build_synthetic_memory_prompt,
 )
 from hippocampai.consolidation.tasks import (
-    run_daily_consolidation,
-    consolidate_user_memories,
-    collect_recent_memories,
     cluster_memories,
+    collect_recent_memories,
+    consolidate_user_memories,
+    run_daily_consolidation,
 )
 
 __all__ = [
