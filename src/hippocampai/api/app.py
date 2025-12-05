@@ -88,6 +88,15 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load consolidation routes: {e}")
 
+# Include dashboard routes
+try:
+    from hippocampai.api.dashboard_routes import router as dashboard_router
+
+    app.include_router(dashboard_router)
+    logger.info("Dashboard routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load dashboard routes: {e}")
+
 
 # Request/Response models
 class RememberRequest(BaseModel):

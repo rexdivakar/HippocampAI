@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
+import { DashboardPage } from './pages/DashboardPage';
 import { MemoriesPage } from './pages/MemoriesPage';
 import { MemoriesPageRedesigned } from './pages/MemoriesPageRedesigned';
 import { TimelinePage } from './pages/TimelinePage';
@@ -71,7 +72,8 @@ function App() {
         wsConnected={connected}
       >
         <Routes>
-          <Route path="/" element={<Navigate to="/memories" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage userId={userId!} />} />
           <Route path="/memories" element={<MemoriesPageRedesigned userId={userId!} />} />
           <Route path="/memories/classic" element={<MemoriesPage userId={userId!} />} />
           <Route path="/sleep-phase" element={<SleepPhasePage userId={userId!} />} />
@@ -88,7 +90,7 @@ function App() {
           <Route path="/health" element={<HealthPage userId={userId!} />} />
           <Route path="/analytics" element={<AnalyticsPage userId={userId!} />} />
           <Route path="/observability" element={<ObservabilityPage userId={userId!} />} />
-          <Route path="*" element={<Navigate to="/memories" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
     </Router>

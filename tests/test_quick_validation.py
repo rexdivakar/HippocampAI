@@ -3,21 +3,21 @@
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from hippocampai.client import MemoryClient
-from hippocampai.multiagent.collaboration import CollaborationManager
-from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
-from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
-from hippocampai.pipeline.auto_healing import AutoHealingEngine
-from hippocampai.monitoring.memory_health import MemoryHealthMonitor
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.agent import PermissionType
 from hippocampai.models.healing import AutoHealingConfig
-from hippocampai.models.prediction import ForecastMetric, ForecastHorizon
+from hippocampai.models.prediction import ForecastHorizon, ForecastMetric
+from hippocampai.monitoring.memory_health import MemoryHealthMonitor
+from hippocampai.multiagent.collaboration import CollaborationManager
+from hippocampai.pipeline.auto_healing import AutoHealingEngine
+from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
+from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
 
 
 def test(name):
@@ -105,7 +105,7 @@ def test_sessions():
             message=f"Message {i}",
             role="user"
         )
-    print(f"  ✓ Tracked 3 messages")
+    print("  ✓ Tracked 3 messages")
 
     # Get session
     retrieved = client.get_session(session.id, user_id=USER_ID)
@@ -135,7 +135,7 @@ def test_collaboration():
         user_id=USER_ID,
         role="assistant"
     )
-    print(f"  ✓ Created 2 agents")
+    print("  ✓ Created 2 agents")
 
     # Create space
     space = collab.create_space(
@@ -151,7 +151,7 @@ def test_collaboration():
         permissions=[PermissionType.READ, PermissionType.WRITE],
         inviter_id=agent1.id
     )
-    print(f"  ✓ Added collaborator with READ, WRITE permissions")
+    print("  ✓ Added collaborator with READ, WRITE permissions")
 
     # Add memory to space
     memory = client.remember(
@@ -160,7 +160,7 @@ def test_collaboration():
         agent_id=agent1.id
     )
     collab.add_memory_to_space(space.id, memory.id, agent1.id)
-    print(f"  ✓ Added memory to shared space")
+    print("  ✓ Added memory to shared space")
 
     # Get events
     events = collab.get_space_events(space.id)
@@ -182,14 +182,13 @@ def test_predictions():
 
     # Create memories with pattern
     for i in range(10):
-        date = datetime.now() - timedelta(days=i)
         client.remember(
             f"Pattern memory {i}",
             user_id=USER_ID,
             type="habit",
             importance=6.0
         )
-    print(f"  ✓ Created 10 memories for pattern detection")
+    print("  ✓ Created 10 memories for pattern detection")
 
     # Detect patterns
     memories = client.get_memories(user_id=USER_ID)
@@ -234,7 +233,7 @@ def test_autohealing():
             tags=[f"tag_{i % 3}"],
             confidence=0.7 + (i % 3) * 0.1
         )
-    print(f"  ✓ Created 15 diverse memories")
+    print("  ✓ Created 15 diverse memories")
 
     # Check health
     memories = client.get_memories(user_id=USER_ID)
@@ -289,14 +288,14 @@ def test_multiuser():
     user1_ids = [m.id for m in user1_mems]
     assert mem1.id in user1_ids
     assert mem2.id not in user1_ids
-    print(f"  ✓ User 1 isolation verified")
+    print("  ✓ User 1 isolation verified")
 
     # User 2 should only see their memories
     user2_mems = client.get_memories(user_id=user2_id)
     user2_ids = [m.id for m in user2_mems]
     assert mem2.id in user2_ids
     assert mem1.id not in user2_ids
-    print(f"  ✓ User 2 isolation verified")
+    print("  ✓ User 2 isolation verified")
 
     return True
 

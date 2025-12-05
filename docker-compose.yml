@@ -300,13 +300,13 @@ services:
     container_name: hippocampai-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-8081}:8081"
+      - "${FRONTEND_PORT:-81}:81"
     depends_on:
       - hippocampai
     networks:
       - hippocampai-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:81"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -285,28 +285,35 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Network className="w-8 h-8 text-primary-600" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Knowledge Graph</h1>
-            <p className="text-gray-600">Visual exploration of entities, concepts, and relationships</p>
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Left: Title */}
+          <div className="flex items-center space-x-2">
+            <Network className="w-6 h-6 text-primary-600" />
+            <h1 className="text-xl font-semibold text-gray-900">Knowledge Graph</h1>
+            <span className="text-sm text-gray-500">
+              ({filteredGraphData.nodes.length} nodes, {filteredGraphData.links.length} connections)
+            </span>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Refresh graph"
+            >
+              <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+            </button>
           </div>
         </div>
-
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="btn-secondary flex items-center space-x-2"
-          >
-            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-            <span>Refresh</span>
-          </button>
-        </div>
       </div>
+
+      {/* Content Wrapper */}
+      <div className="flex-1 overflow-hidden flex flex-col px-6 py-8 space-y-6">
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -518,6 +525,7 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

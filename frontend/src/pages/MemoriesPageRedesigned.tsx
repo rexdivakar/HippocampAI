@@ -295,7 +295,7 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
         {/* Master-Detail Layout */}
         <div className="flex-1 flex min-h-0">
           {/* Memory List */}
-          <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+          <div className="w-full lg:w-1/4 xl:w-1/5 2xl:w-1/6 min-w-[320px] max-w-[480px] bg-white border-r border-gray-200 flex flex-col">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <RefreshCw className="w-8 h-8 text-primary-600 animate-spin" />

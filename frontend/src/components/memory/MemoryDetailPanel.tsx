@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { Memory } from '../../types';
 import clsx from 'clsx';
+import { CopyableField } from '../CopyableField';
 
 interface MemoryDetailPanelProps {
   memory: Memory;
@@ -141,103 +142,78 @@ export function MemoryDetailPanel({ memory, onEdit, onDelete }: MemoryDetailPane
             Metadata
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Hash className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Memory ID</span>
-              </div>
-              <p className="text-sm text-gray-900 font-mono truncate">{memory.id}</p>
-            </div>
+            <CopyableField
+              value={memory.id}
+              label="Memory ID"
+              icon={<Hash className="w-4 h-4" />}
+              mono
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <User className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">User ID</span>
-              </div>
-              <p className="text-sm text-gray-900 font-mono truncate">{memory.user_id}</p>
-            </div>
+            <CopyableField
+              value={memory.user_id}
+              label="User ID"
+              icon={<User className="w-4 h-4" />}
+              mono
+            />
 
             {memory.session_id && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                  <Hash className="w-4 h-4" />
-                  <span className="text-xs font-medium uppercase">Session ID</span>
-                </div>
-                <p className="text-sm text-gray-900 font-mono truncate">{memory.session_id}</p>
-              </div>
+              <CopyableField
+                value={memory.session_id}
+                label="Session ID"
+                icon={<Hash className="w-4 h-4" />}
+                mono
+              />
             )}
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <TrendingUp className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Importance</span>
-              </div>
-              <p className="text-sm text-gray-900">{memory.importance.toFixed(2)}</p>
-            </div>
+            <CopyableField
+              value={memory.importance.toFixed(2)}
+              label="Importance"
+              icon={<TrendingUp className="w-4 h-4" />}
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <TrendingUp className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Confidence</span>
-              </div>
-              <p className="text-sm text-gray-900">{(memory.confidence ?? 0).toFixed(2)}</p>
-            </div>
+            <CopyableField
+              value={(memory.confidence ?? 0).toFixed(2)}
+              label="Confidence"
+              icon={<TrendingUp className="w-4 h-4" />}
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Eye className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Access Count</span>
-              </div>
-              <p className="text-sm text-gray-900">{memory.access_count || 0}</p>
-            </div>
+            <CopyableField
+              value={String(memory.access_count || 0)}
+              label="Access Count"
+              icon={<Eye className="w-4 h-4" />}
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Calendar className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Created</span>
-              </div>
-              <p className="text-sm text-gray-900">
-                {format(new Date(memory.created_at), 'MMM d, yyyy h:mm a')}
-              </p>
-            </div>
+            <CopyableField
+              value={format(new Date(memory.created_at), 'MMM d, yyyy h:mm a')}
+              label="Created"
+              icon={<Calendar className="w-4 h-4" />}
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Clock className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Updated</span>
-              </div>
-              <p className="text-sm text-gray-900">
-                {format(new Date(memory.updated_at), 'MMM d, yyyy h:mm a')}
-              </p>
-            </div>
+            <CopyableField
+              value={format(new Date(memory.updated_at), 'MMM d, yyyy h:mm a')}
+              label="Updated"
+              icon={<Clock className="w-4 h-4" />}
+            />
 
             {memory.expires_at && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-xs font-medium uppercase">Expires</span>
-                </div>
-                <p className="text-sm text-gray-900">
-                  {format(new Date(memory.expires_at), 'MMM d, yyyy h:mm a')}
-                </p>
-              </div>
+              <CopyableField
+                value={format(new Date(memory.expires_at), 'MMM d, yyyy h:mm a')}
+                label="Expires"
+                icon={<Clock className="w-4 h-4" />}
+              />
             )}
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Hash className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Text Length</span>
-              </div>
-              <p className="text-sm text-gray-900">{memory.text.length} chars</p>
-            </div>
+            <CopyableField
+              value={`${memory.text.length} chars`}
+              label="Text Length"
+              icon={<Hash className="w-4 h-4" />}
+            />
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                <Hash className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase">Estimated Tokens</span>
-              </div>
-              <p className="text-sm text-gray-900">~{Math.ceil(memory.text.length / 4)} tokens</p>
-            </div>
+            <CopyableField
+              value={`~${Math.ceil(memory.text.length / 4)} tokens`}
+              label="Estimated Tokens"
+              icon={<Hash className="w-4 h-4" />}
+            />
           </div>
         </div>
 

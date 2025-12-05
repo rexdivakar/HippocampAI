@@ -6,26 +6,63 @@ This demo shows how to build a conversational AI with persistent memory using:
 - Groq API with llama-3.1-8b-instant model
 - HippocampAI for memory storage and retrieval
 
-Features:
-- Interactive command-line chat interface
-- Automatic memory extraction and storage
-- Context-aware responses using retrieved memories
-- Session-based conversation tracking
-- Memory search and management commands
+Features Demonstrated:
+1. Core Operations:
+   - remember() - Store memories with metadata
+   - recall() - Semantic search and retrieval
+   - update_memory() - Update existing memories
+   - delete_memory() - Remove memories
+   - get_memory() - Retrieve by ID
+   - get_memories() - List all memories
+
+2. Batch Operations:
+   - batch_remember() - Bulk memory creation
+   - batch_get_memories() - Retrieve multiple memories
+   - batch_delete_memories() - Bulk deletion
+
+3. Advanced Features:
+   - Advanced filtering (tags, importance, min_score)
+   - Entity extraction (extract_entities, extract_facts)
+   - Memory expiration (TTL with expires_at)
+   - Memory consolidation (merge similar memories)
+   - Cleanup expired memories
+
+4. Analytics & Monitoring:
+   - get_memory_analytics() - Memory statistics
+   - health_check() - System health status
+   - Session management
+   - Automatic memory type detection
+
+5. Interactive Commands:
+   - /test - Run comprehensive feature tests
+   - /analytics - Show memory analytics
+   - /health - System health check
+   - /memories - View stored memories
+   - /search - Search memories
 
 Requirements:
     pip install groq hippocampai rich
 
 Environment Variables:
-    GROQ_API_KEY: Your Groq API key
-    HIPPOCAMPAI_API_KEY: Your HippocampAI API key (or use local mode)
+    GROQ_API_KEY: Your Groq API key (required)
+    HIPPOCAMPAI_API_KEY: Your HippocampAI API key (optional for remote mode)
+
+Usage:
+    # Local mode
+    python groq_llama_chat_demo.py --qdrant-url http://localhost:6333
+
+    # Remote mode
+    python groq_llama_chat_demo.py --base-url http://localhost:8000
+
+    # Run feature tests
+    Type '/test' in the chat to test all HippocampAI features
 """
 
 import os
 import sys
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 # Add local source to path if needed
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -49,8 +86,8 @@ except ImportError:
 
 try:
     from rich.console import Console
-    from rich.panel import Panel
     from rich.markdown import Markdown
+    from rich.panel import Panel
     from rich.prompt import Prompt
     from rich.table import Table
 except ImportError:
@@ -64,6 +101,7 @@ class GroqHippocampAIChat:
     def __init__(
         self,
         user_id: str = None,
+        session_id: str = None,
         base_url: str = None,
         qdrant_url: str = None,
         redis_url: str = None
@@ -72,13 +110,14 @@ class GroqHippocampAIChat:
 
         Args:
             user_id: Unique user identifier (auto-generated if not provided)
+            session_id: Session identifier (auto-generated if not provided)
             base_url: HippocampAI API base URL (uses local mode if not provided)
             qdrant_url: Qdrant server URL for local mode (default: http://localhost:6333)
             redis_url: Redis server URL for local mode (default: redis://localhost:6379)
         """
         self.console = Console()
         self.user_id = user_id or str(uuid.uuid4())
-        self.session_id = str(uuid.uuid4())
+        self.session_id = session_id or str(uuid.uuid4())
 
         # Initialize Groq client
         groq_api_key = os.getenv("GROQ_API_KEY")
@@ -453,6 +492,247 @@ class GroqHippocampAIChat:
         except Exception as e:
             self.console.print(f"[red]Error searching memories: {e}[/red]")
 
+    def test_all_features(self) -> None:
+        """Comprehensive test of all HippocampAI features."""
+        self.console.print("\n[bold cyan]🧪 Running Comprehensive Feature Tests[/bold cyan]\n")
+
+        test_results = []
+
+        # Test 1: Basic Memory CRUD
+        self.console.print("[yellow]Test 1: Basic Memory CRUD Operations[/yellow]")
+        try:
+            # Create
+            memory = self.memory_client.remember(
+                text="Test memory for CRUD operations",
+                user_id=self.user_id,
+                session_id=self.session_id,
+                tags=["test", "crud"],
+                importance=7.5
+            )
+            memory_id = memory.id if hasattr(memory, 'id') else str(memory)
+
+            # Read
+            _retrieved = self.memory_client.get_memory(memory_id)
+
+            # Update
+            _updated = self.memory_client.update_memory(
+                memory_id=memory_id,
+                text="Updated test memory",
+                tags=["test", "crud", "updated"]
+            )
+
+            # Delete
+            _deleted = self.memory_client.delete_memory(memory_id)
+
+            test_results.append(("CRUD Operations", "✅ PASS"))
+            self.console.print("[green]  ✅ PASS: Create, Read, Update, Delete[/green]")
+        except Exception as e:
+            test_results.append(("CRUD Operations", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 2: Batch Operations
+        self.console.print("\n[yellow]Test 2: Batch Operations[/yellow]")
+        try:
+            batch_memories = [
+                {"text": f"Batch memory {i}", "user_id": self.user_id, "tags": ["batch"]}
+                for i in range(3)
+            ]
+            created = self.memory_client.batch_remember(batch_memories)
+
+            # Get the IDs
+            batch_ids = [m.id if hasattr(m, 'id') else str(m) for m in created]
+
+            # Batch get
+            _retrieved = self.memory_client.batch_get_memories(batch_ids)
+
+            # Batch delete
+            _deleted = self.memory_client.batch_delete_memories(batch_ids)
+
+            test_results.append(("Batch Operations", "✅ PASS"))
+            self.console.print(f"[green]  ✅ PASS: Created, retrieved, deleted {len(batch_ids)} memories[/green]")
+        except Exception as e:
+            test_results.append(("Batch Operations", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 3: Advanced Filtering
+        self.console.print("\n[yellow]Test 3: Advanced Filtering & Search[/yellow]")
+        try:
+            # Create test memories with different attributes
+            self.memory_client.remember(
+                text="Important project deadline",
+                user_id=self.user_id,
+                tags=["work", "urgent"],
+                importance=9.0
+            )
+
+            # Filter by tags
+            results = self.memory_client.recall(
+                query="project",
+                user_id=self.user_id,
+                filters={"tags": ["work"]},
+                limit=5
+            )
+
+            # Filter by importance
+            _results_important = self.memory_client.recall(
+                query="deadline",
+                user_id=self.user_id,
+                min_score=0.5,
+                limit=5
+            )
+
+            test_results.append(("Advanced Filtering", "✅ PASS"))
+            self.console.print(f"[green]  ✅ PASS: Retrieved {len(results)} filtered memories[/green]")
+        except Exception as e:
+            test_results.append(("Advanced Filtering", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 4: Entity Extraction
+        self.console.print("\n[yellow]Test 4: Entity & Fact Extraction[/yellow]")
+        try:
+            _memory_with_entities = self.memory_client.remember(
+                text="Meeting with John at Google office in San Francisco on Monday",
+                user_id=self.user_id,
+                extract_entities=True,
+                extract_facts=True,
+                extract_relationships=True
+            )
+
+            test_results.append(("Entity Extraction", "✅ PASS"))
+            self.console.print("[green]  ✅ PASS: Entity extraction enabled[/green]")
+        except Exception as e:
+            test_results.append(("Entity Extraction", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 5: Memory with Expiration
+        self.console.print("\n[yellow]Test 5: Memory Expiration (TTL)[/yellow]")
+        try:
+            from datetime import timedelta
+            expiry_time = datetime.now() + timedelta(days=7)
+
+            _expiring_memory = self.memory_client.remember(
+                text="This memory expires in 7 days",
+                user_id=self.user_id,
+                expires_at=expiry_time,
+                tags=["temporary"]
+            )
+
+            test_results.append(("Memory Expiration", "✅ PASS"))
+            self.console.print("[green]  ✅ PASS: Memory with expiration created[/green]")
+        except Exception as e:
+            test_results.append(("Memory Expiration", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 6: Memory Consolidation
+        self.console.print("\n[yellow]Test 6: Memory Consolidation[/yellow]")
+        try:
+            # Create duplicate-like memories
+            for i in range(3):
+                self.memory_client.remember(
+                    text=f"I like coffee variation {i}",
+                    user_id=self.user_id,
+                    tags=["preference", "duplicate-test"]
+                )
+
+            # Consolidate
+            _consolidated = self.memory_client.consolidate_memories(
+                user_id=self.user_id,
+                lookback_hours=24
+            )
+
+            test_results.append(("Memory Consolidation", "✅ PASS"))
+            self.console.print("[green]  ✅ PASS: Memory consolidation executed[/green]")
+        except Exception as e:
+            test_results.append(("Memory Consolidation", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 7: Cleanup Expired Memories
+        self.console.print("\n[yellow]Test 7: Cleanup Expired Memories[/yellow]")
+        try:
+            cleaned = self.memory_client.cleanup_expired_memories()
+            test_results.append(("Cleanup Expired", "✅ PASS"))
+            self.console.print(f"[green]  ✅ PASS: Cleaned up {cleaned} expired memories[/green]")
+        except Exception as e:
+            test_results.append(("Cleanup Expired", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 8: Get All Memories
+        self.console.print("\n[yellow]Test 8: Get All Memories[/yellow]")
+        try:
+            all_memories = self.memory_client.get_memories(
+                user_id=self.user_id,
+                limit=100
+            )
+            test_results.append(("Get All Memories", "✅ PASS"))
+            self.console.print(f"[green]  ✅ PASS: Retrieved {len(all_memories)} total memories[/green]")
+        except Exception as e:
+            test_results.append(("Get All Memories", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Test 9: Health Check
+        self.console.print("\n[yellow]Test 9: System Health Check[/yellow]")
+        try:
+            health = self.memory_client.health_check()
+            test_results.append(("Health Check", "✅ PASS"))
+            self.console.print(f"[green]  ✅ PASS: System health: {health.get('status', 'unknown')}[/green]")
+        except Exception as e:
+            test_results.append(("Health Check", f"❌ FAIL: {str(e)[:50]}"))
+            self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
+
+        # Summary Table
+        self.console.print("\n[bold cyan]📊 Test Summary[/bold cyan]")
+        summary_table = Table(title="Feature Test Results")
+        summary_table.add_column("Feature", style="cyan")
+        summary_table.add_column("Result", style="white")
+
+        for feature, result in test_results:
+            summary_table.add_row(feature, result)
+
+        self.console.print(summary_table)
+
+        passed = sum(1 for _, r in test_results if "PASS" in r)
+        total = len(test_results)
+        self.console.print(f"\n[bold]Total: {passed}/{total} tests passed[/bold]")
+
+    def show_analytics(self) -> None:
+        """Display memory analytics for the current user."""
+        try:
+            self.console.print("\n[bold cyan]📈 Memory Analytics[/bold cyan]\n")
+
+            analytics = self.memory_client.get_memory_analytics(self.user_id)
+
+            analytics_table = Table(title=f"Analytics for User {self.user_id[:16]}...")
+            analytics_table.add_column("Metric", style="cyan")
+            analytics_table.add_column("Value", style="yellow")
+
+            for key, value in analytics.items():
+                analytics_table.add_row(str(key), str(value))
+
+            self.console.print(analytics_table)
+
+        except Exception as e:
+            self.console.print(f"[red]Error fetching analytics: {e}[/red]")
+
+    def show_health(self) -> None:
+        """Display system health status."""
+        try:
+            self.console.print("\n[bold cyan]🏥 System Health Check[/bold cyan]\n")
+
+            health = self.memory_client.health_check()
+
+            health_table = Table(title="System Health Status")
+            health_table.add_column("Component", style="cyan")
+            health_table.add_column("Status", style="white")
+
+            for key, value in health.items():
+                status_color = "green" if value == "healthy" or value == "ok" else "red"
+                health_table.add_row(str(key), f"[{status_color}]{value}[/{status_color}]")
+
+            self.console.print(health_table)
+
+        except Exception as e:
+            self.console.print(f"[red]Error checking health: {e}[/red]")
+
     def run(self) -> None:
         """Run the interactive chat loop."""
         self.console.print(Panel.fit(
@@ -465,6 +745,9 @@ class GroqHippocampAIChat:
             "  /search - Search memories\n"
             "  /info - Show full session info\n"
             "  /clear - Clear conversation history\n"
+            "  /test - Run feature tests\n"
+            "  /analytics - Show memory analytics\n"
+            "  /health - Check system health\n"
             "  /help - Show this help\n"
             "  /quit - Exit\n",
             border_style="green"
@@ -503,6 +786,15 @@ class GroqHippocampAIChat:
                             border_style="cyan"
                         ))
                         continue
+                    elif command == '/test':
+                        self.test_all_features()
+                        continue
+                    elif command == '/analytics':
+                        self.show_analytics()
+                        continue
+                    elif command == '/health':
+                        self.show_health()
+                        continue
                     elif command == '/help':
                         self.console.print(
                             "[cyan]Available commands:[/cyan]\n"
@@ -510,6 +802,9 @@ class GroqHippocampAIChat:
                             "  /search - Search memories\n"
                             "  /info - Show session information\n"
                             "  /clear - Clear conversation history\n"
+                            "  /test - Run comprehensive feature tests\n"
+                            "  /analytics - Show memory analytics\n"
+                            "  /health - Check system health\n"
                             "  /help - Show this help\n"
                             "  /quit - Exit"
                         )
@@ -523,7 +818,7 @@ class GroqHippocampAIChat:
                     response = self.chat(user_input)
 
                 # Display response
-                self.console.print(f"\n[bold blue]Assistant[/bold blue]")
+                self.console.print("\n[bold blue]Assistant[/bold blue]")
                 self.console.print(Markdown(response))
 
             except KeyboardInterrupt:
@@ -550,6 +845,12 @@ Examples:
   # With custom user ID
   python groq_llama_chat_demo.py --user-id my-user-123
 
+  # With specific session ID (continue previous session)
+  python groq_llama_chat_demo.py --session-id sess-abc123
+
+  # Full example with all options
+  python groq_llama_chat_demo.py --user-id alice --session-id test-session-1 --qdrant-url http://localhost:6333
+
 Environment Variables:
   GROQ_API_KEY            Your Groq API key (required)
   HIPPOCAMPAI_API_KEY     Your HippocampAI API key (for remote mode)
@@ -560,6 +861,12 @@ Environment Variables:
         "--user-id",
         type=str,
         help="User ID for memory storage (auto-generated if not provided)"
+    )
+
+    parser.add_argument(
+        "--session-id",
+        type=str,
+        help="Session ID for conversation tracking (auto-generated if not provided)"
     )
 
     parser.add_argument(
@@ -585,6 +892,7 @@ Environment Variables:
     # Create and run chat
     chat = GroqHippocampAIChat(
         user_id=args.user_id,
+        session_id=args.session_id,
         base_url=args.base_url,
         qdrant_url=args.qdrant_url,
         redis_url=args.redis_url

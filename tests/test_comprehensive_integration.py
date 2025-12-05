@@ -14,27 +14,25 @@ Tests:
 import os
 import sys
 import time
-import tracemalloc
 import traceback
+import tracemalloc
 from datetime import datetime, timedelta
 from typing import Any
-
-import pytest
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from hippocampai.client import MemoryClient
-from hippocampai.simple import Memory as SimpleMemory
-from hippocampai.multiagent.collaboration import CollaborationManager
-from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
-from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
-from hippocampai.pipeline.auto_healing import AutoHealingEngine
-from hippocampai.monitoring.memory_health import MemoryHealthMonitor
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.agent import PermissionType
 from hippocampai.models.healing import AutoHealingConfig
-from hippocampai.models.prediction import ForecastMetric, ForecastHorizon
+from hippocampai.models.prediction import ForecastHorizon, ForecastMetric
+from hippocampai.monitoring.memory_health import MemoryHealthMonitor
+from hippocampai.multiagent.collaboration import CollaborationManager
+from hippocampai.pipeline.auto_healing import AutoHealingEngine
+from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
+from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
+from hippocampai.simple import Memory as SimpleMemory
 
 
 class TestResults:
@@ -171,7 +169,7 @@ def test_session_management():
             message=f"Test message {i}",
             role="user"
         )
-    print(f"  Tracked 5 messages")
+    print("  Tracked 5 messages")
 
     # Get session
     retrieved = client.get_session(session.id)
@@ -182,7 +180,7 @@ def test_session_management():
     # Complete session
     completed = client.complete_session(session.id, generate_summary=False)
     assert completed.status.value == "completed"
-    print(f"  Completed session")
+    print("  Completed session")
 
     return True
 
@@ -230,7 +228,7 @@ def test_shared_spaces():
     assert can_read is True
     assert can_write is True
     assert can_delete is False
-    print(f"  Permissions verified: READ=True, WRITE=True, DELETE=False")
+    print("  Permissions verified: READ=True, WRITE=True, DELETE=False")
 
     # Add memory to space
     memory = client.remember("Shared memory", agent_id=agent1.id)
@@ -293,7 +291,7 @@ def test_notifications():
 
     unread = collab_manager.get_notifications(agent2.id, unread_only=True)
     assert len(unread) == 0
-    print(f"  All notifications marked as read")
+    print("  All notifications marked as read")
 
     return True
 
@@ -545,7 +543,7 @@ def test_auto_tagging():
     memories = []
     for i in range(5):
         mem = client.remember(
-            f"This is about work and meetings at the office",
+            "This is about work and meetings at the office",
             type="fact",
             tags=[]  # No tags
         )
@@ -614,14 +612,14 @@ def test_multi_user_isolation():
     user1_ids = [m.id for m in user1_memories]
     assert mem1.id in user1_ids
     assert mem2.id not in user1_ids
-    print(f"  User 1 isolation verified")
+    print("  User 1 isolation verified")
 
     # User 2 should only see their memories
     user2_memories = user2.get_memories()
     user2_ids = [m.id for m in user2_memories]
     assert mem2.id in user2_ids
     assert mem1.id not in user2_ids
-    print(f"  User 2 isolation verified")
+    print("  User 2 isolation verified")
 
     return True
 
@@ -689,7 +687,6 @@ def test_performance():
     results.add_metric("recall_ops_per_sec", recall_per_sec)
 
     # Benchmark: Get
-    memories = client.get_memories()
     start = time.time()
     for _ in range(100):
         _ = client.get_memories()
@@ -706,7 +703,7 @@ def test_large_dataset():
     """Test handling of larger datasets."""
     client = MemoryClient(user_id="test_user_large")
 
-    print(f"  Creating 500 memories...")
+    print("  Creating 500 memories...")
     start = time.time()
 
     for i in range(500):
@@ -753,28 +750,28 @@ def test_error_handling():
     # Test invalid memory ID
     try:
         client.delete_memory("invalid_id_12345")
-        print(f"  Warning: Should have raised error for invalid ID")
+        print("  Warning: Should have raised error for invalid ID")
         results.add_warning("7.1 Error Handling", "Invalid ID didn't raise error")
-    except:
-        print(f"  ✓ Invalid ID handled correctly")
+    except Exception:
+        print("  ✓ Invalid ID handled correctly")
 
     # Test empty text
     try:
         memory = client.remember("")
         if memory.text == "":
             results.add_warning("7.1 Error Handling", "Empty text allowed")
-        print(f"  ✓ Empty text handled")
-    except:
-        print(f"  ✓ Empty text rejected")
+        print("  ✓ Empty text handled")
+    except Exception:
+        print("  ✓ Empty text rejected")
 
     # Test invalid importance
     try:
         memory = client.remember("Test", importance=15.0)  # Out of range
         if memory.importance > 10:
             results.add_warning("7.1 Error Handling", "Importance not clamped to valid range")
-        print(f"  ✓ Invalid importance handled")
-    except:
-        print(f"  ✓ Invalid importance rejected")
+        print("  ✓ Invalid importance handled")
+    except Exception:
+        print("  ✓ Invalid importance rejected")
 
     return True
 
@@ -809,7 +806,7 @@ def test_concurrent_operations():
         print(f"  Errors during concurrent ops: {len(errors)}")
         results.add_warning("7.2 Concurrent", f"{len(errors)} errors occurred")
     else:
-        print(f"  ✓ All concurrent operations succeeded")
+        print("  ✓ All concurrent operations succeeded")
 
     # Verify all memories created
     memories = client.get_memories()

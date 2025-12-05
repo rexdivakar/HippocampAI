@@ -107,7 +107,7 @@ export function MemoryFilterSidebar({
     (localFilters.startDate !== undefined ? 1 : 0);
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-full lg:w-56 xl:w-64 2xl:w-72 min-w-[224px] max-w-[288px] bg-white border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">

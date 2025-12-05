@@ -5,17 +5,13 @@ import {
   Moon,
   Sparkles,
   TrendingUp,
-  TrendingDown,
   Archive,
-  Trash2,
-  Clock,
   Play,
   Settings as SettingsIcon,
   BarChart3,
   Calendar,
   Zap,
 } from 'lucide-react';
-import { apiClient } from '../services/api';
 import clsx from 'clsx';
 
 interface SleepPhasePageProps {
@@ -70,96 +66,89 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-8 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
-              <Moon className="w-10 h-10" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Sleep Phase</h1>
-              <p className="text-indigo-100 mt-1">
-                Automated memory consolidation • Mimicking your brain's hippocampus during sleep
-              </p>
-            </div>
-          </div>
-
-          {/* Status Badge */}
-          <div className="mt-6 flex items-center space-x-4">
-            <div
-              className={clsx(
-                'px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm',
-                status?.enabled
-                  ? 'bg-green-400/30 text-green-100 border border-green-300/50'
-                  : 'bg-gray-400/30 text-gray-100 border border-gray-300/50'
-              )}
-            >
-              {status?.enabled ? '🌙 Active' : '💤 Inactive'}
-            </div>
-
-            {status?.dry_run && (
-              <div className="px-4 py-2 rounded-full text-sm font-medium bg-yellow-400/30 text-yellow-100 border border-yellow-300/50 backdrop-blur-sm">
-                🧪 Dry Run Mode
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Left: Title & Status */}
+          <div className="flex items-center space-x-4 flex-1">
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <Moon className="w-6 h-6 text-indigo-600" />
+                <h1 className="text-xl font-semibold text-gray-900">Sleep Phase</h1>
               </div>
-            )}
+              <p className="text-sm text-gray-500 ml-8">Automated memory consolidation</p>
+            </div>
 
-            <div className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 text-white border border-white/30 backdrop-blur-sm">
-              Next run: {status?.enabled ? `Tonight at ${status?.schedule_hour || 3}:00 AM` : 'Disabled'}
+            {/* Status Badges */}
+            <div className="flex items-center space-x-2">
+              <div
+                className={clsx(
+                  'px-3 py-1 rounded-full text-xs font-medium',
+                  status?.enabled
+                    ? 'bg-green-100 text-green-700 border border-green-200'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                )}
+              >
+                {status?.enabled ? 'Active' : 'Inactive'}
+              </div>
+
+              {status?.dry_run && (
+                <div className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+                  Dry Run
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-6 mt-6">
-        <div className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm border border-gray-200">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={clsx(
-              'flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center space-x-2',
-              activeTab === 'overview'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
-            )}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Overview</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('history')}
-            className={clsx(
-              'flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center space-x-2',
-              activeTab === 'history'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
-            )}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Dream History</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={clsx(
-              'flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center space-x-2',
-              activeTab === 'settings'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
-            )}
-          >
-            <SettingsIcon className="w-4 h-4" />
-            <span>Settings</span>
-          </button>
+          {/* Right: Tabs */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={clsx(
+                  'px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center space-x-1.5',
+                  activeTab === 'overview'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Overview</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={clsx(
+                  'px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center space-x-1.5',
+                  activeTab === 'history'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>History</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={clsx(
+                  'px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center space-x-1.5',
+                  activeTab === 'settings'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <SettingsIcon className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="flex-1 overflow-y-auto w-full px-6 py-8">
         {activeTab === 'overview' && (
-          <OverviewTab stats={stats} lastRun={runs[0]} onTrigger={(dryRun) => triggerMutation.mutate(dryRun)} />
+          <OverviewTab stats={stats} lastRun={runs[0]} onTrigger={(dryRun: boolean) => triggerMutation.mutate(dryRun)} />
         )}
 
         {activeTab === 'history' && <HistoryTab runs={runs} />}
@@ -240,19 +229,19 @@ function OverviewTab({ stats, lastRun, onTrigger }: any) {
 
           {/* Dream Report */}
           {lastRun.dream_report && (
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 mb-4 border border-indigo-100">
+            <div className="bg-indigo-50 rounded-lg p-4 mb-4 border border-indigo-200">
               <p className="text-sm text-gray-700 italic">"{lastRun.dream_report}"</p>
             </div>
           )}
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <MiniStat label="Reviewed" value={lastRun.memories_reviewed} icon="📚" />
-            <MiniStat label="Promoted" value={lastRun.memories_promoted} icon="⬆️" />
-            <MiniStat label="Updated" value={lastRun.memories_updated} icon="✏️" />
-            <MiniStat label="Synthesized" value={lastRun.memories_synthesized} icon="🔄" />
-            <MiniStat label="Archived" value={lastRun.memories_archived} icon="📦" />
-            <MiniStat label="Deleted" value={lastRun.memories_deleted} icon="🗑️" />
+            <MiniStat label="Reviewed" value={lastRun.memories_reviewed} />
+            <MiniStat label="Promoted" value={lastRun.memories_promoted} />
+            <MiniStat label="Updated" value={lastRun.memories_updated} />
+            <MiniStat label="Synthesized" value={lastRun.memories_synthesized} />
+            <MiniStat label="Archived" value={lastRun.memories_archived} />
+            <MiniStat label="Deleted" value={lastRun.memories_deleted} />
           </div>
 
           <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
@@ -263,14 +252,14 @@ function OverviewTab({ stats, lastRun, onTrigger }: any) {
       )}
 
       {/* Manual Trigger Section */}
-      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold flex items-center space-x-2">
-              <Zap className="w-5 h-5" />
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+              <Zap className="w-5 h-5 text-indigo-600" />
               <span>Manual Sleep Cycle</span>
             </h3>
-            <p className="text-indigo-100 mt-1 text-sm">
+            <p className="text-gray-600 mt-1 text-sm">
               Trigger consolidation on-demand to clean up and organize your memories now
             </p>
           </div>
@@ -279,14 +268,14 @@ function OverviewTab({ stats, lastRun, onTrigger }: any) {
         <div className="mt-4 flex space-x-3">
           <button
             onClick={() => onTrigger(true)}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-medium transition-colors border border-white/30"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors border border-gray-300 text-gray-700"
           >
-            🧪 Dry Run (Preview Only)
+            Dry Run (Preview Only)
           </button>
 
           <button
             onClick={() => onTrigger(false)}
-            className="px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors shadow-sm"
           >
             <Play className="w-4 h-4 inline mr-2" />
             Run Now (Live)
@@ -306,42 +295,36 @@ function OverviewTab({ stats, lastRun, onTrigger }: any) {
             number="1"
             title="Review Recent Memories"
             description="Every night at 3 AM, the system reviews all memories from the last 24 hours"
-            icon="📚"
           />
 
           <ProcessStep
             number="2"
             title="Cluster & Analyze"
             description="Related memories are grouped together and analyzed by AI to identify patterns and insights"
-            icon="🧠"
           />
 
           <ProcessStep
             number="3"
             title="Promote Important Facts"
             description="Strategic decisions, key learnings, and important relationships get boosted in importance"
-            icon="⬆️"
           />
 
           <ProcessStep
             number="4"
             title="Archive Low-Value Events"
             description="Transient, routine activities (coffee breaks, routine tasks) are archived or deleted"
-            icon="🗑️"
           />
 
           <ProcessStep
             number="5"
             title="Synthesize Insights"
             description="AI creates higher-level summaries capturing the essence of related events"
-            icon="✨"
           />
 
           <ProcessStep
             number="6"
             title="Generate Dream Report"
             description="A summary of what changed is logged for observability and debugging"
-            icon="📊"
           />
         </div>
       </div>
@@ -409,7 +392,7 @@ function SettingsTab({ status }: any) {
         <div className="space-y-4">
           <SettingRow
             label="Status"
-            value={status?.enabled ? 'Enabled ✅' : 'Disabled ❌'}
+            value={status?.enabled ? 'Enabled' : 'Disabled'}
             description="Sleep Phase is currently running"
           />
 
@@ -430,7 +413,7 @@ function SettingsTab({ status }: any) {
       </div>
 
       <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-6">
-        <h4 className="font-semibold text-yellow-900 mb-2">⚙️ Advanced Configuration</h4>
+        <h4 className="font-semibold text-yellow-900 mb-2">Advanced Configuration</h4>
         <p className="text-sm text-yellow-800">
           To modify Sleep Phase settings, update environment variables in your <code className="bg-yellow-100 px-2 py-1 rounded">.env</code> file:
         </p>
@@ -451,45 +434,41 @@ function SettingsTab({ status }: any) {
 
 function StatCard({ icon, label, value, subtitle, color }: any) {
   const colorClasses = {
-    indigo: 'from-indigo-500 to-indigo-600',
-    purple: 'from-purple-500 to-purple-600',
-    green: 'from-green-500 to-green-600',
-    orange: 'from-orange-500 to-orange-600',
+    indigo: 'bg-indigo-50 border-indigo-200',
+    purple: 'bg-purple-50 border-purple-200',
+    green: 'bg-green-50 border-green-200',
+    orange: 'bg-orange-50 border-orange-200',
   };
 
   return (
-    <div className={clsx('bg-gradient-to-br rounded-xl shadow-sm p-6 text-white', colorClasses[color as keyof typeof colorClasses])}>
+    <div className={clsx('bg-white rounded-xl shadow-sm border p-6', colorClasses[color as keyof typeof colorClasses])}>
       <div className="flex items-center space-x-3 mb-3">
-        <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">{icon}</div>
-        <div className="text-sm font-medium opacity-90">{label}</div>
+        <div className="p-2 rounded-lg">{icon}</div>
+        <div className="text-sm font-medium text-gray-600">{label}</div>
       </div>
-      <div className="text-3xl font-bold">{value.toLocaleString()}</div>
-      <div className="text-sm opacity-75 mt-1">{subtitle}</div>
+      <div className="text-3xl font-bold text-gray-900">{value.toLocaleString()}</div>
+      <div className="text-sm text-gray-500 mt-1">{subtitle}</div>
     </div>
   );
 }
 
-function MiniStat({ label, value, icon }: any) {
+function MiniStat({ label, value }: any) {
   return (
     <div className="text-center">
-      <div className="text-2xl mb-1">{icon}</div>
       <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xs text-gray-500 mt-1">{label}</div>
     </div>
   );
 }
 
-function ProcessStep({ number, title, description, icon }: any) {
+function ProcessStep({ number, title, description }: any) {
   return (
     <div className="flex items-start space-x-4">
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">
         {number}
       </div>
       <div className="flex-1">
-        <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
-          <span>{icon}</span>
-          <span>{title}</span>
-        </h4>
+        <h4 className="font-semibold text-gray-900">{title}</h4>
         <p className="text-sm text-gray-600 mt-1">{description}</p>
       </div>
     </div>
@@ -520,10 +499,10 @@ function DreamRunCard({ run, onClick }: any) {
       </div>
 
       <div className="flex items-center space-x-4 text-sm text-gray-600">
-        <span>📚 {run.memories_reviewed} reviewed</span>
-        <span>⬆️ {run.memories_promoted} promoted</span>
-        <span>🔄 {run.memories_synthesized} synthesized</span>
-        <span>🗑️ {run.memories_deleted} deleted</span>
+        <span>{run.memories_reviewed} reviewed</span>
+        <span>{run.memories_promoted} promoted</span>
+        <span>{run.memories_synthesized} synthesized</span>
+        <span>{run.memories_deleted} deleted</span>
       </div>
     </button>
   );
@@ -540,7 +519,7 @@ function DreamRunDetail({ run }: any) {
         <p className="text-gray-500">{new Date(run.started_at).toLocaleString()}</p>
 
         {run.dream_report && (
-          <div className="mt-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
+          <div className="mt-4 bg-indigo-50 rounded-lg p-4 border border-indigo-200">
             <p className="text-sm text-gray-700 italic">"{run.dream_report}"</p>
           </div>
         )}
@@ -548,10 +527,10 @@ function DreamRunDetail({ run }: any) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Reviewed" value={run.memories_reviewed} icon="📚" color="blue" />
-        <MetricCard label="Promoted" value={run.memories_promoted} icon="⬆️" color="green" />
-        <MetricCard label="Synthesized" value={run.memories_synthesized} icon="🔄" color="purple" />
-        <MetricCard label="Deleted" value={run.memories_deleted} icon="🗑️" color="red" />
+        <MetricCard label="Reviewed" value={run.memories_reviewed} color="blue" />
+        <MetricCard label="Promoted" value={run.memories_promoted} color="green" />
+        <MetricCard label="Synthesized" value={run.memories_synthesized} color="purple" />
+        <MetricCard label="Deleted" value={run.memories_deleted} color="red" />
       </div>
 
       {/* Metadata */}
@@ -580,7 +559,7 @@ function DreamRunDetail({ run }: any) {
   );
 }
 
-function MetricCard({ label, value, icon, color }: any) {
+function MetricCard({ label, value, color }: any) {
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-700 border-blue-200',
     green: 'bg-green-50 text-green-700 border-green-200',
@@ -590,9 +569,8 @@ function MetricCard({ label, value, icon, color }: any) {
 
   return (
     <div className={clsx('rounded-lg border p-4', colorClasses[color as keyof typeof colorClasses])}>
-      <div className="text-2xl mb-2">{icon}</div>
       <div className="text-2xl font-bold">{value}</div>
-      <div className="text-sm opacity-75">{label}</div>
+      <div className="text-sm opacity-75 mt-2">{label}</div>
     </div>
   );
 }
