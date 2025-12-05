@@ -20,7 +20,7 @@ def init() -> None:
     """Initialize HippocampAI (create collections)."""
     try:
         config = get_config()
-        client = MemoryClient(config=config)  # noqa: F841
+        MemoryClient(config=config)
         print("[green]✓[/green] HippocampAI initialized successfully")
         print(f"  Qdrant: {config.qdrant_url}")
         print(f"  Collections: {config.collection_facts}, {config.collection_prefs}")

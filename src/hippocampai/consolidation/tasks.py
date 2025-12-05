@@ -444,8 +444,12 @@ def llm_review_cluster(
         ConsolidationDecision as dict
     """
     try:
-        # Get user context (preferences, goals, etc.)
-        user_context = get_user_context(user_id)
+        # Get dynamic user context based on cluster being consolidated
+        user_context = get_user_context(
+            user_id=user_id,
+            cluster_memories=cluster_memories,
+            cluster_theme=cluster_theme,
+        )
 
         # Build prompt
         prompt = build_consolidation_prompt(
@@ -526,27 +530,159 @@ def call_llm_for_consolidation(prompt: str, model: str, temperature: float) -> s
     )
 
 
-def get_user_context(user_id: str) -> dict[str, Any]:
+def get_user_context(
+    user_id: str,
+    cluster_memories: list[Memory] | None = None,
+    cluster_theme: str | None = None,
+) -> dict[str, Any]:
     """
-    Get user context for LLM prompt (preferences, goals, etc.).
+    Get dynamic user context for LLM prompt based on memories being consolidated.
+
+    This function retrieves relevant user context by analyzing the cluster memories
+    and performing semantic searches for related preferences, goals, and facts.
 
     Args:
         user_id: User ID
+        cluster_memories: Memories being consolidated (for dynamic context)
+        cluster_theme: Theme of the cluster (for focused retrieval)
 
     Returns:
         Dictionary with user context
     """
-    # TODO: Implement actual user context retrieval
-    # This might include:
-    # - User preferences
-    # - Active goals
-    # - Recent topics of interest
-    # - User profile information
+    try:
+        from hippocampai.client import MemoryClient
+        from hippocampai.models.memory import MemoryType
 
-    return {
-        "user_id": user_id,
-        # Add more context as needed
-    }
+        client = MemoryClient()
+
+        # Extract dynamic topics from cluster memories
+        cluster_topics = []
+        if cluster_memories:
+            # Combine memory texts to understand what's being discussed
+            cluster_texts = " ".join([mem.text for mem in cluster_memories[:5]])  # Sample first 5
+            cluster_topics.append(cluster_texts[:200])  # Use first 200 chars as topic
+
+        if cluster_theme:
+            cluster_topics.append(cluster_theme)
+
+        # Build dynamic semantic query based on cluster content
+        semantic_query = " ".join(cluster_topics) if cluster_topics else "user information"
+
+        logger.debug(f"Dynamic context query for {user_id}: '{semantic_query[:100]}...'")
+
+        # Fetch semantically relevant preferences
+        preferences = client.recall_memories(
+            query=semantic_query,
+            user_id=user_id,
+            k=15,
+        )
+        preference_texts = [
+            mem.memory.text for mem in preferences
+            if mem.memory.type == MemoryType.PREFERENCE
+        ][:5]  # Top 5 most relevant
+
+        # Fetch semantically relevant goals
+        goals = client.recall_memories(
+            query=semantic_query,
+            user_id=user_id,
+            k=15,
+        )
+        goal_texts = [
+            mem.memory.text for mem in goals
+            if mem.memory.type == MemoryType.GOAL
+        ][:5]  # Top 5 most relevant
+
+        # Fetch semantically relevant facts
+        facts = client.recall_memories(
+            query=semantic_query,
+            user_id=user_id,
+            k=15,
+        )
+        fact_texts = [
+            mem.memory.text for mem in facts
+            if mem.memory.type == MemoryType.FACT
+        ][:5]  # Top 5 most relevant
+
+        # Fetch semantically relevant habits
+        habits = client.recall_memories(
+            query=semantic_query,
+            user_id=user_id,
+            k=10,
+        )
+        habit_texts = [
+            mem.memory.text for mem in habits
+            if mem.memory.type == MemoryType.HABIT
+        ][:3]  # Top 3 most relevant
+
+        # Get recent high-importance memories (temporal context)
+        # Use broader query for recency check
+        recent_important = client.recall_memories(
+            query=semantic_query,
+            user_id=user_id,
+            k=30,
+        )
+
+        # Filter for recent AND important, excluding cluster memories
+        cluster_ids = {mem.id for mem in cluster_memories} if cluster_memories else set()
+        recent_topics = [
+            mem.memory.text for mem in recent_important
+            if mem.memory.importance >= 7.0
+            and mem.memory.id not in cluster_ids
+            and (datetime.now(timezone.utc) - mem.memory.created_at).days <= 7
+        ][:5]  # Top 5 recent important memories from last 7 days
+
+        # Calculate time window of cluster
+        time_window = None
+        if cluster_memories:
+            timestamps = [mem.created_at for mem in cluster_memories]
+            time_window = {
+                "start": min(timestamps).isoformat(),
+                "end": max(timestamps).isoformat(),
+                "span_hours": (max(timestamps) - min(timestamps)).total_seconds() / 3600,
+            }
+
+        context = {
+            "user_id": user_id,
+            "preferences": preference_texts,
+            "goals": goal_texts,
+            "facts": fact_texts,
+            "habits": habit_texts,
+            "recent_topics": recent_topics,
+            "cluster_theme": cluster_theme,
+            "time_window": time_window,
+            "has_preferences": len(preference_texts) > 0,
+            "has_goals": len(goal_texts) > 0,
+            "has_facts": len(fact_texts) > 0,
+            "context_retrieval": "dynamic_semantic",  # Indicate dynamic retrieval
+        }
+
+        logger.info(
+            f"Retrieved dynamic context for {user_id} (theme: {cluster_theme}): "
+            f"{len(preference_texts)} preferences, "
+            f"{len(goal_texts)} goals, "
+            f"{len(fact_texts)} facts, "
+            f"{len(habit_texts)} habits, "
+            f"{len(recent_topics)} recent topics"
+        )
+
+        return context
+
+    except Exception as e:
+        logger.exception(f"Failed to retrieve user context for {user_id}: {e}")
+        # Return minimal context on error
+        return {
+            "user_id": user_id,
+            "preferences": [],
+            "goals": [],
+            "facts": [],
+            "habits": [],
+            "recent_topics": [],
+            "cluster_theme": cluster_theme,
+            "has_preferences": False,
+            "has_goals": False,
+            "has_facts": False,
+            "context_retrieval": "error_fallback",
+        }
 
 
 def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None:

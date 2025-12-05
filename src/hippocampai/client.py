@@ -385,7 +385,7 @@ class MemoryClient:
             raise ValueError(f"Unknown preset: {preset}")
 
         # Apply overrides
-        for key, value in overrides.items():
+        for key, value in dict.items(overrides):
             if hasattr(config, key):
                 setattr(config, key, value)
 

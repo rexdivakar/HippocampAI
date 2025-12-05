@@ -82,7 +82,7 @@ class LLMMemoryClassifier:
         """Generate cache key for consistent lookups."""
         # Normalize text and hash for consistent keys
         normalized = text.strip().lower()
-        return hashlib.md5(normalized.encode()).hexdigest()
+        return hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()
 
     def _classify_with_llm(self, text: str) -> Tuple[MemoryType, float]:
         """
@@ -125,11 +125,15 @@ class LLMMemoryClassifier:
             for key, mem_type in type_mapping.items():
                 if key in classification_text:
                     confidence = 0.9  # High confidence for LLM classification
-                    logger.debug(f"LLM classified '{text[:50]}...' as {mem_type.value} (confidence: {confidence})")
+                    logger.debug(
+                        f"LLM classified '{text[:50]}...' as {mem_type.value} (confidence: {confidence})"
+                    )
                     return mem_type, confidence
 
             # Fallback to context if no match
-            logger.warning(f"Could not parse LLM response '{classification_text}', defaulting to context")
+            logger.warning(
+                f"Could not parse LLM response '{classification_text}', defaulting to context"
+            )
             return MemoryType.CONTEXT, 0.5
 
         except Exception as e:

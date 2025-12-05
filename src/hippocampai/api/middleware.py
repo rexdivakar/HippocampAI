@@ -215,12 +215,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # Log API usage
             response_time_ms = (time.time() - start_time) * 1000
             if hasattr(request.state, "api_key_id") and auth_service:
+                # Extract token usage from request state (set by endpoints) or response headers
+                tokens_used = 0
+                if hasattr(request.state, "tokens_used"):
+                    tokens_used = request.state.tokens_used
+                elif "X-Tokens-Used" in response.headers:
+                    try:
+                        tokens_used = int(response.headers["X-Tokens-Used"])
+                    except (ValueError, TypeError):
+                        tokens_used = 0
+
                 await auth_service.log_api_usage(
                     api_key_id=request.state.api_key_id,
                     endpoint=request.url.path,
                     method=request.method,
                     status_code=response.status_code,
-                    tokens_used=0,  # TODO: Extract from response if available
+                    tokens_used=tokens_used,
                     response_time_ms=response_time_ms,
                 )
 
@@ -229,12 +239,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         except HTTPException as e:
             # Log failed requests too
             if hasattr(request.state, "api_key_id") and auth_service:
+                # Extract token usage from request state if available
+                tokens_used = getattr(request.state, "tokens_used", 0)
+
                 await auth_service.log_api_usage(
                     api_key_id=request.state.api_key_id,
                     endpoint=request.url.path,
                     method=request.method,
                     status_code=e.status_code,
-                    tokens_used=0,
+                    tokens_used=tokens_used,
                     response_time_ms=(time.time() - start_time) * 1000,
                 )
             raise
