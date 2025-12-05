@@ -1,14 +1,14 @@
 """Demo: Predictive analytics and proactive recommendations."""
 
 from datetime import datetime, timedelta
+
 from hippocampai.client import MemoryClient
+from hippocampai.models.prediction import (
+    ForecastHorizon,
+    ForecastMetric,
+)
 from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
 from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
-from hippocampai.models.prediction import (
-    ForecastMetric,
-    ForecastHorizon,
-    PredictionType,
-)
 
 
 def main():
@@ -100,7 +100,7 @@ def main():
         print(f"  When: {prediction.predicted_datetime.strftime('%Y-%m-%d %H:%M')}")
         print(f"  Confidence: {prediction.confidence:.0%}")
         print(f"  Recommendation: {prediction.recommendation}")
-        print(f"  Factors:")
+        print("  Factors:")
         for factor in prediction.factors:
             print(f"    - {factor}")
 
@@ -134,7 +134,7 @@ def main():
         print(f"  Description: {anomaly.description}")
         print(f"  Expected: {anomaly.expected_behavior}")
         print(f"  Actual: {anomaly.actual_behavior}")
-        print(f"  Suggestions:")
+        print("  Suggestions:")
         for suggestion in anomaly.suggestions:
             print(f"    - {suggestion}")
 
@@ -171,7 +171,7 @@ def main():
         horizon=ForecastHorizon.NEXT_WEEK
     )
 
-    print(f"✓ Activity Forecast (Next Week):")
+    print("✓ Activity Forecast (Next Week):")
     print(f"  Predicted value: {activity_forecast.predicted_value:.1f} memories/day")
     print(f"  Confidence interval: {activity_forecast.confidence_interval[0]:.1f} - {activity_forecast.confidence_interval[1]:.1f}")
     print(f"  Confidence: {activity_forecast.confidence:.0%}")
@@ -185,7 +185,7 @@ def main():
         horizon=ForecastHorizon.NEXT_MONTH
     )
 
-    print(f"\n✓ Importance Forecast (Next Month):")
+    print("\n✓ Importance Forecast (Next Month):")
     print(f"  Predicted average: {importance_forecast.predicted_value:.1f}/10")
     print(f"  Confidence interval: {importance_forecast.confidence_interval[0]:.1f} - {importance_forecast.confidence_interval[1]:.1f}")
 
@@ -206,7 +206,7 @@ def main():
         print(f"     Description: {insight.description}")
         print(f"     Impact: {insight.impact}")
         print(f"     Confidence: {insight.confidence:.0%}")
-        print(f"     Evidence:")
+        print("     Evidence:")
         for evidence in insight.evidence:
             print(f"       - {evidence}")
 
@@ -222,7 +222,7 @@ def main():
         metric="activity"
     )
 
-    print(f"✓ Activity Trend (Last 30 Days):")
+    print("✓ Activity Trend (Last 30 Days):")
     print(f"  Direction: {trend.direction.value}")
     print(f"  Strength: {trend.strength:.0%}")
     print(f"  Current value: {trend.current_value:.1f} memories/day")
@@ -235,13 +235,13 @@ def main():
     print("9. Summary")
     print("=" * 80)
 
-    print(f"✓ Predictive analytics demo completed!")
+    print("✓ Predictive analytics demo completed!")
     print(f"  - Analyzed {len(memories)} memories")
     print(f"  - Detected {len(patterns)} temporal pattern(s)")
     print(f"  - Found {len(anomalies)} anomal(ies)")
     print(f"  - Generated {len(recommendations)} recommendation(s)")
     print(f"  - Created {len(insights)} predictive insight(s)")
-    print(f"  - Forecasted 2 metric(s)")
+    print("  - Forecasted 2 metric(s)")
 
     print("\n💡 Key Features Demonstrated:")
     print("  1. Pattern detection and prediction")

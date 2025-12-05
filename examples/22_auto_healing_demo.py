@@ -1,15 +1,15 @@
 """Demo: Auto-healing and automatic memory maintenance."""
 
 from datetime import datetime, timedelta
+
 from hippocampai.client import MemoryClient
-from hippocampai.pipeline.auto_healing import AutoHealingEngine
-from hippocampai.monitoring.memory_health import MemoryHealthMonitor
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.healing import (
     AutoHealingConfig,
     ConsolidationStrategy,
-    HealingActionType,
 )
+from hippocampai.monitoring.memory_health import MemoryHealthMonitor
+from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
 
 def main():
@@ -105,13 +105,13 @@ def main():
     print(f"  Stale memories: {health_score.stale_memories}")
     print(f"  Duplicate clusters: {health_score.duplicate_clusters}")
     print(f"  Low quality memories: {health_score.low_quality_memories}")
-    print(f"\n  Component Scores:")
+    print("\n  Component Scores:")
     print(f"  - Freshness: {health_score.freshness_score:.1f}/100")
     print(f"  - Diversity: {health_score.diversity_score:.1f}/100")
     print(f"  - Consistency: {health_score.consistency_score:.1f}/100")
     print(f"  - Coverage: {health_score.coverage_score:.1f}/100")
 
-    print(f"\n  📋 Recommendations:")
+    print("\n  📋 Recommendations:")
     for rec in health_score.recommendations:
         print(f"    {rec}")
 
@@ -134,7 +134,7 @@ def main():
         max_actions_per_run=50
     )
 
-    print(f"✓ Auto-healing configuration:")
+    print("✓ Auto-healing configuration:")
     print(f"  - Auto cleanup: {config.auto_cleanup_enabled}")
     print(f"  - Auto deduplication: {config.auto_dedup_enabled}")
     print(f"  - Auto consolidation: {config.auto_consolidate_enabled}")
@@ -155,13 +155,13 @@ def main():
         dry_run=True
     )
 
-    print(f"✓ Cleanup analysis completed:")
+    print("✓ Cleanup analysis completed:")
     print(f"  Duration: {cleanup_report.duration_seconds:.2f}s")
     print(f"  Memories analyzed: {cleanup_report.memories_analyzed}")
     print(f"  Actions recommended: {len(cleanup_report.actions_recommended)}")
     print(f"  Actions applied: {len(cleanup_report.actions_applied)}")
 
-    print(f"\n  Recommended actions:")
+    print("\n  Recommended actions:")
     for i, action in enumerate(cleanup_report.actions_recommended[:5], 1):
         print(f"  {i}. {action.action_type.value}")
         print(f"     Reason: {action.reason}")
@@ -181,13 +181,13 @@ def main():
         dry_run=True
     )
 
-    print(f"✓ Deduplication analysis completed:")
+    print("✓ Deduplication analysis completed:")
     print(f"  Duration: {dedup_report.duration_seconds:.2f}s")
     print(f"  Duplicate clusters found: {len(dedup_report.actions_recommended)}")
     print(f"  Merges recommended: {len(dedup_report.actions_recommended)}")
 
     if dedup_report.actions_recommended:
-        print(f"\n  Duplicate clusters:")
+        print("\n  Duplicate clusters:")
         for i, action in enumerate(dedup_report.actions_recommended[:3], 1):
             print(f"  {i}. Cluster with {len(action.memory_ids)} memories")
             print(f"     Reason: {action.reason}")
@@ -200,11 +200,11 @@ def main():
 
     tag_actions = healing_engine.auto_tag(memories)
 
-    print(f"✓ Auto-tagging analysis completed:")
+    print("✓ Auto-tagging analysis completed:")
     print(f"  Tag suggestions: {len(tag_actions)}")
 
     if tag_actions:
-        print(f"\n  Sample suggestions:")
+        print("\n  Sample suggestions:")
         for i, action in enumerate(tag_actions[:5], 1):
             print(f"  {i}. Memory: {action.memory_ids[0][:8]}...")
             print(f"     Suggested tags: {', '.join(action.metadata.get('suggested_tags', []))}")
@@ -223,11 +223,11 @@ def main():
         access_weight=0.5
     )
 
-    print(f"✓ Importance adjustment analysis:")
+    print("✓ Importance adjustment analysis:")
     print(f"  Adjustments recommended: {len(importance_actions)}")
 
     if importance_actions:
-        print(f"\n  Sample adjustments:")
+        print("\n  Sample adjustments:")
         for i, action in enumerate(importance_actions[:5], 1):
             print(f"  {i}. {action.reason}")
             print(f"     {action.impact}")
@@ -244,14 +244,14 @@ def main():
         dry_run=True
     )
 
-    print(f"✓ Full health check completed:")
+    print("✓ Full health check completed:")
     print(f"  Duration: {full_report.duration_seconds:.2f}s")
     print(f"  Total actions recommended: {len(full_report.actions_recommended)}")
     print(f"  Total actions applied: {len(full_report.actions_applied)}")
     print(f"  Health before: {full_report.health_before:.1f}/100")
     print(f"  Health after: {full_report.health_after:.1f}/100")
 
-    print(f"\n  Improvements:")
+    print("\n  Improvements:")
     for metric, value in full_report.improvements.items():
         print(f"    - {metric}: {value}")
 
@@ -273,7 +273,7 @@ def main():
         )
 
         if consolidation:
-            print(f"✓ Consolidation created:")
+            print("✓ Consolidation created:")
             print(f"  Original memories: {len(consolidation.original_memory_ids)}")
             print(f"  Strategy: {consolidation.strategy.value}")
             print(f"  Content preserved: {consolidation.content_preserved:.0%}")
@@ -290,7 +290,7 @@ def main():
         action_type = action.action_type.value
         action_counts[action_type] = action_counts.get(action_type, 0) + 1
 
-    print(f"✓ Recommended actions by type:")
+    print("✓ Recommended actions by type:")
     for action_type, count in sorted(action_counts.items(), key=lambda x: x[1], reverse=True):
         print(f"  - {action_type}: {count}")
 
@@ -299,7 +299,7 @@ def main():
     print("11. Final Assessment")
     print("=" * 80)
 
-    print(f"✓ Auto-healing demo completed!")
+    print("✓ Auto-healing demo completed!")
     print(f"  - Total memories: {len(memories)}")
     print(f"  - Initial health: {health_score.overall_score:.1f}/100 ({health_score.status.value})")
     print(f"  - Potential health: {full_report.health_after:.1f}/100 (after healing)")

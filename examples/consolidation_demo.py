@@ -10,18 +10,13 @@ This script demonstrates the complete consolidation pipeline:
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from pprint import pprint
 
-from hippocampai.consolidation.models import ConsolidationRun
 from hippocampai.consolidation.policy import (
     ConsolidationPolicy,
-    ConsolidationPolicyEngine,
     apply_consolidation_decisions,
 )
 from hippocampai.consolidation.prompts import (
-    EXAMPLE_MEMORIES_DATA,
     build_consolidation_prompt,
-    get_example_consolidation_response,
 )
 from hippocampai.models import Memory, MemoryType
 
@@ -321,9 +316,6 @@ def step5_show_before_after(memories: list[Memory], actions: dict):
     logger.info("STEP 5: BEFORE/AFTER COMPARISON")
     logger.info("=" * 70)
 
-    # Build memory lookup
-    memory_map = {m.id: m for m in memories}
-
     print("\nBEFORE CONSOLIDATION:")
     print("─" * 70)
     print(f"Total memories: {len(memories)}")
@@ -439,7 +431,7 @@ def main():
 
     # Run all steps
     memories = step1_prepare_memories()
-    prompt = step2_generate_prompt(memories)
+    step2_generate_prompt(memories)
     llm_response = step3_simulate_llm_response()
     actions = step4_apply_policy(memories, llm_response)
     step5_show_before_after(memories, actions)

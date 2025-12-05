@@ -7,7 +7,7 @@ for a specific user or session.
 """
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 # Configuration
 QDRANT_URL = "http://100.113.229.40:6333"
@@ -86,7 +86,7 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
 
                 points = results[0]
                 if not points:
-                    print(f"No memories found for user either")
+                    print("No memories found for user either")
                     continue
 
             print(f"\n✅ Found {len(points)} memories:\n")

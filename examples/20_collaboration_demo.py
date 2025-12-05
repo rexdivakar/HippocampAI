@@ -1,10 +1,9 @@
 """Demo: Multi-agent collaboration with shared memory spaces."""
 
-import time
 from hippocampai.client import MemoryClient
-from hippocampai.multiagent.collaboration import CollaborationManager
 from hippocampai.models.agent import PermissionType
-from hippocampai.models.collaboration import CollaborationEventType
+from hippocampai.multiagent.collaboration import CollaborationManager
+
 
 def main():
     """Demonstrate multi-agent collaboration features."""
@@ -22,7 +21,7 @@ def main():
     research_agent = research_client.create_agent(
         name="Research Assistant",
         role="assistant",
-        description="Handles research and information gathering"
+        description="Handles research and information gathering",
     )
     print(f"✓ Created Research Agent: {research_agent.id}")
 
@@ -30,7 +29,7 @@ def main():
     writing_agent = research_client.create_agent(
         name="Writing Assistant",
         role="assistant",
-        description="Handles writing and content creation"
+        description="Handles writing and content creation",
     )
     print(f"✓ Created Writing Agent: {writing_agent.id}")
 
@@ -38,7 +37,7 @@ def main():
     analytics_agent = research_client.create_agent(
         name="Analytics Assistant",
         role="specialist",
-        description="Analyzes patterns and generates insights"
+        description="Analyzes patterns and generates insights",
     )
     print(f"✓ Created Analytics Agent: {analytics_agent.id}")
 
@@ -51,7 +50,7 @@ def main():
         name="Research Project: AI Ethics",
         owner_agent_id=research_agent.id,
         description="Collaborative space for AI ethics research",
-        tags=["research", "ai", "ethics"]
+        tags=["research", "ai", "ethics"],
     )
     print(f"✓ Created space: {space.name} (ID: {space.id})")
     print(f"  Owner: {research_agent.name}")
@@ -66,7 +65,7 @@ def main():
         space_id=space.id,
         agent_id=writing_agent.id,
         permissions=[PermissionType.READ, PermissionType.WRITE],
-        inviter_id=research_agent.id
+        inviter_id=research_agent.id,
     )
     print(f"✓ Added {writing_agent.name} with READ, WRITE permissions")
 
@@ -75,7 +74,7 @@ def main():
         space_id=space.id,
         agent_id=analytics_agent.id,
         permissions=[PermissionType.READ],
-        inviter_id=research_agent.id
+        inviter_id=research_agent.id,
     )
     print(f"✓ Added {analytics_agent.name} with READ permission")
 
@@ -100,17 +99,15 @@ def main():
         type="fact",
         importance=8.0,
         tags=["ai_bias", "ethics"],
-        agent_id=research_agent.id
+        agent_id=research_agent.id,
     )
     print(f"✓ {research_agent.name} created memory: {research_memory.id}")
 
     # Add to shared space
     collab_manager.add_memory_to_space(
-        space_id=space.id,
-        memory_id=research_memory.id,
-        agent_id=research_agent.id
+        space_id=space.id, memory_id=research_memory.id, agent_id=research_agent.id
     )
-    print(f"  Added to shared space")
+    print("  Added to shared space")
 
     # Writing agent adds writing draft
     writing_memory = research_client.remember(
@@ -118,16 +115,14 @@ def main():
         type="context",
         importance=7.0,
         tags=["writing", "outline"],
-        agent_id=writing_agent.id
+        agent_id=writing_agent.id,
     )
     print(f"✓ {writing_agent.name} created memory: {writing_memory.id}")
 
     collab_manager.add_memory_to_space(
-        space_id=space.id,
-        memory_id=writing_memory.id,
-        agent_id=writing_agent.id
+        space_id=space.id, memory_id=writing_memory.id, agent_id=writing_agent.id
     )
-    print(f"  Added to shared space")
+    print("  Added to shared space")
 
     # 6. Check space events
     print("\n" + "=" * 80)
@@ -137,7 +132,9 @@ def main():
     events = collab_manager.get_space_events(space.id, limit=10)
     print(f"✓ Found {len(events)} events in space:")
     for event in events[:5]:
-        print(f"  [{event.timestamp.strftime('%H:%M:%S')}] {event.event_type.value} by {event.agent_id[:8]}...")
+        print(
+            f"  [{event.timestamp.strftime('%H:%M:%S')}] {event.event_type.value} by {event.agent_id[:8]}..."
+        )
         if event.data:
             print(f"    Data: {event.data}")
 
@@ -151,7 +148,7 @@ def main():
         space_id=space.id,
         agent_id=analytics_agent.id,
         permissions=[PermissionType.READ, PermissionType.WRITE],
-        updater_id=research_agent.id
+        updater_id=research_agent.id,
     )
     print(f"✓ Updated {analytics_agent.name} permissions to READ, WRITE")
 
@@ -194,9 +191,9 @@ def main():
         memory_id=research_memory.id,
         conflicting_versions=[
             {"text": "Version 1 by research agent", "updated_by": research_agent.id},
-            {"text": "Version 2 by writing agent", "updated_by": writing_agent.id}
+            {"text": "Version 2 by writing agent", "updated_by": writing_agent.id},
         ],
-        conflict_type=ConflictType.CONCURRENT_UPDATE
+        conflict_type=ConflictType.CONCURRENT_UPDATE,
     )
     print(f"✓ Conflict detected: {conflict.conflict_type.value}")
     print(f"  Conflict ID: {conflict.id}")
@@ -207,7 +204,7 @@ def main():
         conflict_id=conflict.id,
         resolved_version={"text": "Merged version by owner", "updated_by": research_agent.id},
         resolved_by=research_agent.id,
-        strategy=ResolutionStrategy.LATEST_WINS
+        strategy=ResolutionStrategy.LATEST_WINS,
     )
     print(f"✓ Conflict resolved using {ResolutionStrategy.LATEST_WINS.value}")
 
@@ -217,24 +214,21 @@ def main():
     print("=" * 80)
 
     # Get unread notifications
-    unread_notifications = collab_manager.get_notifications(
-        writing_agent.id,
-        unread_only=True
-    )
+    unread_notifications = collab_manager.get_notifications(writing_agent.id, unread_only=True)
     print(f"✓ {writing_agent.name} has {len(unread_notifications)} unread notification(s)")
 
     # Mark as read
     if unread_notifications:
         for notif in unread_notifications:
             collab_manager.mark_notification_read(writing_agent.id, notif.id)
-        print(f"✓ Marked all notifications as read")
+        print("✓ Marked all notifications as read")
 
     # 12. Cleanup
     print("\n" + "=" * 80)
     print("12. Summary")
     print("=" * 80)
 
-    print(f"✓ Collaboration demo completed successfully!")
+    print("✓ Collaboration demo completed successfully!")
     print(f"  - Created {len(collab_manager.spaces)} shared space(s)")
     print(f"  - {len(space.collaborator_agent_ids)} collaborator(s)")
     print(f"  - {len(space.memory_ids)} shared memor(ies)")
