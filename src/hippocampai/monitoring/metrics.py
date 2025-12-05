@@ -571,16 +571,27 @@ def record_memory_operation(
     duration_ms: Optional[float] = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
-    """Record a memory operation metric."""
+    """Record a memory operation metric with optional metadata tags."""
     collector = get_metrics_collector()
 
-    collector.increment_counter(f"memory.{operation.value}.total")
+    # Extract tags from metadata for filtering and analysis
+    tags = {}
+    if metadata:
+        # Extract common fields as tags
+        if "user_id" in metadata:
+            tags["user_id"] = str(metadata["user_id"])
+        if "memory_type" in metadata:
+            tags["memory_type"] = str(metadata["memory_type"])
+        if "session_id" in metadata:
+            tags["session_id"] = str(metadata["session_id"])
+
+    collector.increment_counter(f"memory.{operation.value}.total", tags=tags)
 
     if not success:
-        collector.increment_counter(f"memory.{operation.value}.errors")
+        collector.increment_counter(f"memory.{operation.value}.errors", tags=tags)
 
     if duration_ms is not None:
-        collector.record_histogram(f"memory.{operation.value}.duration_ms", duration_ms)
+        collector.record_histogram(f"memory.{operation.value}.duration_ms", duration_ms, tags=tags)
 
 
 def record_memory_store_stats(
