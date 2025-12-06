@@ -2,10 +2,12 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 import socketio
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,6 +16,10 @@ from hippocampai.api.deps import get_memory_client
 from hippocampai.api.websocket import sio
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +102,15 @@ try:
     logger.info("Dashboard routes registered successfully")
 except ImportError as e:
     logger.warning(f"Could not load dashboard routes: {e}")
+
+# Include auth/session routes
+try:
+    from hippocampai.api.auth_routes import router as auth_router
+
+    app.include_router(auth_router)
+    logger.info("Auth routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load auth routes: {e}")
 
 
 # Request/Response models

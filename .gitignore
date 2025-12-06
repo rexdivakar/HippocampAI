@@ -225,3 +225,4 @@ dist
 .ruff_cache
 frontend/node_modules/*
 frontend/node_modules
+data/consolidation.db

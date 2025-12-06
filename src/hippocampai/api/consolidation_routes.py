@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from hippocampai.api.deps import get_current_user
-from hippocampai.consolidation.models import ConsolidationRun, ConsolidationStatus
-from hippocampai.consolidation.tasks import consolidate_user_memories
+from hippocampai.consolidation.db import get_db
+from hippocampai.consolidation.models import ConsolidationRun
+from hippocampai.consolidation.tasks import _run_consolidation_sync
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/consolidation", tags=["consolidation"])
 class ConsolidationRunSummary(BaseModel):
     """Summary of a consolidation run for dashboard display."""
 
-    run_id: str
+    id: str  # Changed from run_id to match ConsolidationRun model
     user_id: str
     status: str
     started_at: datetime
@@ -75,33 +76,31 @@ class ConsolidationConfig(BaseModel):
 
 
 # ============================================
-# IN-MEMORY STORAGE (Replace with actual DB)
+# DATABASE STORAGE (SQLite/Postgres)
 # ============================================
-
-# TODO: Replace with actual database storage
-# For now, using in-memory dict for demo purposes
-consolidation_runs_db: dict[str, ConsolidationRun] = {}
 
 
 def store_consolidation_run(run: ConsolidationRun) -> None:
-    """Store consolidation run (replace with actual DB)."""
-    consolidation_runs_db[run.id] = run
+    """Store consolidation run in database."""
+    db = get_db()
+    db.create_run(run)
+    logger.debug(f"Stored consolidation run {run.id} in database")
 
 
 def get_consolidation_run(run_id: str) -> Optional[ConsolidationRun]:
-    """Get consolidation run by ID (replace with actual DB)."""
-    return consolidation_runs_db.get(run_id)
+    """Get consolidation run by ID from database."""
+    db = get_db()
+    run_data = db.get_run(run_id)
+    if run_data:
+        return ConsolidationRun(**run_data)
+    return None
 
 
 def get_user_consolidation_runs(user_id: str, limit: int = 50) -> list[ConsolidationRun]:
-    """Get consolidation runs for a user (replace with actual DB)."""
-    user_runs = [
-        run for run in consolidation_runs_db.values()
-        if run.user_id == user_id
-    ]
-    # Sort by started_at descending
-    user_runs.sort(key=lambda x: x.started_at, reverse=True)
-    return user_runs[:limit]
+    """Get consolidation runs for a user from database."""
+    db = get_db()
+    runs_data = db.get_user_runs(user_id, limit=limit)
+    return [ConsolidationRun(**run_data) for run_data in runs_data]
 
 
 # ============================================
@@ -180,33 +179,8 @@ async def get_consolidation_stats(
 
     Shows overall trends and metrics across all sleep cycles.
     """
-    runs = get_user_consolidation_runs(user_id, limit=1000)
-
-    if not runs:
-        return ConsolidationStats(
-            total_runs=0,
-            successful_runs=0,
-            failed_runs=0,
-            total_memories_reviewed=0,
-            total_memories_deleted=0,
-            total_memories_promoted=0,
-            total_memories_synthesized=0,
-            avg_duration_seconds=0.0,
-            last_run_at=None,
-            next_run_at=None,
-        )
-
-    successful_runs = [r for r in runs if r.status == ConsolidationStatus.COMPLETED]
-    failed_runs = [r for r in runs if r.status == ConsolidationStatus.FAILED]
-
-    total_memories_reviewed = sum(r.memories_reviewed for r in runs)
-    total_memories_deleted = sum(r.memories_deleted for r in runs)
-    total_memories_promoted = sum(r.memories_promoted for r in runs)
-    total_memories_synthesized = sum(r.memories_synthesized for r in runs)
-
-    avg_duration = sum(r.duration_seconds for r in successful_runs) / len(successful_runs) if successful_runs else 0.0
-
-    last_run = runs[0] if runs else None
+    db = get_db()
+    stats = db.get_stats(user_id)
 
     # Calculate next run time (next 3 AM)
     import os
@@ -217,16 +191,22 @@ async def get_consolidation_stats(
     if next_run < now:
         next_run += timedelta(days=1)
 
+    # Parse last_run_at from string if needed (SQLite returns strings)
+    last_run_at = None
+    if stats.get("last_run_at"):
+        from dateutil import parser
+        last_run_at = parser.parse(stats["last_run_at"]) if isinstance(stats["last_run_at"], str) else stats["last_run_at"]
+
     return ConsolidationStats(
-        total_runs=len(runs),
-        successful_runs=len(successful_runs),
-        failed_runs=len(failed_runs),
-        total_memories_reviewed=total_memories_reviewed,
-        total_memories_deleted=total_memories_deleted,
-        total_memories_promoted=total_memories_promoted,
-        total_memories_synthesized=total_memories_synthesized,
-        avg_duration_seconds=avg_duration,
-        last_run_at=last_run.completed_at if last_run and last_run.completed_at else None,
+        total_runs=stats.get("total_runs", 0),
+        successful_runs=stats.get("successful_runs", 0),
+        failed_runs=stats.get("failed_runs", 0),
+        total_memories_reviewed=stats.get("total_memories_reviewed", 0),
+        total_memories_deleted=stats.get("total_memories_deleted", 0),
+        total_memories_promoted=stats.get("total_memories_promoted", 0),
+        total_memories_synthesized=stats.get("total_memories_synthesized", 0),
+        avg_duration_seconds=stats.get("avg_duration_seconds", 0.0) or 0.0,
+        last_run_at=last_run_at,
         next_run_at=next_run,
     )
 
@@ -245,21 +225,17 @@ async def trigger_consolidation(
     logger.info(f"Manual consolidation triggered for user {user_id} (dry_run={request.dry_run})")
 
     try:
-        # Trigger Celery task
-        task = consolidate_user_memories.delay(
+        # Run consolidation synchronously (no Celery required for manual triggers)
+        result = _run_consolidation_sync(
             user_id=user_id,
             lookback_hours=request.lookback_hours,
             dry_run=request.dry_run,
         )
 
-        # Wait for result (with timeout)
-        result = task.get(timeout=300)  # 5 minute timeout
-
         # Convert result dict to ConsolidationRun
         run = ConsolidationRun(**result)
 
-        # Store the run
-        store_consolidation_run(run)
+        # Note: run is already stored in the database by _run_consolidation_sync
 
         return ConsolidationRunSummary(**run.dict())
 
@@ -307,40 +283,9 @@ async def get_latest_consolidation_run(
 
 
 # ============================================
-# MOCK DATA FOR DEMO
+# DATABASE INITIALIZED
 # ============================================
 
-def create_mock_consolidation_runs(user_id: str) -> None:
-    """Create mock consolidation runs for demo purposes."""
-    from datetime import timedelta
-    from uuid import uuid4
-
-    # Create 5 mock runs
-    for i in range(5):
-        run = ConsolidationRun(
-            id=str(uuid4()),
-            user_id=user_id,
-            status=ConsolidationStatus.COMPLETED if i < 4 else ConsolidationStatus.FAILED,
-            started_at=datetime.now(timezone.utc) - timedelta(days=i),
-            completed_at=datetime.now(timezone.utc) - timedelta(days=i, hours=-1),
-            duration_seconds=12.5 + i * 2,
-            lookback_hours=24,
-            memories_reviewed=50 - i * 5,
-            memories_deleted=3 + i,
-            memories_archived=2,
-            memories_promoted=8 - i,
-            memories_updated=4,
-            memories_synthesized=2,
-            clusters_created=5,
-            llm_calls_made=3,
-            dream_report=f"Consolidation run #{i+1}: Productive session focusing on strategic planning and team dynamics. Promoted important decisions, archived routine events.",
-        )
-        store_consolidation_run(run)
-
-
-# Initialize with mock data on first import (for demo)
-# Remove this in production
-if not consolidation_runs_db:
-    logger.info("Initializing mock consolidation data for demo")
-    # This will be populated when first user accesses the API
-    pass
+# Database is initialized automatically via get_db()
+# SQLite database will be created at data/consolidation.db
+# To use Postgres, set CONSOLIDATION_DB_TYPE=postgres

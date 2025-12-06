@@ -230,19 +230,13 @@ def cluster_memories(memories: list[Memory]) -> list[MemoryCluster]:
     return clusters
 
 
-@celery_app.task(
-    name="hippocampai.consolidation.consolidate_user_memories",
-    bind=True,
-    max_retries=2,
-)
-def consolidate_user_memories(
-    self,
+def _run_consolidation_sync(
     user_id: str,
     lookback_hours: int = 24,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """
-    Consolidate memories for a single user.
+    Core consolidation logic (synchronous).
 
     Args:
         user_id: User ID to consolidate
@@ -263,6 +257,12 @@ def consolidate_user_memories(
         status=ConsolidationStatus.RUNNING,
     )
 
+    # Persist run to database
+    from hippocampai.consolidation.db import get_db
+    db = get_db()
+    db.create_run(run)
+    logger.debug(f"Created consolidation run {run.id} in database")
+
     try:
         # Step 1: Collect recent memories
         memories = collect_recent_memories(user_id, lookback_hours)
@@ -274,6 +274,16 @@ def consolidate_user_memories(
             run.duration_seconds = time.time() - start_time
             logger.info(f"No memories to consolidate for {user_id}")
             emit_metric_run(user_id, "completed")
+
+            # Update run in database
+            db.update_run(
+                run.id,
+                {
+                    "status": run.status.value,
+                    "completed_at": run.completed_at,
+                    "duration_seconds": run.duration_seconds,
+                },
+            )
             return run.dict()
 
         run.memories_reviewed = len(memories)
@@ -340,6 +350,25 @@ def consolidate_user_memories(
         emit_metric_run(user_id, "completed")
         emit_metric_duration(user_id, run.duration_seconds)
 
+        # Update run in database with final stats
+        db.update_run(
+            run.id,
+            {
+                "status": run.status.value,
+                "completed_at": run.completed_at,
+                "duration_seconds": run.duration_seconds,
+                "memories_reviewed": run.memories_reviewed,
+                "memories_deleted": run.memories_deleted,
+                "memories_archived": run.memories_archived,
+                "memories_promoted": run.memories_promoted,
+                "memories_updated": run.memories_updated,
+                "memories_synthesized": run.memories_synthesized,
+                "clusters_created": run.clusters_created,
+                "llm_calls_made": run.llm_calls_made,
+                "dream_report": run.dream_report,
+            },
+        )
+
         logger.info(f"Consolidation completed for {user_id}: {run.dream_report}")
         return run.dict()
 
@@ -353,7 +382,47 @@ def consolidate_user_memories(
         logger.exception(f"Consolidation failed for {user_id}: {e}")
         emit_metric_run(user_id, "failed")
 
+        # Update run in database with error info
+        db.update_run(
+            run.id,
+            {
+                "status": run.status.value,
+                "completed_at": run.completed_at,
+                "duration_seconds": run.duration_seconds,
+                "error_message": run.error_message,
+                "error_stacktrace": run.error_stacktrace,
+                "memories_reviewed": run.memories_reviewed,
+                "clusters_created": run.clusters_created,
+                "llm_calls_made": run.llm_calls_made,
+            },
+        )
+
         return run.dict()
+
+
+@celery_app.task(
+    name="hippocampai.consolidation.consolidate_user_memories",
+    bind=True,
+    max_retries=2,
+)
+def consolidate_user_memories(
+    self,
+    user_id: str,
+    lookback_hours: int = 24,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Celery task wrapper for memory consolidation.
+
+    Args:
+        user_id: User ID to consolidate
+        lookback_hours: How many hours back to review
+        dry_run: If True, don't make changes
+
+    Returns:
+        Dictionary with consolidation results
+    """
+    return _run_consolidation_sync(user_id, lookback_hours, dry_run)
 
 
 def get_active_users(lookback_hours: int = 24) -> list[str]:
@@ -364,19 +433,99 @@ def get_active_users(lookback_hours: int = 24) -> list[str]:
         lookback_hours: Hours to look back for activity
 
     Returns:
-        List of user IDs
+        List of user IDs with recent memory activity
     """
-    # This would query your database for users with recent activity
-    # For now, we'll use a placeholder implementation
+    try:
+        from hippocampai.vector.qdrant_store import QdrantStore
 
-    # TODO: Implement actual DB query
-    # Example SQL:
-    # SELECT DISTINCT user_id FROM memories
-    # WHERE created_at > NOW() - INTERVAL '{lookback_hours} hours'
-    #    OR updated_at > NOW() - INTERVAL '{lookback_hours} hours'
+        # Initialize Qdrant connection
+        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        store = QdrantStore(url=qdrant_url)
 
-    logger.warning("get_active_users: Using placeholder implementation")
-    return []  # Replace with actual user IDs
+        # Calculate time threshold
+        threshold = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+
+        # Collect user IDs with recent activity
+        active_user_ids = set()
+
+        # Query both collections for recent memories
+        collections = [store.collection_facts, store.collection_prefs]
+
+        for collection_name in collections:
+            try:
+                # Scroll through all memories in batches
+                # Note: Qdrant scroll doesn't support date range filters directly,
+                # so we fetch memories and filter client-side
+                batch_size = 1000
+                offset = None
+
+                while True:
+                    # Use client.scroll directly for pagination support
+                    results, next_offset = store.client.scroll(
+                        collection_name=collection_name,
+                        limit=batch_size,
+                        offset=offset,
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    if not results:
+                        break
+
+                    # Process this batch
+                    for point in results:
+                        payload = point.payload
+                        user_id = payload.get("user_id")
+
+                        if not user_id:
+                            continue
+
+                        # Check if memory was created or updated recently
+                        created_at_str = payload.get("created_at")
+                        updated_at_str = payload.get("updated_at")
+
+                        # Parse dates
+                        is_recent = False
+                        if created_at_str:
+                            try:
+                                from dateutil import parser
+                                created_at = parser.parse(created_at_str)
+                                if created_at >= threshold:
+                                    is_recent = True
+                            except (ValueError, TypeError):
+                                pass
+
+                        if not is_recent and updated_at_str:
+                            try:
+                                from dateutil import parser
+                                updated_at = parser.parse(updated_at_str)
+                                if updated_at >= threshold:
+                                    is_recent = True
+                            except (ValueError, TypeError):
+                                pass
+
+                        if is_recent:
+                            active_user_ids.add(user_id)
+
+                    # Check if we have more results
+                    if next_offset is None:
+                        break
+                    offset = next_offset
+
+            except Exception as e:
+                logger.warning(f"Failed to scan collection {collection_name}: {e}")
+                continue
+
+        active_users = list(active_user_ids)
+        logger.info(
+            f"Found {len(active_users)} active users with memory activity in last {lookback_hours}h"
+        )
+        return active_users
+
+    except Exception as e:
+        logger.exception(f"Failed to get active users: {e}")
+        # Return empty list on failure (graceful degradation)
+        return []
 
 
 def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
@@ -490,44 +639,116 @@ def llm_review_cluster(
 
 def call_llm_for_consolidation(prompt: str, model: str, temperature: float) -> str:
     """
-    Call LLM API for consolidation.
+    Call LLM API for consolidation using configured provider.
 
-    This is a placeholder - replace with your actual LLM client.
+    Supports OpenAI, Groq, Anthropic, and Ollama providers via environment variables.
 
     Args:
         prompt: The consolidation prompt
-        model: Model name
+        model: Model name (overrides env default)
         temperature: Sampling temperature
 
     Returns:
         LLM response text (JSON string)
-    """
-    # TODO: Implement actual LLM call using your UnifiedClient or OpenAI/Anthropic client
-    # Example using OpenAI:
-    #
-    # import openai
-    # response = openai.ChatCompletion.create(
-    #     model=model,
-    #     messages=[
-    #         {"role": "system", "content": CONSOLIDATION_SYSTEM_MESSAGE},
-    #         {"role": "user", "content": prompt}
-    #     ],
-    #     temperature=temperature,
-    #     response_format={"type": "json_object"}  # For GPT-4 Turbo JSON mode
-    # )
-    # return response.choices[0].message.content
 
-    logger.warning("call_llm_for_consolidation: Using placeholder implementation")
-    # Return empty decision for now
-    return json.dumps(
-        {
-            "promoted_facts": [],
-            "low_value_memory_ids": [],
-            "updated_memories": [],
-            "synthetic_memories": [],
-            "reasoning": "Placeholder LLM response",
-        }
-    )
+    Environment Variables:
+        - OPENAI_API_KEY: OpenAI API key
+        - GROQ_API_KEY: Groq API key
+        - ANTHROPIC_API_KEY: Anthropic API key
+        - CONSOLIDATION_LLM_PROVIDER: Provider name (openai, groq, anthropic, ollama)
+    """
+    from hippocampai.consolidation.prompts import CONSOLIDATION_SYSTEM_MESSAGE
+
+    try:
+        # Determine LLM provider from env or model name
+        provider = os.getenv("CONSOLIDATION_LLM_PROVIDER", "openai").lower()
+
+        # Auto-detect provider from model name if not explicitly set
+        if "gpt" in model.lower():
+            provider = "openai"
+        elif "llama" in model.lower() or "mixtral" in model.lower():
+            provider = "groq"
+        elif "claude" in model.lower():
+            provider = "anthropic"
+
+        logger.info(f"Using LLM provider: {provider}, model: {model}")
+
+        # Initialize LLM client based on provider
+        llm_client = None
+
+        if provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not set in environment")
+            from hippocampai.adapters.provider_openai import OpenAILLM
+
+            llm_client = OpenAILLM(api_key=api_key, model=model)
+
+        elif provider == "groq":
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                raise ValueError("GROQ_API_KEY not set in environment")
+            from hippocampai.adapters.provider_groq import GroqLLM
+
+            llm_client = GroqLLM(api_key=api_key, model=model)
+
+        elif provider == "anthropic":
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY not set in environment")
+            from hippocampai.adapters.provider_anthropic import AnthropicLLM
+
+            llm_client = AnthropicLLM(api_key=api_key, model=model)
+
+        elif provider == "ollama":
+            from hippocampai.adapters.provider_ollama import OllamaLLM
+
+            ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+            llm_client = OllamaLLM(base_url=ollama_url, model=model)
+
+        else:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+
+        if not llm_client:
+            raise ValueError(f"Failed to initialize LLM client for provider: {provider}")
+
+        # Call LLM with consolidation prompt
+        # Use generate() method with system message
+        max_tokens = 4096  # Large enough for complex consolidation decisions
+        response_text = llm_client.generate(
+            prompt=prompt,
+            system=CONSOLIDATION_SYSTEM_MESSAGE,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        if not response_text:
+            logger.error("LLM returned empty response")
+            return json.dumps(
+                {
+                    "promoted_facts": [],
+                    "low_value_memory_ids": [],
+                    "updated_memories": [],
+                    "synthetic_memories": [],
+                    "reasoning": "LLM returned empty response",
+                }
+            )
+
+        logger.debug(f"LLM response length: {len(response_text)} chars")
+        return response_text
+
+    except Exception as e:
+        logger.exception(f"Failed to call LLM for consolidation: {e}")
+        # Return empty decision on error (graceful degradation)
+        return json.dumps(
+            {
+                "promoted_facts": [],
+                "low_value_memory_ids": [],
+                "updated_memories": [],
+                "synthetic_memories": [],
+                "reasoning": f"Error calling LLM: {str(e)}",
+            }
+        )
 
 
 def get_user_context(

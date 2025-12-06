@@ -11,6 +11,9 @@ import {
   BarChart3,
   Calendar,
   Zap,
+  Loader2,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -20,6 +23,7 @@ interface SleepPhasePageProps {
 
 export function SleepPhasePage({ userId }: SleepPhasePageProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'settings'>('overview');
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch consolidation status
@@ -55,18 +59,63 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
       const res = await fetch(`/api/consolidation/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: dryRun, lookback_hours: 24 }),
+        body: JSON.stringify({ dry_run: dryRun, lookback_hours: 24, user_id: userId }),
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.detail || 'Failed to trigger consolidation');
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, dryRun) => {
+      setNotification({
+        type: 'success',
+        message: dryRun
+          ? `Dry run completed! Would have reviewed ${data.memories_reviewed || 0} memories.`
+          : `Consolidation completed! Reviewed ${data.memories_reviewed || 0} memories.`
+      });
       queryClient.invalidateQueries({ queryKey: ['consolidation-runs', userId] });
       queryClient.invalidateQueries({ queryKey: ['consolidation-stats', userId] });
+      setTimeout(() => setNotification(null), 5000);
+    },
+    onError: (error: Error) => {
+      setNotification({
+        type: 'error',
+        message: `Error: ${error.message}`
+      });
+      setTimeout(() => setNotification(null), 5000);
     },
   });
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-5">
+          <div
+            className={clsx(
+              'rounded-lg shadow-lg border px-4 py-3 flex items-center space-x-3 min-w-[300px]',
+              notification.type === 'success'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            )}
+          >
+            {notification.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600" />
+            )}
+            <p className="text-sm font-medium">{notification.message}</p>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-auto text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -148,7 +197,12 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto w-full px-6 py-8">
         {activeTab === 'overview' && (
-          <OverviewTab stats={stats} lastRun={runs[0]} onTrigger={(dryRun: boolean) => triggerMutation.mutate(dryRun)} />
+          <OverviewTab
+            stats={stats}
+            lastRun={runs[0]}
+            onTrigger={(dryRun: boolean) => triggerMutation.mutate(dryRun)}
+            isLoading={triggerMutation.isPending}
+          />
         )}
 
         {activeTab === 'history' && <HistoryTab runs={runs} />}
@@ -163,7 +217,7 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
 // OVERVIEW TAB
 // ============================================
 
-function OverviewTab({ stats, lastRun, onTrigger }: any) {
+function OverviewTab({ stats, lastRun, onTrigger, isLoading }: any) {
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
@@ -268,17 +322,39 @@ function OverviewTab({ stats, lastRun, onTrigger }: any) {
         <div className="mt-4 flex space-x-3">
           <button
             onClick={() => onTrigger(true)}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors border border-gray-300 text-gray-700"
+            disabled={isLoading}
+            className={clsx(
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors border flex items-center space-x-2',
+              isLoading
+                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-700'
+            )}
           >
-            Dry Run (Preview Only)
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span>Dry Run (Preview Only)</span>
           </button>
 
           <button
             onClick={() => onTrigger(false)}
-            className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            disabled={isLoading}
+            className={clsx(
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center space-x-2',
+              isLoading
+                ? 'bg-indigo-400 text-white cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            )}
           >
-            <Play className="w-4 h-4 inline mr-2" />
-            Run Now (Live)
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Running...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                <span>Run Now (Live)</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -525,6 +601,88 @@ function DreamRunDetail({ run }: any) {
         )}
       </div>
 
+      {/* Optimization Flow Visualization */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="font-semibold text-gray-900 mb-6 flex items-center space-x-2">
+          <Sparkles className="w-5 h-5 text-indigo-600" />
+          <span>Optimization Flow</span>
+        </h3>
+
+        <div className="space-y-4">
+          {/* Input */}
+          <FlowStep
+            label="Input"
+            icon={<Brain className="w-5 h-5" />}
+            value={`${run.memories_reviewed} memories reviewed`}
+            description="All memories from last 24 hours"
+            color="blue"
+          />
+
+          {/* Arrow */}
+          <div className="flex justify-center">
+            <div className="w-0.5 h-8 bg-gray-300" />
+          </div>
+
+          {/* Clustering */}
+          <FlowStep
+            label="Clustering"
+            icon={<BarChart3 className="w-5 h-5" />}
+            value={`${run.clusters_created || 0} clusters created`}
+            description="Grouped by session and time windows"
+            color="indigo"
+          />
+
+          {/* Arrow */}
+          <div className="flex justify-center">
+            <div className="w-0.5 h-8 bg-gray-300" />
+          </div>
+
+          {/* LLM Analysis */}
+          <FlowStep
+            label="AI Analysis"
+            icon={<Zap className="w-5 h-5" />}
+            value={`${run.llm_calls_made || 0} LLM calls`}
+            description="Identify patterns and make decisions"
+            color="purple"
+          />
+
+          {/* Arrow */}
+          <div className="flex justify-center">
+            <div className="w-0.5 h-8 bg-gray-300" />
+          </div>
+
+          {/* Actions Grid */}
+          <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">Actions Taken</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <ActionBadge
+                icon={<TrendingUp className="w-4 h-4" />}
+                label="Promoted"
+                value={run.memories_promoted}
+                color="green"
+              />
+              <ActionBadge
+                icon={<Sparkles className="w-4 h-4" />}
+                label="Synthesized"
+                value={run.memories_synthesized}
+                color="purple"
+              />
+              <ActionBadge
+                icon={<Archive className="w-4 h-4" />}
+                label="Archived"
+                value={run.memories_archived}
+                color="orange"
+              />
+              <ActionBadge
+                label="Deleted"
+                value={run.memories_deleted}
+                color="red"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Reviewed" value={run.memories_reviewed} color="blue" />
@@ -555,6 +713,47 @@ function DreamRunDetail({ run }: any) {
           </div>
         </dl>
       </div>
+    </div>
+  );
+}
+
+function FlowStep({ label, icon, value, description, color }: any) {
+  const colorClasses = {
+    blue: 'bg-blue-50 border-blue-200 text-blue-700',
+    indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+    purple: 'bg-purple-50 border-purple-200 text-purple-700',
+    green: 'bg-green-50 border-green-200 text-green-700',
+  };
+
+  return (
+    <div className={clsx('rounded-lg border-2 p-4', colorClasses[color as keyof typeof colorClasses])}>
+      <div className="flex items-center space-x-3 mb-2">
+        <div className="p-2 rounded-lg bg-white">
+          {icon}
+        </div>
+        <div>
+          <div className="font-semibold">{label}</div>
+          <div className="text-sm opacity-75">{description}</div>
+        </div>
+      </div>
+      <div className="text-lg font-bold mt-2">{value}</div>
+    </div>
+  );
+}
+
+function ActionBadge({ icon, label, value, color }: any) {
+  const colorClasses = {
+    green: 'bg-green-100 text-green-700 border-green-300',
+    purple: 'bg-purple-100 text-purple-700 border-purple-300',
+    orange: 'bg-orange-100 text-orange-700 border-orange-300',
+    red: 'bg-red-100 text-red-700 border-red-300',
+  };
+
+  return (
+    <div className={clsx('rounded-lg border p-3 text-center', colorClasses[color as keyof typeof colorClasses])}>
+      {icon && <div className="flex justify-center mb-2">{icon}</div>}
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xs mt-1 opacity-75">{label}</div>
     </div>
   );
 }

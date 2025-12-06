@@ -1298,9 +1298,21 @@ class MemoryClient:
             include_expired = filters.pop("include_expired", False)
             min_importance = filters.pop("min_importance", None)
             max_importance = filters.pop("max_importance", None)
+            session_id_filter = filters.pop("session_id", None)
 
             # Build Qdrant filters
-            qdrant_filters = {"user_id": user_id}
+            # Support querying by session_id OR user_id for flexibility
+            if session_id_filter:
+                # If session_id is provided, use OR logic to match either user_id or session_id
+                qdrant_filters = {
+                    "should": [
+                        {"user_id": user_id},
+                        {"session_id": session_id_filter}
+                    ]
+                }
+            else:
+                qdrant_filters = {"user_id": user_id}
+
             if "type" in filters:
                 qdrant_filters["type"] = filters["type"]
             if "tags" in filters:
@@ -1331,8 +1343,6 @@ class MemoryClient:
                 if min_importance is not None and memory.importance < min_importance:
                     continue
                 if max_importance is not None and memory.importance > max_importance:
-                    continue
-                if "session_id" in filters and memory.session_id != filters["session_id"]:
                     continue
 
                 memories.append(memory)

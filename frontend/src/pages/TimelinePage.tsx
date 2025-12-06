@@ -27,6 +27,9 @@ export function TimelinePage({ userId }: TimelinePageProps) {
     queryFn: async () => {
       const result = await apiClient.getMemories({
         user_id: userId,
+        filters: {
+          session_id: userId, // Pass userId as session_id to match by either field
+        },
         limit: 1000,
       });
       return result;
@@ -56,7 +59,7 @@ export function TimelinePage({ userId }: TimelinePageProps) {
         <div className="flex items-center space-x-3">
           <Clock className="w-8 h-8 text-primary-600" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Memory Timeline</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Memory Timeline</h1>
             <p className="text-gray-600">Chronological view of memory evolution</p>
           </div>
         </div>

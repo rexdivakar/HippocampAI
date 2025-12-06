@@ -12,7 +12,7 @@ from hippocampai.client import MemoryClient
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 # ============================================
@@ -69,8 +69,12 @@ async def get_dashboard_stats(
     Returns aggregated metrics about memories, entities, concepts, and system health.
     """
     try:
-        # Get all memories for the user
-        memories = client.get_memories(user_id=user_id, limit=10000)
+        # Get all memories for the user (include session_id filter to match by either field)
+        memories = client.get_memories(
+            user_id=user_id,
+            filters={"session_id": user_id},
+            limit=10000
+        )
         total_memories = len(memories)
 
         # Get entities from knowledge graph
@@ -229,8 +233,12 @@ async def get_recent_activity(
     try:
         activities: list[ActivityItem] = []
 
-        # Get recent memories
-        memories = client.get_memories(user_id=user_id, limit=50)
+        # Get recent memories (include session_id filter to match by either field)
+        memories = client.get_memories(
+            user_id=user_id,
+            filters={"session_id": user_id},
+            limit=50
+        )
         recent_memories = sorted(memories, key=lambda m: m.created_at, reverse=True)[:limit]
 
         for memory in recent_memories:

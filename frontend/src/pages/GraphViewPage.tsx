@@ -62,6 +62,9 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
     queryFn: async () => {
       const result = await apiClient.getMemories({
         user_id: userId,
+        filters: {
+          session_id: userId, // Pass userId as session_id to match by either field
+        },
         limit: 1000,
       });
       return result;

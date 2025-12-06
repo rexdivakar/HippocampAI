@@ -31,7 +31,10 @@ export function MemoriesPage({ userId }: MemoriesPageProps) {
     queryFn: async () => {
       const result = await apiClient.getMemories({
         user_id: userId,
-        filters: filters as Record<string, any>,
+        filters: {
+          ...(filters as Record<string, any>),
+          session_id: userId, // Pass userId as session_id to match by either field
+        },
         limit: 100,
       });
       return result;

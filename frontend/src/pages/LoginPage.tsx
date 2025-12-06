@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Brain, KeyRound, User } from 'lucide-react';
+import { Brain, KeyRound, User, UserPlus } from 'lucide-react';
 import { apiClient } from '../services/api';
 
 interface LoginPageProps {
@@ -24,25 +24,66 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
 
     try {
-      // For now, simulate authentication
-      // In production, this would call an auth endpoint
-      const token = apiKey || 'demo_token_' + Date.now();
+      // Validate session with backend
+      const response = await fetch('/auth/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unique_id: userId, api_key: apiKey || null }),
+      });
+
+      const data = await response.json();
+
+      if (!data.valid) {
+        setError('Session ID not available');
+        setLoading(false);
+        return;
+      }
+
+      // Session is valid - proceed with login
+      const token = apiKey || 'session_' + Date.now();
       apiClient.setAuthToken(token);
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       onLogin(token, userId);
     } catch (err) {
-      setError('Authentication failed. Please try again.');
+      setError('Session ID not available');
       console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSignup = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: null, metadata: null }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Signup failed');
+      }
+
+      const data = await response.json();
+
+      // Automatically log in with the new session
+      const token = 'session_' + Date.now();
+      apiClient.setAuthToken(token);
+      onLogin(token, data.user_id);
+
+    } catch (err) {
+      setError('Signup failed. Please try again.');
+      console.error('Signup error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDemoLogin = () => {
-    const demoUserId = 'demo_user_' + Math.random().toString(36).substring(7);
+    // Use an existing user_id that has memories in Qdrant
+    const demoUserId = '0177aa41-efb9-4b24-b423-ffd78f61521c';
     const demoToken = 'demo_token_' + Date.now();
     apiClient.setAuthToken(demoToken);
     onLogin(demoToken, demoUserId);
@@ -62,13 +103,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign In</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Lookup</h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* User ID */}
+            {/* User ID / Session ID */}
             <div>
               <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-2">
-                User ID
+                Session ID
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -78,7 +119,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   className="input pl-10"
-                  placeholder="Enter your user ID"
+                  placeholder="Enter your session ID or user ID"
                   disabled={loading}
                 />
               </div>
@@ -119,7 +160,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               disabled={loading}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Searching...' : 'Search'}
             </button>
           </form>
 
@@ -140,6 +181,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Try Demo Mode
+          </button>
+
+          {/* Signup Button */}
+          <button
+            onClick={handleSignup}
+            disabled={loading}
+            className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <UserPlus className="w-5 h-5" />
+            Create new session id
           </button>
 
           {/* Info */}
