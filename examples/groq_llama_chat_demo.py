@@ -288,15 +288,16 @@ class GroqHippocampAIChat:
             results = self.memory_client.recall(
                 query=query,
                 user_id=self.user_id,
+                session_id=self.session_id,  # Also filter by session_id
                 limit=limit
             )
             # Convert RetrievalResult objects to dicts if needed
             if results and hasattr(results[0], '__dict__'):
                 return [
                     {
-                        'text': r.text if hasattr(r, 'text') else str(r),
+                        'text': r.memory.text if hasattr(r, 'memory') and r.memory else (r.text if hasattr(r, 'text') else str(r)),
                         'score': r.score if hasattr(r, 'score') else 1.0,
-                        'metadata': r.metadata if hasattr(r, 'metadata') else {}
+                        'metadata': r.memory.metadata if hasattr(r, 'memory') and r.memory else (r.metadata if hasattr(r, 'metadata') else {})
                     }
                     for r in results
                 ]
@@ -733,6 +734,131 @@ class GroqHippocampAIChat:
         except Exception as e:
             self.console.print(f"[red]Error checking health: {e}[/red]")
 
+    def compact_memories(self) -> None:
+        """Compact and consolidate conversation memories with detailed metadata."""
+        try:
+            self.console.print("\n[bold cyan]📦 Memory Compaction[/bold cyan]\n")
+            
+            # Ask for memory types to compact
+            self.console.print("[dim]Available memory types: fact, event, context, preference, goal, habit[/dim]")
+            types_input = Prompt.ask(
+                "[yellow]Memory types to compact (comma-separated, or 'all')[/yellow]",
+                default="all"
+            )
+            
+            memory_types = None
+            if types_input.lower() != 'all':
+                memory_types = [t.strip() for t in types_input.split(',')]
+            
+            # First do a dry run to show what would happen
+            self.console.print("\n[yellow]Running preview...[/yellow]")
+            
+            result = self.memory_client.compact_conversations(
+                user_id=self.user_id,
+                session_id=self.session_id,
+                lookback_hours=168,  # 1 week
+                dry_run=True,
+                memory_types=memory_types,
+            )
+            
+            metrics = result.get('metrics', {})
+            
+            # Show preview table
+            preview_table = Table(title="Compaction Preview (Dry Run)", show_header=True)
+            preview_table.add_column("Metric", style="cyan", width=25)
+            preview_table.add_column("Value", style="yellow")
+            
+            preview_table.add_row("Input Memories", str(metrics.get('input_memories', 0)))
+            preview_table.add_row("Input Tokens", f"{metrics.get('input_tokens', 0):,}")
+            preview_table.add_row("Output Summaries", str(metrics.get('output_memories', 0)))
+            preview_table.add_row("Output Tokens", f"{metrics.get('output_tokens', 0):,}")
+            preview_table.add_row("Compression Ratio", f"{metrics.get('compression_ratio', 0) * 100:.1f}%")
+            preview_table.add_row("Tokens Saved", f"{metrics.get('tokens_saved', 0):,}")
+            preview_table.add_row("Storage Saved", f"{metrics.get('estimated_storage_saved_bytes', 0):,} bytes")
+            preview_table.add_row("Clusters Found", str(metrics.get('clusters_found', 0)))
+            preview_table.add_row("Est. Cost", f"${metrics.get('estimated_input_cost', 0) + metrics.get('estimated_output_cost', 0):.4f}")
+            
+            self.console.print(preview_table)
+            
+            # Show types breakdown
+            types_compacted = metrics.get('types_compacted', {})
+            if types_compacted:
+                self.console.print("\n[dim]Types breakdown:[/dim]")
+                for t, count in types_compacted.items():
+                    self.console.print(f"  • {t}: {count}")
+            
+            # Show insights
+            insights = result.get('insights', [])
+            if insights:
+                self.console.print("\n[bold]💡 Insights:[/bold]")
+                for insight in insights:
+                    self.console.print(f"  {insight}")
+            
+            # Ask for confirmation
+            confirm = Prompt.ask("\n[yellow]Run compaction for real?[/yellow]", choices=["y", "n"], default="n")
+            
+            if confirm.lower() == 'y':
+                self.console.print("\n[cyan]Running compaction...[/cyan]")
+                
+                result = self.memory_client.compact_conversations(
+                    user_id=self.user_id,
+                    session_id=self.session_id,
+                    lookback_hours=168,
+                    dry_run=False,
+                    memory_types=memory_types,
+                )
+                
+                if result.get('status') == 'completed':
+                    self.console.print("\n[green]✓ Compaction complete![/green]\n")
+                    
+                    # Show final metrics
+                    final_metrics = result.get('metrics', {})
+                    result_table = Table(title="Compaction Results", show_header=True)
+                    result_table.add_column("Metric", style="cyan", width=25)
+                    result_table.add_column("Value", style="green")
+                    
+                    result_table.add_row("Memories Merged", str(final_metrics.get('memories_merged', 0)))
+                    result_table.add_row("Tokens Saved", f"{final_metrics.get('tokens_saved', 0):,}")
+                    result_table.add_row("Storage Saved", f"{final_metrics.get('estimated_storage_saved_bytes', 0):,} bytes")
+                    result_table.add_row("Compression", f"{final_metrics.get('compression_ratio', 0) * 100:.1f}%")
+                    result_table.add_row("Key Facts Preserved", str(final_metrics.get('key_facts_preserved', 0)))
+                    result_table.add_row("Entities Preserved", str(final_metrics.get('entities_preserved', 0)))
+                    result_table.add_row("Context Retention", f"{final_metrics.get('context_retention_score', 0) * 100:.0f}%")
+                    result_table.add_row("Duration", f"{final_metrics.get('duration_seconds', 0):.2f}s")
+                    
+                    self.console.print(result_table)
+                    
+                    # Show preserved facts
+                    preserved_facts = result.get('preserved_facts', [])
+                    if preserved_facts:
+                        self.console.print("\n[bold]🧠 Preserved Key Facts:[/bold]")
+                        for fact in preserved_facts[:5]:
+                            self.console.print(f"  • {fact[:80]}{'...' if len(fact) > 80 else ''}")
+                    
+                    # Show preserved entities
+                    preserved_entities = result.get('preserved_entities', [])
+                    if preserved_entities:
+                        self.console.print(f"\n[bold]👤 Preserved Entities:[/bold] {', '.join(preserved_entities[:10])}")
+                    
+                    # Show final insights
+                    final_insights = result.get('insights', [])
+                    if final_insights:
+                        self.console.print("\n[bold]💡 Final Insights:[/bold]")
+                        for insight in final_insights:
+                            self.console.print(f"  {insight}")
+                    
+                    self.console.print(f"\n[dim]{result.get('summary', '')}[/dim]")
+                    
+                elif result.get('status') == 'skipped':
+                    self.console.print(f"[yellow]⚠ Compaction skipped: {result.get('summary', 'Not enough memories')}[/yellow]")
+                else:
+                    self.console.print(f"[red]Compaction failed: {result.get('error', 'Unknown error')}[/red]")
+            else:
+                self.console.print("[dim]Compaction cancelled.[/dim]")
+                
+        except Exception as e:
+            self.console.print(f"[red]Error during compaction: {e}[/red]")
+
     def run(self) -> None:
         """Run the interactive chat loop."""
         self.console.print(Panel.fit(
@@ -805,9 +931,13 @@ class GroqHippocampAIChat:
                             "  /test - Run comprehensive feature tests\n"
                             "  /analytics - Show memory analytics\n"
                             "  /health - Check system health\n"
+                            "  /compact - Compact conversation memories\n"
                             "  /help - Show this help\n"
                             "  /quit - Exit"
                         )
+                        continue
+                    elif command == '/compact':
+                        self.compact_memories()
                         continue
                     else:
                         self.console.print(f"[red]Unknown command: {command}[/red]")
@@ -889,9 +1019,14 @@ Environment Variables:
 
     args = parser.parse_args()
 
+    # If session_id is provided but user_id is not, try to look up the user_id
+    user_id = args.user_id
+    if args.session_id and not args.user_id:
+        user_id = lookup_user_id_from_session(args.session_id, args.qdrant_url)
+
     # Create and run chat
     chat = GroqHippocampAIChat(
-        user_id=args.user_id,
+        user_id=user_id,
         session_id=args.session_id,
         base_url=args.base_url,
         qdrant_url=args.qdrant_url,
@@ -899,6 +1034,79 @@ Environment Variables:
     )
 
     chat.run()
+
+
+def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
+    """Look up the user_id associated with a session_id from Qdrant.
+    
+    Args:
+        session_id: The session ID to look up
+        qdrant_url: Qdrant server URL
+        
+    Returns:
+        The user_id if found, otherwise the session_id itself
+    """
+    try:
+        from qdrant_client import QdrantClient
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        
+        url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
+        client = QdrantClient(url=url)
+        
+        collections = ["hippocampai_facts", "hippocampai_prefs", "personal_facts"]
+        
+        # First, look for signup record with metadata.session_id
+        for collection in collections:
+            try:
+                if not client.collection_exists(collection):
+                    continue
+                    
+                signup_filter = Filter(
+                    must=[FieldCondition(key="metadata.session_id", match=MatchValue(value=session_id))]
+                )
+                results, _ = client.scroll(
+                    collection_name=collection,
+                    scroll_filter=signup_filter,
+                    limit=1,
+                    with_payload=True,
+                )
+                if results:
+                    user_id = results[0].payload.get("user_id")
+                    if user_id:
+                        print(f"[green]✓ Found user_id '{user_id}' for session '{session_id[:16]}...'[/green]")
+                        return user_id
+            except Exception:
+                continue
+        
+        # Fallback: look for any record with this session_id
+        for collection in collections:
+            try:
+                if not client.collection_exists(collection):
+                    continue
+                    
+                session_filter = Filter(
+                    must=[FieldCondition(key="session_id", match=MatchValue(value=session_id))]
+                )
+                results, _ = client.scroll(
+                    collection_name=collection,
+                    scroll_filter=session_filter,
+                    limit=1,
+                    with_payload=True,
+                )
+                if results:
+                    user_id = results[0].payload.get("user_id")
+                    if user_id:
+                        print(f"[yellow]⚠ Using user_id '{user_id}' from session records[/yellow]")
+                        return user_id
+            except Exception:
+                continue
+        
+        print(f"[yellow]⚠ Could not find user_id for session '{session_id}', using session_id as user_id[/yellow]")
+        return session_id
+        
+    except Exception as e:
+        print(f"[yellow]⚠ Error looking up user_id: {e}[/yellow]")
+        return session_id
 
 
 if __name__ == "__main__":

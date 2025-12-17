@@ -61,63 +61,92 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
     """
     Find the actual user_id from a session ID or user ID.
 
-    Searches for the ID in multiple fields across all collections:
-    - user_id field
-    - session_id field (top-level)
-    - metadata.session_id field
+    Priority order:
+    1. If unique_id starts with "user_", check if it exists as a user_id directly
+    2. Look for the signup record (has metadata.session_id matching the unique_id)
+    3. Fall back to any record with matching session_id
 
     Returns the user_id from the found record, or None if not found.
     """
     try:
-        # Use QdrantClient directly to avoid collection creation
         from qdrant_client import QdrantClient
         from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         client = QdrantClient(url=qdrant_url)
 
-        # Build proper Qdrant filter with OR conditions (should)
-        search_filter = Filter(
-            should=[
-                FieldCondition(key="user_id", match=MatchValue(value=unique_id)),
-                FieldCondition(key="session_id", match=MatchValue(value=unique_id)),
-                FieldCondition(key="metadata.session_id", match=MatchValue(value=unique_id)),
-            ]
-        )
-
-        # Collections to check
         collections_to_check = [
             "hippocampai_facts",
             "hippocampai_prefs",
-            "personal_facts",  # Legacy collection
-            "hippocampai_sessions",  # Session collection
+            "personal_facts",
+            "hippocampai_sessions",
         ]
 
-        for collection_name in collections_to_check:
-            try:
-                # Check if collection exists first
-                if not client.collection_exists(collection_name):
+        # Strategy 1: If input looks like a user_id (starts with "user_"), check directly
+        if unique_id.startswith("user_"):
+            user_id_filter = Filter(
+                must=[FieldCondition(key="user_id", match=MatchValue(value=unique_id))]
+            )
+            for collection_name in collections_to_check:
+                try:
+                    if not client.collection_exists(collection_name):
+                        continue
+                    results, _ = client.scroll(
+                        collection_name=collection_name,
+                        scroll_filter=user_id_filter,
+                        limit=1,
+                        with_payload=True,
+                    )
+                    if results and len(results) > 0:
+                        logger.info(f"Found user_id '{unique_id}' directly in {collection_name}")
+                        return unique_id
+                except Exception as e:
+                    logger.debug(f"Could not check {collection_name}: {e}")
                     continue
 
-                # Scroll to get actual records (not just count)
+        # Strategy 2: Look for the signup record (metadata.session_id matches)
+        # This is the authoritative record that links session_id to user_id
+        signup_filter = Filter(
+            must=[FieldCondition(key="metadata.session_id", match=MatchValue(value=unique_id))]
+        )
+        for collection_name in collections_to_check:
+            try:
+                if not client.collection_exists(collection_name):
+                    continue
                 results, _ = client.scroll(
                     collection_name=collection_name,
-                    scroll_filter=search_filter,
-                    limit=1,  # Just need one record to get user_id
+                    scroll_filter=signup_filter,
+                    limit=1,
                     with_payload=True,
                 )
-
                 if results and len(results) > 0:
-                    # Extract user_id from the first matching record
                     payload = results[0].payload
                     user_id = payload.get("user_id")
-
                     if user_id:
-                        logger.info(f"Found user_id '{user_id}' for session '{unique_id}' in {collection_name}")
+                        logger.info(f"Found user_id '{user_id}' via signup record for session '{unique_id}' in {collection_name}")
                         return user_id
-
             except Exception as e:
-                # Collection might not exist or other error
+                logger.debug(f"Could not check {collection_name} for signup: {e}")
+                continue
+
+        # Strategy 3: Check if unique_id is used as user_id anywhere
+        user_id_filter = Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=unique_id))]
+        )
+        for collection_name in collections_to_check:
+            try:
+                if not client.collection_exists(collection_name):
+                    continue
+                results, _ = client.scroll(
+                    collection_name=collection_name,
+                    scroll_filter=user_id_filter,
+                    limit=1,
+                    with_payload=True,
+                )
+                if results and len(results) > 0:
+                    logger.info(f"Found user_id '{unique_id}' as direct user_id in {collection_name}")
+                    return unique_id
+            except Exception as e:
                 logger.debug(f"Could not check {collection_name}: {e}")
                 continue
 

@@ -533,7 +533,7 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
     Collect memories created/updated in the last N hours.
 
     Args:
-        user_id: User ID
+        user_id: User ID (can be user_id or session_id)
         lookback_hours: Hours to look back
 
     Returns:
@@ -547,8 +547,12 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
         # Calculate time threshold
         threshold = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
-        # Fetch all memories for user
-        all_memories = client.get_memories(user_id=user_id, limit=1000)
+        # Fetch all memories for user (use session_id filter to match by either user_id OR session_id)
+        all_memories = client.get_memories(
+            user_id=user_id,
+            filters={"session_id": user_id},  # Enable OR matching: user_id OR session_id
+            limit=1000,
+        )
 
         # Filter by date (client-side)
         recent_memories = []

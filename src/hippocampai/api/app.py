@@ -112,6 +112,24 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load auth routes: {e}")
 
+# Include session management routes
+try:
+    from hippocampai.api.session_routes import router as session_router
+
+    app.include_router(session_router)
+    logger.info("Session management routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load session routes: {e}")
+
+# Include compaction routes
+try:
+    from hippocampai.api.compaction_routes import router as compaction_router
+
+    app.include_router(compaction_router)
+    logger.info("Compaction routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load compaction routes: {e}")
+
 
 # Request/Response models
 class RememberRequest(BaseModel):

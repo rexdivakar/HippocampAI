@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Brain, Grid3x3, List, RefreshCw, Plus } from 'lucide-react';
+import { Brain, Grid3x3, List, RefreshCw, Plus, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Memory, MemoryFilters } from '../types';
@@ -10,6 +10,7 @@ import { MemoryDetailDrawer } from '../components/MemoryDetailDrawer';
 import { AddMemoryModal } from '../components/AddMemoryModal';
 import { EditMemoryModal } from '../components/EditMemoryModal';
 import { ShareMemoryModal } from '../components/ShareMemoryModal';
+import { CompactionPanel } from '../components/CompactionPanel';
 import clsx from 'clsx';
 
 interface MemoriesPageProps {
@@ -24,6 +25,7 @@ export function MemoriesPage({ userId }: MemoriesPageProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [sharingMemory, setSharingMemory] = useState<Memory | null>(null);
+  const [showCompaction, setShowCompaction] = useState(false);
 
   // Fetch memories
   const { data: memories = [], isLoading, refetch } = useQuery({
@@ -216,6 +218,35 @@ export function MemoriesPage({ userId }: MemoriesPageProps) {
             <span>Add Memory</span>
           </button>
         </div>
+      </div>
+
+      {/* Compaction Panel (Collapsible) */}
+      <div className="card">
+        <button
+          onClick={() => setShowCompaction(!showCompaction)}
+          className="w-full flex items-center justify-between p-2 -m-2 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Layers className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-semibold text-gray-900">Memory Compaction</h3>
+              <p className="text-sm text-gray-500">Consolidate memories to save tokens and improve retrieval</p>
+            </div>
+          </div>
+          {showCompaction ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+        
+        {showCompaction && (
+          <div className="mt-6 pt-6 border-t">
+            <CompactionPanel userId={userId} />
+          </div>
+        )}
       </div>
 
       {/* Filters */}

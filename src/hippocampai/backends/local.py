@@ -20,6 +20,7 @@ class LocalBackend(BaseBackend):
         Args:
             **kwargs: Arguments passed to MemoryClient constructor
         """
+        self._qdrant_url: Optional[str] = kwargs.get("qdrant_url")
         # Import here to avoid circular dependency
         try:
             from hippocampai.client import MemoryClient
@@ -50,6 +51,18 @@ class LocalBackend(BaseBackend):
             error_msg += "5. Start all services: docker-compose up -d\n"
 
             raise ConnectionError(error_msg) from e
+
+    @property
+    def qdrant_url(self) -> str:
+        """Get the Qdrant URL from the underlying client config."""
+        import os
+        
+        # Priority: stored URL > client config > environment > default
+        if self._qdrant_url:
+            return self._qdrant_url
+        if hasattr(self._client, "config") and hasattr(self._client.config, "qdrant_url"):
+            return self._client.config.qdrant_url
+        return os.getenv("QDRANT_URL", "http://localhost:6333")
 
     def remember(
         self,

@@ -7,7 +7,9 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   List,
-  RefreshCw
+  RefreshCw,
+  Layers,
+  X,
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -17,6 +19,7 @@ import { MemoryDetailPanel } from '../components/memory/MemoryDetailPanel';
 import { MemoryFilterSidebar } from '../components/memory/MemoryFilterSidebar';
 import { AddMemoryModal } from '../components/AddMemoryModal';
 import { EditMemoryModal } from '../components/EditMemoryModal';
+import { CompactionPanel } from '../components/CompactionPanel';
 import clsx from 'clsx';
 
 interface MemoriesPageRedesignedProps {
@@ -36,6 +39,7 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [showFilters, setShowFilters] = useState(true);
+  const [showCompactionModal, setShowCompactionModal] = useState(false);
 
   // Fetch memories
   const { data: memories = [], isLoading, refetch } = useQuery({
@@ -285,6 +289,15 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
               </button>
 
               <button
+                onClick={() => setShowCompactionModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                title="Compact memories to save tokens"
+              >
+                <Layers className="w-4 h-4" />
+                <span>Compact</span>
+              </button>
+
+              <button
                 onClick={() => setShowAddModal(true)}
                 className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors flex items-center space-x-2"
               >
@@ -364,6 +377,38 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
           await updateMutation.mutateAsync({ memoryId, data });
         }}
       />
+
+      {/* Compaction Modal */}
+      {showCompactionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setShowCompactionModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Layers className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Memory Compaction</h2>
+                  <p className="text-sm text-gray-500">Consolidate memories to save tokens</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCompactionModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <CompactionPanel userId={userId} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
