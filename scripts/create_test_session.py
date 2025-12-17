@@ -8,8 +8,8 @@ from uuid import uuid4
 # Set up the environment
 os.environ.setdefault('QDRANT_URL', 'http://100.113.229.40:6333')
 
-from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.embed.embedder import get_embedder
+from hippocampai.vector.qdrant_store import QdrantStore
 
 # Initialize - use environment variable
 qdrant_url = os.getenv('QDRANT_URL', 'http://100.113.229.40:6333')
@@ -20,7 +20,7 @@ embedder = get_embedder()
 session_id = '234ccf7f-7eea-40fe-88bc-1c57dea88bac'
 user_id = f'user_{session_id[:8]}'
 
-print(f'Creating session with:')
+print('Creating session with:')
 print(f'  session_id: {session_id}')
 print(f'  user_id: {user_id}')
 
@@ -55,7 +55,7 @@ store.upsert(
     payload=payload,
 )
 
-print(f'✓ Session created successfully!')
+print('✓ Session created successfully!')
 print(f'  Memory ID: {memory_id}')
 
 # Now create synthetic chat data
@@ -169,6 +169,6 @@ for i, conv in enumerate(synthetic_conversations):
     print(f'  ✓ Created memory {i+1}: {conv["type"]} - {conv["user"][:50]}...')
 
 print(f'\n✅ All done! Created session and {len(synthetic_conversations)} memories.')
-print(f'\nTo test in UI, use:')
+print('\nTo test in UI, use:')
 print(f'  Session ID: {session_id}')
 print(f'  User ID: {user_id}')

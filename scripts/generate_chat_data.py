@@ -3,8 +3,6 @@
 
 import os
 import sys
-from datetime import datetime, timezone
-from uuid import uuid4
 
 # Add local source to path
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,7 +10,7 @@ _src_dir = os.path.join(os.path.dirname(_script_dir), 'src')
 if os.path.exists(_src_dir) and _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 
-from hippocampai import UnifiedMemoryClient
+from hippocampai import UnifiedMemoryClient  # noqa: E402
 
 # Session details
 SESSION_ID = '234ccf7f-7eea-40fe-88bc-1c57dea88bac'
@@ -93,7 +91,7 @@ def main():
             # Create conversation memory
             conv_text = f"User: {conv['user']}\nAssistant: {conv['assistant']}"
             
-            memory = client.remember(
+            client.remember(
                 text=conv_text,
                 user_id=USER_ID,
                 session_id=SESSION_ID,
@@ -113,11 +111,11 @@ def main():
     except Exception as e:
         print(f'\n⚠️ Could not count memories: {e}')
     
-    print(f'\nTo test in UI:')
-    print(f'  1. Go to the login page')
+    print('\nTo test in UI:')
+    print('  1. Go to the login page')
     print(f'  2. Enter Session ID: {SESSION_ID}')
     print(f'  3. Or enter User ID: {USER_ID}')
-    print(f'  4. Click "Search" to login')
+    print('  4. Click "Search" to login')
 
 
 if __name__ == '__main__':

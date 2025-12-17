@@ -8,7 +8,8 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from qdrant_client import QdrantClient
-from hippocampai.storage import UserStore, User, Session
+
+from hippocampai.storage import Session, User, UserStore
 
 
 def sync_sessions():
@@ -59,7 +60,7 @@ def sync_sessions():
                                 )
                                 store.create_user(user)
                                 print(f"    + User: {user_id}")
-                        except Exception as e:
+                        except Exception:
                             pass  # User might already exist
                     
                     if session_id and session_id not in sessions_seen:
@@ -78,7 +79,7 @@ def sync_sessions():
                             else:
                                 # Update memory count
                                 store.update_session_memory_count(session_id, existing.memory_count + 1)
-                        except Exception as e:
+                        except Exception:
                             pass  # Session might already exist
                 
                 if offset is None:
@@ -88,7 +89,7 @@ def sync_sessions():
             print(f"  ⚠️ Error scanning {collection}: {e}")
     
     stats = store.get_stats()
-    print(f"\n✅ Sync complete!")
+    print("\n✅ Sync complete!")
     print(f"   Users: {stats['total_users']}")
     print(f"   Sessions: {stats['total_sessions']}")
     print(f"   Memories: {stats['total_memories']}")
