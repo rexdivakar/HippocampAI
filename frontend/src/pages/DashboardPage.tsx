@@ -120,9 +120,9 @@ export function DashboardPage({ userId }: DashboardPageProps) {
   const safeActivity = recentActivity || [];
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
-      {/* Content Container - matches Memories page width */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full min-h-screen">
+      {/* Content Container */}
+      <div className="w-full">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">

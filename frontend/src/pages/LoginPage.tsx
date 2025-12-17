@@ -39,10 +39,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         return;
       }
 
-      // Session is valid - proceed with login
+      // Session is valid - proceed with login using the actual user_id from backend
       const token = apiKey || 'session_' + Date.now();
       apiClient.setAuthToken(token);
-      onLogin(token, userId);
+      onLogin(token, data.user_id);  // Use the actual user_id from validation response
     } catch (err) {
       setError('Session ID not available');
       console.error('Login error:', err);

@@ -61,9 +61,9 @@ export function HygienePage({ userId }: HygienePageProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-3">
           <Sparkles className="w-8 h-8 text-primary-600" />
           <div>

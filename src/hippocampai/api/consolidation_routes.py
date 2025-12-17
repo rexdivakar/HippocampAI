@@ -14,7 +14,7 @@ from hippocampai.consolidation.tasks import _run_consolidation_sync
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/consolidation", tags=["consolidation"])
+router = APIRouter(prefix="/api/consolidation", tags=["consolidation"])
 
 
 # ============================================
@@ -62,6 +62,7 @@ class TriggerConsolidationRequest(BaseModel):
 
     dry_run: bool = True
     lookback_hours: int = 24
+    user_id: Optional[str] = None  # Can be provided in body or query param
 
 
 class ConsolidationConfig(BaseModel):
@@ -214,7 +215,7 @@ async def get_consolidation_stats(
 @router.post("/trigger", response_model=ConsolidationRunSummary)
 async def trigger_consolidation(
     request: TriggerConsolidationRequest,
-    user_id: str = Depends(get_current_user),
+    user_id_query: Optional[str] = Query(None, alias="user_id"),
 ) -> ConsolidationRunSummary:
     """
     Manually trigger a consolidation run for the current user.
@@ -222,6 +223,11 @@ async def trigger_consolidation(
     Useful for testing or on-demand memory cleanup.
     By default runs in dry-run mode for safety.
     """
+    # Get user_id from body or query param
+    user_id = request.user_id or user_id_query
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required (in body or query param)")
+
     logger.info(f"Manual consolidation triggered for user {user_id} (dry_run={request.dry_run})")
 
     try:

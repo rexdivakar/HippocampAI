@@ -71,17 +71,19 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
     try:
         # Use QdrantClient directly to avoid collection creation
         from qdrant_client import QdrantClient
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         client = QdrantClient(url=qdrant_url)
 
-        # Search for the unique_id in multiple places
-        search_conditions = {
-            "should": [
-                {"key": "user_id", "match": {"value": unique_id}},
-                {"key": "session_id", "match": {"value": unique_id}},
-                {"key": "metadata.session_id", "match": {"value": unique_id}},
+        # Build proper Qdrant filter with OR conditions (should)
+        search_filter = Filter(
+            should=[
+                FieldCondition(key="user_id", match=MatchValue(value=unique_id)),
+                FieldCondition(key="session_id", match=MatchValue(value=unique_id)),
+                FieldCondition(key="metadata.session_id", match=MatchValue(value=unique_id)),
             ]
-        }
+        )
 
         # Collections to check
         collections_to_check = [
@@ -93,10 +95,14 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
 
         for collection_name in collections_to_check:
             try:
+                # Check if collection exists first
+                if not client.collection_exists(collection_name):
+                    continue
+
                 # Scroll to get actual records (not just count)
                 results, _ = client.scroll(
                     collection_name=collection_name,
-                    scroll_filter=search_conditions,
+                    scroll_filter=search_filter,
                     limit=1,  # Just need one record to get user_id
                     with_payload=True,
                 )
@@ -111,7 +117,7 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
                         return user_id
 
             except Exception as e:
-                # Collection might not exist
+                # Collection might not exist or other error
                 logger.debug(f"Could not check {collection_name}: {e}")
                 continue
 
@@ -155,23 +161,47 @@ async def signup(request: SignupRequest) -> SignupResponse:
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         store = QdrantStore(url=qdrant_url)
 
-        # Store welcome message as first memory
-        from hippocampai.models import Memory
+        # Get embedder to generate vector for the welcome memory
+        from hippocampai.embed.embedder import get_embedder
 
-        welcome_memory = Memory(
-            user_id=user_id,
-            text=f"Welcome to HippocampAI! Your session was created on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}.",
-            memory_type="fact",
-            importance=5.0,
-            metadata={
+        embedder = get_embedder()
+
+        # Create welcome message
+        welcome_text = f"Welcome to HippocampAI! Your session was created on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}."
+
+        # Generate embedding vector
+        vector = embedder.encode_single(welcome_text)
+
+        # Create memory ID
+        memory_id = str(uuid4())
+
+        # Build payload
+        payload = {
+            "id": memory_id,
+            "user_id": user_id,
+            "session_id": session_id,
+            "text": welcome_text,
+            "type": "fact",
+            "importance": 5.0,
+            "tags": ["welcome", "session"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "access_count": 0,
+            "metadata": {
                 "session_id": session_id,
                 "username": request.username or "Anonymous",
                 "signup_date": datetime.now(timezone.utc).isoformat(),
                 **(request.metadata or {}),
             },
-        )
+        }
 
-        store.add_memory(welcome_memory)
+        # Store in Qdrant
+        store.upsert(
+            collection_name=store.collection_facts,
+            id=memory_id,
+            vector=vector,
+            payload=payload,
+        )
 
         logger.info(f"Created new session: user_id={user_id}, session_id={session_id}")
 

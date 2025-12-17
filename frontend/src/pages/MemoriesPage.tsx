@@ -33,7 +33,7 @@ export function MemoriesPage({ userId }: MemoriesPageProps) {
         user_id: userId,
         filters: {
           ...(filters as Record<string, any>),
-          session_id: userId, // Pass userId as session_id to match by either field
+          session_id: userId, // Pass userId as session_id to enable OR matching (user_id OR session_id)
         },
         limit: 100,
       });

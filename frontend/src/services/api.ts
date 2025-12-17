@@ -14,8 +14,10 @@ import type {
 
 class APIClient {
   private client: AxiosInstance;
+  private v1Client: AxiosInstance;
 
   constructor(baseURL: string = '/api') {
+    // Client for /api prefixed routes (consolidation, dashboard, etc.)
     this.client = axios.create({
       baseURL,
       headers: {
@@ -23,18 +25,31 @@ class APIClient {
       },
     });
 
-    // Add auth token interceptor
-    this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
+    // Client for /v1 routes (memory operations - no /api prefix)
+    this.v1Client = axios.create({
+      baseURL: '',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
+
+    // Add auth token interceptor to both clients
+    const addAuthInterceptor = (client: AxiosInstance) => {
+      client.interceptors.request.use((config) => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      });
+    };
+
+    addAuthInterceptor(this.client);
+    addAuthInterceptor(this.v1Client);
   }
 
   // ============================================================================
-  // MEMORY OPERATIONS
+  // MEMORY OPERATIONS (use v1Client - routes at /v1/*)
   // ============================================================================
 
   async createMemory(data: {
@@ -45,7 +60,7 @@ class APIClient {
     tags?: string[];
     session_id?: string;
   }): Promise<Memory> {
-    const response = await this.client.post<Memory>('/v1/memories:remember', data);
+    const response = await this.v1Client.post<Memory>('/v1/memories:remember', data);
     return response.data;
   }
 
@@ -55,7 +70,7 @@ class APIClient {
     k?: number;
     filters?: Record<string, any>;
   }): Promise<RetrievalResult[]> {
-    const response = await this.client.post<RetrievalResult[]>('/v1/memories:recall', data);
+    const response = await this.v1Client.post<RetrievalResult[]>('/v1/memories:recall', data);
     return response.data;
   }
 
@@ -64,12 +79,12 @@ class APIClient {
     filters?: Record<string, any>;
     limit?: number;
   }): Promise<Memory[]> {
-    const response = await this.client.post<Memory[]>('/v1/memories:get', data);
+    const response = await this.v1Client.post<Memory[]>('/v1/memories:get', data);
     return response.data;
   }
 
   async updateMemory(memoryId: string, data: Partial<Memory>): Promise<Memory> {
-    const response = await this.client.patch<Memory>('/v1/memories:update', {
+    const response = await this.v1Client.patch<Memory>('/v1/memories:update', {
       memory_id: memoryId,
       ...data,
     });
@@ -77,17 +92,17 @@ class APIClient {
   }
 
   async deleteMemory(memoryId: string, userId?: string): Promise<void> {
-    await this.client.delete('/v1/memories:delete', {
+    await this.v1Client.delete('/v1/memories:delete', {
       data: { memory_id: memoryId, user_id: userId },
     });
   }
 
   // ============================================================================
-  // HEALTH MONITORING
+  // HEALTH MONITORING (use v1Client - routes at /v1/*)
   // ============================================================================
 
   async getHealthScore(userId: string, detailed: boolean = true): Promise<HealthScore> {
-    const response = await this.client.post<HealthScore>('/v1/healing/health', {
+    const response = await this.v1Client.post<HealthScore>('/v1/healing/health', {
       user_id: userId,
       detailed,
     });
@@ -95,7 +110,7 @@ class APIClient {
   }
 
   async detectStaleMemories(userId: string, thresholdDays: number = 90) {
-    const response = await this.client.post(`/v1/healing/health/stale`, {
+    const response = await this.v1Client.post(`/v1/healing/health/stale`, {
       user_id: userId,
       threshold_days: thresholdDays,
     });
@@ -103,7 +118,7 @@ class APIClient {
   }
 
   async detectDuplicates(userId: string, similarityThreshold: number = 0.9) {
-    const response = await this.client.post(`/v1/healing/health/duplicates`, {
+    const response = await this.v1Client.post(`/v1/healing/health/duplicates`, {
       user_id: userId,
       similarity_threshold: similarityThreshold,
     });
@@ -111,7 +126,7 @@ class APIClient {
   }
 
   async runAutoCleanup(userId: string, dryRun: boolean = true) {
-    const response = await this.client.post('/v1/healing/cleanup', {
+    const response = await this.v1Client.post('/v1/healing/cleanup', {
       user_id: userId,
       dry_run: dryRun,
     });
@@ -119,7 +134,7 @@ class APIClient {
   }
 
   async runFullHealthCheck(userId: string, dryRun: boolean = true) {
-    const response = await this.client.post('/v1/healing/full-check', {
+    const response = await this.v1Client.post('/v1/healing/full-check', {
       user_id: userId,
       dry_run: dryRun,
     });
@@ -127,7 +142,7 @@ class APIClient {
   }
 
   // ============================================================================
-  // COLLABORATION
+  // COLLABORATION (use v1Client - routes at /v1/*)
   // ============================================================================
 
   async createSpace(data: {
@@ -136,7 +151,7 @@ class APIClient {
     description?: string;
     tags?: string[];
   }): Promise<CollaborationSpace> {
-    const response = await this.client.post<{ space: CollaborationSpace }>(
+    const response = await this.v1Client.post<{ space: CollaborationSpace }>(
       '/v1/collaboration/spaces',
       data
     );
@@ -144,14 +159,14 @@ class APIClient {
   }
 
   async getSpace(spaceId: string): Promise<CollaborationSpace> {
-    const response = await this.client.get<CollaborationSpace>(
+    const response = await this.v1Client.get<CollaborationSpace>(
       `/v1/collaboration/spaces/${spaceId}`
     );
     return response.data;
   }
 
   async listSpaces(agentId?: string, includeInactive: boolean = false): Promise<CollaborationSpace[]> {
-    const response = await this.client.get<{ spaces: CollaborationSpace[] }>(
+    const response = await this.v1Client.get<{ spaces: CollaborationSpace[] }>(
       '/v1/collaboration/spaces',
       {
         params: { agent_id: agentId, include_inactive: includeInactive },
@@ -161,7 +176,7 @@ class APIClient {
   }
 
   async getSpaceEvents(spaceId: string, limit: number = 100): Promise<CollaborationEvent[]> {
-    const response = await this.client.get<{ events: CollaborationEvent[] }>(
+    const response = await this.v1Client.get<{ events: CollaborationEvent[] }>(
       `/v1/collaboration/spaces/${spaceId}/events`,
       { params: { limit } }
     );
@@ -173,7 +188,7 @@ class APIClient {
     unreadOnly: boolean = false,
     limit: number = 50
   ): Promise<Notification[]> {
-    const response = await this.client.get<{ notifications: Notification[] }>(
+    const response = await this.v1Client.get<{ notifications: Notification[] }>(
       `/v1/collaboration/notifications/${agentId}`,
       { params: { unread_only: unreadOnly, limit } }
     );
@@ -181,17 +196,17 @@ class APIClient {
   }
 
   async markNotificationRead(agentId: string, notificationId: string): Promise<void> {
-    await this.client.post(
+    await this.v1Client.post(
       `/v1/collaboration/notifications/${agentId}/${notificationId}/read`
     );
   }
 
   // ============================================================================
-  // PREDICTIONS & ANALYTICS
+  // PREDICTIONS & ANALYTICS (use v1Client - routes at /v1/*)
   // ============================================================================
 
   async detectPatterns(userId: string, minOccurrences: number = 3): Promise<TemporalPattern[]> {
-    const response = await this.client.post<{ patterns: TemporalPattern[] }>(
+    const response = await this.v1Client.post<{ patterns: TemporalPattern[] }>(
       '/v1/predictions/patterns',
       { user_id: userId, min_occurrences: minOccurrences }
     );
@@ -199,7 +214,7 @@ class APIClient {
   }
 
   async detectAnomalies(userId: string, lookbackDays: number = 30): Promise<Anomaly[]> {
-    const response = await this.client.post<{ anomalies: Anomaly[] }>(
+    const response = await this.v1Client.post<{ anomalies: Anomaly[] }>(
       '/v1/predictions/anomalies',
       { user_id: userId, lookback_days: lookbackDays }
     );
@@ -207,7 +222,7 @@ class APIClient {
   }
 
   async getRecommendations(userId: string, maxRecommendations: number = 10): Promise<Recommendation[]> {
-    const response = await this.client.post<{ recommendations: Recommendation[] }>(
+    const response = await this.v1Client.post<{ recommendations: Recommendation[] }>(
       '/v1/predictions/recommendations',
       { user_id: userId, max_recommendations: maxRecommendations }
     );
@@ -215,7 +230,7 @@ class APIClient {
   }
 
   async getForecast(userId: string, metric: string, horizon: string): Promise<Forecast> {
-    const response = await this.client.post<Forecast>('/v1/predictions/forecast', {
+    const response = await this.v1Client.post<Forecast>('/v1/predictions/forecast', {
       user_id: userId,
       metric,
       horizon,
@@ -224,7 +239,7 @@ class APIClient {
   }
 
   async analyzeTrends(userId: string, timeWindowDays: number = 30, metric: string = 'activity') {
-    const response = await this.client.post('/v1/predictions/trends', {
+    const response = await this.v1Client.post('/v1/predictions/trends', {
       user_id: userId,
       time_window_days: timeWindowDays,
       metric,
@@ -282,8 +297,7 @@ class APIClient {
     const response = await this.client.post('/consolidation/trigger', {
       dry_run: dryRun,
       lookback_hours: lookbackHours,
-    }, {
-      params: { user_id: userId },
+      user_id: userId,
     });
     return response.data;
   }

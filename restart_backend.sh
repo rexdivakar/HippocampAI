@@ -20,7 +20,7 @@ echo ""
 
 # Start backend with socket_app
 echo "Starting backend with WebSocket support..."
-echo "Command: python3 -m uvicorn hippocampai.api.app:socket_app --host 0.0.0.0 --port 8000 --reload"
+echo "Command: python -m uvicorn hippocampai.api.app:socket_app --host 0.0.0.0 --port 8000 --reload"
 echo ""
 
-python3 -m uvicorn hippocampai.api.app:socket_app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn hippocampai.api.app:socket_app --host 0.0.0.0 --port 8000 --reload

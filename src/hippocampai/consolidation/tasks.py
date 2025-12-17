@@ -547,21 +547,23 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
         # Calculate time threshold
         threshold = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
-        # Fetch recent memories
-        # NOTE: This assumes you have a method to filter by date
-        # You may need to implement this in your client/backend
-        all_memories = client.recall_memories(
-            query="",  # Empty query to get all
-            user_id=user_id,
-            k=1000,  # Generous limit
-        )
+        # Fetch all memories for user
+        all_memories = client.get_memories(user_id=user_id, limit=1000)
 
-        # Filter by date (client-side for now)
-        recent_memories = [
-            mem.memory
-            for mem in all_memories
-            if mem.memory.created_at >= threshold or mem.memory.updated_at >= threshold
-        ]
+        # Filter by date (client-side)
+        recent_memories = []
+        for mem in all_memories:
+            try:
+                # Check created_at
+                if mem.created_at and mem.created_at >= threshold:
+                    recent_memories.append(mem)
+                    continue
+                # Check updated_at
+                if mem.updated_at and mem.updated_at >= threshold:
+                    recent_memories.append(mem)
+            except (TypeError, AttributeError):
+                # If date comparison fails, include the memory
+                recent_memories.append(mem)
 
         # Optionally filter by type (focus on transient memories)
         # recent_memories = [m for m in recent_memories if m.type in {MemoryType.EVENT, MemoryType.CONTEXT}]

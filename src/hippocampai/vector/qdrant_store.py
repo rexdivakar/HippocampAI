@@ -346,13 +346,36 @@ class QdrantStore:
         """Scroll through points (with automatic retry on transient failures)."""
         query_filter = None
         if filters:
-            conditions = []
-            if "user_id" in filters:
-                conditions.append(
-                    FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
-                )
+            must_conditions = []
+            should_conditions = []
+
+            # Handle "should" filter for OR logic (e.g., user_id OR session_id)
+            if "should" in filters:
+                for should_item in filters["should"]:
+                    for key, value in should_item.items():
+                        should_conditions.append(
+                            FieldCondition(key=key, match=MatchValue(value=value))
+                        )
+            else:
+                # Standard user_id filter
+                if "user_id" in filters:
+                    must_conditions.append(
+                        FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
+                    )
+                # Also check session_id if provided
+                if "session_id" in filters:
+                    # Use OR logic: match user_id OR session_id
+                    should_conditions.append(
+                        FieldCondition(key="user_id", match=MatchValue(value=filters.get("user_id", filters["session_id"])))
+                    )
+                    should_conditions.append(
+                        FieldCondition(key="session_id", match=MatchValue(value=filters["session_id"]))
+                    )
+                    # Clear must_conditions for user_id since we're using should
+                    must_conditions = [c for c in must_conditions if c.key != "user_id"]
+
             if "type" in filters:
-                conditions.append(
+                must_conditions.append(
                     FieldCondition(key="type", match=MatchValue(value=filters["type"]))
                 )
             if "tags" in filters:
@@ -360,9 +383,15 @@ class QdrantStore:
                 tags = filters["tags"]
                 if isinstance(tags, str):
                     tags = [tags]
-                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
-            if conditions:
-                query_filter = Filter(must=list(conditions))
+                must_conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
+
+            # Build the filter
+            if should_conditions and must_conditions:
+                query_filter = Filter(must=list(must_conditions), should=list(should_conditions))
+            elif should_conditions:
+                query_filter = Filter(should=list(should_conditions))
+            elif must_conditions:
+                query_filter = Filter(must=list(must_conditions))
 
         try:
             results, _ = self.client.scroll(
