@@ -1,9 +1,10 @@
 """Check if there's a record where user_id == session_id."""
 
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 client = QdrantClient(url="http://100.113.229.40:6333")
 session_id = "234ccf7f-7eea-40fe-88bc-1c57dea88ba2"
@@ -39,7 +40,7 @@ for collection_name in collections:
                 print(f"text: {point.payload.get('text', 'N/A')[:100]}...")
                 print()
 
-    except Exception as e:
+    except Exception:
         continue
 
 print("\n" + "="*70)

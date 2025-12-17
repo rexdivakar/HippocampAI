@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConsolidationStatus(str, Enum):
@@ -54,8 +54,8 @@ class ConsolidationRun(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     dream_report: Optional[str] = None  # Human-readable summary
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "run-abc123",
                 "user_id": "user-xyz",
@@ -68,6 +68,7 @@ class ConsolidationRun(BaseModel):
                 "dream_report": "Consolidated 50 memories: promoted important meetings, archived transient events.",
             }
         }
+    )
 
 
 class ConsolidationDecision(BaseModel):
@@ -88,8 +89,8 @@ class ConsolidationDecision(BaseModel):
     # Optional: reasoning/explanation
     reasoning: Optional[str] = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "promoted_facts": [
                     {"id": "mem-123", "reason": "Important strategic decision", "new_importance": 8.5}
@@ -115,6 +116,7 @@ class ConsolidationDecision(BaseModel):
                 "reasoning": "User had productive morning focused on strategic planning. Low-value transient events archived.",
             }
         }
+    )
 
 
 class MemoryCluster(BaseModel):
@@ -128,8 +130,8 @@ class MemoryCluster(BaseModel):
     avg_importance: float = 0.0
     tags: list[str] = Field(default_factory=list)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "cluster_id": "cluster-morning",
                 "memories": ["mem-1", "mem-2", "mem-3"],
@@ -138,6 +140,7 @@ class MemoryCluster(BaseModel):
                 "tags": ["work", "morning", "routine"],
             }
         }
+    )
 
 
 class ConsolidationStats(BaseModel):
@@ -179,8 +182,8 @@ class MemoryConsolidationFields(BaseModel):
     # Metadata
     consolidation_metadata: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "is_archived": False,
                 "source_memory_ids": ["mem-101", "mem-102"],
@@ -190,3 +193,4 @@ class MemoryConsolidationFields(BaseModel):
                 "consolidation_metadata": {"promoted_reason": "Strategic importance", "cluster_id": "cluster-work"},
             }
         }
+    )

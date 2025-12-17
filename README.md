@@ -14,6 +14,28 @@
 
 ---
 
+## Package Structure
+
+HippocampAI is organized into two main components for flexibility:
+
+| Package | Description | Use Case |
+|---------|-------------|----------|
+| `hippocampai.core` | Core memory engine (no SaaS dependencies) | Library integration, embedded use |
+| `hippocampai.platform` | SaaS platform (API, auth, Celery, monitoring) | Self-hosted SaaS deployment |
+
+```python
+# Core library only (lightweight)
+from hippocampai.core import MemoryClient, Memory, Config
+
+# SaaS platform features
+from hippocampai.platform import run_api_server, AutomationController
+
+# Or use the main package (includes everything, backward compatible)
+from hippocampai import MemoryClient
+```
+
+---
+
 ## Quick Start
 
 ### Installation
@@ -71,6 +93,12 @@ print(f"Found: {results[0].memory.text}")
 | **SaaS Platform** | Multi-tenant auth, rate limiting, background tasks | [SaaS Guide](docs/SAAS_GUIDE.md) |
 | **Memory Quality** | Health monitoring, duplicate detection, quality tracking | [Memory Management](docs/MEMORY_MANAGEMENT.md) |
 | **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_GUIDE.md) |
+| **Plugin System** | Custom processors, scorers, retrievers, filters | [New Features](docs/NEW_FEATURES.md#plugin-system) |
+| **Memory Namespaces** | Hierarchical organization with permissions | [New Features](docs/NEW_FEATURES.md#memory-namespaces) |
+| **Export/Import** | Portable formats (JSON, Parquet, CSV) for backup | [New Features](docs/NEW_FEATURES.md#exportimport-portability) |
+| **Offline Mode** | Queue operations when backend unavailable | [New Features](docs/NEW_FEATURES.md#offline-mode) |
+| **Tiered Storage** | Hot/warm/cold storage tiers for efficiency | [New Features](docs/NEW_FEATURES.md#tiered-storage) |
+| **Framework Integrations** | LangChain & LlamaIndex adapters | [New Features](docs/NEW_FEATURES.md#framework-integrations) |
 
 ---
 
@@ -113,6 +141,7 @@ print(f"Found: {results[0].memory.text}")
 | **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) \| [Providers](docs/PROVIDERS.md) |
 | **Monitor & observe** | [Monitoring](docs/MONITORING_INTEGRATION_GUIDE.md) \| [Telemetry](docs/TELEMETRY.md) |
 | **Troubleshoot issues** | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| **Use new features** | [New Features Guide](docs/NEW_FEATURES.md) ⭐ NEW |
 | **View all documentation** | [Documentation Hub](docs/README.md) |
 
 ### Documentation Index
@@ -126,6 +155,7 @@ print(f"Found: {results[0].memory.text}")
 - [Configuration](docs/CONFIGURATION.md) - All configuration options
 
 **Advanced Topics:**
+- [New Features](docs/NEW_FEATURES.md) - Plugins, namespaces, export/import, offline mode, tiered storage
 - [Multi-Agent Features](docs/MULTIAGENT_FEATURES.md) - Agent coordination
 - [Intelligence Features](docs/FEATURES.md#intelligence-features) - Fact extraction, entity recognition
 - [Temporal Analytics](docs/FEATURES.md#temporal-reasoning) - Time-based queries

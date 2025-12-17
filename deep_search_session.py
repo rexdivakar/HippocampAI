@@ -1,10 +1,11 @@
 """Deep search for session ID in Qdrant - checks ALL fields."""
 
+import json
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
-import json
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 def deep_search():
     """Search every collection and every field for the session ID."""
@@ -12,8 +13,8 @@ def deep_search():
     session_id = "234ccf7f-7eea-40fe-88bc-1c57dea88bac"
 
     print(f"🔍 DEEP SEARCH for: {session_id}")
-    print(f"📍 Qdrant: http://100.113.229.40:6333\n")
-    print("="*70)
+    print("📍 Qdrant: http://100.113.229.40:6333\n")
+    print("=" * 70)
 
     # Get all collections
     collections = client.get_collections()
@@ -50,7 +51,7 @@ def deep_search():
                         found_in_collection = True
                         print(f"\n✅ FOUND in collection: {coll_name}")
                         print(f"   Point ID: {point.id}")
-                        print(f"   Full Payload:")
+                        print("   Full Payload:")
                         print(f"   {json.dumps(point.payload, indent=6, default=str)}")
                         print("\n" + "="*70)
                         return True  # Found it!
@@ -72,9 +73,9 @@ if __name__ == "__main__":
     found = deep_search()
 
     if not found:
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("💡 SUGGESTION:")
-        print("="*70)
+        print("=" * 70)
         print("The session ID doesn't exist in Qdrant yet.")
         print("Options:")
         print("  1. Use the 'Create New Account' button to generate a new session")

@@ -1,9 +1,10 @@
 """Find actual user_id for the new session."""
 
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 client = QdrantClient(url="http://100.113.229.40:6333")
 session_id = "234ccf7f-7eea-40fe-88bc-1c57dea88ba2"
@@ -35,5 +36,5 @@ for collection_name in ["hippocampai_facts", "hippocampai_prefs"]:
                 print(f"  text: {point.payload.get('text')[:80]}...")
                 print()
             break
-    except Exception as e:
+    except Exception:
         continue

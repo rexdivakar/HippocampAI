@@ -1,9 +1,11 @@
 """Test script to debug user_id lookup from session_id."""
 
+import json
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 client = QdrantClient(url="http://100.113.229.40:6333")
 session_id = "234ccf7f-7eea-40fe-88bc-1c57dea88ba2"
@@ -42,8 +44,7 @@ for collection_name in collections:
                 print(f"session_id (top-level): {point.payload.get('session_id')}")
                 if 'metadata' in point.payload:
                     print(f"metadata.session_id: {point.payload['metadata'].get('session_id')}")
-                print(f"\nFull payload:")
-                import json
+                print("\nFull payload:")
                 print(json.dumps(point.payload, indent=2, default=str))
         else:
             print("❌ No results found")

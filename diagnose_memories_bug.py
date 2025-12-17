@@ -1,9 +1,10 @@
 """Diagnose the memories UI bug."""
 
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 # Connect to Qdrant
 client = QdrantClient(url="http://100.113.229.40:6333")

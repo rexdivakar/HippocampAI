@@ -1,9 +1,10 @@
 """Check what's stored for the user's session."""
 
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 client = QdrantClient(url="http://100.113.229.40:6333")
 
@@ -11,7 +12,7 @@ client = QdrantClient(url="http://100.113.229.40:6333")
 user_id = "1adda8b3-b8eb-45"  # Truncated in output, let's search for partial match
 session_id = "234ccf7f-7eea-40fe-88bc-1c57dea88ba1"
 
-print(f"Searching for:")
+print("Searching for:")
 print(f"  User ID pattern: {user_id}*")
 print(f"  Session ID: {session_id}\n")
 
@@ -21,7 +22,7 @@ for collection in collections.collections:
     coll_name = collection.name
     print(f"\n{'='*70}")
     print(f"Collection: {coll_name}")
-    print(f"{'='*70}")
+    print("=" * 70)
 
     try:
         # Get recent records
@@ -59,7 +60,7 @@ for collection in collections.collections:
                 )
 
                 if matches_user or matches_session:
-                    print(f"  ✅ MATCHES our session!")
+                    print("  ✅ MATCHES our session!")
                     print(f"  Full payload: {point.payload}")
         else:
             print("  No records found")

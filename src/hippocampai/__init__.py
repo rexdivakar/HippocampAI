@@ -1,9 +1,37 @@
-"""HippocampAI: Production-ready long-term memory engine with hybrid retrieval."""
+"""HippocampAI: Production-ready long-term memory engine with hybrid retrieval.
+
+HippocampAI is an enterprise-grade memory engine that transforms how AI systems
+remember, reason, and learn from interactions. It provides persistent, intelligent
+memory capabilities that enable AI agents to maintain context across sessions.
+
+Package Structure:
+    hippocampai          - Main package (backward compatible, includes everything)
+    hippocampai.core     - Core library (memory engine, no SaaS dependencies)
+    hippocampai.platform - SaaS platform (API, auth, Celery, monitoring)
+
+Quick Start:
+    >>> from hippocampai import MemoryClient
+    >>> client = MemoryClient()
+    >>> memory = client.remember("I love coffee", user_id="alice")
+    >>> results = client.recall("beverages", user_id="alice")
+
+For core library only (no SaaS dependencies):
+    >>> from hippocampai.core import MemoryClient
+
+For SaaS platform features:
+    >>> from hippocampai.platform import run_api_server, AutomationController
+
+Installation:
+    pip install hippocampai           # Core library only
+    pip install hippocampai[saas]     # With SaaS features
+    pip install hippocampai[all]      # Everything
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+# Core models (always available, no heavy dependencies)
 from hippocampai.models.agent import (
     Agent,
     AgentPermission,
@@ -20,6 +48,8 @@ from hippocampai.models.session import (
     SessionSearchResult,
     SessionStatus,
 )
+
+# Pipeline components (insights, temporal)
 from hippocampai.pipeline.insights import (
     BehaviorChange,
     HabitScore,
@@ -27,18 +57,30 @@ from hippocampai.pipeline.insights import (
     PreferenceDrift,
     Trend,
 )
-from hippocampai.pipeline.insights import (
-    ChangeType as InsightChangeType,
-)
+from hippocampai.pipeline.insights import ChangeType as InsightChangeType
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
 __version__ = "0.3.0"
+
 __all__ = [
+    # Version
+    "__version__",
+    # Submodules
+    "core",
+    "platform",
+    "plugins",
+    "namespaces",
+    "portability",
+    "offline",
+    "tiered",
+    "integrations",
+    # Main clients
     "MemoryClient",
-    "UnifiedMemoryClient",  # New: Supports both local and remote modes
+    "UnifiedMemoryClient",
     "EnhancedMemoryClient",
     "OptimizedMemoryClient",
     "AsyncMemoryClient",
+    # Core models
     "Memory",
     "MemoryType",
     "RetrievalResult",
@@ -47,8 +89,10 @@ __all__ = [
     "SimpleSession",
     "MemoryStore",
     "MemoryManager",
+    # Configuration
     "get_config",
     "Config",
+    # Telemetry
     "get_telemetry",
     "OperationType",
     # Session management
@@ -88,7 +132,7 @@ __all__ = [
     "HabitScore",
     "Trend",
     "InsightChangeType",
-    # SaaS automation
+    # SaaS automation (platform features)
     "AutomationController",
     "AutomationPolicy",
     "AutomationSchedule",
@@ -100,6 +144,14 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
+    from hippocampai import core as core
+    from hippocampai import integrations as integrations
+    from hippocampai import namespaces as namespaces
+    from hippocampai import offline as offline
+    from hippocampai import platform as platform
+    from hippocampai import plugins as plugins
+    from hippocampai import portability as portability
+    from hippocampai import tiered as tiered
     from hippocampai.async_client import AsyncMemoryClient as AsyncMemoryClient
     from hippocampai.client import MemoryClient as MemoryClient
     from hippocampai.config import Config as Config
@@ -121,281 +173,197 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.versioning import MemoryVersion as MemoryVersion
     from hippocampai.versioning import MemoryVersionControl as MemoryVersionControl
 
-_MEMORY_CLIENT: Any | None = None
-_UNIFIED_MEMORY_CLIENT: Any | None = None
-_ENHANCED_MEMORY_CLIENT: Any | None = None
-_OPTIMIZED_MEMORY_CLIENT: Any | None = None
-_ASYNC_MEMORY_CLIENT: Any | None = None
-_CONFIG: Any | None = None
-_GET_CONFIG: Any | None = None
-_GET_TELEMETRY: Any | None = None
-_OPERATION_TYPE: Any | None = None
-_SESSION_MANAGER: Any | None = None
-_MEMORY_GRAPH: Any | None = None
-_RELATION_TYPE: Any | None = None
-_MEMORY_KV_STORE: Any | None = None
-_MEMORY_VERSION_CONTROL: Any | None = None
-_MEMORY_VERSION: Any | None = None
-_AUDIT_ENTRY: Any | None = None
-_CHANGE_TYPE: Any | None = None
-_CONTEXT_INJECTOR: Any | None = None
-_INJECT_CONTEXT: Any | None = None
-
 
 def __getattr__(name: str) -> Any:
-    global \
-        _MEMORY_CLIENT, \
-        _UNIFIED_MEMORY_CLIENT, \
-        _ENHANCED_MEMORY_CLIENT, \
-        _OPTIMIZED_MEMORY_CLIENT, \
-        _ASYNC_MEMORY_CLIENT, \
-        _CONFIG, \
-        _GET_CONFIG, \
-        _GET_TELEMETRY, \
-        _OPERATION_TYPE, \
-        _SESSION_MANAGER
-    global _MEMORY_GRAPH, _RELATION_TYPE, _MEMORY_KV_STORE, _MEMORY_VERSION_CONTROL
-    global _MEMORY_VERSION, _AUDIT_ENTRY, _CHANGE_TYPE, _CONTEXT_INJECTOR, _INJECT_CONTEXT
+    """Lazy loading for heavy imports to improve startup time."""
+    import importlib
+    
+    # Submodules - use importlib to avoid circular imports
+    if name == "core":
+        return importlib.import_module("hippocampai.core")
+    
+    if name == "platform":
+        return importlib.import_module("hippocampai.platform")
+    
+    if name == "plugins":
+        return importlib.import_module("hippocampai.plugins")
+    
+    if name == "namespaces":
+        return importlib.import_module("hippocampai.namespaces")
+    
+    if name == "portability":
+        return importlib.import_module("hippocampai.portability")
+    
+    if name == "offline":
+        return importlib.import_module("hippocampai.offline")
+    
+    if name == "tiered":
+        return importlib.import_module("hippocampai.tiered")
+    
+    if name == "integrations":
+        return importlib.import_module("hippocampai.integrations")
+    
+    # Main clients
+    if name == "MemoryClient":
+        try:
+            from hippocampai.client import MemoryClient
+            return MemoryClient
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "hippocampai.MemoryClient requires optional dependencies (qdrant-client, sentence-transformers). "
+                "Install HippocampAI with: pip install hippocampai"
+            ) from exc
 
     if name == "UnifiedMemoryClient":
-        if _UNIFIED_MEMORY_CLIENT is None:
-            from hippocampai.unified_client import (
-                UnifiedMemoryClient as _ImportedUnifiedMemoryClient,
-            )
-
-            _UNIFIED_MEMORY_CLIENT = _ImportedUnifiedMemoryClient
-        return _UNIFIED_MEMORY_CLIENT
-
-    if name == "MemoryClient":
-        if _MEMORY_CLIENT is None:
-            try:
-                from hippocampai.client import MemoryClient as _ImportedMemoryClient
-
-                _MEMORY_CLIENT = _ImportedMemoryClient
-            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
-                raise ModuleNotFoundError(
-                    "hippocampai.MemoryClient requires optional dependencies (qdrant-client, sentence-transformers). "
-                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
-                ) from exc
-
-        return _MEMORY_CLIENT
+        from hippocampai.unified_client import UnifiedMemoryClient
+        return UnifiedMemoryClient
 
     if name == "EnhancedMemoryClient":
-        if _ENHANCED_MEMORY_CLIENT is None:
-            try:
-                from hippocampai.enhanced_client import (
-                    EnhancedMemoryClient as _ImportedEnhancedMemoryClient,
-                )
-
-                _ENHANCED_MEMORY_CLIENT = _ImportedEnhancedMemoryClient
-            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
-                raise ModuleNotFoundError(
-                    "hippocampai.EnhancedMemoryClient requires optional dependencies. "
-                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
-                ) from exc
-
-        return _ENHANCED_MEMORY_CLIENT
+        try:
+            from hippocampai.enhanced_client import EnhancedMemoryClient
+            return EnhancedMemoryClient
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "hippocampai.EnhancedMemoryClient requires optional dependencies. "
+                "Install HippocampAI with: pip install hippocampai"
+            ) from exc
 
     if name == "OptimizedMemoryClient":
-        if _OPTIMIZED_MEMORY_CLIENT is None:
-            try:
-                from hippocampai.optimized_client import (
-                    OptimizedMemoryClient as _ImportedOptimizedMemoryClient,
-                )
-
-                _OPTIMIZED_MEMORY_CLIENT = _ImportedOptimizedMemoryClient
-            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
-                raise ModuleNotFoundError(
-                    "hippocampai.OptimizedMemoryClient requires optional dependencies. "
-                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
-                ) from exc
-
-        return _OPTIMIZED_MEMORY_CLIENT
+        try:
+            from hippocampai.optimized_client import OptimizedMemoryClient
+            return OptimizedMemoryClient
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "hippocampai.OptimizedMemoryClient requires optional dependencies. "
+                "Install HippocampAI with: pip install hippocampai"
+            ) from exc
 
     if name == "AsyncMemoryClient":
-        if _ASYNC_MEMORY_CLIENT is None:
-            try:
-                from hippocampai.async_client import AsyncMemoryClient as _ImportedAsyncMemoryClient
+        try:
+            from hippocampai.async_client import AsyncMemoryClient
+            return AsyncMemoryClient
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "hippocampai.AsyncMemoryClient requires optional dependencies. "
+                "Install HippocampAI with: pip install hippocampai"
+            ) from exc
 
-                _ASYNC_MEMORY_CLIENT = _ImportedAsyncMemoryClient
-            except ModuleNotFoundError as exc:  # pragma: no cover - configuration dependent
-                raise ModuleNotFoundError(
-                    "hippocampai.AsyncMemoryClient requires optional dependencies (qdrant-client, sentence-transformers). "
-                    "Install HippocampAI with the appropriate extras, e.g. `pip install -e '.[core]'`."
-                ) from exc
-
-        return _ASYNC_MEMORY_CLIENT
-
+    # Configuration
     if name == "Config":
-        if _CONFIG is None:
-            from hippocampai.config import Config as _ImportedConfig
-
-            _CONFIG = _ImportedConfig
-        return _CONFIG
+        from hippocampai.config import Config
+        return Config
 
     if name == "get_config":
-        if _GET_CONFIG is None:
-            from hippocampai.config import get_config as _ImportedGetConfig
+        from hippocampai.config import get_config
+        return get_config
 
-            _GET_CONFIG = _ImportedGetConfig
-        return _GET_CONFIG
-
+    # Telemetry
     if name == "get_telemetry":
-        if _GET_TELEMETRY is None:
-            from hippocampai.telemetry import get_telemetry as _ImportedGetTelemetry
-
-            _GET_TELEMETRY = _ImportedGetTelemetry
-        return _GET_TELEMETRY
+        from hippocampai.telemetry import get_telemetry
+        return get_telemetry
 
     if name == "OperationType":
-        if _OPERATION_TYPE is None:
-            from hippocampai.telemetry import OperationType as _ImportedOperationType
-
-            _OPERATION_TYPE = _ImportedOperationType
-        return _OPERATION_TYPE
+        from hippocampai.telemetry import OperationType
+        return OperationType
 
     # Session management
     if name == "SessionManager":
-        if _SESSION_MANAGER is None:
-            from hippocampai.session import SessionManager as _ImportedSessionManager
+        from hippocampai.session import SessionManager
+        return SessionManager
 
-            _SESSION_MANAGER = _ImportedSessionManager
-        return _SESSION_MANAGER
-
-    # Advanced features
+    # Graph
     if name == "MemoryGraph":
-        if _MEMORY_GRAPH is None:
-            from hippocampai.graph import MemoryGraph as _ImportedMemoryGraph
-
-            _MEMORY_GRAPH = _ImportedMemoryGraph
-        return _MEMORY_GRAPH
+        from hippocampai.graph import MemoryGraph
+        return MemoryGraph
 
     if name == "RelationType":
-        if _RELATION_TYPE is None:
-            from hippocampai.graph import RelationType as _ImportedRelationType
+        from hippocampai.graph import RelationType
+        return RelationType
 
-            _RELATION_TYPE = _ImportedRelationType
-        return _RELATION_TYPE
-
+    # Storage
     if name == "MemoryKVStore":
-        if _MEMORY_KV_STORE is None:
-            from hippocampai.storage import MemoryKVStore as _ImportedMemoryKVStore
+        from hippocampai.storage import MemoryKVStore
+        return MemoryKVStore
 
-            _MEMORY_KV_STORE = _ImportedMemoryKVStore
-        return _MEMORY_KV_STORE
-
+    # Versioning
     if name == "MemoryVersionControl":
-        if _MEMORY_VERSION_CONTROL is None:
-            from hippocampai.versioning import MemoryVersionControl as _ImportedMemoryVersionControl
-
-            _MEMORY_VERSION_CONTROL = _ImportedMemoryVersionControl
-        return _MEMORY_VERSION_CONTROL
+        from hippocampai.versioning import MemoryVersionControl
+        return MemoryVersionControl
 
     if name == "MemoryVersion":
-        if _MEMORY_VERSION is None:
-            from hippocampai.versioning import MemoryVersion as _ImportedMemoryVersion
-
-            _MEMORY_VERSION = _ImportedMemoryVersion
-        return _MEMORY_VERSION
+        from hippocampai.versioning import MemoryVersion
+        return MemoryVersion
 
     if name == "AuditEntry":
-        if _AUDIT_ENTRY is None:
-            from hippocampai.versioning import AuditEntry as _ImportedAuditEntry
-
-            _AUDIT_ENTRY = _ImportedAuditEntry
-        return _AUDIT_ENTRY
+        from hippocampai.versioning import AuditEntry
+        return AuditEntry
 
     if name == "ChangeType":
-        if _CHANGE_TYPE is None:
-            from hippocampai.versioning import ChangeType as _ImportedChangeType
+        from hippocampai.versioning import ChangeType
+        return ChangeType
 
-            _CHANGE_TYPE = _ImportedChangeType
-        return _CHANGE_TYPE
-
+    # Context injection
     if name == "ContextInjector":
-        if _CONTEXT_INJECTOR is None:
-            from hippocampai.utils.context_injection import (
-                ContextInjector as _ImportedContextInjector,
-            )
-
-            _CONTEXT_INJECTOR = _ImportedContextInjector
-        return _CONTEXT_INJECTOR
+        from hippocampai.utils.context_injection import ContextInjector
+        return ContextInjector
 
     if name == "inject_context":
-        if _INJECT_CONTEXT is None:
-            from hippocampai.utils.context_injection import inject_context as _ImportedInjectContext
+        from hippocampai.utils.context_injection import inject_context
+        return inject_context
 
-            _INJECT_CONTEXT = _ImportedInjectContext
-        return _INJECT_CONTEXT
-
-    # Multi-agent manager
+    # Multi-agent
     if name == "MultiAgentManager":
-        from hippocampai.multiagent import MultiAgentManager as _ImportedMultiAgentManager
+        from hippocampai.multiagent import MultiAgentManager
+        return MultiAgentManager
 
-        return _ImportedMultiAgentManager
-
-    # SaaS automation
+    # SaaS automation (platform features)
     if name == "AutomationController":
-        from hippocampai.saas.automation import (
-            AutomationController as _ImportedAutomationController,
-        )
-
-        return _ImportedAutomationController
+        from hippocampai.saas.automation import AutomationController
+        return AutomationController
 
     if name == "AutomationPolicy":
-        from hippocampai.saas.automation import AutomationPolicy as _ImportedAutomationPolicy
-
-        return _ImportedAutomationPolicy
+        from hippocampai.saas.automation import AutomationPolicy
+        return AutomationPolicy
 
     if name == "AutomationSchedule":
-        from hippocampai.saas.automation import AutomationSchedule as _ImportedAutomationSchedule
-
-        return _ImportedAutomationSchedule
+        from hippocampai.saas.automation import AutomationSchedule
+        return AutomationSchedule
 
     if name == "PolicyType":
-        from hippocampai.saas.automation import PolicyType as _ImportedPolicyType
-
-        return _ImportedPolicyType
+        from hippocampai.saas.automation import PolicyType
+        return PolicyType
 
     if name == "TaskManager":
-        from hippocampai.saas.tasks import TaskManager as _ImportedTaskManager
-
-        return _ImportedTaskManager
+        from hippocampai.saas.tasks import TaskManager
+        return TaskManager
 
     if name == "TaskPriority":
-        from hippocampai.saas.tasks import TaskPriority as _ImportedTaskPriority
-
-        return _ImportedTaskPriority
+        from hippocampai.saas.tasks import TaskPriority
+        return TaskPriority
 
     if name == "TaskStatus":
-        from hippocampai.saas.tasks import TaskStatus as _ImportedTaskStatus
-
-        return _ImportedTaskStatus
+        from hippocampai.saas.tasks import TaskStatus
+        return TaskStatus
 
     if name == "BackgroundTask":
-        from hippocampai.saas.tasks import BackgroundTask as _ImportedBackgroundTask
-
-        return _ImportedBackgroundTask
+        from hippocampai.saas.tasks import BackgroundTask
+        return BackgroundTask
 
     # Simplified API (mem0/zep compatible)
     if name == "SimpleMemory":
-        from hippocampai.simple import Memory as _ImportedSimpleMemory
-
-        return _ImportedSimpleMemory
+        from hippocampai.simple import Memory
+        return Memory
 
     if name == "SimpleSession":
-        from hippocampai.simple import Session as _ImportedSimpleSession
-
-        return _ImportedSimpleSession
+        from hippocampai.simple import Session
+        return Session
 
     if name == "MemoryStore":
-        from hippocampai.simple import MemoryStore as _ImportedMemoryStore
-
-        return _ImportedMemoryStore
+        from hippocampai.simple import MemoryStore
+        return MemoryStore
 
     if name == "MemoryManager":
-        from hippocampai.simple import MemoryManager as _ImportedMemoryManager
-
-        return _ImportedMemoryManager
+        from hippocampai.simple import MemoryManager
+        return MemoryManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")

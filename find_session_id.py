@@ -1,9 +1,10 @@
 """Find where the session ID is stored in Qdrant."""
 
 import sys
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from qdrant_client import QdrantClient
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 def find_session():
     """Search all collections for the session ID."""
@@ -12,7 +13,7 @@ def find_session():
 
     # List all collections
     collections = client.get_collections()
-    print(f"📚 Available collections:")
+    print("📚 Available collections:")
     for col in collections.collections:
         print(f"  - {col.name}")
 
@@ -21,9 +22,9 @@ def find_session():
     # Check each collection
     for collection in collections.collections:
         coll_name = collection.name
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Collection: {coll_name}")
-        print(f"{'='*60}")
+        print("=" * 60)
 
         # Get total count
         try:
@@ -68,7 +69,7 @@ def find_session():
 
                     if results[0]:
                         for point in results[0]:
-                            print(f"\n  Sample memory:")
+                            print("\n  Sample memory:")
                             print(f"    ID: {point.id}")
                             print(f"    user_id: {point.payload.get('user_id', 'N/A')}")
                             print(f"    session_id: {point.payload.get('session_id', 'N/A')}")
@@ -76,7 +77,7 @@ def find_session():
                             print(f"    text: {point.payload.get('text', 'N/A')[:100]}...")
                             break
 
-            except Exception as e:
+            except Exception:
                 pass  # Field might not exist
 
         # Show sample records to understand structure

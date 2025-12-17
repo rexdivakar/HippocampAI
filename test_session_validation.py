@@ -1,11 +1,10 @@
 """Test session validation for existing session ID."""
 
 import sys
-import os
-
-sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 from hippocampai.vector.qdrant_store import QdrantStore
+
+sys.path.insert(0, "/Users/rexdivakar/workspace/HippocampAI/src")
 
 def check_session(unique_id: str):
     """Check if session exists using new multi-field search."""
@@ -43,7 +42,7 @@ def check_session(unique_id: str):
         print(f"\n📊 Total matches: {total}")
 
         if total > 0:
-            print(f"\n✅ SESSION VALID - ID found in Qdrant!")
+            print("\n✅ SESSION VALID - ID found in Qdrant!")
 
             # Show some sample memories
             results = store.client.scroll(
@@ -54,7 +53,7 @@ def check_session(unique_id: str):
             )
 
             if results[0]:
-                print(f"\n📝 Sample memories:")
+                print("\n📝 Sample memories:")
                 for i, point in enumerate(results[0][:3], 1):
                     print(f"\n{i}. {point.payload.get('text', '')[:100]}...")
                     print(f"   user_id: {point.payload.get('user_id')}")
@@ -62,7 +61,7 @@ def check_session(unique_id: str):
 
             return True
         else:
-            print(f"\n❌ SESSION INVALID - ID not found in Qdrant")
+            print("\n❌ SESSION INVALID - ID not found in Qdrant")
             return False
 
     except Exception as e:
