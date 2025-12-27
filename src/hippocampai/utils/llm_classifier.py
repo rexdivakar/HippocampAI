@@ -1,4 +1,8 @@
-"""LLM-based dynamic memory classification for intelligent and consistent type detection."""
+"""LLM-based dynamic memory classification for intelligent and consistent type detection.
+
+This module now uses the AgenticMemoryClassifier as the primary classification method,
+which provides multi-step reasoning for more accurate classification.
+"""
 
 import hashlib
 import logging
@@ -12,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Cache for consistent classification (1 hour TTL, max 1000 entries)
 _classification_cache: TTLCache = TTLCache(maxsize=1000, ttl=3600)
+
+# Flag to enable/disable agentic classification
+USE_AGENTIC_CLASSIFIER = True
 
 
 class LLMMemoryClassifier:
@@ -160,6 +167,8 @@ class LLMMemoryClassifier:
         """
         Classify with confidence score and caching for consistency.
 
+        Now uses AgenticMemoryClassifier as primary method for better accuracy.
+
         Args:
             text: The memory text to classify
             default: Default type if classification fails
@@ -178,7 +187,31 @@ class LLMMemoryClassifier:
                 logger.debug(f"Using cached classification for '{text[:50]}...'")
                 return cached_result
 
-        # Try LLM classification
+        # Try agentic classification first (more accurate multi-step reasoning)
+        if USE_AGENTIC_CLASSIFIER:
+            try:
+                from hippocampai.utils.agentic_classifier import get_agentic_classifier
+                
+                agentic = get_agentic_classifier(use_cache=self.use_cache)
+                result_obj = agentic.classify_with_details(text, default)
+                result = (result_obj.memory_type, result_obj.confidence)
+                
+                logger.info(
+                    f"Agentic classification: {result_obj.memory_type.value} "
+                    f"(confidence: {result_obj.confidence:.2f}, "
+                    f"reasoning: {result_obj.reasoning[:50]}...)"
+                )
+                
+                # Cache result for consistency
+                if self.use_cache:
+                    cache_key = self._get_cache_key(text)
+                    _classification_cache[cache_key] = result
+                
+                return result
+            except Exception as e:
+                logger.warning(f"Agentic classification failed: {e}, falling back to simple LLM")
+
+        # Fallback to simple LLM classification
         try:
             if self.llm_provider:
                 result = self._classify_with_llm(text)
@@ -192,7 +225,7 @@ class LLMMemoryClassifier:
         except Exception as e:
             logger.warning(f"LLM classification failed: {e}, falling back to pattern-based")
 
-        # Fallback to pattern-based classification
+        # Final fallback to pattern-based classification
         from hippocampai.utils.memory_classifier import get_classifier as get_pattern_classifier
 
         pattern_classifier = get_pattern_classifier()

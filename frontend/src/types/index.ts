@@ -188,3 +188,163 @@ export interface WebSocketMessage<T = any> {
   data: T;
   timestamp: string;
 }
+
+// ============================================================================
+// BI-TEMPORAL FACT TYPES
+// ============================================================================
+
+export type FactStatus = 'active' | 'superseded' | 'retracted';
+
+export interface BiTemporalFact {
+  id: string;
+  fact_id: string;
+  text: string;
+  user_id: string;
+  entity_id?: string;
+  property_name?: string;
+  event_time: string;
+  valid_from: string;
+  valid_to?: string;
+  system_time: string;
+  status: FactStatus;
+  superseded_by?: string;
+  supersedes?: string;
+  confidence: number;
+  source: string;
+  metadata: Record<string, any>;
+}
+
+export interface BiTemporalQueryResult {
+  facts: BiTemporalFact[];
+  query_time: string;
+  as_of_system_time?: string;
+  as_of_valid_time?: string;
+}
+
+// ============================================================================
+// CONTEXT ASSEMBLY TYPES
+// ============================================================================
+
+export interface ContextConstraints {
+  token_budget: number;
+  max_items: number;
+  recency_bias: number;
+  entity_focus?: string;
+  type_filter?: string[];
+  min_relevance: number;
+  allow_summaries: boolean;
+  include_citations: boolean;
+  deduplicate: boolean;
+  time_range_days?: number;
+}
+
+export interface SelectedItem {
+  memory_id: string;
+  text: string;
+  memory_type: string;
+  relevance_score: number;
+  importance: number;
+  created_at: string;
+  token_count: number;
+  tags: string[];
+  metadata: Record<string, any>;
+}
+
+export interface DroppedItem {
+  memory_id: string;
+  text: string;
+  reason: 'token_budget' | 'low_relevance' | 'duplicate' | 'max_items' | 'type_filter';
+  relevance_score: number;
+}
+
+export interface ContextPack {
+  final_context_text: string;
+  citations: string[];
+  selected_items: SelectedItem[];
+  dropped_items: DroppedItem[];
+  total_tokens: number;
+  query: string;
+  user_id: string;
+  session_id?: string;
+  constraints: ContextConstraints;
+  assembled_at: string;
+  metadata: Record<string, any>;
+}
+
+// ============================================================================
+// CUSTOM SCHEMA TYPES
+// ============================================================================
+
+export interface AttributeDefinition {
+  name: string;
+  type: 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'list' | 'dict';
+  required: boolean;
+  description?: string;
+  default_value?: any;
+  enum_values?: string[];
+  min_length?: number;
+  max_length?: number;
+  min_value?: number;
+  max_value?: number;
+}
+
+export interface EntityTypeDefinition {
+  name: string;
+  description?: string;
+  attributes: AttributeDefinition[];
+  parent_type?: string;
+}
+
+export interface RelationshipTypeDefinition {
+  name: string;
+  description?: string;
+  source_types: string[];
+  target_types: string[];
+  attributes: AttributeDefinition[];
+  bidirectional: boolean;
+}
+
+export interface SchemaDefinition {
+  name: string;
+  version: string;
+  description?: string;
+  entity_types: EntityTypeDefinition[];
+  relationship_types: RelationshipTypeDefinition[];
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+  value?: any;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+  warnings: string[];
+}
+
+// ============================================================================
+// BENCHMARK TYPES
+// ============================================================================
+
+export interface BenchmarkResult {
+  name: string;
+  operations: number;
+  total_time_ms: number;
+  ops_per_second: number;
+  latency_p50_ms: number;
+  latency_p95_ms: number;
+  latency_p99_ms: number;
+  latency_min_ms: number;
+  latency_max_ms: number;
+  errors: number;
+  metadata: Record<string, any>;
+}
+
+export interface BenchmarkSuite {
+  name: string;
+  timestamp: string;
+  results: BenchmarkResult[];
+  system_info: Record<string, any>;
+}

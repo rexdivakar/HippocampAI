@@ -24,20 +24,41 @@ if str(SRC) not in sys.path:
 @pytest.fixture(scope="session", autouse=True)
 def ensure_qdrant_collections():
     """Ensure test collections exist before any memory tests run."""
-    client = QdrantClient(host="localhost", port=6333)
+    import os
+    qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+    # Parse host and port from URL
+    if qdrant_url.startswith("http://"):
+        qdrant_url = qdrant_url[7:]
+    elif qdrant_url.startswith("https://"):
+        qdrant_url = qdrant_url[8:]
+    
+    if ":" in qdrant_url:
+        host, port = qdrant_url.split(":")
+        port = int(port)
+    else:
+        host = qdrant_url
+        port = 6333
+    
+    try:
+        client = QdrantClient(host=host, port=port, timeout=5)
 
-    # Create both test collections needed for advanced features tests
-    test_collections = [
-        ("test_facts_advanced", 384),  # Default embed_dimension for BAAI/bge-small-en-v1.5
-        ("test_prefs_advanced", 384),
-    ]
+        # Create both test collections needed for advanced features tests
+        test_collections = [
+            ("test_facts_advanced", 384),  # Default embed_dimension for BAAI/bge-small-en-v1.5
+            ("test_prefs_advanced", 384),
+        ]
 
-    for collection_name, vector_size in test_collections:
-        if not client.collection_exists(collection_name=collection_name):
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
-            )
+        for collection_name, vector_size in test_collections:
+            if not client.collection_exists(collection_name=collection_name):
+                client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                )
+    except Exception as e:
+        # Don't fail tests that don't need Qdrant
+        import warnings
+        warnings.warn(f"Could not connect to Qdrant: {e}")
+    
     yield
 
 

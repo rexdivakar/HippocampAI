@@ -19,6 +19,10 @@ import { PoliciesPage } from './pages/PoliciesPage';
 import { ConceptGrowthPage } from './pages/ConceptGrowthPage';
 import { SleepPhasePage } from './pages/SleepPhasePage';
 import { LoginPage } from './pages/LoginPage';
+import { BiTemporalPage } from './pages/BiTemporalPage';
+import { ContextAssemblyPage } from './pages/ContextAssemblyPage';
+import { SchemaPage } from './pages/SchemaPage';
+import { AgenticClassifierPage } from './pages/AgenticClassifierPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 function App() {
@@ -77,6 +81,10 @@ function App() {
           <Route path="/memories" element={<MemoriesPageRedesigned userId={userId!} />} />
           <Route path="/memories/classic" element={<MemoriesPage userId={userId!} />} />
           <Route path="/sleep-phase" element={<SleepPhasePage userId={userId!} />} />
+          <Route path="/bitemporal" element={<BiTemporalPage userId={userId!} />} />
+          <Route path="/context" element={<ContextAssemblyPage userId={userId!} />} />
+          <Route path="/schema" element={<SchemaPage userId={userId!} />} />
+          <Route path="/classifier" element={<AgenticClassifierPage userId={userId!} />} />
           <Route path="/timeline" element={<TimelinePage userId={userId!} />} />
           <Route path="/replay" element={<ReplayPage userId={userId!} />} />
           <Route path="/graph" element={<GraphViewPage userId={userId!} />} />

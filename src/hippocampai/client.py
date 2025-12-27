@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from uuid import uuid4
 
 from hippocampai.adapters.provider_anthropic import AnthropicLLM
@@ -57,6 +57,14 @@ from hippocampai.telemetry import MemoryTrace, OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
+
+if TYPE_CHECKING:
+    from hippocampai.context.models import ContextPack
+    from hippocampai.models.bitemporal import (
+        BiTemporalFact,
+        BiTemporalQueryResult,
+    )
+    from hippocampai.storage.bitemporal_store import BiTemporalStore
 
 logger = logging.getLogger(__name__)
 
@@ -6209,3 +6217,444 @@ class MemoryClient:
     def update(self, memory_id: str, **kwargs: Any) -> Optional[Memory]:
         """Alias for update_memory() method."""
         return self.update_memory(memory_id=memory_id, **kwargs)
+
+    # =========================================================================
+    # Bi-temporal Fact Tracking
+    # =========================================================================
+
+    def _get_bitemporal_store(self) -> "BiTemporalStore":
+        """Get or create the bi-temporal store (lazy initialization)."""
+        if not hasattr(self, "_bitemporal_store"):
+            from hippocampai.storage.bitemporal_store import BiTemporalStore
+
+            self._bitemporal_store = BiTemporalStore(qdrant_store=self.qdrant)
+        return self._bitemporal_store
+
+    def store_bitemporal_fact(
+        self,
+        text: str,
+        user_id: str,
+        entity_id: Optional[str] = None,
+        property_name: Optional[str] = None,
+        event_time: Optional[datetime] = None,
+        valid_from: Optional[datetime] = None,
+        valid_to: Optional[datetime] = None,
+        confidence: float = 0.9,
+        source: str = "conversation",
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> "BiTemporalFact":
+        """Store a fact with bi-temporal tracking.
+
+        Bi-temporal facts track two time dimensions:
+        - event_time: When the fact occurred/was stated
+        - valid_time: [valid_from, valid_to) interval when fact is true
+        - system_time: When HippocampAI recorded it (automatic)
+
+        Args:
+            text: The fact content
+            user_id: User ID
+            entity_id: Optional entity this fact is about
+            property_name: Optional property name (e.g., "employer")
+            event_time: When the fact occurred (default: now)
+            valid_from: Start of validity (default: now)
+            valid_to: End of validity (None = still valid)
+            confidence: Confidence score (0.0-1.0)
+            source: Source of the fact
+            metadata: Additional metadata
+
+        Returns:
+            The stored BiTemporalFact
+
+        Example:
+            ```python
+            # Store a fact about employment
+            fact = client.store_bitemporal_fact(
+                text="Alice works at Google",
+                user_id="alice",
+                entity_id="alice",
+                property_name="employer",
+                valid_from=datetime(2023, 1, 1),
+            )
+
+            # Later, update when she changes jobs
+            client.revise_bitemporal_fact(
+                original_fact_id=fact.id,
+                new_text="Alice works at Microsoft",
+                user_id="alice",
+                reason="job_change",
+            )
+            ```
+        """
+        from hippocampai.models.bitemporal import BiTemporalFact
+
+        now = datetime.now(timezone.utc)
+
+        fact = BiTemporalFact(
+            text=text,
+            user_id=user_id,
+            entity_id=entity_id,
+            property_name=property_name,
+            event_time=event_time or now,
+            valid_from=valid_from or now,
+            valid_to=valid_to,
+            system_time=now,
+            confidence=confidence,
+            source=source,
+            metadata=metadata or {},
+        )
+
+        # Generate embedding
+        vector = self.embedder.encode_single(text)
+
+        # Store
+        store = self._get_bitemporal_store()
+        stored_fact = store.store_fact(fact, vector)
+
+        logger.info(
+            f"Stored bi-temporal fact: {stored_fact.id} "
+            f"(entity={entity_id}, property={property_name})"
+        )
+
+        return stored_fact
+
+    def revise_bitemporal_fact(
+        self,
+        original_fact_id: str,
+        new_text: str,
+        user_id: str,
+        new_valid_from: Optional[datetime] = None,
+        new_valid_to: Optional[datetime] = None,
+        reason: str = "correction",
+        confidence: float = 0.9,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> "BiTemporalFact":
+        """Revise an existing bi-temporal fact.
+
+        Creates a new version that supersedes the original without deleting history.
+
+        Args:
+            original_fact_id: ID of the fact to revise
+            new_text: New fact content
+            user_id: User ID
+            new_valid_from: New validity start (default: now)
+            new_valid_to: New validity end (None = still valid)
+            reason: Reason for revision
+            confidence: Confidence score
+            metadata: Additional metadata
+
+        Returns:
+            The new fact version
+
+        Example:
+            ```python
+            # Original fact
+            fact = client.store_bitemporal_fact(
+                text="Alice is 25 years old",
+                user_id="alice",
+                entity_id="alice",
+                property_name="age",
+            )
+
+            # One year later, revise
+            new_fact = client.revise_bitemporal_fact(
+                original_fact_id=fact.id,
+                new_text="Alice is 26 years old",
+                user_id="alice",
+                reason="birthday",
+            )
+            ```
+        """
+        from hippocampai.models.bitemporal import FactRevision
+
+        revision = FactRevision(
+            original_fact_id=original_fact_id,
+            new_text=new_text,
+            new_valid_from=new_valid_from,
+            new_valid_to=new_valid_to,
+            reason=reason,
+            confidence=confidence,
+            metadata=metadata or {},
+        )
+
+        # Generate embedding for new text
+        vector = self.embedder.encode_single(new_text)
+
+        store = self._get_bitemporal_store()
+        new_fact = store.revise_fact(revision, vector, user_id)
+
+        logger.info(
+            f"Revised bi-temporal fact: {original_fact_id} -> {new_fact.id} "
+            f"(reason={reason})"
+        )
+
+        return new_fact
+
+    def retract_bitemporal_fact(
+        self,
+        fact_id: str,
+        reason: str = "retracted",
+    ) -> bool:
+        """Retract a bi-temporal fact (mark as invalid without deleting).
+
+        Args:
+            fact_id: ID of the fact to retract
+            reason: Reason for retraction
+
+        Returns:
+            True if retracted successfully
+        """
+        store = self._get_bitemporal_store()
+        result = store.retract_fact(fact_id, reason)
+
+        if result:
+            logger.info(f"Retracted bi-temporal fact: {fact_id} (reason={reason})")
+        else:
+            logger.warning(f"Failed to retract bi-temporal fact: {fact_id}")
+
+        return result
+
+    def query_bitemporal_facts(
+        self,
+        user_id: str,
+        query: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        property_name: Optional[str] = None,
+        as_of_system_time: Optional[datetime] = None,
+        valid_at: Optional[datetime] = None,
+        valid_from: Optional[datetime] = None,
+        valid_to: Optional[datetime] = None,
+        include_superseded: bool = False,
+        include_retracted: bool = False,
+        limit: int = 100,
+    ) -> "BiTemporalQueryResult":
+        """Query bi-temporal facts with temporal filters.
+
+        Supports three query modes:
+        1. Current: Get currently valid facts (default)
+        2. As-of system time: What did we believe at time T?
+        3. Valid-time range: What was valid during [start, end]?
+
+        Args:
+            user_id: User ID
+            query: Optional semantic search query
+            entity_id: Filter by entity
+            property_name: Filter by property
+            as_of_system_time: Query as of this system time
+            valid_at: Point-in-time validity check
+            valid_from: Valid-time range start
+            valid_to: Valid-time range end
+            include_superseded: Include superseded facts
+            include_retracted: Include retracted facts
+            limit: Maximum results
+
+        Returns:
+            BiTemporalQueryResult with matching facts
+
+        Example:
+            ```python
+            # Get currently valid facts
+            result = client.query_bitemporal_facts(user_id="alice")
+
+            # What did we believe last month?
+            result = client.query_bitemporal_facts(
+                user_id="alice",
+                as_of_system_time=datetime(2024, 11, 1),
+            )
+
+            # What was valid during Q1 2024?
+            result = client.query_bitemporal_facts(
+                user_id="alice",
+                valid_from=datetime(2024, 1, 1),
+                valid_to=datetime(2024, 4, 1),
+            )
+
+            # Get employment history for Alice
+            result = client.query_bitemporal_facts(
+                user_id="alice",
+                entity_id="alice",
+                property_name="employer",
+                include_superseded=True,  # Show all versions
+            )
+            ```
+        """
+        from hippocampai.models.bitemporal import BiTemporalQuery
+
+        bt_query = BiTemporalQuery(
+            user_id=user_id,
+            entity_id=entity_id,
+            property_name=property_name,
+            text_query=query,
+            as_of_system_time=as_of_system_time,
+            valid_at=valid_at,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            include_superseded=include_superseded,
+            include_retracted=include_retracted,
+            limit=limit,
+        )
+
+        # Generate query vector if semantic search requested
+        query_vector = None
+        if query:
+            query_vector = self.embedder.encode_single(query)
+
+        store = self._get_bitemporal_store()
+        result = store.query(bt_query, query_vector)
+
+        logger.debug(
+            f"Bi-temporal query returned {len(result.facts)} facts "
+            f"(user={user_id}, as_of={as_of_system_time})"
+        )
+
+        return result
+
+    def get_bitemporal_fact_history(self, fact_id: str) -> list["BiTemporalFact"]:
+        """Get all versions of a logical fact.
+
+        Args:
+            fact_id: The logical fact ID
+
+        Returns:
+            All versions sorted by system_time
+
+        Example:
+            ```python
+            # Get history of Alice's employer
+            history = client.get_bitemporal_fact_history(fact_id="...")
+            for version in history:
+                print(f"{version.system_time}: {version.text} "
+                      f"(valid: {version.valid_from} - {version.valid_to})")
+            ```
+        """
+        store = self._get_bitemporal_store()
+        return store.get_fact_history(fact_id)
+
+    def get_latest_valid_fact(
+        self,
+        user_id: str,
+        entity_id: Optional[str] = None,
+        property_name: Optional[str] = None,
+    ) -> Optional["BiTemporalFact"]:
+        """Get the latest valid fact for an entity/property.
+
+        Args:
+            user_id: User ID
+            entity_id: Entity ID
+            property_name: Property name
+
+        Returns:
+            Latest valid fact or None
+
+        Example:
+            ```python
+            # Get Alice's current employer
+            fact = client.get_latest_valid_fact(
+                user_id="alice",
+                entity_id="alice",
+                property_name="employer",
+            )
+            if fact:
+                print(f"Alice works at: {fact.text}")
+            ```
+        """
+        store = self._get_bitemporal_store()
+        return store.get_latest_valid_fact(user_id, entity_id, property_name)
+
+    # =========================================================================
+    # Automated Context Assembly
+    # =========================================================================
+
+    def assemble_context(
+        self,
+        query: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        token_budget: int = 4000,
+        max_items: int = 20,
+        recency_bias: float = 0.3,
+        entity_focus: Optional[list[str]] = None,
+        type_filter: Optional[list[str]] = None,
+        min_relevance: float = 0.1,
+        allow_summaries: bool = True,
+        include_citations: bool = True,
+        deduplicate: bool = True,
+        time_range_days: Optional[int] = None,
+    ) -> "ContextPack":
+        """Assemble a context pack for LLM prompts.
+
+        This is the main entry point for automated context assembly.
+        Instead of manually retrieving and selecting memories, use this
+        method to get a ready-to-use context pack.
+
+        Args:
+            query: User query to find relevant context for
+            user_id: User ID
+            session_id: Optional session ID for session-scoped context
+            token_budget: Maximum tokens for context (default: 4000)
+            max_items: Maximum memory items (default: 20)
+            recency_bias: Weight for recent memories 0-1 (default: 0.3)
+            entity_focus: Optional entities to prioritize
+            type_filter: Optional memory types to include
+            min_relevance: Minimum relevance score 0-1 (default: 0.1)
+            allow_summaries: Allow summarization when budget exceeded (default: True)
+            include_citations: Include memory IDs as citations (default: True)
+            deduplicate: Remove duplicate memories (default: True)
+            time_range_days: Optional limit to memories from last N days
+
+        Returns:
+            ContextPack with assembled context
+
+        Example:
+            ```python
+            # Basic usage
+            pack = client.assemble_context(
+                query="What are my coffee preferences?",
+                user_id="alice",
+            )
+            prompt = f"{pack.final_context_text}\\n\\nUser: {query}"
+
+            # With constraints
+            pack = client.assemble_context(
+                query="Recent work updates",
+                user_id="alice",
+                token_budget=2000,
+                type_filter=["fact", "event"],
+                time_range_days=7,
+            )
+
+            # Access structured data
+            print(f"Selected {len(pack.selected_items)} memories")
+            print(f"Citations: {pack.citations}")
+            print(f"Dropped {len(pack.dropped_items)} items")
+            ```
+        """
+        from hippocampai.context.assembler import ContextAssembler
+        from hippocampai.context.models import ContextConstraints
+
+        constraints = ContextConstraints(
+            token_budget=token_budget,
+            max_items=max_items,
+            recency_bias=recency_bias,
+            entity_focus=entity_focus,
+            type_filter=type_filter,
+            min_relevance=min_relevance,
+            allow_summaries=allow_summaries,
+            include_citations=include_citations,
+            deduplicate=deduplicate,
+            time_range_days=time_range_days,
+        )
+
+        assembler = ContextAssembler(client=self)
+        pack = assembler.assemble_context(
+            query=query,
+            user_id=user_id,
+            session_id=session_id,
+            constraints=constraints,
+        )
+
+        logger.info(
+            f"Assembled context: {len(pack.selected_items)} items, "
+            f"{pack.total_tokens} tokens (budget: {token_budget})"
+        )
+
+        return pack

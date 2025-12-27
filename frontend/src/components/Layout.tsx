@@ -25,6 +25,10 @@ import {
   Server,
   Moon,
   Home,
+  History,
+  FileText,
+  Database,
+  Zap,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { CopyableField } from './CopyableField';
@@ -104,6 +108,10 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
     { path: '/health', label: 'Health', icon: HeartPulse },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/observability', label: 'Observability', icon: Server },
+    { path: '/bitemporal', label: 'Bi-Temporal Facts', icon: History },
+    { path: '/context', label: 'Context Assembly', icon: FileText },
+    { path: '/schema', label: 'Custom Schema', icon: Database },
+    { path: '/classifier', label: 'Memory Classifier', icon: Zap },
   ];
 
   const managementItems = [

@@ -108,18 +108,18 @@ class LocalBackend(BaseBackend):
                     logger.debug(f"Using type inferred from tag '{tag}': {memory_type}")
                     break
 
-        # Priority 3: Automatic detection from text content (LLM-based with fallback)
+        # Priority 3: Automatic detection from text content (Agentic LLM-based with fallback)
         if not memory_type:
             try:
-                # Try LLM-based classification first (with automatic fallback to patterns)
-                from hippocampai.utils.llm_classifier import get_llm_classifier
+                # Use agentic classification for multi-step reasoning
+                from hippocampai.utils.agentic_classifier import get_agentic_classifier
 
-                llm_classifier = get_llm_classifier(use_cache=True)
-                detected_type, confidence = llm_classifier.classify_with_confidence(text)
-                memory_type = detected_type.value
+                agentic_classifier = get_agentic_classifier(use_cache=True)
+                result = agentic_classifier.classify_with_details(text)
+                memory_type = result.memory_type.value
                 logger.info(
-                    f"Auto-detected memory type: {memory_type} (confidence: {confidence:.2f}) "
-                    f"for text: {text[:50]}..."
+                    f"Agentic classification: {memory_type} (confidence: {result.confidence:.2f}, "
+                    f"reasoning: {result.reasoning[:50]}...) for text: {text[:50]}..."
                 )
             except Exception as e:
                 logger.warning(f"Failed to auto-detect memory type: {e}. Using default: fact")

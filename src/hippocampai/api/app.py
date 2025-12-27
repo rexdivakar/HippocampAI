@@ -130,6 +130,24 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load compaction routes: {e}")
 
+# Include bi-temporal routes
+try:
+    from hippocampai.api.bitemporal_routes import router as bitemporal_router
+
+    app.include_router(bitemporal_router)
+    logger.info("Bi-temporal routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load bi-temporal routes: {e}")
+
+# Include context assembly routes
+try:
+    from hippocampai.api.context_routes import router as context_router
+
+    app.include_router(context_router)
+    logger.info("Context assembly routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load context routes: {e}")
+
 
 # Request/Response models
 class RememberRequest(BaseModel):
@@ -201,17 +219,17 @@ def remember(request: RememberRequest, client: MemoryClient = Depends(get_memory
     - context: General conversation (default)
     """
     try:
-        # Automatic type detection if not provided (LLM-based with fallback)
+        # Automatic type detection if not provided (Agentic LLM-based with fallback)
         memory_type = request.type
         if not memory_type:
-            from hippocampai.utils.llm_classifier import get_llm_classifier
+            from hippocampai.utils.agentic_classifier import get_agentic_classifier
 
-            llm_classifier = get_llm_classifier(use_cache=True)
-            detected_type, confidence = llm_classifier.classify_with_confidence(request.text)
-            memory_type = detected_type.value
+            agentic_classifier = get_agentic_classifier(use_cache=True)
+            result = agentic_classifier.classify_with_details(request.text)
+            memory_type = result.memory_type.value
             logger.info(
-                f"Auto-detected memory type: {memory_type} (confidence: {confidence:.2f}) "
-                f"for text: {request.text[:50]}..."
+                f"Agentic classification: {memory_type} (confidence: {result.confidence:.2f}, "
+                f"reasoning: {result.reasoning[:80]}...) for text: {request.text[:50]}..."
             )
 
         memory = client.remember(

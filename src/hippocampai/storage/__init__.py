@@ -1,6 +1,8 @@
-"""Storage Module - KV Store and User/Session Management."""
+"""Storage Module - KV Store, User/Session Management, and Bi-temporal Storage."""
 
 # Original KV Store exports
+# Bi-temporal Storage
+from hippocampai.storage.bitemporal_store import BiTemporalStore
 from hippocampai.storage.kv_store import InMemoryKVStore, MemoryKVStore
 
 # User/Session Storage (DuckDB)
@@ -17,4 +19,6 @@ __all__ = [
     "User",
     "Session",
     "SoftDeleteRecord",
+    # Bi-temporal Storage
+    "BiTemporalStore",
 ]

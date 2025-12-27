@@ -10,6 +10,10 @@ import type {
   Anomaly,
   Recommendation,
   Forecast,
+  BiTemporalFact,
+  BiTemporalQueryResult,
+  ContextPack,
+  ContextConstraints,
 } from '../types';
 
 class APIClient {
@@ -316,6 +320,126 @@ class APIClient {
 
   getAuthToken(): string | null {
     return localStorage.getItem('auth_token');
+  }
+
+  // ============================================================================
+  // BI-TEMPORAL FACTS
+  // ============================================================================
+
+  async storeBiTemporalFact(data: {
+    text: string;
+    user_id: string;
+    entity_id?: string;
+    property_name?: string;
+    valid_from?: string;
+    valid_to?: string;
+    confidence?: number;
+    source?: string;
+    metadata?: Record<string, any>;
+  }): Promise<BiTemporalFact> {
+    const response = await this.v1Client.post<BiTemporalFact>('/v1/bitemporal/facts:store', data);
+    return response.data;
+  }
+
+  async queryBiTemporalFacts(data: {
+    user_id: string;
+    entity_id?: string;
+    property_name?: string;
+    as_of_system_time?: string;
+    as_of_valid_time?: string;
+    valid_time_start?: string;
+    valid_time_end?: string;
+    include_superseded?: boolean;
+  }): Promise<BiTemporalQueryResult> {
+    const response = await this.v1Client.post<BiTemporalQueryResult>('/v1/bitemporal/facts:query', data);
+    return response.data;
+  }
+
+  async reviseBiTemporalFact(data: {
+    original_fact_id: string;
+    new_text: string;
+    user_id: string;
+    valid_from?: string;
+    valid_to?: string;
+    confidence?: number;
+    metadata?: Record<string, any>;
+  }): Promise<BiTemporalFact> {
+    const response = await this.v1Client.post<BiTemporalFact>('/v1/bitemporal/facts:revise', data);
+    return response.data;
+  }
+
+  async retractBiTemporalFact(data: {
+    fact_id: string;
+    user_id: string;
+  }): Promise<BiTemporalFact> {
+    const response = await this.v1Client.post<BiTemporalFact>('/v1/bitemporal/facts:retract', data);
+    return response.data;
+  }
+
+  async getBiTemporalFactHistory(factId: string): Promise<BiTemporalFact[]> {
+    const response = await this.v1Client.post<{ history: BiTemporalFact[] }>('/v1/bitemporal/facts:history', {
+      fact_id: factId,
+    });
+    return response.data.history;
+  }
+
+  async getLatestValidFact(data: {
+    entity_id: string;
+    property_name: string;
+    user_id: string;
+  }): Promise<BiTemporalFact | null> {
+    const response = await this.v1Client.post<BiTemporalFact | null>('/v1/bitemporal/facts:latest', data);
+    return response.data;
+  }
+
+  // ============================================================================
+  // CONTEXT ASSEMBLY
+  // ============================================================================
+
+  async assembleContext(data: {
+    user_id: string;
+    query: string;
+    session_id?: string;
+    token_budget?: number;
+    max_items?: number;
+    recency_bias?: number;
+    type_filter?: string[];
+    min_relevance?: number;
+    include_citations?: boolean;
+    deduplicate?: boolean;
+  }): Promise<ContextPack> {
+    const response = await this.v1Client.post<ContextPack>('/v1/context:assemble', data);
+    return response.data;
+  }
+
+  async assembleContextText(data: {
+    user_id: string;
+    query: string;
+    session_id?: string;
+    token_budget?: number;
+    max_items?: number;
+  }): Promise<string> {
+    const response = await this.v1Client.post<{ context: string }>('/v1/context:assemble/text', data);
+    return response.data.context;
+  }
+
+  // ============================================================================
+  // AGENTIC CLASSIFIER
+  // ============================================================================
+
+  async classifyMemory(data: {
+    text: string;
+    user_id: string;
+  }): Promise<{
+    memory_type: string;
+    confidence: number;
+    confidence_level: string;
+    reasoning: string;
+    alternative_type?: string;
+    alternative_confidence?: number;
+  }> {
+    const response = await this.v1Client.post('/v1/classify', data);
+    return response.data;
   }
 }
 

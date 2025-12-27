@@ -99,6 +99,10 @@ print(f"Found: {results[0].memory.text}")
 | **Offline Mode** | Queue operations when backend unavailable | [New Features](docs/NEW_FEATURES.md#offline-mode) |
 | **Tiered Storage** | Hot/warm/cold storage tiers for efficiency | [New Features](docs/NEW_FEATURES.md#tiered-storage) |
 | **Framework Integrations** | LangChain & LlamaIndex adapters | [New Features](docs/NEW_FEATURES.md#framework-integrations) |
+| **Bi-Temporal Facts** | Track facts with validity periods and time-travel queries | [Bi-Temporal Guide](docs/bi_temporal.md) |
+| **Context Assembly** | Automated context pack generation with token budgeting | [Context Assembly](docs/context_assembly.md) |
+| **Custom Schemas** | Define entity/relationship types without code changes | [Schema Guide](docs/custom_schema.md) |
+| **Benchmarks** | Reproducible performance benchmarks | [Benchmarks](docs/benchmarks.md) |
 
 ---
 
@@ -365,6 +369,34 @@ stats = client.get_memory_statistics(user_id="alice")
 # Sessions
 session = client.create_session(user_id="alice", title="Planning")
 client.complete_session(session.id, generate_summary=True)
+
+# Bi-Temporal Facts (NEW)
+from hippocampai.models.bitemporal import BiTemporalQuery
+fact = client.store_bitemporal_fact(
+    user_id="alice",
+    subject="alice",
+    predicate="works_at",
+    object_value="Acme Corp",
+    valid_from=datetime(2024, 1, 1),
+)
+facts = client.query_bitemporal_facts(BiTemporalQuery(
+    user_id="alice",
+    valid_at=datetime(2024, 6, 1),
+))
+
+# Context Assembly (NEW)
+from hippocampai.context.models import ContextConstraints
+context = client.assemble_context(
+    user_id="alice",
+    query="What are Alice's work preferences?",
+    constraints=ContextConstraints(token_budget=4000),
+)
+print(context.final_context_text)
+
+# Custom Schema Validation (NEW)
+from hippocampai.schema import SchemaRegistry
+registry = SchemaRegistry()
+result = registry.validate_entity("person", {"name": "Alice"})
 
 # See docs/LIBRARY_COMPLETE_REFERENCE.md for all 102+ methods
 ```
