@@ -71,6 +71,74 @@ logger = logging.getLogger(__name__)
 PresetType = Literal["local", "cloud", "production", "development"]
 
 
+def _apply_config_overrides(
+    config: Config,
+    qdrant_url: Optional[str],
+    collection_facts: Optional[str],
+    collection_prefs: Optional[str],
+    embed_model: Optional[str],
+    embed_quantized: Optional[bool],
+    reranker_model: Optional[str],
+    llm_provider: Optional[str],
+    llm_model: Optional[str],
+    hnsw_M: Optional[int],
+    ef_construction: Optional[int],
+    ef_search: Optional[int],
+    weights: Optional[dict[str, float]],
+    allow_cloud: Optional[bool],
+) -> None:
+    """Apply parameter overrides to config."""
+    overrides = {
+        "qdrant_url": qdrant_url,
+        "collection_facts": collection_facts,
+        "collection_prefs": collection_prefs,
+        "embed_model": embed_model,
+        "reranker_model": reranker_model,
+        "llm_provider": llm_provider,
+        "llm_model": llm_model,
+        "hnsw_m": hnsw_M,
+        "ef_construction": ef_construction,
+        "ef_search": ef_search,
+    }
+    for attr, value in overrides.items():
+        if value is not None:
+            setattr(config, attr, value)
+
+    if embed_quantized is not None:
+        config.embed_quantized = embed_quantized
+    if allow_cloud is not None:
+        config.allow_cloud = allow_cloud
+    if weights:
+        config.weight_sim = weights.get("sim", config.weight_sim)
+        config.weight_rerank = weights.get("rerank", config.weight_rerank)
+        config.weight_recency = weights.get("recency", config.weight_recency)
+        config.weight_importance = weights.get("importance", config.weight_importance)
+
+
+def _initialize_llm(
+    config: Config,
+) -> Optional[Union[OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM]]:
+    """Initialize LLM based on config provider."""
+    import os
+
+    provider_map = {
+        "ollama": lambda: OllamaLLM(model=config.llm_model, base_url=config.llm_base_url),
+        "openai": lambda: OpenAILLM(api_key=os.getenv("OPENAI_API_KEY", ""), model=config.llm_model),
+        "groq": lambda: GroqLLM(api_key=os.getenv("GROQ_API_KEY", ""), model=config.llm_model),
+        "anthropic": lambda: AnthropicLLM(api_key=os.getenv("ANTHROPIC_API_KEY", ""), model=config.llm_model),
+    }
+
+    if config.llm_provider == "ollama":
+        return provider_map["ollama"]()
+
+    if config.llm_provider in provider_map and config.allow_cloud:
+        env_key = f"{config.llm_provider.upper()}_API_KEY"
+        if os.getenv(env_key):
+            return provider_map[config.llm_provider]()
+
+    return None
+
+
 class MemoryClient:
     """Production-ready memory client with hybrid retrieval."""
 
@@ -121,35 +189,11 @@ class MemoryClient:
             )
 
         # Override config with params
-        if qdrant_url:
-            self.config.qdrant_url = qdrant_url
-        if collection_facts:
-            self.config.collection_facts = collection_facts
-        if collection_prefs:
-            self.config.collection_prefs = collection_prefs
-        if embed_model:
-            self.config.embed_model = embed_model
-        if embed_quantized is not None:
-            self.config.embed_quantized = embed_quantized
-        if reranker_model:
-            self.config.reranker_model = reranker_model
-        if llm_provider:
-            self.config.llm_provider = llm_provider
-        if llm_model:
-            self.config.llm_model = llm_model
-        if hnsw_M:
-            self.config.hnsw_m = hnsw_M
-        if ef_construction:
-            self.config.ef_construction = ef_construction
-        if ef_search:
-            self.config.ef_search = ef_search
-        if weights:
-            self.config.weight_sim = weights.get("sim", self.config.weight_sim)
-            self.config.weight_rerank = weights.get("rerank", self.config.weight_rerank)
-            self.config.weight_recency = weights.get("recency", self.config.weight_recency)
-            self.config.weight_importance = weights.get("importance", self.config.weight_importance)
-        if allow_cloud is not None:
-            self.config.allow_cloud = allow_cloud
+        _apply_config_overrides(
+            self.config, qdrant_url, collection_facts, collection_prefs,
+            embed_model, embed_quantized, reranker_model, llm_provider,
+            llm_model, hnsw_M, ef_construction, ef_search, weights, allow_cloud,
+        )
 
         # Initialize components
         self.qdrant = QdrantStore(
@@ -185,27 +229,7 @@ class MemoryClient:
         )
 
         # LLM (optional)
-        self.llm: Optional[Union[OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM]] = None
-        if self.config.llm_provider == "ollama":
-            self.llm = OllamaLLM(model=self.config.llm_model, base_url=self.config.llm_base_url)
-        elif self.config.llm_provider == "openai" and self.config.allow_cloud:
-            import os
-
-            api_key = os.getenv("OPENAI_API_KEY")
-            if api_key:
-                self.llm = OpenAILLM(api_key=api_key, model=self.config.llm_model)
-        elif self.config.llm_provider == "groq" and self.config.allow_cloud:
-            import os
-
-            api_key = os.getenv("GROQ_API_KEY")
-            if api_key:
-                self.llm = GroqLLM(api_key=api_key, model=self.config.llm_model)
-        elif self.config.llm_provider == "anthropic" and self.config.allow_cloud:
-            import os
-
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if api_key:
-                self.llm = AnthropicLLM(api_key=api_key, model=self.config.llm_model)
+        self.llm = _initialize_llm(self.config)
 
         # Pipeline
         self.extractor = MemoryExtractor(llm=self.llm, mode="hybrid")
@@ -399,6 +423,262 @@ class MemoryClient:
 
         return cls(config=config)
 
+    # ============================================
+    # REMEMBER HELPER METHODS
+    # ============================================
+
+    def _create_initial_memory(
+        self,
+        text: str,
+        user_id: str,
+        session_id: Optional[str],
+        type: str,
+        importance: Optional[float],
+        tags: Optional[list[str]],
+        ttl_days: Optional[int],
+        agent_id: Optional[str],
+        run_id: Optional[str],
+        visibility: Optional[str],
+    ) -> Memory:
+        """Create and enrich initial memory object."""
+        expires_at = None
+        if ttl_days is not None:
+            expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
+
+        memory = Memory(
+            text=text,
+            user_id=user_id,
+            session_id=session_id,
+            type=MemoryType(type),
+            importance=importance or self.scorer.score(text, type),
+            tags=tags or [],
+            expires_at=expires_at,
+            agent_id=agent_id,
+            run_id=run_id,
+            visibility=visibility or MemoryVisibility.PRIVATE.value,
+        )
+
+        # Auto-enrich with semantic categorization
+        memory = self.categorizer.enrich_memory_with_categories(memory)
+        memory.calculate_size_metrics()
+        return memory
+
+    def _handle_smart_update(
+        self,
+        memory: Memory,
+        trace_id: str,
+        user_id: str,
+    ) -> tuple[Memory, Optional[str]]:
+        """Handle smart update with similar memories.
+
+        Returns:
+            Tuple of (possibly updated memory, action taken or None if should continue)
+        """
+        self.telemetry.add_event(trace_id, "smart_update_check", status="in_progress")
+        existing_memories = self.get_memories(user_id, limit=100)
+        similar = self.categorizer.find_similar_memories(
+            memory, existing_memories, similarity_threshold=0.85
+        )
+
+        if not similar:
+            self.telemetry.add_event(
+                trace_id, "smart_update_check", status="success", action="new"
+            )
+            return memory, None
+
+        existing_memory = similar[0][0]
+        decision = self.smart_updater.should_update_memory(existing_memory, memory.text)
+
+        self.telemetry.add_event(
+            trace_id,
+            "smart_update_check",
+            status="success",
+            action=decision.action,
+            reason=decision.reason,
+        )
+
+        if decision.action == "skip":
+            updated_existing = self.smart_updater.update_confidence(
+                existing_memory, "reinforcement"
+            )
+            self.update_memory(
+                memory_id=existing_memory.id,
+                importance=updated_existing.confidence * 10,
+            )
+            logger.info(f"Skipping similar memory: {decision.reason}")
+            return existing_memory, "skip"
+
+        if decision.action == "update" and decision.merged_memory:
+            self.update_memory(
+                memory_id=existing_memory.id,
+                text=decision.merged_memory.text,
+                importance=decision.merged_memory.importance,
+                tags=decision.merged_memory.tags,
+            )
+            logger.info(f"Updated existing memory: {decision.reason}")
+            return decision.merged_memory, "update"
+
+        if decision.action == "merge" and decision.merged_memory:
+            self.delete_memory(existing_memory.id, user_id)
+            logger.info(f"Merged memories: {decision.reason}")
+            return decision.merged_memory, "continue"
+
+        return memory, None
+
+    def _store_memory_in_qdrant(
+        self, memory: Memory, trace_id: str
+    ) -> str:
+        """Store memory in Qdrant and return collection name."""
+        collection: str = memory.collection_name(
+            self.config.collection_facts, self.config.collection_prefs
+        )
+
+        self.telemetry.add_event(trace_id, "embedding", status="in_progress")
+        vector = self.embedder.encode_single(memory.text)
+        self.telemetry.add_event(trace_id, "embedding", status="success")
+
+        self.telemetry.add_event(trace_id, "vector_store", status="in_progress")
+        self.qdrant.upsert(
+            collection_name=collection,
+            id=memory.id,
+            vector=vector,
+            payload=memory.model_dump(mode="json"),
+        )
+        self.telemetry.add_event(
+            trace_id, "vector_store", status="success", collection=collection
+        )
+
+        logger.info(f"Stored memory: {memory.id}, type={memory.type}")
+        return collection
+
+    def _apply_conflict_resolution(
+        self,
+        resolution: Any,
+        conflict: Any,
+        memory: Memory,
+        user_id: str,
+        resolution_strategy: str,
+    ) -> Memory:
+        """Apply a single conflict resolution and return updated memory."""
+        if resolution.action in ["keep_first", "keep_second"]:
+            for mem_id in resolution.deleted_memory_ids:
+                self.delete_memory(mem_id, user_id)
+                logger.info(f"Auto-resolve: Deleted conflicting memory {mem_id}")
+
+            if memory.id in resolution.deleted_memory_ids and resolution.updated_memory:
+                return resolution.updated_memory
+
+        elif resolution.action == "merge" and resolution.updated_memory:
+            self._apply_merge_resolution(resolution, memory, user_id, conflict, resolution_strategy)
+            return resolution.updated_memory
+
+        elif resolution.action in ["flag", "keep_both"]:
+            self._flag_conflicting_memories(conflict)
+
+        return memory
+
+    def _apply_merge_resolution(
+        self,
+        resolution: Any,
+        memory: Memory,
+        user_id: str,
+        conflict: Any,
+        resolution_strategy: str,
+    ) -> None:
+        """Apply merge resolution for conflicting memories."""
+        try:
+            merged_collection = resolution.updated_memory.collection_name(
+                self.config.collection_facts, self.config.collection_prefs,
+            )
+            merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
+            merged_payload = resolution.updated_memory.model_dump(mode="json")
+
+            self.qdrant.upsert(
+                collection_name=merged_collection,
+                id=resolution.updated_memory.id,
+                vector=merged_vector,
+                payload=merged_payload,
+            )
+
+            for mem_id in resolution.deleted_memory_ids:
+                self.delete_memory(mem_id, user_id)
+
+            logger.info(
+                f"Auto-resolve: Merged into memory {resolution.updated_memory.id}, "
+                f"deleted {len(resolution.deleted_memory_ids)} memories"
+            )
+
+            self.provenance_tracker.track_merge(
+                memory, [conflict.memory_1, conflict.memory_2], merge_strategy=resolution_strategy,
+            )
+        except Exception as merge_err:
+            logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
+
+    def _flag_conflicting_memories(self, conflict: Any) -> None:
+        """Flag both memories for manual review."""
+        if conflict.memory_1.metadata.get("has_conflict"):
+            self.update_memory(conflict.memory_1.id, metadata=conflict.memory_1.metadata)
+        if conflict.memory_2.metadata.get("has_conflict"):
+            self.update_memory(conflict.memory_2.id, metadata=conflict.memory_2.metadata)
+        logger.info(
+            f"Auto-resolve: Flagged memories for review "
+            f"({conflict.memory_1.id}, {conflict.memory_2.id})"
+        )
+
+    def _track_memory_creation(
+        self,
+        memory: Memory,
+        user_id: str,
+        session_id: Optional[str],
+        tags: Optional[list[str]],
+        auto_resolve_conflicts: bool,
+        success: bool = True,
+        error: Optional[str] = None,
+    ) -> None:
+        """Track memory creation event."""
+        try:
+            from hippocampai.monitoring.memory_tracker import (
+                MemoryEventSeverity,
+                MemoryEventType,
+                get_tracker,
+            )
+
+            tracker = get_tracker()
+            tracker.track_event(
+                memory_id=memory.id if success else "unknown",
+                user_id=user_id,
+                event_type=MemoryEventType.CREATED,
+                severity=MemoryEventSeverity.INFO if success else MemoryEventSeverity.ERROR,
+                metadata={
+                    "type": memory.type.value if success else "",
+                    "importance": memory.importance if success else 0,
+                    "session_id": session_id,
+                    "tags": tags or [],
+                    "auto_resolved": auto_resolve_conflicts,
+                },
+                success=success,
+                error_message=error,
+            )
+        except Exception as track_err:
+            logger.warning(f"Failed to track memory creation: {track_err}")
+
+    def _track_prometheus_metrics(self, memory: Memory) -> None:
+        """Track Prometheus metrics for memory creation."""
+        try:
+            from hippocampai.monitoring.prometheus_metrics import (
+                memories_created_total,
+                memory_operations_total,
+                memory_size_bytes,
+            )
+
+            memory_operations_total.labels(operation="create", status="success").inc()
+            memories_created_total.labels(memory_type=memory.type.value).inc()
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(
+                len(memory.text.encode("utf-8"))
+            )
+        except Exception as metrics_err:
+            logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+
     def remember(
         self,
         text: str,
@@ -456,7 +736,6 @@ class MemoryClient:
             ...     resolution_strategy="auto_merge"  # Merges with existing
             ... )
         """
-        # Start telemetry trace
         trace_id = self.telemetry.start_trace(
             operation=OperationType.REMEMBER,
             user_id=user_id,
@@ -466,346 +745,111 @@ class MemoryClient:
         )
 
         try:
-            # Calculate expiration if TTL is set
-            expires_at = None
-            if ttl_days is not None:
-                expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
-
-            memory = Memory(
-                text=text,
-                user_id=user_id,
-                session_id=session_id,
-                type=MemoryType(type),
-                importance=importance or self.scorer.score(text, type),
-                tags=tags or [],
-                expires_at=expires_at,
-                agent_id=agent_id,
-                run_id=run_id,
-                visibility=visibility or MemoryVisibility.PRIVATE.value,
-            )
-
-            # Auto-enrich with semantic categorization
+            # Create and enrich memory
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
-            original_type = memory.type
-            memory = self.categorizer.enrich_memory_with_categories(memory)
-            logger.info(
-                f"Enrichment: {original_type} -> {memory.type} for text '{memory.text[:50]}'"
+            memory = self._create_initial_memory(
+                text, user_id, session_id, type, importance, tags,
+                ttl_days, agent_id, run_id, visibility,
             )
+            logger.info(f"Enrichment completed for text '{memory.text[:50]}'")
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
-
-            # Calculate size metrics
-            memory.calculate_size_metrics()
-
-            # Track size in telemetry
             self.telemetry.track_memory_size(memory.text_length, memory.token_count)
 
-            # Check for similar memories and decide on smart update
-            self.telemetry.add_event(trace_id, "smart_update_check", status="in_progress")
-            existing_memories = self.get_memories(user_id, limit=100)
-            similar = self.categorizer.find_similar_memories(
-                memory, existing_memories, similarity_threshold=0.85
-            )
-
-            if similar:
-                # Found similar memory, use smart updater to decide action
-                existing_memory = similar[0][0]  # Most similar memory
-                decision = self.smart_updater.should_update_memory(existing_memory, text)
-
-                self.telemetry.add_event(
-                    trace_id,
-                    "smart_update_check",
-                    status="success",
-                    action=decision.action,
-                    reason=decision.reason,
-                )
-
-                if decision.action == "skip":
-                    # Update confidence of existing memory
-                    updated_existing = self.smart_updater.update_confidence(
-                        existing_memory, "reinforcement"
-                    )
-                    self.update_memory(
-                        memory_id=existing_memory.id,
-                        importance=updated_existing.confidence
-                        * 10,  # Scale confidence to importance
-                    )
-                    logger.info(f"Skipping similar memory: {decision.reason}")
-                    self.telemetry.end_trace(
-                        trace_id, status="skipped", result={"reason": decision.reason}
-                    )
-                    return existing_memory
-
-                if decision.action == "update":
-                    # Update existing memory
-                    if decision.merged_memory:
-                        self.update_memory(
-                            memory_id=existing_memory.id,
-                            text=decision.merged_memory.text,
-                            importance=decision.merged_memory.importance,
-                            tags=decision.merged_memory.tags,
-                        )
-                        logger.info(f"Updated existing memory: {decision.reason}")
-                        self.telemetry.end_trace(
-                            trace_id, status="updated", result={"reason": decision.reason}
-                        )
-                        return decision.merged_memory
-
-                elif decision.action == "merge":
-                    # Delete old, store merged
-                    if decision.merged_memory:
-                        self.delete_memory(existing_memory.id, user_id)
-                        memory = decision.merged_memory
-                        logger.info(f"Merged memories: {decision.reason}")
-                # If action is "keep_both", continue with normal storage
-            else:
-                self.telemetry.add_event(
-                    trace_id, "smart_update_check", status="success", action="new"
-                )
+            # Handle smart update with similar memories
+            memory, action = self._handle_smart_update(memory, trace_id, user_id)
+            if action == "skip":
+                self.telemetry.end_trace(trace_id, status="skipped", result={"reason": "similar"})
+                return memory
+            if action == "update":
+                self.telemetry.end_trace(trace_id, status="updated", result={"reason": "merged"})
+                return memory
 
             # Check duplicates (basic dedup as fallback)
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
-            action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
+            dedup_action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
-                trace_id,
-                "deduplication_check",
-                status="success",
-                action=action,
-                duplicates=len(dup_ids),
+                trace_id, "deduplication_check", status="success",
+                action=dedup_action, duplicates=len(dup_ids),
             )
-
-            if action == "skip":
+            if dedup_action == "skip":
                 logger.info(f"Skipping duplicate memory: {memory.id}, type={memory.type}")
                 self.telemetry.end_trace(trace_id, status="skipped", result={"duplicate": True})
                 return memory
 
-            # Store
-            collection = memory.collection_name(
-                self.config.collection_facts, self.config.collection_prefs
-            )
+            # Store in Qdrant
+            collection = self._store_memory_in_qdrant(memory, trace_id)
 
-            self.telemetry.add_event(trace_id, "embedding", status="in_progress")
-            vector = self.embedder.encode_single(memory.text)
-            self.telemetry.add_event(trace_id, "embedding", status="success")
-
-            self.telemetry.add_event(trace_id, "vector_store", status="in_progress")
-            self.qdrant.upsert(
-                collection_name=collection,
-                id=memory.id,
-                vector=vector,
-                payload=memory.model_dump(mode="json"),
-            )
-            self.telemetry.add_event(
-                trace_id, "vector_store", status="success", collection=collection
-            )
-
-            logger.info(f"Stored memory: {memory.id}, type={memory.type}")
-
-            # AUTO-RESOLVE CONFLICTS (Mem0-style)
+            # Auto-resolve conflicts if enabled
             if auto_resolve_conflicts:
-                self.telemetry.add_event(trace_id, "auto_conflict_resolution", status="in_progress")
-
-                # Find semantically similar memories to check for conflicts
-                # This is more efficient and accurate than fetching all memories.
-                recalled_results = self.recall(query=memory.text, user_id=user_id, k=10)
-                other_memories = [
-                    res.memory for res in recalled_results if res.memory.id != memory.id
-                ]
-
-                # Detect conflicts with the newly stored memory
-                # Use LLM if available for better conflict detection
-                conflicts = self.conflict_resolver.detect_conflicts(
-                    memory, other_memories, check_llm=(self.llm is not None)
+                memory = self._auto_resolve_memory_conflicts(
+                    memory, trace_id, user_id, resolution_strategy
                 )
-
-                if conflicts:
-                    logger.info(
-                        f"Auto-resolve: Found {len(conflicts)} conflict(s) for memory {memory.id}, "
-                        f"using strategy '{resolution_strategy}'"
-                    )
-
-                    from hippocampai.pipeline.conflict_resolution import ConflictResolutionStrategy
-
-                    # Resolve each conflict
-                    for conflict in conflicts:
-                        try:
-                            resolution = self.conflict_resolver.resolve_conflict(
-                                conflict, strategy=ConflictResolutionStrategy(resolution_strategy)
-                            )
-
-                            # Apply resolution
-                            if resolution.action in ["keep_first", "keep_second"]:
-                                # Delete the loser memory
-                                for mem_id in resolution.deleted_memory_ids:
-                                    self.delete_memory(mem_id, user_id)
-                                    logger.info(
-                                        f"Auto-resolve: Deleted conflicting memory {mem_id}"
-                                    )
-
-                                # If the new memory was deleted (keep_first), return the existing one
-                                if (
-                                    memory.id in resolution.deleted_memory_ids
-                                    and resolution.updated_memory
-                                ):
-                                    memory = resolution.updated_memory
-
-                            elif resolution.action == "merge":
-                                # Delete originals, store merged atomically as best as possible
-                                if resolution.updated_memory:
-                                    try:
-                                        # Prepare merged payload/vector first to reduce failure window
-                                        merged_collection = (
-                                            resolution.updated_memory.collection_name(
-                                                self.config.collection_facts,
-                                                self.config.collection_prefs,
-                                            )
-                                        )
-                                        merged_vector = self.embedder.encode_single(
-                                            resolution.updated_memory.text
-                                        )
-                                        merged_payload = resolution.updated_memory.model_dump(
-                                            mode="json"
-                                        )
-
-                                        # Upsert merged memory first
-                                        self.qdrant.upsert(
-                                            collection_name=merged_collection,
-                                            id=resolution.updated_memory.id,
-                                            vector=merged_vector,
-                                            payload=merged_payload,
-                                        )
-
-                                        # Only delete originals after successful upsert
-                                        for mem_id in resolution.deleted_memory_ids:
-                                            self.delete_memory(mem_id, user_id)
-
-                                        memory = resolution.updated_memory
-                                        logger.info(
-                                            f"Auto-resolve: Merged into memory {memory.id}, "
-                                            f"deleted {len(resolution.deleted_memory_ids)} memories"
-                                        )
-
-                                        # Track provenance for merged memory
-                                        self.provenance_tracker.track_merge(
-                                            memory,
-                                            [conflict.memory_1, conflict.memory_2],
-                                            merge_strategy=resolution_strategy,
-                                        )
-                                    except Exception as merge_err:
-                                        logger.error(
-                                            f"Auto-resolve merge failed, originals preserved: {merge_err}"
-                                        )
-                                        # Do not delete originals if upsert failed
-                                        # Optionally add conflict flags for manual review
-
-                            elif resolution.action in ["flag", "keep_both"]:
-                                # Update both memories with conflict metadata
-                                if conflict.memory_1.metadata.get("has_conflict"):
-                                    self.update_memory(
-                                        conflict.memory_1.id, metadata=conflict.memory_1.metadata
-                                    )
-                                if conflict.memory_2.metadata.get("has_conflict"):
-                                    self.update_memory(
-                                        conflict.memory_2.id, metadata=conflict.memory_2.metadata
-                                    )
-                                logger.info(
-                                    f"Auto-resolve: Flagged memories for review "
-                                    f"({conflict.memory_1.id}, {conflict.memory_2.id})"
-                                )
-
-                        except Exception as e:
-                            logger.error(f"Auto-resolve failed for conflict: {e}")
-                            # Continue with other conflicts
-
-                    self.telemetry.add_event(
-                        trace_id,
-                        "auto_conflict_resolution",
-                        status="success",
-                        conflicts_found=len(conflicts),
-                        strategy=resolution_strategy,
-                    )
-                else:
-                    self.telemetry.add_event(
-                        trace_id, "auto_conflict_resolution", status="success", conflicts_found=0
-                    )
 
             self.telemetry.end_trace(
-                trace_id,
-                status="success",
-                result={
-                    "memory_id": memory.id,
-                    "collection": collection,
-                    "auto_resolved": auto_resolve_conflicts,
-                },
+                trace_id, status="success",
+                result={"memory_id": memory.id, "collection": collection, "auto_resolved": auto_resolve_conflicts},
             )
 
-            # Track memory creation event
-            try:
-                from hippocampai.monitoring.memory_tracker import (
-                    MemoryEventSeverity,
-                    MemoryEventType,
-                    get_tracker,
-                )
-
-                tracker = get_tracker()
-                tracker.track_event(
-                    memory_id=memory.id,
-                    user_id=user_id,
-                    event_type=MemoryEventType.CREATED,
-                    severity=MemoryEventSeverity.INFO,
-                    metadata={
-                        "type": memory.type.value,
-                        "importance": memory.importance,
-                        "session_id": session_id,
-                        "tags": tags or [],
-                        "auto_resolved": auto_resolve_conflicts,
-                    },
-                    success=True,
-                )
-            except Exception as track_err:
-                logger.warning(f"Failed to track memory creation: {track_err}")
-
-            # Track Prometheus metrics
-            try:
-                from hippocampai.monitoring.prometheus_metrics import (
-                    memories_created_total,
-                    memory_operations_total,
-                    memory_size_bytes,
-                )
-
-                memory_operations_total.labels(operation="create", status="success").inc()
-                memories_created_total.labels(memory_type=memory.type.value).inc()
-                memory_size_bytes.labels(memory_type=memory.type.value).observe(
-                    len(text.encode("utf-8"))
-                )
-            except Exception as metrics_err:
-                logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+            # Track events and metrics
+            self._track_memory_creation(memory, user_id, session_id, tags, auto_resolve_conflicts)
+            self._track_prometheus_metrics(memory)
 
             return memory
         except Exception as e:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
-
-            # Track failed memory creation
-            try:
-                from hippocampai.monitoring.memory_tracker import (
-                    MemoryEventSeverity,
-                    MemoryEventType,
-                    get_tracker,
-                )
-
-                tracker = get_tracker()
-                tracker.track_event(
-                    memory_id="unknown",
-                    user_id=user_id,
-                    event_type=MemoryEventType.CREATED,
-                    severity=MemoryEventSeverity.ERROR,
-                    metadata={"text_length": len(text), "type": type},
-                    success=False,
-                    error_message=str(e),
-                )
-            except Exception as track_err:
-                logger.warning(f"Failed to track memory creation error: {track_err}")
-
+            self._track_memory_creation(
+                Memory(text=text, user_id=user_id, type=MemoryType(type)),
+                user_id, session_id, tags, auto_resolve_conflicts,
+                success=False, error=str(e),
+            )
             raise
+
+    def _auto_resolve_memory_conflicts(
+        self,
+        memory: Memory,
+        trace_id: str,
+        user_id: str,
+        resolution_strategy: str,
+    ) -> Memory:
+        """Auto-resolve conflicts for a newly stored memory."""
+        self.telemetry.add_event(trace_id, "auto_conflict_resolution", status="in_progress")
+
+        recalled_results = self.recall(query=memory.text, user_id=user_id, k=10)
+        other_memories = [res.memory for res in recalled_results if res.memory.id != memory.id]
+
+        conflicts = self.conflict_resolver.detect_conflicts(
+            memory, other_memories, check_llm=(self.llm is not None)
+        )
+
+        if not conflicts:
+            self.telemetry.add_event(
+                trace_id, "auto_conflict_resolution", status="success", conflicts_found=0
+            )
+            return memory
+
+        logger.info(
+            f"Auto-resolve: Found {len(conflicts)} conflict(s) for memory {memory.id}, "
+            f"using strategy '{resolution_strategy}'"
+        )
+
+        from hippocampai.pipeline.conflict_resolution import ConflictResolutionStrategy
+
+        for conflict in conflicts:
+            try:
+                resolution = self.conflict_resolver.resolve_conflict(
+                    conflict, strategy=ConflictResolutionStrategy(resolution_strategy)
+                )
+                memory = self._apply_conflict_resolution(
+                    resolution, conflict, memory, user_id, resolution_strategy
+                )
+            except Exception as e:
+                logger.error(f"Auto-resolve failed for conflict: {e}")
+
+        self.telemetry.add_event(
+            trace_id, "auto_conflict_resolution", status="success",
+            conflicts_found=len(conflicts), strategy=resolution_strategy,
+        )
+        return memory
 
     def recall(
         self,
@@ -1018,6 +1062,85 @@ class MemoryClient:
 
         return by_type
 
+    def _find_memory_in_collections(
+        self, memory_id: str, trace_id: str
+    ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
+        """Find memory in collections and return (memory_data, collection_name)."""
+        for coll in [self.config.collection_facts, self.config.collection_prefs]:
+            self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="in_progress")
+            memory_data = self.qdrant.get(coll, memory_id)
+            if memory_data:
+                self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="success")
+                return memory_data, coll
+            self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="not_found")
+        return None, None
+
+    def _apply_memory_updates(
+        self,
+        memory: Memory,
+        text: Optional[str],
+        importance: Optional[float],
+        tags: Optional[list[str]],
+        metadata: Optional[dict[str, Any]],
+        expires_at: Optional[datetime],
+        trace_id: str,
+    ) -> Optional[list[float]]:
+        """Apply updates to memory and return new vector if text changed."""
+        vector = None
+        if text is not None:
+            memory.text = text
+            memory.calculate_size_metrics()
+            self.telemetry.track_memory_size(memory.text_length, memory.token_count)
+            self.telemetry.add_event(trace_id, "re_embedding", status="in_progress")
+            vector = self.embedder.encode_single(text)
+            self.telemetry.add_event(trace_id, "re_embedding", status="success")
+
+        if importance is not None:
+            memory.importance = importance
+        if tags is not None:
+            memory.tags = tags
+        if metadata is not None:
+            memory.metadata.update(metadata)
+        if expires_at is not None:
+            memory.expires_at = expires_at
+
+        memory.updated_at = datetime.now(timezone.utc)
+        return vector
+
+    def _track_memory_update_event(
+        self,
+        memory_id: str,
+        user_id: str,
+        text: Optional[str],
+        importance: Optional[float],
+        tags: Optional[list[str]],
+        metadata: Optional[dict[str, Any]],
+        expires_at: Optional[datetime],
+    ) -> None:
+        """Track memory update event."""
+        try:
+            from hippocampai.monitoring.memory_tracker import (
+                MemoryEventSeverity,
+                MemoryEventType,
+                get_tracker,
+            )
+
+            field_map = {"text": text, "importance": importance, "tags": tags,
+                         "metadata": metadata, "expires_at": expires_at}
+            updated_fields = [name for name, val in field_map.items() if val is not None]
+
+            tracker = get_tracker()
+            tracker.track_event(
+                memory_id=memory_id,
+                user_id=user_id,
+                event_type=MemoryEventType.UPDATED,
+                severity=MemoryEventSeverity.INFO,
+                metadata={"updated_fields": updated_fields},
+                success=True,
+            )
+        except Exception as track_err:
+            logger.warning(f"Failed to track memory update: {track_err}")
+
     def update_memory(
         self,
         memory_id: str,
@@ -1028,131 +1151,51 @@ class MemoryClient:
         expires_at: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """Update an existing memory."""
-
-        # Start telemetry trace
         trace_id = self.telemetry.start_trace(
             operation=OperationType.UPDATE,
-            user_id="system",  # Will be updated with actual user_id
+            user_id="system",
             memory_id=memory_id,
         )
 
         try:
-            # First, find which collection the memory is in
-            memory_data = None
-            collection = None
-
-            for coll in [self.config.collection_facts, self.config.collection_prefs]:
-                self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="in_progress")
-                memory_data = self.qdrant.get(coll, memory_id)
-                if memory_data:
-                    collection = coll
-                    self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="success")
-                    break
-                self.telemetry.add_event(trace_id, f"fetch_from_{coll}", status="not_found")
-
+            # Find memory in collections
+            memory_data, collection = self._find_memory_in_collections(memory_id, trace_id)
             if not memory_data or collection is None:
                 logger.warning(f"Memory {memory_id} not found")
                 self.telemetry.end_trace(trace_id, status="error", result={"error": "not_found"})
                 return None
 
-            # Parse existing memory
-            payload = memory_data["payload"]
-            memory = Memory(**payload)
-
-            # Update fields
-            if text is not None:
-                memory.text = text
-                # Recalculate size metrics
-                memory.calculate_size_metrics()
-
-                # Track updated size in telemetry
-                self.telemetry.track_memory_size(memory.text_length, memory.token_count)
-
-                # Re-embed if text changed
-                self.telemetry.add_event(trace_id, "re_embedding", status="in_progress")
-                vector = self.embedder.encode_single(text)
-                self.telemetry.add_event(trace_id, "re_embedding", status="success")
-            else:
-                vector = None
-
-            if importance is not None:
-                memory.importance = importance
-            if tags is not None:
-                memory.tags = tags
-            if metadata is not None:
-                memory.metadata.update(metadata)
-            if expires_at is not None:
-                memory.expires_at = expires_at
-
-            memory.updated_at = datetime.now(timezone.utc)
+            # Parse and update memory
+            memory = Memory(**memory_data["payload"])
+            vector = self._apply_memory_updates(
+                memory, text, importance, tags, metadata, expires_at, trace_id
+            )
 
             # Update in Qdrant
             self.telemetry.add_event(trace_id, "update_vector_store", status="in_progress")
             if vector is not None:
-                # Full upsert with new vector
                 self.qdrant.upsert(
-                    collection_name=collection,
-                    id=memory_id,
-                    vector=vector,
-                    payload=memory.model_dump(mode="json"),
+                    collection_name=collection, id=memory_id,
+                    vector=vector, payload=memory.model_dump(mode="json"),
                 )
             else:
-                # Payload update only
                 self.qdrant.update(
-                    collection_name=collection,
-                    id=memory_id,
+                    collection_name=collection, id=memory_id,
                     payload=memory.model_dump(mode="json"),
                 )
             self.telemetry.add_event(trace_id, "update_vector_store", status="success")
 
             logger.info(f"Updated memory: {memory_id}")
+            updated_count = len([x for x in [text, importance, tags, metadata, expires_at] if x is not None])
             self.telemetry.end_trace(
-                trace_id,
-                status="success",
-                result={
-                    "memory_id": memory_id,
-                    "updated_fields": len(
-                        [x for x in [text, importance, tags, metadata, expires_at] if x is not None]
-                    ),
-                },
+                trace_id, status="success",
+                result={"memory_id": memory_id, "updated_fields": updated_count},
             )
 
-            # Track memory update event
-            try:
-                from hippocampai.monitoring.memory_tracker import (
-                    MemoryEventSeverity,
-                    MemoryEventType,
-                    get_tracker,
-                )
-
-                tracker = get_tracker()
-                updated_fields = []
-                if text is not None:
-                    updated_fields.append("text")
-                if importance is not None:
-                    updated_fields.append("importance")
-                if tags is not None:
-                    updated_fields.append("tags")
-                if metadata is not None:
-                    updated_fields.append("metadata")
-                if expires_at is not None:
-                    updated_fields.append("expires_at")
-
-                tracker.track_event(
-                    memory_id=memory_id,
-                    user_id=memory.user_id,
-                    event_type=MemoryEventType.UPDATED,
-                    severity=MemoryEventSeverity.INFO,
-                    metadata={"updated_fields": updated_fields},
-                    success=True,
-                )
-            except Exception as track_err:
-                logger.warning(f"Failed to track memory update: {track_err}")
-
-            # Track Prometheus metrics
+            # Track events and metrics
+            self._track_memory_update_event(memory_id, memory.user_id, text, importance, tags, metadata, expires_at)
             try:
                 from hippocampai.monitoring.prometheus_metrics import memory_operations_total
-
                 memory_operations_total.labels(operation="update", status="success").inc()
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus update metrics: {metrics_err}")

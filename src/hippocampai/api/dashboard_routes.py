@@ -54,8 +54,138 @@ class RecentActivity(BaseModel):
 
 
 # ============================================
+# HELPER FUNCTIONS
+# ============================================
+
+
+def _get_entity_counts(client: MemoryClient, user_id: str) -> tuple[int, int]:
+    """Get total entities and concepts count."""
+    try:
+        all_entities = client.kg.get_all_entities(user_id=user_id)
+        total_entities = len(all_entities)
+        concepts = [e for e in all_entities if e.type == "concept"]
+        return total_entities, len(concepts)
+    except Exception as e:
+        logger.warning(f"Could not get entities: {e}")
+        return 0, 0
+
+
+def _get_tag_stats(memories: list[Any]) -> tuple[int, list[dict[str, Any]]]:
+    """Get total tags count and top tags."""
+    all_tags: set[str] = set()
+    tag_counts: dict[str, int] = {}
+    for memory in memories:
+        if memory.tags:
+            all_tags.update(memory.tags)
+            for tag in memory.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    top_tags = [
+        {"name": tag, "count": count}
+        for tag, count in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+    return len(all_tags), top_tags
+
+
+def _get_recent_memories(memories: list[Any], limit: int = 10) -> list[dict[str, Any]]:
+    """Get recent memories list."""
+    recent = sorted(memories, key=lambda m: m.created_at, reverse=True)[:limit]
+    return [
+        {
+            "id": m.id,
+            "text": m.text,
+            "type": m.type,
+            "created_at": m.created_at.isoformat(),
+            "importance": m.importance,
+        }
+        for m in recent
+    ]
+
+
+def _get_cluster_stats(client: MemoryClient, user_id: str) -> list[dict[str, Any]]:
+    """Get top clusters."""
+    try:
+        clusters = client.get_clusters(user_id=user_id)
+        return [
+            {
+                "id": c.id,
+                "label": c.label,
+                "size": len(c.memory_ids),
+                "coherence": c.coherence_score,
+            }
+            for c in sorted(clusters, key=lambda x: len(x.memory_ids), reverse=True)[:5]
+        ]
+    except Exception as e:
+        logger.warning(f"Could not get clusters: {e}")
+        return []
+
+
+def _get_connection_count(client: MemoryClient, user_id: str) -> int:
+    """Get total connections from knowledge graph."""
+    try:
+        relationships = client.kg.get_all_relationships(user_id=user_id)
+        return len(relationships)
+    except Exception as e:
+        logger.warning(f"Could not get relationships: {e}")
+        return 0
+
+
+def _count_duplicates(memories: list[Any]) -> int:
+    """Count potential duplicate memories."""
+    try:
+        count = 0
+        for i, m1 in enumerate(memories):
+            for m2 in memories[i + 1:]:
+                if m1.text.lower().strip() == m2.text.lower().strip():
+                    count += 1
+        return count
+    except Exception as e:
+        logger.warning(f"Could not check duplicates: {e}")
+        return 0
+
+
+def _calculate_health_score(
+    total_memories: int, uncategorized: int, potential_duplicates: int, total_tags: int
+) -> float:
+    """Calculate health score based on memory quality metrics."""
+    health_score = 85.0
+    if total_memories > 0:
+        if uncategorized / total_memories > 0.3:
+            health_score -= 10
+        if potential_duplicates > 5:
+            health_score -= 5
+        if total_tags < 5:
+            health_score -= 5
+    return max(0.0, min(100.0, health_score))
+
+
+# ============================================
 # API ENDPOINTS
 # ============================================
+
+
+def _get_sleep_runs_count(user_id: str) -> int:
+    """Get total sleep runs count."""
+    from hippocampai.api.consolidation_routes import get_user_consolidation_runs
+
+    try:
+        sleep_runs = get_user_consolidation_runs(user_id, limit=1000)
+        return len(sleep_runs)
+    except Exception as e:
+        logger.warning(f"Could not get sleep runs: {e}")
+        return 0
+
+
+def _count_uncategorized(memories: list[Any]) -> int:
+    """Count uncategorized memories (no tags and type is context)."""
+    return sum(
+        1 for m in memories if (not m.tags or len(m.tags) == 0) and m.type == "context"
+    )
+
+
+def _count_archived(memories: list[Any]) -> int:
+    """Count archived memories."""
+    return sum(1 for m in memories if m.metadata and m.metadata.get("archived", False))
 
 
 @router.get("/stats")
@@ -69,128 +199,41 @@ async def get_dashboard_stats(
     Returns aggregated metrics about memories, entities, concepts, and system health.
     """
     try:
-        # Get all memories for the user (include session_id filter to match by either field)
+        # Get all memories for the user
         memories = client.get_memories(
             user_id=user_id, filters={"session_id": user_id}, limit=10000
         )
         total_memories = len(memories)
 
-        # Get entities from knowledge graph
-        try:
-            all_entities = client.kg.get_all_entities(user_id=user_id)
-            total_entities = len(all_entities)
-        except Exception as e:
-            logger.warning(f"Could not get entities: {e}")
-            total_entities = 0
+        # Get entity and concept counts
+        total_entities, total_concepts = _get_entity_counts(client, user_id)
 
-        # Get concepts (entities with type 'concept')
-        try:
-            concepts = [e for e in all_entities if e.type == "concept"]
-            total_concepts = len(concepts)
-        except Exception:
-            total_concepts = 0
+        # Get tag statistics
+        total_tags, top_tags = _get_tag_stats(memories)
 
-        # Count unique tags
-        all_tags = set()
-        for memory in memories:
-            if memory.tags:
-                all_tags.update(memory.tags)
-        total_tags = len(all_tags)
+        # Get recent memories
+        recent_memories = _get_recent_memories(memories)
 
-        # Count tags frequency for top tags
-        tag_counts: dict[str, int] = {}
-        for memory in memories:
-            if memory.tags:
-                for tag in memory.tags:
-                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        # Get cluster statistics
+        top_clusters = _get_cluster_stats(client, user_id)
 
-        # Get top 10 tags
-        top_tags = [
-            {"name": tag, "count": count}
-            for tag, count in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        ]
-
-        # Get recent memories (last 10)
-        recent_memories_list = sorted(memories, key=lambda m: m.created_at, reverse=True)[:10]
-        recent_memories = [
-            {
-                "id": m.id,
-                "text": m.text,
-                "type": m.type,
-                "created_at": m.created_at.isoformat(),
-                "importance": m.importance,
-            }
-            for m in recent_memories_list
-        ]
-
-        # Get clusters
-        try:
-            clusters = client.get_clusters(user_id=user_id)
-            top_clusters = [
-                {
-                    "id": c.id,
-                    "label": c.label,
-                    "size": len(c.memory_ids),
-                    "coherence": c.coherence_score,
-                }
-                for c in sorted(clusters, key=lambda x: len(x.memory_ids), reverse=True)[:5]
-            ]
-        except Exception as e:
-            logger.warning(f"Could not get clusters: {e}")
-            top_clusters = []
-
-        # Get connections count from knowledge graph
-        try:
-            relationships = client.kg.get_all_relationships(user_id=user_id)
-            total_connections = len(relationships)
-        except Exception as e:
-            logger.warning(f"Could not get relationships: {e}")
-            total_connections = 0
+        # Get connection count
+        total_connections = _get_connection_count(client, user_id)
 
         # Check for potential duplicates
-        try:
-            # Use deduplicator to find potential duplicates
-            potential_duplicates = 0
-            # This is a simple heuristic - we'll improve it later
-            for i, m1 in enumerate(memories):
-                for m2 in memories[i + 1 :]:
-                    # Simple text similarity check
-                    if m1.text.lower().strip() == m2.text.lower().strip():
-                        potential_duplicates += 1
-        except Exception as e:
-            logger.warning(f"Could not check duplicates: {e}")
-            potential_duplicates = 0
+        potential_duplicates = _count_duplicates(memories)
 
-        # Count uncategorized memories (no tags and no type)
-        uncategorized = sum(
-            1 for m in memories if (not m.tags or len(m.tags) == 0) and m.type == "context"
+        # Count uncategorized and archived memories
+        uncategorized = _count_uncategorized(memories)
+        archived = _count_archived(memories)
+
+        # Calculate health score
+        health_score = _calculate_health_score(
+            total_memories, uncategorized, potential_duplicates, total_tags
         )
 
-        # Count archived memories
-        archived = sum(1 for m in memories if m.metadata and m.metadata.get("archived", False))
-
-        # Calculate health score (simple heuristic)
-        health_score = 85.0  # Base score
-        if total_memories > 0:
-            # Adjust based on various factors
-            if uncategorized / total_memories > 0.3:
-                health_score -= 10
-            if potential_duplicates > 5:
-                health_score -= 5
-            if total_tags < 5:
-                health_score -= 5
-            # Cap between 0-100
-            health_score = max(0, min(100, health_score))
-
-        # Get sleep runs count from consolidation routes storage
-        from hippocampai.api.consolidation_routes import get_user_consolidation_runs
-
-        try:
-            sleep_runs = get_user_consolidation_runs(user_id, limit=1000)
-            total_sleep_runs = len(sleep_runs)
-        except Exception as e:
-            logger.warning(f"Could not get sleep runs: {e}")
-            total_sleep_runs = 0
+        # Get sleep runs count
+        total_sleep_runs = _get_sleep_runs_count(user_id)
 
         return DashboardStats(
             total_memories=total_memories,
