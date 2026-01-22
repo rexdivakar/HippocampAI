@@ -228,7 +228,7 @@ class TieredStorageManager:
 
     def _compress_warm(self, memory: "Memory") -> str:
         """Light compression for warm tier."""
-        text = memory.text
+        text: str = memory.text
         # Truncate very long memories
         if len(text) > 500:
             return text[:500] + "..."
@@ -239,7 +239,7 @@ class TieredStorageManager:
         if self.client.llm:
             try:
                 prompt = f"Summarize this memory in 1-2 sentences:\n\n{memory.text[:1000]}"
-                summary = self.client.llm.generate(prompt, max_tokens=100)
+                summary: str = self.client.llm.generate(prompt, max_tokens=100)
                 return summary.strip()
             except Exception as e:
                 logger.warning(f"LLM summarization failed: {e}")
@@ -248,7 +248,8 @@ class TieredStorageManager:
         sentences = memory.text.split(". ")
         if len(sentences) > 2:
             return ". ".join(sentences[:2]) + "."
-        return memory.text[:200]
+        result: str = memory.text[:200]
+        return result
 
     def _compress_frozen(self, memory: "Memory") -> str:
         """Minimal compression for frozen tier."""

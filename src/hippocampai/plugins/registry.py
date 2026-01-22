@@ -34,7 +34,7 @@ class PluginRegistry:
         >>> score = registry.run_scorers(memory, query, context)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._processors: list[MemoryProcessor] = []
         self._scorers: list[MemoryScorer] = []
         self._retrievers: dict[str, MemoryRetriever] = {}
@@ -240,7 +240,8 @@ class PluginRegistry:
             raise ValueError(f"Retriever not found: {name}")
         if not retriever.enabled:
             return []
-        return retriever.retrieve(query, context, k, **kwargs)
+        results: list[RetrievalResult] = retriever.retrieve(query, context, k, **kwargs)
+        return results
 
     def run_filters(
         self,

@@ -42,7 +42,7 @@ class ConsolidationDatabase:
 
         logger.info(f"Initialized {self.db_type} database for consolidation runs")
 
-    def _init_sqlite(self):
+    def _init_sqlite(self) -> None:
         """Initialize SQLite database and create tables."""
         # Ensure directory exists
         db_file = Path(self.db_path)
@@ -58,7 +58,7 @@ class ConsolidationDatabase:
             else:
                 logger.warning(f"Schema file not found: {schema_path}")
 
-    def _init_postgres(self):
+    def _init_postgres(self) -> None:
         """Initialize PostgreSQL connection and create tables."""
         try:
             import psycopg2
@@ -164,7 +164,8 @@ class ConsolidationDatabase:
                 )
 
         logger.info(f"Created consolidation run {run.id} for user {run.user_id}")
-        return run.id
+        run_id: str = run.id
+        return run_id
 
     def update_run(self, run_id: str, updates: dict[str, Any]) -> None:
         """

@@ -63,19 +63,19 @@ except ImportError:
     METRICS_ENABLED = False
 
 
-def emit_metric_run(user_id: str, status: str):
+def emit_metric_run(user_id: str, status: str) -> None:
     """Emit consolidation run metric."""
     if METRICS_ENABLED:
         consolidation_runs_total.labels(user_id=user_id, status=status).inc()
 
 
-def emit_metric_duration(user_id: str, duration: float):
+def emit_metric_duration(user_id: str, duration: float) -> None:
     """Emit consolidation duration metric."""
     if METRICS_ENABLED:
         consolidation_duration_seconds.labels(user_id=user_id).observe(duration)
 
 
-def emit_metric_memories(user_id: str, action: str, count: int = 1):
+def emit_metric_memories(user_id: str, action: str, count: int = 1) -> None:
     """Emit memory processing metric."""
     if METRICS_ENABLED:
         consolidation_memories_processed.labels(user_id=user_id, action=action).inc(count)
@@ -86,7 +86,7 @@ def emit_metric_memories(user_id: str, action: str, count: int = 1):
     bind=True,
     max_retries=3,
 )
-def run_daily_consolidation(self):
+def run_daily_consolidation(self) -> dict[str, Any]:  # type: ignore[misc]
     """
     Main task: Run nightly memory consolidation for all active users.
 
@@ -288,7 +288,8 @@ def _run_consolidation_sync(
                     "duration_seconds": run.duration_seconds,
                 },
             )
-            return run.dict()
+            result: dict[str, Any] = run.dict()
+            return result
 
         run.memories_reviewed = len(memories)
 
@@ -298,7 +299,7 @@ def _run_consolidation_sync(
         logger.info(f"Created {len(clusters)} memory clusters for {user_id}")
 
         # Step 3: Process each cluster with LLM
-        all_decisions = {
+        all_decisions: dict[str, list[Any]] = {
             "promoted_facts": [],
             "low_value_memory_ids": [],
             "updated_memories": [],
@@ -381,7 +382,8 @@ def _run_consolidation_sync(
         )
 
         logger.info(f"Consolidation completed for {user_id}: {run.dream_report}")
-        return run.dict()
+        result: dict[str, Any] = run.dict()
+        return result
 
     except Exception as e:
         run.status = ConsolidationStatus.FAILED
@@ -408,7 +410,8 @@ def _run_consolidation_sync(
             },
         )
 
-        return run.dict()
+        failed_result: dict[str, Any] = run.dict()
+        return failed_result
 
 
 @celery_app.task(
@@ -417,7 +420,7 @@ def _run_consolidation_sync(
     max_retries=2,
 )
 def consolidate_user_memories(
-    self,
+    self,  # type: ignore[misc]
     user_id: str,
     lookback_hours: int = 24,
     dry_run: bool = False,
@@ -636,7 +639,7 @@ def llm_review_cluster(
 
         # Parse JSON response
         try:
-            decision = json.loads(response_text)
+            decision: dict[str, Any] = json.loads(response_text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {response_text[:200]}")
             raise ValueError(f"LLM returned invalid JSON: {e}")
@@ -737,7 +740,7 @@ def call_llm_for_consolidation(prompt: str, model: str, temperature: float) -> s
         # Call LLM with consolidation prompt
         # Use generate() method with system message
         max_tokens = 4096  # Large enough for complex consolidation decisions
-        response_text = llm_client.generate(
+        response_text: str = llm_client.generate(
             prompt=prompt,
             system=CONSOLIDATION_SYSTEM_MESSAGE,
             max_tokens=max_tokens,

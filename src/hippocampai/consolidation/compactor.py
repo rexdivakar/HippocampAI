@@ -148,7 +148,7 @@ class ConversationCompactor:
 
     def __init__(
         self,
-        qdrant_url: str = None,
+        qdrant_url: str | None = None,
         llm_provider: str = "groq",
     ):
         """Initialize the compactor.
@@ -219,7 +219,7 @@ class ConversationCompactor:
                 )
 
             # Count types
-            type_counts = {}
+            type_counts: dict[str, int] = {}
             for m in memories:
                 t = m.get("type", "unknown")
                 type_counts[t] = type_counts.get(t, 0) + 1
@@ -475,6 +475,8 @@ class ConversationCompactor:
 
                 for r in results:
                     payload = r.payload
+                    if payload is None:
+                        continue
 
                     # Skip archived memories
                     if payload.get("is_archived"):
@@ -627,7 +629,8 @@ Summary:"""
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        return content if content is not None else ""
 
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API."""
@@ -639,7 +642,8 @@ Summary:"""
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        return content if content is not None else ""
 
     def _call_ollama(self, prompt: str) -> str:
         """Call Ollama API."""
@@ -650,7 +654,8 @@ Summary:"""
             json={"model": "llama2", "prompt": prompt, "stream": False},
             timeout=60,
         )
-        return response.json().get("response", "")
+        result: str = response.json().get("response", "")
+        return result
 
     def _extract_key_facts(self, cluster: list[dict]) -> list[str]:
         """Extract key facts from a cluster."""

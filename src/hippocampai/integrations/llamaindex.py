@@ -18,6 +18,33 @@ from typing import TYPE_CHECKING, Any, List, Optional
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
+# Stub classes for when llama_index is not available
+class _StubNodeWithScore:
+    """Stub for NodeWithScore when llama_index is not installed."""
+    def __init__(self, node: Any, score: float = 0.0) -> None:
+        self.node = node
+        self.score = score
+
+
+class _StubTextNode:
+    """Stub for TextNode when llama_index is not installed."""
+    def __init__(self, text: str = "", id_: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> None:
+        self.text = text
+        self.id_ = id_
+        self.metadata = metadata or {}
+
+
+class _StubQueryBundle:
+    """Stub for QueryBundle when llama_index is not installed."""
+    def __init__(self, query_str: str = "") -> None:
+        self.query_str = query_str
+
+
+class _StubBaseRetriever:
+    """Stub base retriever when llama_index is not installed."""
+    pass
+
+
 # Check if llama_index is available
 try:
     from llama_index.core.retrievers import BaseRetriever
@@ -33,10 +60,13 @@ except ImportError:
         LLAMAINDEX_AVAILABLE = True
     except ImportError:
         LLAMAINDEX_AVAILABLE = False
-        BaseRetriever = object
+        BaseRetriever = _StubBaseRetriever
+        NodeWithScore = _StubNodeWithScore
+        TextNode = _StubTextNode
+        QueryBundle = _StubQueryBundle
 
 
-class HippocampRetriever(BaseRetriever if LLAMAINDEX_AVAILABLE else object):
+class HippocampRetriever(BaseRetriever):
     """LlamaIndex retriever backed by HippocampAI.
 
     Retrieves relevant memories as LlamaIndex nodes.

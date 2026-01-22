@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="maintenance.run_health_check", bind=True)
-def run_health_check_task(self, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+def run_health_check_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
     """
     Run scheduled health check for a user.
 
@@ -64,7 +64,7 @@ def run_health_check_task(self, user_id: str, config_dict: dict[str, Any]) -> di
 
 
 @celery_app.task(name="maintenance.run_cleanup", bind=True)
-def run_cleanup_task(self, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+def run_cleanup_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
     """
     Run scheduled cleanup for a user.
 
@@ -114,7 +114,7 @@ def run_cleanup_task(self, user_id: str, config_dict: dict[str, Any]) -> dict[st
 
 
 @celery_app.task(name="maintenance.run_deduplication", bind=True)
-def run_deduplication_task(self, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+def run_deduplication_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> dict[str, Any]:
     """
     Run scheduled deduplication for a user.
 
@@ -164,7 +164,7 @@ def run_deduplication_task(self, user_id: str, config_dict: dict[str, Any]) -> d
 
 
 @celery_app.task(name="maintenance.generate_predictions", bind=True)
-def generate_predictions_task(self, user_id: str) -> dict[str, Any]:
+def generate_predictions_task(self: Any, user_id: str) -> dict[str, Any]:
     """
     Generate predictive insights for a user.
 
@@ -215,7 +215,7 @@ def generate_predictions_task(self, user_id: str) -> dict[str, Any]:
 
 
 @celery_app.task(name="maintenance.detect_anomalies", bind=True)
-def detect_anomalies_task(self, user_id: str, lookback_days: int = 30) -> dict[str, Any]:
+def detect_anomalies_task(self: Any, user_id: str, lookback_days: int = 30) -> dict[str, Any]:
     """
     Detect anomalies in user's memory patterns.
 
@@ -260,7 +260,7 @@ def detect_anomalies_task(self, user_id: str, lookback_days: int = 30) -> dict[s
 
 # Schedule periodic tasks
 @celery_app.on_after_finalize.connect
-def setup_periodic_tasks(sender, **kwargs):
+def setup_periodic_tasks(sender: Any, **kwargs: Any) -> None:
     """Set up periodic tasks for maintenance."""
     # Daily health check at 3 AM
     sender.add_periodic_task(

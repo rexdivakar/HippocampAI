@@ -35,10 +35,10 @@ class ConsolidationPolicy:
     max_memories_per_type: dict[str, int] | None = None
 
     # Type-specific rules
-    never_delete_types: set[MemoryType] = None
-    always_archive_types: set[MemoryType] = None
+    never_delete_types: set[MemoryType] | None = None
+    always_archive_types: set[MemoryType] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize default type-specific rules."""
         if self.never_delete_types is None:
             # Never auto-delete goals, preferences, or important facts
@@ -82,7 +82,7 @@ class ConsolidationPolicyEngine:
             (should_delete: bool, reason: str)
         """
         # Never delete protected types
-        if memory.type in self.policy.never_delete_types:
+        if self.policy.never_delete_types and memory.type in self.policy.never_delete_types:
             return False, f"Protected type: {memory.type}"
 
         # Never delete if accessed (if policy says so)
@@ -117,7 +117,8 @@ class ConsolidationPolicyEngine:
         # Always archive certain types if old enough
         age_days = (datetime.now(timezone.utc) - memory.created_at).days
         if (
-            memory.type in self.policy.always_archive_types
+            self.policy.always_archive_types
+            and memory.type in self.policy.always_archive_types
             and age_days > self.policy.archive_age_days
         ):
             return True, f"Old {memory.type}: {age_days} days"
@@ -174,10 +175,10 @@ class ConsolidationPolicyEngine:
             New importance score after decay
         """
         # Get decay factor from memory or use default
-        decay_factor = getattr(memory, "decay_factor", 0.95)
+        decay_factor: float = float(getattr(memory, "decay_factor", 0.95))
 
         # Apply exponential decay
-        new_importance = memory.importance * (decay_factor**days_elapsed)
+        new_importance: float = memory.importance * (decay_factor**days_elapsed)
 
         # Floor at 0.0
         new_importance = max(0.0, new_importance)
@@ -204,7 +205,7 @@ class ConsolidationPolicyEngine:
         Returns:
             Dictionary with 'to_archive' and 'to_delete' memory IDs
         """
-        result = {"to_archive": [], "to_delete": []}
+        result: dict[str, list[str]] = {"to_archive": [], "to_delete": []}
 
         # Check total limit
         if len(memories) <= self.policy.max_memories_per_user:
@@ -257,7 +258,7 @@ class ConsolidationPolicyEngine:
         # Check for duplicates within each type
         for mem_type, type_memories in by_type.items():
             # Simple text similarity check (can be enhanced with embeddings)
-            seen = {}
+            seen: dict[str, str] = {}
             for memory in type_memories:
                 # Normalize text for comparison
                 normalized = memory.text.lower().strip()
@@ -302,7 +303,7 @@ def apply_consolidation_decisions(
     # Build memory lookup
     memory_map = {mem.id: mem for mem in memories}
 
-    result = {
+    result: dict[str, Any] = {
         "to_delete": [],
         "to_archive": [],
         "to_promote": [],
@@ -387,7 +388,7 @@ def apply_consolidation_decisions(
                 memory.text = update["new_text"]
             if "new_importance" in update:
                 memory.importance = min(
-                    update["new_importance"], policy.max_importance_after_promotion
+                    update["new_importance"], engine.policy.max_importance_after_promotion
                 )
 
     # 4. Process synthetic memories

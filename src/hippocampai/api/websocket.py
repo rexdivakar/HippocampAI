@@ -31,7 +31,7 @@ connected_clients: dict[str, dict[str, Any]] = {}
 
 
 @sio.event
-async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
+async def connect(sid: str, environ: dict[str, Any], auth: Optional[dict[str, Any]] = None) -> None:
     """Handle client connection."""
     logger.info(f"Client connected: {sid}")
 
@@ -47,7 +47,7 @@ async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
 
 
 @sio.event
-async def disconnect(sid: str):
+async def disconnect(sid: str) -> None:
     """Handle client disconnection."""
     logger.info(f"Client disconnected: {sid}")
     if sid in connected_clients:
@@ -60,7 +60,7 @@ async def disconnect(sid: str):
 
 
 @sio.event
-async def subscribe_user(sid: str, data: dict):
+async def subscribe_user(sid: str, data: dict[str, Any]) -> None:
     """Subscribe to updates for a specific user."""
     user_id = data.get("user_id")
     if not user_id:
@@ -75,7 +75,7 @@ async def subscribe_user(sid: str, data: dict):
 
 
 @sio.event
-async def subscribe_space(sid: str, data: dict):
+async def subscribe_space(sid: str, data: dict[str, Any]) -> None:
     """Subscribe to updates for a specific collaboration space."""
     space_id = data.get("space_id")
     if not space_id:
@@ -90,7 +90,7 @@ async def subscribe_space(sid: str, data: dict):
 
 
 @sio.event
-async def subscribe_agent(sid: str, data: dict):
+async def subscribe_agent(sid: str, data: dict[str, Any]) -> None:
     """Subscribe to updates for a specific agent."""
     agent_id = data.get("agent_id")
     if not agent_id:
@@ -105,7 +105,7 @@ async def subscribe_agent(sid: str, data: dict):
 
 
 @sio.event
-async def unsubscribe(sid: str, data: dict):
+async def unsubscribe(sid: str, data: dict[str, Any]) -> None:
     """Unsubscribe from a room."""
     sub_type = data.get("type")  # "user", "space", or "agent"
     sub_id = data.get("id")
@@ -135,7 +135,7 @@ async def unsubscribe(sid: str, data: dict):
 # ============================================================================
 
 
-async def broadcast_memory_created(user_id: str, memory: dict):
+async def broadcast_memory_created(user_id: str, memory: dict[str, Any]) -> None:
     """Broadcast when a new memory is created."""
     await sio.emit(
         "memory:created",
@@ -148,7 +148,7 @@ async def broadcast_memory_created(user_id: str, memory: dict):
     logger.debug(f"Broadcast memory:created to user:{user_id}")
 
 
-async def broadcast_memory_updated(user_id: str, memory: dict):
+async def broadcast_memory_updated(user_id: str, memory: dict[str, Any]) -> None:
     """Broadcast when a memory is updated."""
     await sio.emit(
         "memory:updated",
@@ -161,7 +161,7 @@ async def broadcast_memory_updated(user_id: str, memory: dict):
     logger.debug(f"Broadcast memory:updated to user:{user_id}")
 
 
-async def broadcast_memory_deleted(user_id: str, memory_id: str):
+async def broadcast_memory_deleted(user_id: str, memory_id: str) -> None:
     """Broadcast when a memory is deleted."""
     await sio.emit(
         "memory:deleted",
@@ -174,7 +174,7 @@ async def broadcast_memory_deleted(user_id: str, memory_id: str):
     logger.debug(f"Broadcast memory:deleted to user:{user_id}")
 
 
-async def broadcast_collaboration_event(space_id: str, event: dict):
+async def broadcast_collaboration_event(space_id: str, event: dict[str, Any]) -> None:
     """Broadcast collaboration events."""
     await sio.emit(
         "collaboration:event",
@@ -187,7 +187,7 @@ async def broadcast_collaboration_event(space_id: str, event: dict):
     logger.debug(f"Broadcast collaboration:event to space:{space_id}")
 
 
-async def broadcast_agent_notification(agent_id: str, notification: dict):
+async def broadcast_agent_notification(agent_id: str, notification: dict[str, Any]) -> None:
     """Broadcast notification to an agent."""
     await sio.emit(
         "agent:notification",
@@ -200,7 +200,7 @@ async def broadcast_agent_notification(agent_id: str, notification: dict):
     logger.debug(f"Broadcast agent:notification to agent:{agent_id}")
 
 
-async def broadcast_health_alert(user_id: str, alert: dict):
+async def broadcast_health_alert(user_id: str, alert: dict[str, Any]) -> None:
     """Broadcast health alerts."""
     await sio.emit(
         "health:alert",
@@ -213,7 +213,7 @@ async def broadcast_health_alert(user_id: str, alert: dict):
     logger.debug(f"Broadcast health:alert to user:{user_id}")
 
 
-async def broadcast_pattern_detected(user_id: str, pattern: dict):
+async def broadcast_pattern_detected(user_id: str, pattern: dict[str, Any]) -> None:
     """Broadcast when a new pattern is detected."""
     await sio.emit(
         "prediction:pattern",
@@ -226,7 +226,7 @@ async def broadcast_pattern_detected(user_id: str, pattern: dict):
     logger.debug(f"Broadcast prediction:pattern to user:{user_id}")
 
 
-async def broadcast_anomaly_detected(user_id: str, anomaly: dict):
+async def broadcast_anomaly_detected(user_id: str, anomaly: dict[str, Any]) -> None:
     """Broadcast when an anomaly is detected."""
     await sio.emit(
         "prediction:anomaly",
@@ -239,7 +239,7 @@ async def broadcast_anomaly_detected(user_id: str, anomaly: dict):
     logger.debug(f"Broadcast prediction:anomaly to user:{user_id}")
 
 
-async def broadcast_healing_action(user_id: str, action: dict):
+async def broadcast_healing_action(user_id: str, action: dict[str, Any]) -> None:
     """Broadcast when a healing action is performed."""
     await sio.emit(
         "healing:action",
@@ -252,7 +252,7 @@ async def broadcast_healing_action(user_id: str, action: dict):
     logger.debug(f"Broadcast healing:action to user:{user_id}")
 
 
-async def broadcast_health_score_changed(user_id: str, old_score: float, new_score: float):
+async def broadcast_health_score_changed(user_id: str, old_score: float, new_score: float) -> None:
     """Broadcast when health score changes significantly."""
     await sio.emit(
         "health:score_changed",
@@ -273,7 +273,7 @@ async def broadcast_health_score_changed(user_id: str, old_score: float, new_sco
 
 
 @sio.event
-async def get_status(sid: str):
+async def get_status(sid: str) -> None:
     """Get connection status and subscriptions."""
     if sid in connected_clients:
         client = connected_clients[sid]
@@ -293,7 +293,7 @@ async def get_status(sid: str):
 
 
 @sio.event
-async def ping(sid: str):
+async def ping(sid: str) -> None:
     """Ping-pong for connection health check."""
     await sio.emit("pong", {"timestamp": datetime.now().isoformat()}, room=sid)
 

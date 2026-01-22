@@ -1,6 +1,7 @@
 """Offline-capable memory client wrapper."""
 
 import logging
+import threading
 from typing import TYPE_CHECKING, Any, Optional
 
 from hippocampai.offline.queue import OfflineQueue, OperationType
@@ -54,16 +55,15 @@ class OfflineClient:
         self.sync_manager = SyncManager(client, self.queue)
         self._auto_sync = auto_sync
         self._sync_interval = sync_interval_seconds
-        self._sync_thread = None
+        self._sync_thread: threading.Thread | None = None
 
         if auto_sync:
             self._start_auto_sync()
 
     def _start_auto_sync(self) -> None:
         """Start background sync thread."""
-        import threading
 
-        def sync_loop():
+        def sync_loop() -> None:
             import time
 
             while self._auto_sync:
@@ -159,13 +159,14 @@ class OfflineClient:
         """
         try:
             if self.is_online():
-                return self.client.recall(
+                result: list[RetrievalResult] = self.client.recall(
                     query=query,
                     user_id=user_id,
                     session_id=session_id,
                     k=k,
                     **kwargs,
                 )
+                return result
         except Exception as e:
             logger.warning(f"Recall failed (offline): {e}")
 
@@ -233,7 +234,8 @@ class OfflineClient:
 
     def get_queue_stats(self) -> dict[str, int]:
         """Get offline queue statistics."""
-        return self.queue.get_stats()
+        stats: dict[str, int] = self.queue.get_stats()
+        return stats
 
     def __getattr__(self, name: str) -> Any:
         """Proxy other methods to underlying client."""

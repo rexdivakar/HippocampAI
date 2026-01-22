@@ -18,6 +18,31 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
+# Stub classes for when langchain is not available
+class _StubBaseChatMemory:
+    """Stub for BaseChatMemory when langchain is not installed."""
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+
+class _StubBaseRetriever:
+    """Stub for BaseRetriever when langchain is not installed."""
+    pass
+
+
+class _StubDocument:
+    """Stub for Document when langchain is not installed."""
+    def __init__(self, page_content: str = "", metadata: Optional[Dict[str, Any]] = None) -> None:
+        self.page_content = page_content
+        self.metadata = metadata or {}
+
+
+class _StubMessage:
+    """Stub for Message when langchain is not installed."""
+    def __init__(self, content: str = "") -> None:
+        self.content = content
+
+
 # Check if langchain is available
 try:
     from langchain.callbacks.manager import CallbackManagerForRetrieverRun
@@ -29,11 +54,15 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
-    BaseChatMemory = object
-    BaseRetriever = object
+    BaseChatMemory = _StubBaseChatMemory
+    BaseRetriever = _StubBaseRetriever
+    Document = _StubDocument
+    AIMessage = _StubMessage
+    HumanMessage = _StubMessage
+    CallbackManagerForRetrieverRun = None
 
 
-class HippocampMemory(BaseChatMemory if LANGCHAIN_AVAILABLE else object):
+class HippocampMemory(BaseChatMemory):
     """LangChain memory backed by HippocampAI.
 
     Stores conversation history as memories and retrieves relevant
@@ -140,7 +169,7 @@ class HippocampMemory(BaseChatMemory if LANGCHAIN_AVAILABLE else object):
         pass
 
 
-class HippocampRetriever(BaseRetriever if LANGCHAIN_AVAILABLE else object):
+class HippocampRetriever(BaseRetriever):
     """LangChain retriever backed by HippocampAI.
 
     Retrieves relevant memories as LangChain Documents.
