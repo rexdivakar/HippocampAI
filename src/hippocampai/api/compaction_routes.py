@@ -19,19 +19,20 @@ router = APIRouter(prefix="/api/compaction", tags=["compaction"])
 
 class CompactRequest(BaseModel):
     """Request to compact conversations."""
+
     user_id: str
     session_id: Optional[str] = None
     lookback_hours: int = 168  # 1 week
     min_memories: int = 5
     dry_run: bool = True
     memory_types: Optional[list[str]] = Field(
-        default=None,
-        description="Memory types to compact (e.g., ['fact', 'event', 'context'])"
+        default=None, description="Memory types to compact (e.g., ['fact', 'event', 'context'])"
     )
 
 
 class CompactionMetricsResponse(BaseModel):
     """Compaction metrics."""
+
     input_memories: int
     input_tokens: int
     input_characters: int
@@ -57,6 +58,7 @@ class CompactionMetricsResponse(BaseModel):
 
 class CompactionResponse(BaseModel):
     """Compaction result response."""
+
     id: str
     user_id: str
     session_id: Optional[str]
@@ -83,15 +85,15 @@ class CompactionResponse(BaseModel):
 async def compact_conversations(request: CompactRequest) -> CompactionResponse:
     """
     Compact and consolidate conversation memories.
-    
+
     This analyzes conversation memories, clusters them by topic/time,
     and creates concise summaries while preserving key facts.
-    
+
     Use dry_run=true to preview what would happen without making changes.
-    
+
     Args:
         request: Compaction request with user_id, options, and memory_types filter
-        
+
     Returns:
         CompactionResponse with detailed metrics, insights, and preserved information
     """
@@ -99,10 +101,10 @@ async def compact_conversations(request: CompactRequest) -> CompactionResponse:
         import os
 
         from hippocampai.consolidation.compactor import ConversationCompactor
-        
+
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         compactor = ConversationCompactor(qdrant_url=qdrant_url)
-        
+
         result = compactor.compact_conversations(
             user_id=request.user_id,
             session_id=request.session_id,
@@ -111,7 +113,7 @@ async def compact_conversations(request: CompactRequest) -> CompactionResponse:
             dry_run=request.dry_run,
             memory_types=request.memory_types,
         )
-        
+
         return CompactionResponse(
             id=result.id,
             user_id=result.user_id,
@@ -151,7 +153,7 @@ async def compact_conversations(request: CompactRequest) -> CompactionResponse:
             dry_run=result.dry_run,
             error=result.error,
         )
-        
+
     except Exception as e:
         logger.exception(f"Compaction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -166,39 +168,41 @@ async def preview_compaction(
 ) -> dict:
     """
     Preview what compaction would do without making changes.
-    
+
     Returns metrics about the memories that would be compacted.
     """
     try:
         import os
 
         from hippocampai.consolidation.compactor import ConversationCompactor, estimate_tokens
-        
+
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         compactor = ConversationCompactor(qdrant_url=qdrant_url)
-        
+
         # Parse memory types
         types_list = None
         if memory_types:
             types_list = [t.strip() for t in memory_types.split(",")]
-        
+
         memories = compactor._collect_memories(user_id, session_id, lookback_hours, types_list)
         clusters = compactor._cluster_memories(memories)
-        
+
         total_tokens = sum(estimate_tokens(m.get("text", "")) for m in memories)
         total_chars = sum(len(m.get("text", "")) for m in memories)
-        
+
         # Group by type
         by_type = {}
         for m in memories:
             t = m.get("type", "unknown")
             by_type[t] = by_type.get(t, 0) + 1
-        
+
         # Estimate output
         compactable_clusters = [c for c in clusters if len(c) >= 2]
         estimated_output = len(compactable_clusters)
-        estimated_compression = (1 - estimated_output / max(len(memories), 1)) * 100 if memories else 0
-        
+        estimated_compression = (
+            (1 - estimated_output / max(len(memories), 1)) * 100 if memories else 0
+        )
+
         return {
             "user_id": user_id,
             "session_id": session_id,
@@ -215,7 +219,7 @@ async def preview_compaction(
             "estimated_compression": f"{estimated_compression:.1f}%",
             "estimated_tokens_saved": int(total_tokens * estimated_compression / 100),
         }
-        
+
     except Exception as e:
         logger.exception(f"Preview failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -225,7 +229,7 @@ async def preview_compaction(
 async def get_compactable_types() -> dict:
     """Get list of memory types that can be compacted."""
     from hippocampai.consolidation.compactor import ConversationCompactor
-    
+
     return {
         "types": ConversationCompactor.COMPACTABLE_TYPES,
         "descriptions": {
@@ -235,7 +239,7 @@ async def get_compactable_types() -> dict:
             "preference": "User preferences and likes/dislikes",
             "goal": "User goals and objectives",
             "habit": "User habits and routines",
-        }
+        },
     }
 
 

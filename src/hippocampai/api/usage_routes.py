@@ -310,9 +310,7 @@ async def get_platform_usage(request: Request) -> PlatformUsage:
             active_month = row["count"]
 
             # Users by tier
-            rows = await conn.fetch(
-                "SELECT tier, COUNT(*) as count FROM users GROUP BY tier"
-            )
+            rows = await conn.fetch("SELECT tier, COUNT(*) as count FROM users GROUP BY tier")
             users_by_tier = {row["tier"]: row["count"] for row in rows}
 
             # API calls today
@@ -352,9 +350,7 @@ async def get_platform_usage(request: Request) -> PlatformUsage:
                 """,
                 now - timedelta(days=30),
             )
-            daily_calls = [
-                {"date": r["date"].isoformat(), "count": r["count"]} for r in rows
-            ]
+            daily_calls = [{"date": r["date"].isoformat(), "count": r["count"]} for r in rows]
 
             # Daily new users (last 30 days)
             rows = await conn.fetch(
@@ -367,9 +363,7 @@ async def get_platform_usage(request: Request) -> PlatformUsage:
                 """,
                 now - timedelta(days=30),
             )
-            daily_users = [
-                {"date": r["date"].isoformat(), "count": r["count"]} for r in rows
-            ]
+            daily_users = [{"date": r["date"].isoformat(), "count": r["count"]} for r in rows]
 
         return PlatformUsage(
             total_users=total_users,
@@ -502,19 +496,29 @@ async def get_quota_status(
 
     warnings = []
     if usage.memory_usage_percent >= 90:
-        warnings.append({"type": "memory", "message": "Memory usage above 90%", "level": "critical"})
+        warnings.append(
+            {"type": "memory", "message": "Memory usage above 90%", "level": "critical"}
+        )
     elif usage.memory_usage_percent >= 75:
         warnings.append({"type": "memory", "message": "Memory usage above 75%", "level": "warning"})
 
     if usage.storage_usage_percent >= 90:
-        warnings.append({"type": "storage", "message": "Storage usage above 90%", "level": "critical"})
+        warnings.append(
+            {"type": "storage", "message": "Storage usage above 90%", "level": "critical"}
+        )
     elif usage.storage_usage_percent >= 75:
-        warnings.append({"type": "storage", "message": "Storage usage above 75%", "level": "warning"})
+        warnings.append(
+            {"type": "storage", "message": "Storage usage above 75%", "level": "warning"}
+        )
 
     if usage.api_usage_percent >= 90:
-        warnings.append({"type": "api_calls", "message": "Daily API limit nearly reached", "level": "critical"})
+        warnings.append(
+            {"type": "api_calls", "message": "Daily API limit nearly reached", "level": "critical"}
+        )
     elif usage.api_usage_percent >= 75:
-        warnings.append({"type": "api_calls", "message": "Daily API usage above 75%", "level": "warning"})
+        warnings.append(
+            {"type": "api_calls", "message": "Daily API usage above 75%", "level": "warning"}
+        )
 
     return {
         "user_id": str(usage.user_id),

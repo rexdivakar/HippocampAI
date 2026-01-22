@@ -88,13 +88,15 @@ class BenchmarkSuite:
         for key, value in self.system_info.items():
             lines.append(f"- **{key}:** {value}")
 
-        lines.extend([
-            "",
-            "## Results",
-            "",
-            "| Benchmark | Ops | Ops/sec | P50 (ms) | P95 (ms) | P99 (ms) | Errors |",
-            "|-----------|-----|---------|----------|----------|----------|--------|",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Results",
+                "",
+                "| Benchmark | Ops | Ops/sec | P50 (ms) | P95 (ms) | P99 (ms) | Errors |",
+                "|-----------|-----|---------|----------|----------|----------|--------|",
+            ]
+        )
 
         for r in self.results:
             lines.append(
@@ -103,26 +105,30 @@ class BenchmarkSuite:
                 f"{r.latency_p99_ms:.2f} | {r.errors} |"
             )
 
-        lines.extend([
-            "",
-            "## Detailed Results",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Detailed Results",
+                "",
+            ]
+        )
 
         for r in self.results:
-            lines.extend([
-                f"### {r.name}",
-                "",
-                f"- **Total Operations:** {r.operations}",
-                f"- **Total Time:** {r.total_time_ms:.2f} ms",
-                f"- **Throughput:** {r.ops_per_second:.2f} ops/sec",
-                f"- **Latency (min/p50/p95/p99/max):** "
-                f"{r.latency_min_ms:.2f} / {r.latency_p50_ms:.2f} / "
-                f"{r.latency_p95_ms:.2f} / {r.latency_p99_ms:.2f} / "
-                f"{r.latency_max_ms:.2f} ms",
-                f"- **Errors:** {r.errors}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### {r.name}",
+                    "",
+                    f"- **Total Operations:** {r.operations}",
+                    f"- **Total Time:** {r.total_time_ms:.2f} ms",
+                    f"- **Throughput:** {r.ops_per_second:.2f} ops/sec",
+                    f"- **Latency (min/p50/p95/p99/max):** "
+                    f"{r.latency_min_ms:.2f} / {r.latency_p50_ms:.2f} / "
+                    f"{r.latency_p95_ms:.2f} / {r.latency_p99_ms:.2f} / "
+                    f"{r.latency_max_ms:.2f} ms",
+                    f"- **Errors:** {r.errors}",
+                    "",
+                ]
+            )
 
         return "\n".join(lines)
 
@@ -226,6 +232,7 @@ class HippocampBenchmarks:
         """Get HippocampAI client."""
         if self._client is None:
             from hippocampai import HippocampAI
+
             self._client = HippocampAI(
                 api_key=self.api_key,
                 base_url=self.api_url,
@@ -351,6 +358,7 @@ class HippocampBenchmarks:
         def assemble_one() -> None:
             query = next(query_iter)
             from hippocampai.context.models import ContextConstraints
+
             constraints = ContextConstraints(token_budget=4000)
             self.client.assemble_context(
                 user_id=self._test_user_id,

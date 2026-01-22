@@ -1,6 +1,5 @@
 """Tests for benchmark suite."""
 
-
 from bench.data_generator import (
     SyntheticMemory,
     generate_bitemporal_facts,

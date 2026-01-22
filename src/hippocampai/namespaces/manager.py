@@ -328,9 +328,7 @@ class NamespaceManager:
         """
         namespace = self.get(path)
         if not namespace.can_admin(granter_id):
-            raise NamespacePermissionError(
-                f"User {granter_id} cannot modify permissions on {path}"
-            )
+            raise NamespacePermissionError(f"User {granter_id} cannot modify permissions on {path}")
 
         namespace.permissions[user_id] = permission
         namespace.updated_at = datetime.now(timezone.utc)
@@ -346,9 +344,7 @@ class NamespaceManager:
         """
         namespace = self.get(path)
         if not namespace.can_admin(revoker_id):
-            raise NamespacePermissionError(
-                f"User {revoker_id} cannot modify permissions on {path}"
-            )
+            raise NamespacePermissionError(f"User {revoker_id} cannot modify permissions on {path}")
 
         namespace.permissions.pop(user_id, None)
         namespace.updated_at = datetime.now(timezone.utc)
@@ -382,7 +378,9 @@ class NamespaceManager:
             namespace.stats.write_count += 1
             namespace.stats.last_write = datetime.now(timezone.utc)
 
-    def check_quota(self, path: str, additional_memories: int = 1, additional_bytes: int = 0) -> bool:
+    def check_quota(
+        self, path: str, additional_memories: int = 1, additional_bytes: int = 0
+    ) -> bool:
         """Check if operation would exceed quota.
 
         Args:

@@ -30,15 +30,17 @@ _agentic_cache: TTLCache = TTLCache(maxsize=2000, ttl=7200)
 
 class ClassificationConfidence(Enum):
     """Confidence levels for classification."""
-    HIGH = "high"      # 0.9+
+
+    HIGH = "high"  # 0.9+
     MEDIUM = "medium"  # 0.7-0.9
-    LOW = "low"        # 0.5-0.7
+    LOW = "low"  # 0.5-0.7
     UNCERTAIN = "uncertain"  # <0.5
 
 
 @dataclass
 class ClassificationResult:
     """Result of agentic classification."""
+
     memory_type: MemoryType
     confidence: float
     confidence_level: ClassificationConfidence
@@ -74,7 +76,7 @@ CONTEXT: General conversation, observations, acknowledgments
 class AgenticMemoryClassifier:
     """
     Agentic memory classifier using multi-step LLM reasoning.
-    
+
     This classifier uses a structured approach:
     1. Analyze the text for key indicators
     2. Consider multiple possible classifications
@@ -133,7 +135,7 @@ Respond with ONLY the JSON object."""
     ):
         """
         Initialize the agentic classifier.
-        
+
         Args:
             llm: LLM instance (BaseLLM). If None, will try to get from config.
             use_cache: Whether to cache classifications for consistency.
@@ -142,7 +144,7 @@ Respond with ONLY the JSON object."""
         self.llm = llm
         self.use_cache = use_cache
         self.validate_classifications = validate_classifications
-        
+
         # Try to get LLM from config if not provided
         if self.llm is None:
             self._init_llm_from_config()
@@ -155,9 +157,9 @@ Respond with ONLY the JSON object."""
             from hippocampai.adapters.provider_groq import GroqLLM
             from hippocampai.adapters.provider_ollama import OllamaLLM
             from hippocampai.config import get_config
-            
+
             config = get_config()
-            
+
             if config.llm_provider == "groq" and config.allow_cloud:
                 api_key = os.getenv("GROQ_API_KEY")
                 if api_key:
@@ -178,17 +180,17 @@ Respond with ONLY the JSON object."""
         """Parse JSON from LLM response, handling common issues."""
         # Clean up response
         response = response.strip()
-        
+
         # Try to extract JSON from markdown code blocks
-        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", response)
         if json_match:
             response = json_match.group(1)
-        
+
         # Try to find JSON object
-        json_match = re.search(r'\{[\s\S]*\}', response)
+        json_match = re.search(r"\{[\s\S]*\}", response)
         if json_match:
             response = json_match.group(0)
-        
+
         try:
             parsed: dict[str, Any] = json.loads(response)
             return parsed
@@ -226,8 +228,7 @@ Respond with ONLY the JSON object."""
 
         # Build prompt
         prompt = self.CLASSIFICATION_PROMPT.format(
-            type_definitions=MEMORY_TYPE_DEFINITIONS,
-            text=text
+            type_definitions=MEMORY_TYPE_DEFINITIONS, text=text
         )
 
         try:
@@ -240,7 +241,7 @@ Respond with ONLY the JSON object."""
 
             # Parse response
             parsed = self._parse_json_response(response)
-            
+
             if not parsed:
                 logger.warning("Could not parse LLM response, using fallback")
                 return self._fallback_classification(text)
@@ -249,7 +250,7 @@ Respond with ONLY the JSON object."""
             primary_type = self._map_type_string(parsed.get("primary_type", "context"))
             primary_confidence = float(parsed.get("primary_confidence", 0.7))
             reasoning = parsed.get("reasoning", "LLM classification")
-            
+
             alternative_type = None
             alternative_confidence = None
             if parsed.get("alternative_type"):
@@ -273,7 +274,7 @@ Respond with ONLY the JSON object."""
                 f"Classified '{text[:50]}...' as {result.memory_type.value} "
                 f"(confidence: {result.confidence:.2f})"
             )
-            
+
             return result
 
         except Exception as e:
@@ -301,13 +302,14 @@ Respond with ONLY the JSON object."""
             )
 
             parsed = self._parse_json_response(response)
-            
+
             if parsed and not parsed.get("is_correct", True):
                 corrected_type = parsed.get("corrected_type")
                 if corrected_type:
                     return ClassificationResult(
                         memory_type=self._map_type_string(corrected_type),
-                        confidence=result.confidence * 0.9,  # Slightly lower confidence after correction
+                        confidence=result.confidence
+                        * 0.9,  # Slightly lower confidence after correction
                         confidence_level=self._get_confidence_level(result.confidence * 0.9),
                         reasoning=f"Corrected: {parsed.get('explanation', 'validation correction')}",
                         alternative_type=result.memory_type,
@@ -323,10 +325,10 @@ Respond with ONLY the JSON object."""
         """Fallback to pattern-based classification."""
         try:
             from hippocampai.utils.memory_classifier import get_classifier
-            
+
             pattern_classifier = get_classifier()
             memory_type, confidence = pattern_classifier.classify_with_confidence(text)
-            
+
             return ClassificationResult(
                 memory_type=memory_type,
                 confidence=confidence,
@@ -342,16 +344,14 @@ Respond with ONLY the JSON object."""
                 reasoning="Default classification due to errors",
             )
 
-    def classify(
-        self, text: str, default: Optional[MemoryType] = None
-    ) -> MemoryType:
+    def classify(self, text: str, default: Optional[MemoryType] = None) -> MemoryType:
         """
         Classify a memory text into a type.
-        
+
         Args:
             text: The memory text to classify.
             default: Default type if classification fails.
-            
+
         Returns:
             The classified MemoryType.
         """
@@ -363,11 +363,11 @@ Respond with ONLY the JSON object."""
     ) -> tuple[MemoryType, float]:
         """
         Classify with confidence score.
-        
+
         Args:
             text: The memory text to classify.
             default: Default type if classification fails.
-            
+
         Returns:
             Tuple of (MemoryType, confidence_score).
         """
@@ -379,11 +379,11 @@ Respond with ONLY the JSON object."""
     ) -> ClassificationResult:
         """
         Classify with full details including reasoning.
-        
+
         Args:
             text: The memory text to classify.
             default: Default type if classification fails.
-            
+
         Returns:
             ClassificationResult with full details.
         """
@@ -421,11 +421,11 @@ Respond with ONLY the JSON object."""
     ) -> list[ClassificationResult]:
         """
         Classify multiple texts.
-        
+
         Args:
             texts: List of texts to classify.
             default: Default type if classification fails.
-            
+
         Returns:
             List of ClassificationResults.
         """
@@ -442,11 +442,11 @@ def get_agentic_classifier(
 ) -> AgenticMemoryClassifier:
     """
     Get the global AgenticMemoryClassifier instance.
-    
+
     Args:
         use_cache: Whether to use caching for consistency.
         validate: Whether to run validation step.
-        
+
     Returns:
         The singleton AgenticMemoryClassifier instance.
     """
@@ -459,16 +459,14 @@ def get_agentic_classifier(
     return _agentic_classifier
 
 
-def classify_memory_agentic(
-    text: str, default: Optional[MemoryType] = None
-) -> MemoryType:
+def classify_memory_agentic(text: str, default: Optional[MemoryType] = None) -> MemoryType:
     """
     Convenience function to classify using agentic classifier.
-    
+
     Args:
         text: The memory text to classify.
         default: Default type if classification fails.
-        
+
     Returns:
         The detected MemoryType.
     """
@@ -480,10 +478,10 @@ def classify_memory_agentic_with_confidence(
 ) -> tuple[MemoryType, float]:
     """
     Convenience function to classify with confidence.
-    
+
     Args:
         text: The memory text to classify.
-        
+
     Returns:
         Tuple of (MemoryType, confidence_score).
     """
@@ -495,10 +493,10 @@ def classify_memory_agentic_with_details(
 ) -> ClassificationResult:
     """
     Convenience function to classify with full details.
-    
+
     Args:
         text: The memory text to classify.
-        
+
     Returns:
         ClassificationResult with full details.
     """

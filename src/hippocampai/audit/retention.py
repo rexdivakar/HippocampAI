@@ -184,9 +184,7 @@ class RetentionManager:
                     # Archive if configured
                     if policy.archive_before_delete and policy.archive_location:
                         # In production, this would export to S3/GCS
-                        logger.info(
-                            f"Would archive {severity} logs to {policy.archive_location}"
-                        )
+                        logger.info(f"Would archive {severity} logs to {policy.archive_location}")
 
                     # Delete
                     result = await conn.execute(

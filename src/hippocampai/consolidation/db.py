@@ -222,9 +222,7 @@ class ConsolidationDatabase:
                 return dict(row)
             return None
 
-    def get_user_runs(
-        self, user_id: str, limit: int = 10, offset: int = 0
-    ) -> list[dict[str, Any]]:
+    def get_user_runs(self, user_id: str, limit: int = 10, offset: int = 0) -> list[dict[str, Any]]:
         """
         Get consolidation runs for a user.
 

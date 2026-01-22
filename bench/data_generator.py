@@ -12,36 +12,94 @@ from typing import Iterator
 
 # Sample data pools for generating realistic content
 NAMES = [
-    "Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry",
-    "Ivy", "Jack", "Kate", "Leo", "Maya", "Noah", "Olivia", "Peter",
+    "Alice",
+    "Bob",
+    "Charlie",
+    "Diana",
+    "Eve",
+    "Frank",
+    "Grace",
+    "Henry",
+    "Ivy",
+    "Jack",
+    "Kate",
+    "Leo",
+    "Maya",
+    "Noah",
+    "Olivia",
+    "Peter",
 ]
 
 COMPANIES = [
-    "Acme Corp", "TechStart", "DataFlow", "CloudNine", "InnovateLabs",
-    "FutureTech", "SmartSystems", "GlobalNet", "CyberDyne", "QuantumLeap",
+    "Acme Corp",
+    "TechStart",
+    "DataFlow",
+    "CloudNine",
+    "InnovateLabs",
+    "FutureTech",
+    "SmartSystems",
+    "GlobalNet",
+    "CyberDyne",
+    "QuantumLeap",
 ]
 
 LOCATIONS = [
-    "New York", "San Francisco", "London", "Tokyo", "Berlin", "Paris",
-    "Sydney", "Toronto", "Singapore", "Amsterdam", "Seattle", "Austin",
+    "New York",
+    "San Francisco",
+    "London",
+    "Tokyo",
+    "Berlin",
+    "Paris",
+    "Sydney",
+    "Toronto",
+    "Singapore",
+    "Amsterdam",
+    "Seattle",
+    "Austin",
 ]
 
 SKILLS = [
-    "Python", "JavaScript", "Machine Learning", "Data Science", "DevOps",
-    "Cloud Architecture", "Product Management", "UX Design", "SQL",
-    "Kubernetes", "React", "Node.js", "Go", "Rust", "TypeScript",
+    "Python",
+    "JavaScript",
+    "Machine Learning",
+    "Data Science",
+    "DevOps",
+    "Cloud Architecture",
+    "Product Management",
+    "UX Design",
+    "SQL",
+    "Kubernetes",
+    "React",
+    "Node.js",
+    "Go",
+    "Rust",
+    "TypeScript",
 ]
 
 TOPICS = [
-    "project deadline", "meeting notes", "customer feedback", "bug report",
-    "feature request", "team update", "quarterly review", "product launch",
-    "technical discussion", "brainstorming session", "code review",
+    "project deadline",
+    "meeting notes",
+    "customer feedback",
+    "bug report",
+    "feature request",
+    "team update",
+    "quarterly review",
+    "product launch",
+    "technical discussion",
+    "brainstorming session",
+    "code review",
 ]
 
 PREFERENCES = [
-    "prefers dark mode", "likes detailed explanations", "wants concise answers",
-    "prefers visual diagrams", "likes code examples", "wants step-by-step guides",
-    "prefers morning meetings", "likes async communication", "wants weekly updates",
+    "prefers dark mode",
+    "likes detailed explanations",
+    "wants concise answers",
+    "prefers visual diagrams",
+    "likes code examples",
+    "wants step-by-step guides",
+    "prefers morning meetings",
+    "likes async communication",
+    "wants weekly updates",
 ]
 
 
@@ -185,10 +243,7 @@ def generate_memories(
     Yields:
         Generated SyntheticMemory objects
     """
-    user_ids = (
-        [user_id] if user_id
-        else [f"bench_user_{i}" for i in range(num_users)]
-    )
+    user_ids = [user_id] if user_id else [f"bench_user_{i}" for i in range(num_users)]
 
     base_time = datetime.now(timezone.utc)
 
@@ -256,21 +311,22 @@ def generate_bitemporal_facts(
         # Random validity period
         valid_from = base_time - timedelta(days=random.randint(30, 365))
         valid_to = (
-            valid_from + timedelta(days=random.randint(30, 180))
-            if random.random() > 0.3 else None
+            valid_from + timedelta(days=random.randint(30, 180)) if random.random() > 0.3 else None
         )
 
-        facts.append({
-            "user_id": user_id,
-            "subject": random.choice(NAMES),
-            "predicate": random.choice([
-                "works_at", "lives_in", "has_skill", "manages", "reports_to"
-            ]),
-            "object_value": random.choice(COMPANIES + LOCATIONS + SKILLS),
-            "valid_from": valid_from,
-            "valid_to": valid_to,
-            "confidence": round(random.uniform(0.7, 1.0), 2),
-            "source": random.choice(["user_stated", "inferred", "imported"]),
-        })
+        facts.append(
+            {
+                "user_id": user_id,
+                "subject": random.choice(NAMES),
+                "predicate": random.choice(
+                    ["works_at", "lives_in", "has_skill", "manages", "reports_to"]
+                ),
+                "object_value": random.choice(COMPANIES + LOCATIONS + SKILLS),
+                "valid_from": valid_from,
+                "valid_to": valid_to,
+                "confidence": round(random.uniform(0.7, 1.0), 2),
+                "source": random.choice(["user_stated", "inferred", "imported"]),
+            }
+        )
 
     return facts

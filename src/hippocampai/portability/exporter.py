@@ -334,8 +334,17 @@ class MemoryExporter:
         import csv
 
         fieldnames = [
-            "id", "text", "user_id", "type", "importance", "confidence",
-            "tags", "created_at", "updated_at", "session_id", "namespace",
+            "id",
+            "text",
+            "user_id",
+            "type",
+            "importance",
+            "confidence",
+            "tags",
+            "created_at",
+            "updated_at",
+            "session_id",
+            "namespace",
         ]
 
         if options.compress:

@@ -99,7 +99,9 @@ class MemoryClassifier:
     def __init__(self) -> None:
         """Initialize the memory classifier with compiled regex patterns."""
         self._fact_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.FACT_PATTERNS]
-        self._preference_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.PREFERENCE_PATTERNS]
+        self._preference_regex = [
+            re.compile(pattern, re.IGNORECASE) for pattern in self.PREFERENCE_PATTERNS
+        ]
         self._goal_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.GOAL_PATTERNS]
         self._habit_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.HABIT_PATTERNS]
         self._event_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.EVENT_PATTERNS]

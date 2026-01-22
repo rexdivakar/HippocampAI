@@ -60,8 +60,7 @@ class HippocampRetriever(BaseRetriever if LLAMAINDEX_AVAILABLE else object):
     ):
         if not LLAMAINDEX_AVAILABLE:
             raise ImportError(
-                "LlamaIndex is required for this integration. "
-                "Install with: pip install llama-index"
+                "LlamaIndex is required for this integration. Install with: pip install llama-index"
             )
 
         super().__init__(**kwargs)
@@ -137,8 +136,7 @@ class HippocampMemoryStore:
     ):
         if not LLAMAINDEX_AVAILABLE:
             raise ImportError(
-                "LlamaIndex is required for this integration. "
-                "Install with: pip install llama-index"
+                "LlamaIndex is required for this integration. Install with: pip install llama-index"
             )
 
         self.client = client

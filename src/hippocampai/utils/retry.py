@@ -70,13 +70,14 @@ def get_qdrant_retry_decorator(
 def _get_rate_limit_exceptions() -> tuple[type[Exception], ...]:
     """Get rate limit exception types from installed packages."""
     exceptions: list[type[Exception]] = []
-    
+
     try:
-        from openai import RateLimitError, APIStatusError
+        from openai import APIStatusError, RateLimitError
+
         exceptions.extend([RateLimitError, APIStatusError])
     except ImportError:
         pass
-    
+
     return tuple(exceptions)
 
 
@@ -102,14 +103,15 @@ def get_llm_retry_decorator(
         Retry decorator configured for LLM calls
     """
     rate_limit_exceptions = _get_rate_limit_exceptions()
-    
+
     return retry(
         retry=retry_if_exception_type(
             (
                 ConnectionError,
                 TimeoutError,
                 OSError,
-            ) + rate_limit_exceptions
+            )
+            + rate_limit_exceptions
         ),
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential(

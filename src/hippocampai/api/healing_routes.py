@@ -23,6 +23,7 @@ healing_engine = AutoHealingEngine(health_monitor, embedder)
 # REQUEST/RESPONSE MODELS
 # ============================================================================
 
+
 class HealthCheckRequest(BaseModel):
     user_id: str
     detailed: bool = True
@@ -74,6 +75,7 @@ class ImportanceAdjustmentRequest(BaseModel):
 # HEALTH MONITORING
 # ============================================================================
 
+
 @router.post("/health")
 async def check_health(request: HealthCheckRequest):
     """Calculate health score for user's memories."""
@@ -81,36 +83,35 @@ async def check_health(request: HealthCheckRequest):
         client = MemoryClient()
         memories = client.get_memories(user_id=request.user_id)
 
-        health = health_monitor.calculate_health_score(
-            memories=memories,
-            detailed=request.detailed
-        )
+        health = health_monitor.calculate_health_score(memories=memories, detailed=request.detailed)
 
         response = {
             "overall_score": health.overall_score,
             "status": health.status.value,
-            "memory_count": len(memories)
+            "memory_count": len(memories),
         }
 
         if request.detailed:
-            response.update({
-                "freshness_score": health.freshness_score,
-                "diversity_score": health.diversity_score,
-                "consistency_score": health.consistency_score,
-                "coverage_score": health.coverage_score,
-                "engagement_score": health.engagement_score,
-                "issues": [
-                    {
-                        "severity": issue.severity.value,
-                        "category": issue.category,
-                        "message": issue.message,
-                        "affected_memories": issue.affected_memory_ids,
-                        "suggestions": issue.suggestions
-                    }
-                    for issue in health.issues
-                ],
-                "recommendations": health.recommendations
-            })
+            response.update(
+                {
+                    "freshness_score": health.freshness_score,
+                    "diversity_score": health.diversity_score,
+                    "consistency_score": health.consistency_score,
+                    "coverage_score": health.coverage_score,
+                    "engagement_score": health.engagement_score,
+                    "issues": [
+                        {
+                            "severity": issue.severity.value,
+                            "category": issue.category,
+                            "message": issue.message,
+                            "affected_memories": issue.affected_memory_ids,
+                            "suggestions": issue.suggestions,
+                        }
+                        for issue in health.issues
+                    ],
+                    "recommendations": health.recommendations,
+                }
+            )
 
         return response
     except Exception as e:
@@ -125,8 +126,7 @@ async def detect_stale_memories(user_id: str, threshold_days: int = 90):
         memories = client.get_memories(user_id=user_id)
 
         stale = health_monitor.detect_stale_memories(
-            memories=memories,
-            threshold_days=threshold_days
+            memories=memories, threshold_days=threshold_days
         )
 
         return {
@@ -137,11 +137,11 @@ async def detect_stale_memories(user_id: str, threshold_days: int = 90):
                     "staleness_score": sm.staleness_score,
                     "days_since_access": sm.days_since_access,
                     "should_archive": sm.should_archive,
-                    "should_delete": sm.should_delete
+                    "should_delete": sm.should_delete,
                 }
                 for sm in stale
             ],
-            "count": len(stale)
+            "count": len(stale),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -155,8 +155,7 @@ async def detect_duplicates(user_id: str, similarity_threshold: float = 0.90):
         memories = client.get_memories(user_id=user_id)
 
         clusters = health_monitor.detect_duplicate_clusters(
-            memories=memories,
-            similarity_threshold=similarity_threshold
+            memories=memories, similarity_threshold=similarity_threshold
         )
 
         return {
@@ -167,11 +166,11 @@ async def detect_duplicates(user_id: str, similarity_threshold: float = 0.90):
                     "duplicate_count": len(cluster.duplicate_memory_ids),
                     "duplicate_ids": cluster.duplicate_memory_ids,
                     "average_similarity": cluster.average_similarity,
-                    "suggested_action": cluster.suggested_action.value
+                    "suggested_action": cluster.suggested_action.value,
                 }
                 for cluster in clusters
             ],
-            "total_duplicates": sum(len(c.duplicate_memory_ids) for c in clusters)
+            "total_duplicates": sum(len(c.duplicate_memory_ids) for c in clusters),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -193,11 +192,11 @@ async def detect_knowledge_gaps(user_id: str):
                     "description": gap.description,
                     "severity": gap.severity.value,
                     "suggested_topics": gap.suggested_topics,
-                    "related_memory_ids": gap.related_memory_ids
+                    "related_memory_ids": gap.related_memory_ids,
                 }
                 for gap in gaps
             ],
-            "count": len(gaps)
+            "count": len(gaps),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -207,6 +206,7 @@ async def detect_knowledge_gaps(user_id: str):
 # AUTO-HEALING OPERATIONS
 # ============================================================================
 
+
 @router.post("/cleanup")
 async def auto_cleanup(request: CleanupRequest):
     """Run auto-cleanup to remove stale and low-quality memories."""
@@ -214,16 +214,10 @@ async def auto_cleanup(request: CleanupRequest):
         client = MemoryClient()
         memories = client.get_memories(user_id=request.user_id)
 
-        config = AutoHealingConfig(
-            user_id=request.user_id,
-            max_actions_per_run=request.max_actions
-        )
+        config = AutoHealingConfig(user_id=request.user_id, max_actions_per_run=request.max_actions)
 
         report = healing_engine.auto_cleanup(
-            user_id=request.user_id,
-            memories=memories,
-            config=config,
-            dry_run=request.dry_run
+            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
         )
 
         return {
@@ -235,7 +229,7 @@ async def auto_cleanup(request: CleanupRequest):
                     "memory_ids": action.memory_ids,
                     "reason": action.reason,
                     "impact_score": action.impact_score,
-                    "auto_applicable": action.auto_applicable
+                    "auto_applicable": action.auto_applicable,
                 }
                 for action in report.actions_recommended
             ],
@@ -243,13 +237,13 @@ async def auto_cleanup(request: CleanupRequest):
                 {
                     "action_type": action.action_type.value,
                     "memory_ids": action.memory_ids,
-                    "reason": action.reason
+                    "reason": action.reason,
                 }
                 for action in report.actions_applied
             ],
             "health_before": report.health_before,
             "health_after": report.health_after,
-            "summary": report.summary
+            "summary": report.summary,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -263,15 +257,11 @@ async def auto_deduplication(request: DeduplicationRequest):
         memories = client.get_memories(user_id=request.user_id)
 
         config = AutoHealingConfig(
-            user_id=request.user_id,
-            dedup_similarity_threshold=request.similarity_threshold
+            user_id=request.user_id, dedup_similarity_threshold=request.similarity_threshold
         )
 
         report = healing_engine.auto_deduplication(
-            user_id=request.user_id,
-            memories=memories,
-            config=config,
-            dry_run=request.dry_run
+            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
         )
 
         return {
@@ -283,7 +273,9 @@ async def auto_deduplication(request: DeduplicationRequest):
                     "action_type": action.action_type.value,
                     "memory_ids": action.memory_ids,
                     "reason": action.reason,
-                    "merged_content": action.changes.get("merged_content") if action.changes else None
+                    "merged_content": action.changes.get("merged_content")
+                    if action.changes
+                    else None,
                 }
                 for action in report.actions_recommended
             ],
@@ -292,7 +284,7 @@ async def auto_deduplication(request: DeduplicationRequest):
                 for action in report.actions_applied
                 if action.action_type == HealingActionType.MERGE
             ),
-            "summary": report.summary
+            "summary": report.summary,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -313,9 +305,9 @@ async def auto_consolidate(request: ConsolidationRequest):
 
         report = healing_engine.auto_consolidate(
             user_id=request.user_id,
-            memories=memories[:request.max_memories],
+            memories=memories[: request.max_memories],
             config=config,
-            dry_run=request.dry_run
+            dry_run=request.dry_run,
         )
 
         return {
@@ -325,12 +317,14 @@ async def auto_consolidate(request: ConsolidationRequest):
                 {
                     "action_type": action.action_type.value,
                     "source_memory_ids": action.memory_ids,
-                    "consolidated_text": action.changes.get("consolidated_text") if action.changes else None,
-                    "reason": action.reason
+                    "consolidated_text": action.changes.get("consolidated_text")
+                    if action.changes
+                    else None,
+                    "reason": action.reason,
                 }
                 for action in report.actions_recommended
             ],
-            "summary": report.summary
+            "summary": report.summary,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -346,10 +340,7 @@ async def auto_tagging(request: TaggingRequest):
         config = AutoHealingConfig(user_id=request.user_id)
 
         report = healing_engine.auto_tag(
-            user_id=request.user_id,
-            memories=memories,
-            config=config,
-            dry_run=request.dry_run
+            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
         )
 
         return {
@@ -358,17 +349,19 @@ async def auto_tagging(request: TaggingRequest):
             "tagging_suggestions": [
                 {
                     "memory_id": action.memory_ids[0],
-                    "suggested_tags": action.changes.get("suggested_tags", []) if action.changes else [],
-                    "reason": action.reason
+                    "suggested_tags": action.changes.get("suggested_tags", [])
+                    if action.changes
+                    else [],
+                    "reason": action.reason,
                 }
-                for action in report.actions_recommended[:request.max_suggestions]
+                for action in report.actions_recommended[: request.max_suggestions]
             ],
             "tags_applied": sum(
                 len(action.changes.get("suggested_tags", []))
                 for action in report.actions_applied
                 if action.changes
             ),
-            "summary": report.summary
+            "summary": report.summary,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -384,10 +377,7 @@ async def auto_importance_adjustment(request: ImportanceAdjustmentRequest):
         config = AutoHealingConfig(user_id=request.user_id)
 
         report = healing_engine.auto_adjust_importance(
-            user_id=request.user_id,
-            memories=memories,
-            config=config,
-            dry_run=request.dry_run
+            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
         )
 
         return {
@@ -396,14 +386,18 @@ async def auto_importance_adjustment(request: ImportanceAdjustmentRequest):
             "adjustments": [
                 {
                     "memory_id": action.memory_ids[0],
-                    "old_importance": action.changes.get("old_importance") if action.changes else None,
-                    "new_importance": action.changes.get("new_importance") if action.changes else None,
-                    "reason": action.reason
+                    "old_importance": action.changes.get("old_importance")
+                    if action.changes
+                    else None,
+                    "new_importance": action.changes.get("new_importance")
+                    if action.changes
+                    else None,
+                    "reason": action.reason,
                 }
-                for action in report.actions_recommended[:request.max_adjustments]
+                for action in report.actions_recommended[: request.max_adjustments]
             ],
             "total_adjusted": len(report.actions_applied),
-            "summary": report.summary
+            "summary": report.summary,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -417,16 +411,11 @@ async def run_full_health_check(user_id: str, dry_run: bool = True):
         memories = client.get_memories(user_id=user_id)
 
         config = AutoHealingConfig(
-            user_id=user_id,
-            auto_cleanup_enabled=True,
-            auto_dedup_enabled=True
+            user_id=user_id, auto_cleanup_enabled=True, auto_dedup_enabled=True
         )
 
         report = healing_engine.run_full_health_check(
-            user_id=user_id,
-            memories=memories,
-            config=config,
-            dry_run=dry_run
+            user_id=user_id, memories=memories, config=config, dry_run=dry_run
         )
 
         return {
@@ -439,13 +428,12 @@ async def run_full_health_check(user_id: str, dry_run: bool = True):
             "total_actions_applied": len(report.actions_applied),
             "actions_by_type": {
                 action_type.value: sum(
-                    1 for action in report.actions_recommended
-                    if action.action_type == action_type
+                    1 for action in report.actions_recommended if action.action_type == action_type
                 )
                 for action_type in HealingActionType
             },
             "summary": report.summary,
-            "timestamp": report.timestamp.isoformat()
+            "timestamp": report.timestamp.isoformat(),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -454,6 +442,7 @@ async def run_full_health_check(user_id: str, dry_run: bool = True):
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+
 
 @router.post("/config")
 async def update_healing_config(request: HealingConfigRequest):
@@ -467,7 +456,7 @@ async def update_healing_config(request: HealingConfigRequest):
             cleanup_threshold_days=request.cleanup_threshold_days,
             dedup_similarity_threshold=request.dedup_similarity_threshold,
             require_user_approval=request.require_user_approval,
-            max_actions_per_run=request.max_actions_per_run
+            max_actions_per_run=request.max_actions_per_run,
         )
 
         # In production, save config to database
@@ -483,8 +472,8 @@ async def update_healing_config(request: HealingConfigRequest):
                 "cleanup_threshold_days": config.cleanup_threshold_days,
                 "dedup_similarity_threshold": config.dedup_similarity_threshold,
                 "require_user_approval": config.require_user_approval,
-                "max_actions_per_run": config.max_actions_per_run
-            }
+                "max_actions_per_run": config.max_actions_per_run,
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -507,7 +496,7 @@ async def get_healing_config(user_id: str):
                 "cleanup_threshold_days": config.cleanup_threshold_days,
                 "dedup_similarity_threshold": config.dedup_similarity_threshold,
                 "require_user_approval": config.require_user_approval,
-                "max_actions_per_run": config.max_actions_per_run
+                "max_actions_per_run": config.max_actions_per_run,
             }
         }
     except Exception as e:

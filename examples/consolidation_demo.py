@@ -281,7 +281,9 @@ def step4_apply_policy(memories: list[Memory], llm_decisions: dict):
 
     print(f"\n✓ To Promote:    {len(actions['to_promote'])} memories")
     for action in actions["to_promote"]:
-        print(f"    - {action['id']}: {action['old_importance']:.1f} → {action['new_importance']:.1f} ({action['reason']})")
+        print(
+            f"    - {action['id']}: {action['old_importance']:.1f} → {action['new_importance']:.1f} ({action['reason']})"
+        )
 
     print(f"\n✓ To Update:     {len(actions['to_update'])} memories")
     for action in actions["to_update"]:
@@ -342,7 +344,11 @@ def step5_show_before_after(memories: list[Memory], actions: dict):
     remaining_count = len(remaining) + len(actions["to_create"])  # Add synthetics
 
     print(f"Total memories: {remaining_count}")
-    print(f"Avg importance: {sum(m.importance for m in remaining) / len(remaining):.2f}" if remaining else "N/A")
+    print(
+        f"Avg importance: {sum(m.importance for m in remaining) / len(remaining):.2f}"
+        if remaining
+        else "N/A"
+    )
     print("\nMEMORIES:")
 
     # Show remaining memories (sorted by importance)
@@ -351,7 +357,9 @@ def step5_show_before_after(memories: list[Memory], actions: dict):
 
     # Show synthetic memories
     for syn in actions["to_create"]:
-        print(f"  [NEW-SYNTH] importance={syn['importance']:4.1f} 🔄 SYNTHETIC | {syn['text'][:50]}...")
+        print(
+            f"  [NEW-SYNTH] importance={syn['importance']:4.1f} 🔄 SYNTHETIC | {syn['text'][:50]}..."
+        )
 
     print("\nCHANGES SUMMARY:")
     print("─" * 70)
@@ -381,12 +389,12 @@ def step6_generate_dream_report(actions: dict):
 ║                                                                      ║
 ║  📊 STATISTICS                                                       ║
 ║  ────────────────────────────────────────────────────────────────   ║
-║    Memories reviewed:      {actions['stats']['reviewed']:3d}                                      ║
-║    Memories deleted:       {actions['stats']['deleted']:3d}                                      ║
-║    Memories archived:      {actions['stats']['archived']:3d}                                      ║
-║    Memories promoted:      {actions['stats']['promoted']:3d}                                      ║
-║    Memories updated:       {actions['stats']['updated']:3d}                                      ║
-║    Memories synthesized:   {actions['stats']['synthesized']:3d}                                      ║
+║    Memories reviewed:      {actions["stats"]["reviewed"]:3d}                                      ║
+║    Memories deleted:       {actions["stats"]["deleted"]:3d}                                      ║
+║    Memories archived:      {actions["stats"]["archived"]:3d}                                      ║
+║    Memories promoted:      {actions["stats"]["promoted"]:3d}                                      ║
+║    Memories updated:       {actions["stats"]["updated"]:3d}                                      ║
+║    Memories synthesized:   {actions["stats"]["synthesized"]:3d}                                      ║
 ║                                                                      ║
 ║  💡 KEY INSIGHTS                                                     ║
 ║  ────────────────────────────────────────────────────────────────   ║

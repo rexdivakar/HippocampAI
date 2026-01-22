@@ -22,6 +22,7 @@ collab_manager = CollaborationManager()
 # REQUEST/RESPONSE MODELS
 # ============================================================================
 
+
 class CreateSpaceRequest(BaseModel):
     name: str
     owner_agent_id: str
@@ -56,6 +57,7 @@ class ResolveConflictRequest(BaseModel):
 # SPACE ENDPOINTS
 # ============================================================================
 
+
 @router.post("/spaces")
 async def create_space(request: CreateSpaceRequest):
     """Create a new shared memory space."""
@@ -64,7 +66,7 @@ async def create_space(request: CreateSpaceRequest):
             name=request.name,
             owner_agent_id=request.owner_agent_id,
             description=request.description,
-            tags=request.tags
+            tags=request.tags,
         )
         return {
             "success": True,
@@ -74,8 +76,8 @@ async def create_space(request: CreateSpaceRequest):
                 "owner_agent_id": space.owner_agent_id,
                 "collaborator_count": len(space.collaborator_agent_ids),
                 "memory_count": len(space.memory_ids),
-                "created_at": space.created_at.isoformat()
-            }
+                "created_at": space.created_at.isoformat(),
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -99,7 +101,7 @@ async def get_space(space_id: str):
         "tags": space.tags,
         "is_active": space.is_active,
         "created_at": space.created_at.isoformat(),
-        "updated_at": space.updated_at.isoformat()
+        "updated_at": space.updated_at.isoformat(),
     }
 
 
@@ -117,11 +119,11 @@ async def list_spaces(agent_id: Optional[str] = None, include_inactive: bool = F
                 "collaborator_count": len(space.collaborator_agent_ids),
                 "memory_count": len(space.memory_ids),
                 "is_active": space.is_active,
-                "created_at": space.created_at.isoformat()
+                "created_at": space.created_at.isoformat(),
             }
             for space in spaces
         ],
-        "count": len(spaces)
+        "count": len(spaces),
     }
 
 
@@ -139,6 +141,7 @@ async def delete_space(space_id: str):
 # COLLABORATOR ENDPOINTS
 # ============================================================================
 
+
 @router.post("/spaces/{space_id}/collaborators")
 async def add_collaborator(space_id: str, request: AddCollaboratorRequest):
     """Add a collaborator to a space."""
@@ -148,16 +151,13 @@ async def add_collaborator(space_id: str, request: AddCollaboratorRequest):
             space_id=space_id,
             agent_id=request.agent_id,
             permissions=permissions,
-            inviter_id=request.inviter_id
+            inviter_id=request.inviter_id,
         )
 
         if not success:
             raise HTTPException(status_code=400, detail="Failed to add collaborator")
 
-        return {
-            "success": True,
-            "message": f"Added collaborator {request.agent_id}"
-        }
+        return {"success": True, "message": f"Added collaborator {request.agent_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -181,7 +181,7 @@ async def update_permissions(space_id: str, agent_id: str, request: UpdatePermis
             space_id=space_id,
             agent_id=agent_id,
             permissions=permissions,
-            updater_id=request.updater_id
+            updater_id=request.updater_id,
         )
 
         if not success:
@@ -196,13 +196,12 @@ async def update_permissions(space_id: str, agent_id: str, request: UpdatePermis
 # MEMORY MANAGEMENT IN SPACES
 # ============================================================================
 
+
 @router.post("/spaces/{space_id}/memories")
 async def add_memory_to_space(space_id: str, request: AddMemoryToSpaceRequest):
     """Add a memory to a shared space."""
     success = collab_manager.add_memory_to_space(
-        space_id=space_id,
-        memory_id=request.memory_id,
-        agent_id=request.agent_id
+        space_id=space_id, memory_id=request.memory_id, agent_id=request.agent_id
     )
 
     if not success:
@@ -226,19 +225,14 @@ async def remove_memory_from_space(space_id: str, memory_id: str, agent_id: str)
 # EVENTS ENDPOINTS
 # ============================================================================
 
+
 @router.get("/spaces/{space_id}/events")
-async def get_space_events(
-    space_id: str,
-    limit: int = 100,
-    event_type: Optional[str] = None
-):
+async def get_space_events(space_id: str, limit: int = 100, event_type: Optional[str] = None):
     """Get events for a space."""
     event_type_enum = CollaborationEventType(event_type) if event_type else None
 
     events = collab_manager.get_space_events(
-        space_id=space_id,
-        limit=limit,
-        event_type=event_type_enum
+        space_id=space_id, limit=limit, event_type=event_type_enum
     )
 
     return {
@@ -249,11 +243,11 @@ async def get_space_events(
                 "agent_id": event.agent_id,
                 "event_type": event.event_type.value,
                 "data": event.data,
-                "timestamp": event.timestamp.isoformat()
+                "timestamp": event.timestamp.isoformat(),
             }
             for event in events
         ],
-        "count": len(events)
+        "count": len(events),
     }
 
 
@@ -261,13 +255,12 @@ async def get_space_events(
 # NOTIFICATIONS ENDPOINTS
 # ============================================================================
 
+
 @router.get("/notifications/{agent_id}")
 async def get_notifications(agent_id: str, unread_only: bool = False, limit: int = 50):
     """Get notifications for an agent."""
     notifications = collab_manager.get_notifications(
-        agent_id=agent_id,
-        unread_only=unread_only,
-        limit=limit
+        agent_id=agent_id, unread_only=unread_only, limit=limit
     )
 
     return {
@@ -280,11 +273,11 @@ async def get_notifications(agent_id: str, unread_only: bool = False, limit: int
                 "message": notif.message,
                 "data": notif.data,
                 "is_read": notif.is_read,
-                "created_at": notif.created_at.isoformat()
+                "created_at": notif.created_at.isoformat(),
             }
             for notif in notifications
         ],
-        "count": len(notifications)
+        "count": len(notifications),
     }
 
 
@@ -303,6 +296,7 @@ async def mark_notification_read(agent_id: str, notification_id: str):
 # CONFLICT ENDPOINTS
 # ============================================================================
 
+
 @router.get("/conflicts")
 async def get_conflicts(space_id: Optional[str] = None):
     """Get all conflicts, optionally filtered by space."""
@@ -319,11 +313,11 @@ async def get_conflicts(space_id: Optional[str] = None):
                 "space_id": conflict.space_id,
                 "conflict_type": conflict.conflict_type.value,
                 "is_resolved": conflict.is_resolved,
-                "created_at": conflict.created_at.isoformat()
+                "created_at": conflict.created_at.isoformat(),
             }
             for conflict in conflicts
         ],
-        "count": len(conflicts)
+        "count": len(conflicts),
     }
 
 
@@ -336,7 +330,7 @@ async def resolve_conflict(conflict_id: str, request: ResolveConflictRequest):
             conflict_id=conflict_id,
             resolved_version=request.resolved_version,
             resolved_by=request.resolved_by,
-            strategy=strategy
+            strategy=strategy,
         )
 
         if not success:

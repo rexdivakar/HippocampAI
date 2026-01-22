@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class User(BaseModel):
     """User record."""
-    
+
     user_id: str
     username: Optional[str] = None
     email: Optional[str] = None
@@ -22,7 +22,7 @@ class User(BaseModel):
 
 class Session(BaseModel):
     """Session record."""
-    
+
     session_id: str
     user_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow())
@@ -38,7 +38,7 @@ class Session(BaseModel):
 
 class SoftDeleteRecord(BaseModel):
     """Record of soft-deleted data for admin recovery."""
-    
+
     id: str
     entity_type: str  # 'user', 'session', 'memory'
     entity_id: str

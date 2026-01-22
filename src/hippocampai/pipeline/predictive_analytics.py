@@ -274,7 +274,9 @@ class PredictiveAnalyticsEngine:
                 )
 
         # 2. Detect behavior shifts
-        trends = self.temporal_analytics.analyze_trends(memories, time_window_days=30, metric="activity")
+        trends = self.temporal_analytics.analyze_trends(
+            memories, time_window_days=30, metric="activity"
+        )
         if trends.strength > 0.6:
             insights.append(
                 PredictiveInsight(
@@ -332,18 +334,25 @@ class PredictiveAnalyticsEngine:
             return None
 
         # Calculate daily activity
-        baseline_days = (baseline_memories[-1].created_at - baseline_memories[0].created_at).days or 1
+        baseline_days = (
+            baseline_memories[-1].created_at - baseline_memories[0].created_at
+        ).days or 1
         baseline_rate = len(baseline_memories) / baseline_days
 
         recent_days = 7
-        recent_rate = len([m for m in recent_memories if (now - m.created_at).days <= recent_days]) / recent_days
+        recent_rate = (
+            len([m for m in recent_memories if (now - m.created_at).days <= recent_days])
+            / recent_days
+        )
 
         # Check if significantly different (>2 standard deviations)
         if abs(recent_rate - baseline_rate) / max(baseline_rate, 1) > 0.5:
             return AnomalyDetection(
                 user_id=user_id,
                 anomaly_type=AnomalyType.UNUSUAL_ACTIVITY,
-                severity=AnomalySeverity.MEDIUM if recent_rate < baseline_rate else AnomalySeverity.LOW,
+                severity=AnomalySeverity.MEDIUM
+                if recent_rate < baseline_rate
+                else AnomalySeverity.LOW,
                 title="Unusual memory activity detected",
                 description="Your memory creation rate has changed significantly",
                 expected_behavior=f"Typical: {baseline_rate:.1f} memories/day",
@@ -455,9 +464,7 @@ class PredictiveAnalyticsEngine:
 
         return None
 
-    def _recommend_review_stale(
-        self, user_id: str, memories: list[Memory]
-    ) -> list[Recommendation]:
+    def _recommend_review_stale(self, user_id: str, memories: list[Memory]) -> list[Recommendation]:
         """Recommend reviewing stale memories."""
         recommendations = []
         now = datetime.now(timezone.utc)

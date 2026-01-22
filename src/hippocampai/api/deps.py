@@ -21,6 +21,7 @@ def get_memory_client() -> MemoryClient:
 # Rate Limiting
 # ============================================
 
+
 class RateLimiter:
     """Simple in-memory rate limiter to prevent brute force attacks."""
 
@@ -44,6 +45,7 @@ class RateLimiter:
         self.requests[user_id].append(now)
         return True
 
+
 # Global rate limiter instance
 _rate_limiter = RateLimiter()
 
@@ -51,6 +53,7 @@ _rate_limiter = RateLimiter()
 # ============================================
 # Authentication
 # ============================================
+
 
 def get_current_user(
     user_id: Optional[str] = Header(None, alias="X-User-Id"),

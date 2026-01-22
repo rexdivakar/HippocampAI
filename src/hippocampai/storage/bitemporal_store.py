@@ -339,9 +339,7 @@ class BiTemporalStore:
 
         # As-of system time filter
         if query.as_of_system_time:
-            filtered = [
-                f for f in filtered if f.system_time <= query.as_of_system_time
-            ]
+            filtered = [f for f in filtered if f.system_time <= query.as_of_system_time]
 
         # Valid-at point-in-time filter
         if query.valid_at:
@@ -350,9 +348,7 @@ class BiTemporalStore:
         # Valid-time range filter
         if query.valid_from and query.valid_to:
             filtered = [
-                f
-                for f in filtered
-                if f.overlaps_interval(query.valid_from, query.valid_to)
+                f for f in filtered if f.overlaps_interval(query.valid_from, query.valid_to)
             ]
 
         # Status filters (if not handled in Qdrant query)
@@ -383,9 +379,7 @@ class BiTemporalStore:
             "metadata": fact.metadata,
         }
 
-    def _payload_to_fact(
-        self, payload: dict[str, Any], fact_version_id: str
-    ) -> BiTemporalFact:
+    def _payload_to_fact(self, payload: dict[str, Any], fact_version_id: str) -> BiTemporalFact:
         """Convert Qdrant payload to fact."""
         return BiTemporalFact(
             id=fact_version_id,
@@ -397,9 +391,7 @@ class BiTemporalStore:
             event_time=datetime.fromisoformat(payload["event_time"]),
             valid_from=datetime.fromisoformat(payload["valid_from"]),
             valid_to=(
-                datetime.fromisoformat(payload["valid_to"])
-                if payload.get("valid_to")
-                else None
+                datetime.fromisoformat(payload["valid_to"]) if payload.get("valid_to") else None
             ),
             system_time=datetime.fromisoformat(payload["system_time"]),
             status=FactStatus(payload["status"]),

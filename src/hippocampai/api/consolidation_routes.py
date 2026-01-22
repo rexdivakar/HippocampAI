@@ -186,6 +186,7 @@ async def get_consolidation_stats(
     # Calculate next run time (next 3 AM)
     import os
     from datetime import timedelta
+
     schedule_hour = int(os.getenv("CONSOLIDATION_SCHEDULE_HOUR", "3"))
     now = datetime.now(timezone.utc)
     next_run = now.replace(hour=schedule_hour, minute=0, second=0, microsecond=0)
@@ -196,7 +197,12 @@ async def get_consolidation_stats(
     last_run_at = None
     if stats.get("last_run_at"):
         from dateutil import parser
-        last_run_at = parser.parse(stats["last_run_at"]) if isinstance(stats["last_run_at"], str) else stats["last_run_at"]
+
+        last_run_at = (
+            parser.parse(stats["last_run_at"])
+            if isinstance(stats["last_run_at"], str)
+            else stats["last_run_at"]
+        )
 
     return ConsolidationStats(
         total_runs=stats.get("total_runs", 0),

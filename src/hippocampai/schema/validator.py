@@ -114,9 +114,7 @@ class SchemaValidator:
                     f"Unknown relationship type: {relationship_type}",
                 )
             else:
-                result.add_warning(
-                    f"Relationship type '{relationship_type}' not defined in schema"
-                )
+                result.add_warning(f"Relationship type '{relationship_type}' not defined in schema")
             return result
 
         # Validate endpoint types

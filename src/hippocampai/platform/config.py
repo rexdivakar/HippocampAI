@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class PlatformConfig(BaseSettings):
     """Platform configuration for HippocampAI SaaS deployment.
-    
+
     This configuration includes all settings needed for running HippocampAI
     as a SaaS platform, including:
     - Redis (caching, Celery broker)
@@ -21,7 +21,7 @@ class PlatformConfig(BaseSettings):
     - API server settings
     - Monitoring
     """
-    
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     # ==================== Redis Configuration ====================
@@ -39,7 +39,7 @@ class PlatformConfig(BaseSettings):
     postgres_password: str = Field(
         default="hippocampai_secret", validation_alias="POSTGRES_PASSWORD"
     )
-    
+
     @property
     def postgres_url(self) -> str:
         """Get PostgreSQL connection URL."""
@@ -52,15 +52,11 @@ class PlatformConfig(BaseSettings):
     celery_result_backend: str = Field(
         default="redis://localhost:6379/2", validation_alias="CELERY_RESULT_BACKEND"
     )
-    celery_worker_concurrency: int = Field(
-        default=4, validation_alias="CELERY_WORKER_CONCURRENCY"
-    )
+    celery_worker_concurrency: int = Field(default=4, validation_alias="CELERY_WORKER_CONCURRENCY")
     celery_worker_prefetch_multiplier: int = Field(
         default=4, validation_alias="CELERY_WORKER_PREFETCH_MULTIPLIER"
     )
-    celery_task_acks_late: bool = Field(
-        default=True, validation_alias="CELERY_TASK_ACKS_LATE"
-    )
+    celery_task_acks_late: bool = Field(default=True, validation_alias="CELERY_TASK_ACKS_LATE")
     celery_worker_max_tasks_per_child: int = Field(
         default=1000, validation_alias="CELERY_WORKER_MAX_TASKS_PER_CHILD"
     )
@@ -70,7 +66,7 @@ class PlatformConfig(BaseSettings):
     api_port: int = Field(default=8000, validation_alias="API_PORT")
     api_workers: int = Field(default=1, validation_alias="API_WORKERS")
     api_reload: bool = Field(default=False, validation_alias="API_RELOAD")
-    
+
     # CORS
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     cors_allow_credentials: bool = Field(default=True, validation_alias="CORS_ALLOW_CREDENTIALS")
@@ -82,7 +78,7 @@ class PlatformConfig(BaseSettings):
     )
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     jwt_expiration_hours: int = Field(default=24, validation_alias="JWT_EXPIRATION_HOURS")
-    
+
     # Rate Limiting
     rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
     rate_limit_requests_per_minute: int = Field(
@@ -132,12 +128,12 @@ class PlatformConfig(BaseSettings):
     # ==================== Monitoring Configuration ====================
     prometheus_enabled: bool = Field(default=True, validation_alias="PROMETHEUS_ENABLED")
     prometheus_port: int = Field(default=9090, validation_alias="PROMETHEUS_PORT")
-    
+
     # Flower (Celery monitoring)
     flower_port: int = Field(default=5555, validation_alias="FLOWER_PORT")
     flower_user: str = Field(default="admin", validation_alias="FLOWER_USER")
     flower_password: str = Field(default="admin", validation_alias="FLOWER_PASSWORD")
-    
+
     # Grafana
     grafana_port: int = Field(default=3000, validation_alias="GRAFANA_PORT")
     grafana_admin_user: str = Field(default="admin", validation_alias="GRAFANA_ADMIN_USER")
@@ -148,9 +144,7 @@ class PlatformConfig(BaseSettings):
     pruning_interval_hours: int = Field(
         default=168, validation_alias="PRUNING_INTERVAL_HOURS"
     )  # Weekly
-    pruning_strategy: str = Field(
-        default="comprehensive", validation_alias="PRUNING_STRATEGY"
-    )
+    pruning_strategy: str = Field(default="comprehensive", validation_alias="PRUNING_STRATEGY")
     min_health_threshold: float = Field(default=3.0, validation_alias="MIN_HEALTH_THRESHOLD")
     pruning_target_percentage: float = Field(
         default=0.1, validation_alias="PRUNING_TARGET_PERCENTAGE"

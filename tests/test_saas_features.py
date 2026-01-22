@@ -8,6 +8,7 @@ import pytest
 # Check if bcrypt is available
 try:
     import bcrypt  # noqa: F401
+
     BCRYPT_AVAILABLE = True
 except ImportError:
     BCRYPT_AVAILABLE = False

@@ -109,13 +109,23 @@ class AttributeDefinition(BaseModel):
         # Min/max length for strings
         if self.type == AttributeType.STRING:
             if "min_length" in self.constraints and len(value) < self.constraints["min_length"]:
-                return False, f"Attribute '{self.name}' must have at least {self.constraints['min_length']} characters"
+                return (
+                    False,
+                    f"Attribute '{self.name}' must have at least {self.constraints['min_length']} characters",
+                )
             if "max_length" in self.constraints and len(value) > self.constraints["max_length"]:
-                return False, f"Attribute '{self.name}' must have at most {self.constraints['max_length']} characters"
+                return (
+                    False,
+                    f"Attribute '{self.name}' must have at most {self.constraints['max_length']} characters",
+                )
             if "pattern" in self.constraints:
                 import re
+
                 if not re.match(self.constraints["pattern"], value):
-                    return False, f"Attribute '{self.name}' must match pattern {self.constraints['pattern']}"
+                    return (
+                        False,
+                        f"Attribute '{self.name}' must match pattern {self.constraints['pattern']}",
+                    )
 
         # Enum constraint
         if "enum" in self.constraints:
@@ -236,8 +246,7 @@ class SchemaDefinition(BaseModel):
         entity_types = []
         for et_data in data.get("entity_types", []):
             attributes = [
-                AttributeDefinition(**attr_data)
-                for attr_data in et_data.get("attributes", [])
+                AttributeDefinition(**attr_data) for attr_data in et_data.get("attributes", [])
             ]
             et_data["attributes"] = attributes
             entity_types.append(EntityTypeDefinition(**et_data))
@@ -245,8 +254,7 @@ class SchemaDefinition(BaseModel):
         relationship_types = []
         for rt_data in data.get("relationship_types", []):
             attributes = [
-                AttributeDefinition(**attr_data)
-                for attr_data in rt_data.get("attributes", [])
+                AttributeDefinition(**attr_data) for attr_data in rt_data.get("attributes", [])
             ]
             rt_data["attributes"] = attributes
             relationship_types.append(RelationshipTypeDefinition(**rt_data))

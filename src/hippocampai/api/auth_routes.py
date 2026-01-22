@@ -123,7 +123,9 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
                     payload = results[0].payload
                     user_id = payload.get("user_id")
                     if user_id:
-                        logger.info(f"Found user_id '{user_id}' via signup record for session '{unique_id}' in {collection_name}")
+                        logger.info(
+                            f"Found user_id '{user_id}' via signup record for session '{unique_id}' in {collection_name}"
+                        )
                         return user_id
             except Exception as e:
                 logger.debug(f"Could not check {collection_name} for signup: {e}")
@@ -144,7 +146,9 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
                     with_payload=True,
                 )
                 if results and len(results) > 0:
-                    logger.info(f"Found user_id '{unique_id}' as direct user_id in {collection_name}")
+                    logger.info(
+                        f"Found user_id '{unique_id}' as direct user_id in {collection_name}"
+                    )
                     return unique_id
             except Exception as e:
                 logger.debug(f"Could not check {collection_name}: {e}")

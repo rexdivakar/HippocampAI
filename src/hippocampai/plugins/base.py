@@ -112,9 +112,7 @@ class MemoryScorer(BasePlugin):
     weight: float = 1.0  # Weight in final score fusion
 
     @abstractmethod
-    def score(
-        self, memory: Memory, query: str, context: Optional[PluginContext] = None
-    ) -> float:
+    def score(self, memory: Memory, query: str, context: Optional[PluginContext] = None) -> float:
         """Score a memory's relevance to a query.
 
         Args:

@@ -53,7 +53,7 @@ def build_consolidation_prompt(
 
 Your task is to analyze the following {len(memories)} memories from the last 24 hours and make consolidation decisions.
 
-{f'**Cluster Theme:** {cluster_theme}' if cluster_theme else ''}
+{f"**Cluster Theme:** {cluster_theme}" if cluster_theme else ""}
 {context_section}
 
 **Memories to Review:**
@@ -143,7 +143,7 @@ def build_simple_review_prompt(memory_texts: list[str]) -> str:
     Returns:
         Simplified prompt
     """
-    memories_text = "\n".join([f"{i+1}. {text}" for i, text in enumerate(memory_texts)])
+    memories_text = "\n".join([f"{i + 1}. {text}" for i, text in enumerate(memory_texts)])
 
     return f"""You are reviewing these {len(memory_texts)} memories for consolidation.
 Identify which memories are valuable (keep), which are low-value (archive), and any insights to synthesize.
@@ -268,14 +268,24 @@ EXAMPLE_USER_CONTEXT = {
     "name": "Alex",
     "role": "Product Manager",
     "current_goals": ["Launch Q4 product features", "Improve team collaboration"],
-    "preferences": {"focus_areas": ["strategic planning", "team dynamics"], "interests": ["AI", "productivity tools"]},
+    "preferences": {
+        "focus_areas": ["strategic planning", "team dynamics"],
+        "interests": ["AI", "productivity tools"],
+    },
     "recent_topics": ["Q4 roadmap", "hiring", "sprint planning"],
 }
 
 
 # Example memory data for testing prompts
 EXAMPLE_MEMORIES_DATA = [
-    {"id": "mem-1", "text": "Had morning coffee at 9am", "type": "event", "importance": 2.0, "tags": [], "access_count": 0},
+    {
+        "id": "mem-1",
+        "text": "Had morning coffee at 9am",
+        "type": "event",
+        "importance": 2.0,
+        "tags": [],
+        "access_count": 0,
+    },
     {
         "id": "mem-2",
         "text": "Q4 roadmap meeting: discussed AI-powered features, analytics dashboard, mobile app improvements",

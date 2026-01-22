@@ -67,8 +67,7 @@ class HippocampMemory(BaseChatMemory if LANGCHAIN_AVAILABLE else object):
     ):
         if not LANGCHAIN_AVAILABLE:
             raise ImportError(
-                "LangChain is required for this integration. "
-                "Install with: pip install langchain"
+                "LangChain is required for this integration. Install with: pip install langchain"
             )
 
         super().__init__(**kwargs)
@@ -170,8 +169,7 @@ class HippocampRetriever(BaseRetriever if LANGCHAIN_AVAILABLE else object):
     ):
         if not LANGCHAIN_AVAILABLE:
             raise ImportError(
-                "LangChain is required for this integration. "
-                "Install with: pip install langchain"
+                "LangChain is required for this integration. Install with: pip install langchain"
             )
 
         super().__init__(**kwargs)

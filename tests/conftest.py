@@ -25,20 +25,21 @@ if str(SRC) not in sys.path:
 def ensure_qdrant_collections():
     """Ensure test collections exist before any memory tests run."""
     import os
+
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
     # Parse host and port from URL
     if qdrant_url.startswith("http://"):
         qdrant_url = qdrant_url[7:]
     elif qdrant_url.startswith("https://"):
         qdrant_url = qdrant_url[8:]
-    
+
     if ":" in qdrant_url:
         host, port = qdrant_url.split(":")
         port = int(port)
     else:
         host = qdrant_url
         port = 6333
-    
+
     try:
         client = QdrantClient(host=host, port=port, timeout=5)
 
@@ -57,8 +58,9 @@ def ensure_qdrant_collections():
     except Exception as e:
         # Don't fail tests that don't need Qdrant
         import warnings
+
         warnings.warn(f"Could not connect to Qdrant: {e}")
-    
+
     yield
 
 

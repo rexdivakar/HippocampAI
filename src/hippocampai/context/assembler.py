@@ -116,9 +116,7 @@ class ContextAssembler:
         scored.sort(key=lambda x: x[1], reverse=True)
 
         # Step 6: Fit to token budget
-        selected, dropped_budget = self._fit_to_budget(
-            scored, constraints, query
-        )
+        selected, dropped_budget = self._fit_to_budget(scored, constraints, query)
 
         # Combine all dropped items
         all_dropped = dropped_filtered + dropped_dedup + dropped_budget
@@ -190,47 +188,55 @@ class ContextAssembler:
 
             # Check relevance threshold
             if result.score < constraints.min_relevance:
-                dropped.append(DroppedItem(
-                    memory_id=memory.id,
-                    text_preview=memory.text[:100],
-                    reason=DropReason.LOW_RELEVANCE,
-                    relevance_score=result.score,
-                    details=f"Score {result.score:.3f} < threshold {constraints.min_relevance}",
-                ))
+                dropped.append(
+                    DroppedItem(
+                        memory_id=memory.id,
+                        text_preview=memory.text[:100],
+                        reason=DropReason.LOW_RELEVANCE,
+                        relevance_score=result.score,
+                        details=f"Score {result.score:.3f} < threshold {constraints.min_relevance}",
+                    )
+                )
                 continue
 
             # Check expiration
             if memory.is_expired():
-                dropped.append(DroppedItem(
-                    memory_id=memory.id,
-                    text_preview=memory.text[:100],
-                    reason=DropReason.EXPIRED,
-                    relevance_score=result.score,
-                ))
+                dropped.append(
+                    DroppedItem(
+                        memory_id=memory.id,
+                        text_preview=memory.text[:100],
+                        reason=DropReason.EXPIRED,
+                        relevance_score=result.score,
+                    )
+                )
                 continue
 
             # Check time range
             if time_cutoff and memory.created_at < time_cutoff:
-                dropped.append(DroppedItem(
-                    memory_id=memory.id,
-                    text_preview=memory.text[:100],
-                    reason=DropReason.FILTERED,
-                    relevance_score=result.score,
-                    details=f"Created {memory.created_at} before cutoff {time_cutoff}",
-                ))
-                continue
-
-            # Check type filter
-            if constraints.type_filter:
-                mem_type = memory.type.value if hasattr(memory.type, 'value') else str(memory.type)
-                if mem_type not in constraints.type_filter:
-                    dropped.append(DroppedItem(
+                dropped.append(
+                    DroppedItem(
                         memory_id=memory.id,
                         text_preview=memory.text[:100],
                         reason=DropReason.FILTERED,
                         relevance_score=result.score,
-                        details=f"Type {mem_type} not in {constraints.type_filter}",
-                    ))
+                        details=f"Created {memory.created_at} before cutoff {time_cutoff}",
+                    )
+                )
+                continue
+
+            # Check type filter
+            if constraints.type_filter:
+                mem_type = memory.type.value if hasattr(memory.type, "value") else str(memory.type)
+                if mem_type not in constraints.type_filter:
+                    dropped.append(
+                        DroppedItem(
+                            memory_id=memory.id,
+                            text_preview=memory.text[:100],
+                            reason=DropReason.FILTERED,
+                            relevance_score=result.score,
+                            details=f"Type {mem_type} not in {constraints.type_filter}",
+                        )
+                    )
                     continue
 
             filtered.append(result)
@@ -261,12 +267,14 @@ class ContextAssembler:
                     break
 
             if is_dup:
-                dropped.append(DroppedItem(
-                    memory_id=result.memory.id,
-                    text_preview=result.memory.text[:100],
-                    reason=DropReason.DUPLICATE,
-                    relevance_score=result.score,
-                ))
+                dropped.append(
+                    DroppedItem(
+                        memory_id=result.memory.id,
+                        text_preview=result.memory.text[:100],
+                        reason=DropReason.DUPLICATE,
+                        relevance_score=result.score,
+                    )
+                )
             else:
                 deduped.append(result)
                 seen_texts.add(normalized)
@@ -315,10 +323,7 @@ class ContextAssembler:
             recency_score = 1.0 / (1.0 + age_days / 30)  # Half-life of 30 days
 
             # Combine relevance and recency
-            final_score = (
-                (1 - recency_bias) * result.score +
-                recency_bias * recency_score
-            )
+            final_score = (1 - recency_bias) * result.score + recency_bias * recency_score
 
             scored.append((result, final_score))
 
@@ -345,45 +350,53 @@ class ContextAssembler:
             if current_tokens + tokens > constraints.token_budget:
                 # Try summarization if allowed
                 if constraints.allow_summaries and self.client.llm:
-                    summarized = self._try_summarize(memory, constraints.token_budget - current_tokens)
+                    summarized = self._try_summarize(
+                        memory, constraints.token_budget - current_tokens
+                    )
                     if summarized:
                         selected.append(summarized)
                         current_tokens += summarized.token_count
                         continue
 
-                dropped.append(DroppedItem(
-                    memory_id=memory.id,
-                    text_preview=memory.text[:100],
-                    reason=DropReason.TOKEN_BUDGET,
-                    relevance_score=score,
-                    details=f"Would exceed budget: {current_tokens + tokens} > {constraints.token_budget}",
-                ))
+                dropped.append(
+                    DroppedItem(
+                        memory_id=memory.id,
+                        text_preview=memory.text[:100],
+                        reason=DropReason.TOKEN_BUDGET,
+                        relevance_score=score,
+                        details=f"Would exceed budget: {current_tokens + tokens} > {constraints.token_budget}",
+                    )
+                )
                 continue
 
             # Check max items
             if len(selected) >= constraints.max_items:
-                dropped.append(DroppedItem(
-                    memory_id=memory.id,
-                    text_preview=memory.text[:100],
-                    reason=DropReason.TOKEN_BUDGET,
-                    relevance_score=score,
-                    details=f"Max items reached: {constraints.max_items}",
-                ))
+                dropped.append(
+                    DroppedItem(
+                        memory_id=memory.id,
+                        text_preview=memory.text[:100],
+                        reason=DropReason.TOKEN_BUDGET,
+                        relevance_score=score,
+                        details=f"Max items reached: {constraints.max_items}",
+                    )
+                )
                 continue
 
             # Add to selected
-            mem_type = memory.type.value if hasattr(memory.type, 'value') else str(memory.type)
-            selected.append(SelectedItem(
-                memory_id=memory.id,
-                text=memory.text,
-                memory_type=mem_type,
-                relevance_score=score,
-                importance=memory.importance,
-                created_at=memory.created_at,
-                token_count=tokens,
-                tags=memory.tags,
-                metadata=memory.metadata,
-            ))
+            mem_type = memory.type.value if hasattr(memory.type, "value") else str(memory.type)
+            selected.append(
+                SelectedItem(
+                    memory_id=memory.id,
+                    text=memory.text,
+                    memory_type=mem_type,
+                    relevance_score=score,
+                    importance=memory.importance,
+                    created_at=memory.created_at,
+                    token_count=tokens,
+                    tags=memory.tags,
+                    metadata=memory.metadata,
+                )
+            )
             current_tokens += tokens
 
         return selected, dropped
@@ -399,7 +412,7 @@ class ContextAssembler:
 
         try:
             # Use existing summarizer if available
-            if hasattr(self.client, 'summarizer') and self.client.summarizer:
+            if hasattr(self.client, "summarizer") and self.client.summarizer:
                 # Simple summarization prompt
                 target_length = available_tokens * 4  # Rough chars estimate
                 prompt = f"Summarize in under {target_length} characters: {memory.text}"
@@ -410,7 +423,9 @@ class ContextAssembler:
 
                     tokens = self._estimate_tokens(summary)
                     if tokens <= available_tokens:
-                        mem_type = memory.type.value if hasattr(memory.type, 'value') else str(memory.type)
+                        mem_type = (
+                            memory.type.value if hasattr(memory.type, "value") else str(memory.type)
+                        )
                         return SelectedItem(
                             memory_id=memory.id,
                             text=f"[Summarized] {summary}",

@@ -341,14 +341,10 @@ class TestSchemaRegistry:
         schema_data = {
             "name": "json_schema",
             "version": "1.0.0",
-            "entity_types": [
-                {"name": "item", "attributes": []}
-            ],
+            "entity_types": [{"name": "item", "attributes": []}],
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(schema_data, f)
             f.flush()
 
@@ -361,10 +357,12 @@ class TestSchemaRegistry:
     def test_load_schema_from_dict(self) -> None:
         """Test loading schema from dictionary."""
         registry = SchemaRegistry()
-        schema = registry.load_schema_from_dict({
-            "name": "dict_schema",
-            "entity_types": [],
-        })
+        schema = registry.load_schema_from_dict(
+            {
+                "name": "dict_schema",
+                "entity_types": [],
+            }
+        )
 
         assert schema.name == "dict_schema"
         assert "dict_schema" in registry.list_schemas()

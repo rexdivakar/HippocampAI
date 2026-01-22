@@ -177,36 +177,37 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
 def __getattr__(name: str) -> Any:
     """Lazy loading for heavy imports to improve startup time."""
     import importlib
-    
+
     # Submodules - use importlib to avoid circular imports
     if name == "core":
         return importlib.import_module("hippocampai.core")
-    
+
     if name == "platform":
         return importlib.import_module("hippocampai.platform")
-    
+
     if name == "plugins":
         return importlib.import_module("hippocampai.plugins")
-    
+
     if name == "namespaces":
         return importlib.import_module("hippocampai.namespaces")
-    
+
     if name == "portability":
         return importlib.import_module("hippocampai.portability")
-    
+
     if name == "offline":
         return importlib.import_module("hippocampai.offline")
-    
+
     if name == "tiered":
         return importlib.import_module("hippocampai.tiered")
-    
+
     if name == "integrations":
         return importlib.import_module("hippocampai.integrations")
-    
+
     # Main clients
     if name == "MemoryClient":
         try:
             from hippocampai.client import MemoryClient
+
             return MemoryClient
         except ModuleNotFoundError as exc:
             raise ModuleNotFoundError(
@@ -216,11 +217,13 @@ def __getattr__(name: str) -> Any:
 
     if name == "UnifiedMemoryClient":
         from hippocampai.unified_client import UnifiedMemoryClient
+
         return UnifiedMemoryClient
 
     if name == "EnhancedMemoryClient":
         try:
             from hippocampai.enhanced_client import EnhancedMemoryClient
+
             return EnhancedMemoryClient
         except ModuleNotFoundError as exc:
             raise ModuleNotFoundError(
@@ -231,6 +234,7 @@ def __getattr__(name: str) -> Any:
     if name == "OptimizedMemoryClient":
         try:
             from hippocampai.optimized_client import OptimizedMemoryClient
+
             return OptimizedMemoryClient
         except ModuleNotFoundError as exc:
             raise ModuleNotFoundError(
@@ -241,6 +245,7 @@ def __getattr__(name: str) -> Any:
     if name == "AsyncMemoryClient":
         try:
             from hippocampai.async_client import AsyncMemoryClient
+
             return AsyncMemoryClient
         except ModuleNotFoundError as exc:
             raise ModuleNotFoundError(
@@ -251,119 +256,146 @@ def __getattr__(name: str) -> Any:
     # Configuration
     if name == "Config":
         from hippocampai.config import Config
+
         return Config
 
     if name == "get_config":
         from hippocampai.config import get_config
+
         return get_config
 
     # Telemetry
     if name == "get_telemetry":
         from hippocampai.telemetry import get_telemetry
+
         return get_telemetry
 
     if name == "OperationType":
         from hippocampai.telemetry import OperationType
+
         return OperationType
 
     # Session management
     if name == "SessionManager":
         from hippocampai.session import SessionManager
+
         return SessionManager
 
     # Graph
     if name == "MemoryGraph":
         from hippocampai.graph import MemoryGraph
+
         return MemoryGraph
 
     if name == "RelationType":
         from hippocampai.graph import RelationType
+
         return RelationType
 
     # Storage
     if name == "MemoryKVStore":
         from hippocampai.storage import MemoryKVStore
+
         return MemoryKVStore
 
     # Versioning
     if name == "MemoryVersionControl":
         from hippocampai.versioning import MemoryVersionControl
+
         return MemoryVersionControl
 
     if name == "MemoryVersion":
         from hippocampai.versioning import MemoryVersion
+
         return MemoryVersion
 
     if name == "AuditEntry":
         from hippocampai.versioning import AuditEntry
+
         return AuditEntry
 
     if name == "ChangeType":
         from hippocampai.versioning import ChangeType
+
         return ChangeType
 
     # Context injection
     if name == "ContextInjector":
         from hippocampai.utils.context_injection import ContextInjector
+
         return ContextInjector
 
     if name == "inject_context":
         from hippocampai.utils.context_injection import inject_context
+
         return inject_context
 
     # Multi-agent
     if name == "MultiAgentManager":
         from hippocampai.multiagent import MultiAgentManager
+
         return MultiAgentManager
 
     # SaaS automation (platform features)
     if name == "AutomationController":
         from hippocampai.saas.automation import AutomationController
+
         return AutomationController
 
     if name == "AutomationPolicy":
         from hippocampai.saas.automation import AutomationPolicy
+
         return AutomationPolicy
 
     if name == "AutomationSchedule":
         from hippocampai.saas.automation import AutomationSchedule
+
         return AutomationSchedule
 
     if name == "PolicyType":
         from hippocampai.saas.automation import PolicyType
+
         return PolicyType
 
     if name == "TaskManager":
         from hippocampai.saas.tasks import TaskManager
+
         return TaskManager
 
     if name == "TaskPriority":
         from hippocampai.saas.tasks import TaskPriority
+
         return TaskPriority
 
     if name == "TaskStatus":
         from hippocampai.saas.tasks import TaskStatus
+
         return TaskStatus
 
     if name == "BackgroundTask":
         from hippocampai.saas.tasks import BackgroundTask
+
         return BackgroundTask
 
     # Simplified API (mem0/zep compatible)
     if name == "SimpleMemory":
         from hippocampai.simple import Memory
+
         return Memory
 
     if name == "SimpleSession":
         from hippocampai.simple import Session
+
         return Session
 
     if name == "MemoryStore":
         from hippocampai.simple import MemoryStore
+
         return MemoryStore
 
     if name == "MemoryManager":
         from hippocampai.simple import MemoryManager
+
         return MemoryManager
 
     raise AttributeError(f"module 'hippocampai' has no attribute {name!r}")

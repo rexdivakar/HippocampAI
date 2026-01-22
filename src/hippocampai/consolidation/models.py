@@ -93,7 +93,11 @@ class ConsolidationDecision(BaseModel):
         json_schema_extra={
             "example": {
                 "promoted_facts": [
-                    {"id": "mem-123", "reason": "Important strategic decision", "new_importance": 8.5}
+                    {
+                        "id": "mem-123",
+                        "reason": "Important strategic decision",
+                        "new_importance": 8.5,
+                    }
                 ],
                 "low_value_memory_ids": ["mem-456", "mem-789"],
                 "updated_memories": [
@@ -190,7 +194,10 @@ class MemoryConsolidationFields(BaseModel):
                 "consolidation_run_id": "run-abc123",
                 "decay_factor": 0.95,
                 "promotion_count": 2,
-                "consolidation_metadata": {"promoted_reason": "Strategic importance", "cluster_id": "cluster-work"},
+                "consolidation_metadata": {
+                    "promoted_reason": "Strategic importance",
+                    "cluster_id": "cluster-work",
+                },
             }
         }
     )

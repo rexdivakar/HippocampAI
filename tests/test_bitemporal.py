@@ -107,28 +107,40 @@ class TestBiTemporalFact:
         )
 
         # Query interval overlaps
-        assert fact.overlaps_interval(
-            now - timedelta(days=25),
-            now - timedelta(days=15),
-        ) is True
+        assert (
+            fact.overlaps_interval(
+                now - timedelta(days=25),
+                now - timedelta(days=15),
+            )
+            is True
+        )
 
         # Query interval contains fact
-        assert fact.overlaps_interval(
-            now - timedelta(days=30),
-            now,
-        ) is True
+        assert (
+            fact.overlaps_interval(
+                now - timedelta(days=30),
+                now,
+            )
+            is True
+        )
 
         # Query interval before fact
-        assert fact.overlaps_interval(
-            now - timedelta(days=40),
-            now - timedelta(days=25),
-        ) is False
+        assert (
+            fact.overlaps_interval(
+                now - timedelta(days=40),
+                now - timedelta(days=25),
+            )
+            is False
+        )
 
         # Query interval after fact
-        assert fact.overlaps_interval(
-            now - timedelta(days=5),
-            now,
-        ) is False
+        assert (
+            fact.overlaps_interval(
+                now - timedelta(days=5),
+                now,
+            )
+            is False
+        )
 
 
 class TestBiTemporalQuery:

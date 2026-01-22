@@ -178,7 +178,7 @@ def test_benchmarks():
         sys.path.insert(0, str(bench_path.parent))
 
     from bench.data_generator import generate_memories, generate_queries
-    from bench.runner import run_benchmark, BenchmarkResult
+    from bench.runner import run_benchmark
 
     # Generate data
     memories = list(generate_memories(count=10, num_users=2))
@@ -210,8 +210,6 @@ def test_benchmarks():
 def test_api_endpoints():
     """Test API endpoints via HTTP."""
     print("\n=== Testing API Endpoints ===")
-
-    import json
 
     import httpx
 
@@ -277,19 +275,19 @@ def test_api_endpoints():
 def cleanup_test_collections():
     """Delete all test collections created during the test run."""
     print("\n=== Cleaning Up Test Collections ===")
-    
+
     try:
         from qdrant_client import QdrantClient
-        
+
         client = QdrantClient(url=QDRANT_URL)
-        
+
         for collection_name in _test_collections:
             try:
                 client.delete_collection(collection_name)
                 print(f"✓ Deleted collection: {collection_name}")
             except Exception as e:
                 print(f"✗ Failed to delete {collection_name}: {e}")
-        
+
         print(f"✓ Cleanup complete ({len(_test_collections)} collections)")
     except Exception as e:
         print(f"✗ Cleanup failed: {e}")

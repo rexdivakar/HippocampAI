@@ -85,9 +85,7 @@ class MaintenanceTask(BaseModel):
     success_count: int = 0
     failure_count: int = 0
     avg_duration_seconds: float = 0.0
-    config: dict[str, Any] = Field(
-        default_factory=dict, description="Task-specific configuration"
-    )
+    config: dict[str, Any] = Field(default_factory=dict, description="Task-specific configuration")
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -139,9 +137,7 @@ class HealingReport(BaseModel):
     memories_affected: int
     health_before: float = Field(ge=0.0, le=100.0)
     health_after: float = Field(ge=0.0, le=100.0)
-    improvements: dict[str, float] = Field(
-        default_factory=dict, description="Metrics before/after"
-    )
+    improvements: dict[str, float] = Field(default_factory=dict, description="Metrics before/after")
     summary: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -171,9 +167,7 @@ class ConsolidationResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     reversible: bool = True
-    original_data: Optional[dict[str, Any]] = Field(
-        None, description="Original data for reversal"
-    )
+    original_data: Optional[dict[str, Any]] = Field(None, description="Original data for reversal")
 
 
 class AutoHealingConfig(BaseModel):
@@ -204,6 +198,4 @@ class HealthImprovement(BaseModel):
     value_before: float
     value_after: float
     improvement_percent: float
-    is_improvement: bool = Field(
-        description="True if change is positive (depends on metric)"
-    )
+    is_improvement: bool = Field(description="True if change is positive (depends on metric)")

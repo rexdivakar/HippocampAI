@@ -607,7 +607,9 @@ class MemoryClient:
                 # Find semantically similar memories to check for conflicts
                 # This is more efficient and accurate than fetching all memories.
                 recalled_results = self.recall(query=memory.text, user_id=user_id, k=10)
-                other_memories = [res.memory for res in recalled_results if res.memory.id != memory.id]
+                other_memories = [
+                    res.memory for res in recalled_results if res.memory.id != memory.id
+                ]
 
                 # Detect conflicts with the newly stored memory
                 # Use LLM if available for better conflict detection
@@ -651,11 +653,18 @@ class MemoryClient:
                                 if resolution.updated_memory:
                                     try:
                                         # Prepare merged payload/vector first to reduce failure window
-                                        merged_collection = resolution.updated_memory.collection_name(
-                                            self.config.collection_facts, self.config.collection_prefs
+                                        merged_collection = (
+                                            resolution.updated_memory.collection_name(
+                                                self.config.collection_facts,
+                                                self.config.collection_prefs,
+                                            )
                                         )
-                                        merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
-                                        merged_payload = resolution.updated_memory.model_dump(mode="json")
+                                        merged_vector = self.embedder.encode_single(
+                                            resolution.updated_memory.text
+                                        )
+                                        merged_payload = resolution.updated_memory.model_dump(
+                                            mode="json"
+                                        )
 
                                         # Upsert merged memory first
                                         self.qdrant.upsert(
@@ -682,7 +691,9 @@ class MemoryClient:
                                             merge_strategy=resolution_strategy,
                                         )
                                     except Exception as merge_err:
-                                        logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
+                                        logger.error(
+                                            f"Auto-resolve merge failed, originals preserved: {merge_err}"
+                                        )
                                         # Do not delete originals if upsert failed
                                         # Optionally add conflict flags for manual review
 
@@ -1313,10 +1324,7 @@ class MemoryClient:
             if session_id_filter:
                 # If session_id is provided, use OR logic to match either user_id or session_id
                 qdrant_filters = {
-                    "should": [
-                        {"user_id": user_id},
-                        {"session_id": session_id_filter}
-                    ]
+                    "should": [{"user_id": user_id}, {"session_id": session_id_filter}]
                 }
             else:
                 qdrant_filters = {"user_id": user_id}
@@ -6383,8 +6391,7 @@ class MemoryClient:
         new_fact = store.revise_fact(revision, vector, user_id)
 
         logger.info(
-            f"Revised bi-temporal fact: {original_fact_id} -> {new_fact.id} "
-            f"(reason={reason})"
+            f"Revised bi-temporal fact: {original_fact_id} -> {new_fact.id} (reason={reason})"
         )
 
         return new_fact

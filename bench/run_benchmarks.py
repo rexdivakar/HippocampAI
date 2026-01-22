@@ -151,6 +151,7 @@ def main() -> int:
         logger.error(f"Benchmark failed: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

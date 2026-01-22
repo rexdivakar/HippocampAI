@@ -282,9 +282,7 @@ class SchemaRegistry:
         # Check for duplicates
         if schema.has_entity_type(entity_type.name):
             logger.warning(f"Replacing existing entity type: {entity_type.name}")
-            schema.entity_types = [
-                et for et in schema.entity_types if et.name != entity_type.name
-            ]
+            schema.entity_types = [et for et in schema.entity_types if et.name != entity_type.name]
 
         schema.entity_types.append(entity_type)
         logger.info(f"Added entity type '{entity_type.name}' to schema '{schema.name}'")
@@ -310,9 +308,7 @@ class SchemaRegistry:
             ]
 
         schema.relationship_types.append(relationship_type)
-        logger.info(
-            f"Added relationship type '{relationship_type.name}' to schema '{schema.name}'"
-        )
+        logger.info(f"Added relationship type '{relationship_type.name}' to schema '{schema.name}'")
 
     def export_schema(
         self,

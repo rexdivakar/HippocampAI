@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
@@ -66,11 +66,12 @@ results = TestResults()
 
 def test_wrapper(test_name: str):
     """Decorator to wrap tests with timing and error handling."""
+
     def decorator(func):
         def wrapper(*args, **kwargs):
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"Testing: {test_name}")
-            print('='*80)
+            print("=" * 80)
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
@@ -85,13 +86,16 @@ def test_wrapper(test_name: str):
                 print(f"Traceback: {traceback.format_exc()}")
                 results.add_fail(test_name, str(e))
                 return None
+
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # PART 1: CORE MEMORY OPERATIONS
 # ============================================================================
+
 
 @test_wrapper("1.1 Basic Memory Operations")
 def test_basic_memory_operations():
@@ -100,10 +104,7 @@ def test_basic_memory_operations():
 
     # Create
     memory = client.remember(
-        "Test memory for basic operations",
-        type="fact",
-        importance=7.0,
-        tags=["test", "basic"]
+        "Test memory for basic operations", type="fact", importance=7.0, tags=["test", "basic"]
     )
     assert memory.id is not None
     assert memory.text == "Test memory for basic operations"
@@ -115,11 +116,7 @@ def test_basic_memory_operations():
     print(f"  Recalled {len(recalled)} memories")
 
     # Update
-    updated = client.update_memory(
-        memory_id=memory.id,
-        text="Updated test memory",
-        importance=8.0
-    )
+    updated = client.update_memory(memory_id=memory.id, text="Updated test memory", importance=8.0)
     assert updated.text == "Updated test memory"
     assert updated.importance == 8.0
     print(f"  Updated memory: {memory.id}")
@@ -165,9 +162,7 @@ def test_session_management():
     # Track messages
     for i in range(5):
         client.track_session_message(
-            session_id=session.id,
-            message=f"Test message {i}",
-            role="user"
+            session_id=session.id, message=f"Test message {i}", role="user"
         )
     print("  Tracked 5 messages")
 
@@ -189,6 +184,7 @@ def test_session_management():
 # PART 2: COLLABORATION FEATURES
 # ============================================================================
 
+
 @test_wrapper("2.1 Shared Memory Spaces")
 def test_shared_spaces():
     """Test shared memory space creation and management."""
@@ -205,7 +201,7 @@ def test_shared_spaces():
         name="Test Collaboration Space",
         owner_agent_id=agent1.id,
         description="Space for testing",
-        tags=["test"]
+        tags=["test"],
     )
     assert space.id is not None
     assert space.owner_agent_id == agent1.id
@@ -216,7 +212,7 @@ def test_shared_spaces():
         space_id=space.id,
         agent_id=agent2.id,
         permissions=[PermissionType.READ, PermissionType.WRITE],
-        inviter_id=agent1.id
+        inviter_id=agent1.id,
     )
     assert success is True
     print(f"  Added collaborator: {agent2.id[:8]}...")
@@ -276,9 +272,7 @@ def test_notifications():
     agent2 = client.create_agent("Agent 2", role="assistant")
 
     space = collab_manager.create_space("Notif Space", owner_agent_id=agent1.id)
-    collab_manager.add_collaborator(
-        space.id, agent2.id, [PermissionType.READ], agent1.id
-    )
+    collab_manager.add_collaborator(space.id, agent2.id, [PermissionType.READ], agent1.id)
 
     # Check notifications
     notifications = collab_manager.get_notifications(agent2.id)
@@ -300,6 +294,7 @@ def test_notifications():
 # PART 3: PREDICTIVE ANALYTICS
 # ============================================================================
 
+
 @test_wrapper("3.1 Pattern Detection")
 def test_pattern_detection():
     """Test temporal pattern detection."""
@@ -310,9 +305,7 @@ def test_pattern_detection():
     for i in range(15):
         date = datetime.now() - timedelta(days=i)
         client.remember(
-            f"Daily memory {i}",
-            type="habit",
-            metadata={"created_at": date.isoformat()}
+            f"Daily memory {i}", type="habit", metadata={"created_at": date.isoformat()}
         )
 
     memories = client.get_memories()
@@ -343,9 +336,7 @@ def test_anomaly_detection():
 
     memories = client.get_memories()
     anomalies = predictive.detect_anomalies(
-        user_id=client.user_id,
-        memories=memories,
-        lookback_days=30
+        user_id=client.user_id, memories=memories, lookback_days=30
     )
 
     print(f"  Detected {len(anomalies)} anomal(ies)")
@@ -368,9 +359,7 @@ def test_recommendations():
 
     memories = client.get_memories()
     recommendations = predictive.generate_recommendations(
-        user_id=client.user_id,
-        memories=memories,
-        max_recommendations=5
+        user_id=client.user_id, memories=memories, max_recommendations=5
     )
 
     print(f"  Generated {len(recommendations)} recommendation(s)")
@@ -391,9 +380,7 @@ def test_forecasting():
     for i in range(30):
         date = datetime.now() - timedelta(days=i)
         client.remember(
-            f"Historical memory {i}",
-            type="fact",
-            metadata={"created_at": date.isoformat()}
+            f"Historical memory {i}", type="fact", metadata={"created_at": date.isoformat()}
         )
 
     memories = client.get_memories()
@@ -401,7 +388,7 @@ def test_forecasting():
         user_id=client.user_id,
         memories=memories,
         metric=ForecastMetric.ACTIVITY_LEVEL,
-        horizon=ForecastHorizon.NEXT_WEEK
+        horizon=ForecastHorizon.NEXT_WEEK,
     )
 
     assert forecast.predicted_value >= 0
@@ -415,6 +402,7 @@ def test_forecasting():
 # ============================================================================
 # PART 4: AUTO-HEALING
 # ============================================================================
+
 
 @test_wrapper("4.1 Health Monitoring")
 def test_health_monitoring():
@@ -430,7 +418,7 @@ def test_health_monitoring():
             type="fact",
             importance=5.0 + i % 5,
             tags=[f"tag_{i % 3}"],
-            confidence=0.7 + (i % 3) * 0.1
+            confidence=0.7 + (i % 3) * 0.1,
         )
 
     memories = client.get_memories()
@@ -465,7 +453,7 @@ def test_auto_cleanup():
             type="fact",
             importance=3.0,
             confidence=0.4,
-            metadata={"created_at": old_date.isoformat()}
+            metadata={"created_at": old_date.isoformat()},
         )
 
     # Create fresh memories
@@ -476,15 +464,12 @@ def test_auto_cleanup():
         user_id=client.user_id,
         auto_cleanup_enabled=True,
         cleanup_threshold_days=90,
-        max_actions_per_run=50
+        max_actions_per_run=50,
     )
 
     memories = client.get_memories()
     report = healing_engine.auto_cleanup(
-        user_id=client.user_id,
-        memories=memories,
-        config=config,
-        dry_run=True
+        user_id=client.user_id, memories=memories, config=config, dry_run=True
     )
 
     print(f"  Actions recommended: {len(report.actions_recommended)}")
@@ -506,9 +491,7 @@ def test_duplicate_detection():
     # Create duplicates
     for i in range(3):
         client.remember(
-            "I prefer coffee over tea in the morning",
-            type="preference",
-            importance=6.0
+            "I prefer coffee over tea in the morning", type="preference", importance=6.0
         )
 
     # Create unique memories
@@ -517,9 +500,7 @@ def test_duplicate_detection():
 
     memories = client.get_memories()
     clusters = health_monitor.detect_duplicate_clusters(
-        memories,
-        cluster_type="soft",
-        min_cluster_size=2
+        memories, cluster_type="soft", min_cluster_size=2
     )
 
     print(f"  Detected {len(clusters)} duplicate cluster(s)")
@@ -545,7 +526,7 @@ def test_auto_tagging():
         mem = client.remember(
             "This is about work and meetings at the office",
             type="fact",
-            tags=[]  # No tags
+            tags=[],  # No tags
         )
         memories.append(mem)
 
@@ -553,7 +534,7 @@ def test_auto_tagging():
 
     print(f"  Generated {len(tag_actions)} tag suggestion(s)")
     for action in tag_actions[:3]:
-        suggested = action.metadata.get('suggested_tags', [])
+        suggested = action.metadata.get("suggested_tags", [])
         print(f"    - Suggest: {suggested}")
 
     return True
@@ -562,6 +543,7 @@ def test_auto_tagging():
 # ============================================================================
 # PART 5: SAAS MODE & AUTHENTICATION
 # ============================================================================
+
 
 @test_wrapper("5.1 Simple API Compatibility (mem0)")
 def test_simple_api():
@@ -585,7 +567,7 @@ def test_simple_api():
         print(f"  Retrieved all: {len(all_memories)} memories")
 
         # Test delete
-        delete_result = simple.delete(result['id'])
+        delete_result = simple.delete(result["id"])
         print(f"  Deleted: {delete_result}")
 
         return True
@@ -628,6 +610,7 @@ def test_multi_user_isolation():
 # PART 6: MEMORY USAGE & PERFORMANCE
 # ============================================================================
 
+
 @test_wrapper("6.1 Memory Usage Analysis")
 def test_memory_usage():
     """Test memory usage under load."""
@@ -641,7 +624,7 @@ def test_memory_usage():
             f"Memory {i} with some content to test memory usage",
             type="fact",
             importance=5.0 + (i % 5),
-            tags=[f"tag_{i % 10}"]
+            tags=[f"tag_{i % 10}"],
         )
 
     # Get current memory usage
@@ -711,13 +694,13 @@ def test_large_dataset():
             f"Large dataset memory {i} with some additional content",
             type="fact",
             importance=5.0 + (i % 10),
-            tags=[f"tag_{i % 20}"]
+            tags=[f"tag_{i % 20}"],
         )
 
         if (i + 1) % 100 == 0:
             elapsed = time.time() - start
             rate = (i + 1) / elapsed
-            print(f"    Progress: {i+1}/500 ({rate:.1f} ops/sec)")
+            print(f"    Progress: {i + 1}/500 ({rate:.1f} ops/sec)")
 
     total_time = time.time() - start
     total_rate = 500 / total_time
@@ -741,6 +724,7 @@ def test_large_dataset():
 # ============================================================================
 # PART 7: ERROR HANDLING & EDGE CASES
 # ============================================================================
+
 
 @test_wrapper("7.1 Error Handling")
 def test_error_handling():
@@ -819,77 +803,78 @@ def test_concurrent_operations():
 # TEST RUNNER
 # ============================================================================
 
+
 def run_all_tests():
     """Run all tests and generate report."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("HIPPOCAMPAI COMPREHENSIVE TEST SUITE")
-    print("="*80)
+    print("=" * 80)
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     start_time = time.time()
 
     # Part 1: Core Operations
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 1: CORE MEMORY OPERATIONS")
-    print("█"*80)
+    print("█" * 80)
     test_basic_memory_operations()
     test_batch_operations()
     test_session_management()
 
     # Part 2: Collaboration
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 2: COLLABORATION FEATURES")
-    print("█"*80)
+    print("█" * 80)
     test_shared_spaces()
     test_collaboration_events()
     test_notifications()
 
     # Part 3: Predictive Analytics
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 3: PREDICTIVE ANALYTICS")
-    print("█"*80)
+    print("█" * 80)
     test_pattern_detection()
     test_anomaly_detection()
     test_recommendations()
     test_forecasting()
 
     # Part 4: Auto-Healing
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 4: AUTO-HEALING SYSTEM")
-    print("█"*80)
+    print("█" * 80)
     test_health_monitoring()
     test_auto_cleanup()
     test_duplicate_detection()
     test_auto_tagging()
 
     # Part 5: SaaS Mode
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 5: SAAS MODE & COMPATIBILITY")
-    print("█"*80)
+    print("█" * 80)
     test_simple_api()
     test_multi_user_isolation()
 
     # Part 6: Performance
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 6: MEMORY USAGE & PERFORMANCE")
-    print("█"*80)
+    print("█" * 80)
     test_memory_usage()
     test_performance()
     test_large_dataset()
 
     # Part 7: Error Handling
-    print("\n\n" + "█"*80)
+    print("\n\n" + "█" * 80)
     print("PART 7: ERROR HANDLING & EDGE CASES")
-    print("█"*80)
+    print("█" * 80)
     test_error_handling()
     test_concurrent_operations()
 
     total_time = time.time() - start_time
 
     # Generate Report
-    print("\n\n" + "="*80)
+    print("\n\n" + "=" * 80)
     print("TEST RESULTS SUMMARY")
-    print("="*80)
+    print("=" * 80)
 
     total_tests = len(results.passed) + len(results.failed) + len(results.skipped)
     pass_rate = (len(results.passed) / total_tests * 100) if total_tests > 0 else 0
@@ -902,34 +887,34 @@ def run_all_tests():
     print(f"\nTotal Duration: {total_time:.2f}s")
 
     if results.failed:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("FAILED TESTS")
-        print("="*80)
+        print("=" * 80)
         for failed in results.failed:
             print(f"\n❌ {failed['name']}")
             print(f"   Error: {failed['error']}")
 
     if results.warnings:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("WARNINGS")
-        print("="*80)
+        print("=" * 80)
         for warning in results.warnings:
             print(f"\n⚠️  {warning['name']}")
             print(f"   Warning: {warning['warning']}")
 
     if results.performance_metrics:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PERFORMANCE METRICS")
-        print("="*80)
+        print("=" * 80)
         for metric, value in results.performance_metrics.items():
             if isinstance(value, float):
                 print(f"  {metric}: {value:.2f}")
             else:
                 print(f"  {metric}: {value}")
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*80)
+    print("=" * 80)
 
     return results
 

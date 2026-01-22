@@ -407,10 +407,10 @@ class UnifiedMemoryClient:
     ) -> dict[str, Any]:
         """
         Compact and consolidate conversation memories.
-        
+
         This analyzes conversation memories, clusters them by topic/time,
         and creates concise summaries while preserving key facts.
-        
+
         Args:
             user_id: User identifier
             session_id: Optional session filter
@@ -419,7 +419,7 @@ class UnifiedMemoryClient:
             dry_run: If True, preview without making changes
             memory_types: Optional list of memory types to compact
                          (e.g., ["fact", "event", "context"])
-            
+
         Returns:
             CompactionResult dictionary with:
             - metrics: Token counts, compression ratio, storage saved
@@ -429,7 +429,7 @@ class UnifiedMemoryClient:
             - actions: Detailed list of actions taken
         """
         from hippocampai.consolidation.compactor import ConversationCompactor
-        
+
         compactor = ConversationCompactor(qdrant_url=self._backend.qdrant_url)
         result = compactor.compact_conversations(
             user_id=user_id,

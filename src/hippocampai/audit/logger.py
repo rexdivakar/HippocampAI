@@ -362,9 +362,7 @@ class AuditLogger:
 
         if query.min_severity:
             min_order = self.SEVERITY_ORDER[query.min_severity]
-            filtered = [
-                e for e in filtered if self.SEVERITY_ORDER[e.severity] >= min_order
-            ]
+            filtered = [e for e in filtered if self.SEVERITY_ORDER[e.severity] >= min_order]
 
         if query.resource_type:
             filtered = [e for e in filtered if e.resource_type == query.resource_type]

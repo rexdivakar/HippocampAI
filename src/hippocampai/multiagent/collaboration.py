@@ -170,7 +170,9 @@ class CollaborationManager:
 
         # Check if inviter has permission to add collaborators
         if not space.has_permission(inviter_id, PermissionType.SHARE):
-            logger.warning(f"Agent {inviter_id} lacks permission to add collaborators to {space_id}")
+            logger.warning(
+                f"Agent {inviter_id} lacks permission to add collaborators to {space_id}"
+            )
             return False
 
         space.add_collaborator(agent_id, permissions)
@@ -270,9 +272,7 @@ class CollaborationManager:
 
     # === MEMORY MANAGEMENT IN SPACES ===
 
-    def add_memory_to_space(
-        self, space_id: str, memory_id: str, agent_id: str
-    ) -> bool:
+    def add_memory_to_space(self, space_id: str, memory_id: str, agent_id: str) -> bool:
         """Add a memory to a shared space."""
         space = self.spaces.get(space_id)
         if not space:
@@ -305,9 +305,7 @@ class CollaborationManager:
 
         return True
 
-    def update_memory_in_space(
-        self, space_id: str, memory_id: str, agent_id: str
-    ) -> bool:
+    def update_memory_in_space(self, space_id: str, memory_id: str, agent_id: str) -> bool:
         """Update a memory in a shared space."""
         space = self.spaces.get(space_id)
         if not space or memory_id not in space.memory_ids:
@@ -338,9 +336,7 @@ class CollaborationManager:
 
         return True
 
-    def remove_memory_from_space(
-        self, space_id: str, memory_id: str, agent_id: str
-    ) -> bool:
+    def remove_memory_from_space(self, space_id: str, memory_id: str, agent_id: str) -> bool:
         """Remove a memory from a shared space."""
         space = self.spaces.get(space_id)
         if not space or memory_id not in space.memory_ids:

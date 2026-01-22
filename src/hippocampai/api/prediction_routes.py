@@ -1,6 +1,5 @@
 """REST API routes for predictive analytics."""
 
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -19,6 +18,7 @@ predictive_engine = PredictiveAnalyticsEngine(temporal_analytics)
 # ============================================================================
 # REQUEST/RESPONSE MODELS
 # ============================================================================
+
 
 class PredictionRequest(BaseModel):
     user_id: str
@@ -45,6 +45,7 @@ class ForecastRequest(BaseModel):
 # PATTERN DETECTION
 # ============================================================================
 
+
 @router.post("/patterns")
 async def detect_patterns(request: PredictionRequest):
     """Detect temporal patterns in memories."""
@@ -55,8 +56,7 @@ async def detect_patterns(request: PredictionRequest):
 
         # Detect patterns
         patterns = temporal_analytics.detect_temporal_patterns(
-            memories=memories,
-            min_occurrences=request.min_occurrences
+            memories=memories, min_occurrences=request.min_occurrences
         )
 
         return {
@@ -68,11 +68,13 @@ async def detect_patterns(request: PredictionRequest):
                     "confidence": pattern.confidence,
                     "regularity_score": pattern.regularity_score,
                     "occurrences_count": len(pattern.occurrences),
-                    "next_predicted": pattern.next_predicted.isoformat() if pattern.next_predicted else None
+                    "next_predicted": pattern.next_predicted.isoformat()
+                    if pattern.next_predicted
+                    else None,
                 }
                 for pattern in patterns
             ],
-            "count": len(patterns)
+            "count": len(patterns),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -90,21 +92,19 @@ async def predict_next_occurrence(request: PredictionRequest):
         predictions = []
         for pattern in patterns:
             prediction = predictive_engine.predict_next_occurrence(
-                user_id=request.user_id,
-                pattern=pattern
+                user_id=request.user_id, pattern=pattern
             )
-            predictions.append({
-                "prediction_type": prediction.prediction_type.value,
-                "predicted_datetime": prediction.predicted_datetime.isoformat(),
-                "confidence": prediction.confidence,
-                "factors": prediction.factors,
-                "recommendation": prediction.recommendation
-            })
+            predictions.append(
+                {
+                    "prediction_type": prediction.prediction_type.value,
+                    "predicted_datetime": prediction.predicted_datetime.isoformat(),
+                    "confidence": prediction.confidence,
+                    "factors": prediction.factors,
+                    "recommendation": prediction.recommendation,
+                }
+            )
 
-        return {
-            "predictions": predictions,
-            "count": len(predictions)
-        }
+        return {"predictions": predictions, "count": len(predictions)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -112,6 +112,7 @@ async def predict_next_occurrence(request: PredictionRequest):
 # ============================================================================
 # ANOMALY DETECTION
 # ============================================================================
+
 
 @router.post("/anomalies")
 async def detect_anomalies(request: AnomalyRequest):
@@ -121,9 +122,7 @@ async def detect_anomalies(request: AnomalyRequest):
         memories = client.get_memories(user_id=request.user_id)
 
         anomalies = predictive_engine.detect_anomalies(
-            user_id=request.user_id,
-            memories=memories,
-            lookback_days=request.lookback_days
+            user_id=request.user_id, memories=memories, lookback_days=request.lookback_days
         )
 
         return {
@@ -137,11 +136,11 @@ async def detect_anomalies(request: AnomalyRequest):
                     "expected_behavior": anomaly.expected_behavior,
                     "actual_behavior": anomaly.actual_behavior,
                     "suggestions": anomaly.suggestions,
-                    "detected_at": anomaly.detected_at.isoformat()
+                    "detected_at": anomaly.detected_at.isoformat(),
                 }
                 for anomaly in anomalies
             ],
-            "count": len(anomalies)
+            "count": len(anomalies),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -150,6 +149,7 @@ async def detect_anomalies(request: AnomalyRequest):
 # ============================================================================
 # RECOMMENDATIONS
 # ============================================================================
+
 
 @router.post("/recommendations")
 async def generate_recommendations(request: RecommendationRequest):
@@ -161,7 +161,7 @@ async def generate_recommendations(request: RecommendationRequest):
         recommendations = predictive_engine.generate_recommendations(
             user_id=request.user_id,
             memories=memories,
-            max_recommendations=request.max_recommendations
+            max_recommendations=request.max_recommendations,
         )
 
         return {
@@ -174,11 +174,11 @@ async def generate_recommendations(request: RecommendationRequest):
                     "reason": rec.reason,
                     "action": rec.action,
                     "confidence": rec.confidence,
-                    "created_at": rec.created_at.isoformat()
+                    "created_at": rec.created_at.isoformat(),
                 }
                 for rec in recommendations
             ],
-            "count": len(recommendations)
+            "count": len(recommendations),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -187,6 +187,7 @@ async def generate_recommendations(request: RecommendationRequest):
 # ============================================================================
 # FORECASTING
 # ============================================================================
+
 
 @router.post("/forecast")
 async def forecast_metric(request: ForecastRequest):
@@ -200,10 +201,7 @@ async def forecast_metric(request: ForecastRequest):
         horizon = ForecastHorizon(request.horizon)
 
         forecast = predictive_engine.forecast_metric(
-            user_id=request.user_id,
-            memories=memories,
-            metric=metric,
-            horizon=horizon
+            user_id=request.user_id, memories=memories, metric=metric, horizon=horizon
         )
 
         return {
@@ -213,17 +211,13 @@ async def forecast_metric(request: ForecastRequest):
             "predicted_value": forecast.predicted_value,
             "confidence_interval": {
                 "lower": forecast.confidence_interval[0],
-                "upper": forecast.confidence_interval[1]
+                "upper": forecast.confidence_interval[1],
             },
             "confidence": forecast.confidence,
             "method": forecast.method,
             "historical_data": [
-                {
-                    "date": dt.isoformat(),
-                    "value": val
-                }
-                for dt, val in forecast.historical_data
-            ]
+                {"date": dt.isoformat(), "value": val} for dt, val in forecast.historical_data
+            ],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -233,6 +227,7 @@ async def forecast_metric(request: ForecastRequest):
 # INSIGHTS
 # ============================================================================
 
+
 @router.post("/insights")
 async def generate_insights(request: PredictionRequest):
     """Generate predictive insights."""
@@ -241,8 +236,7 @@ async def generate_insights(request: PredictionRequest):
         memories = client.get_memories(user_id=request.user_id)
 
         insights = predictive_engine.generate_predictive_insights(
-            user_id=request.user_id,
-            memories=memories
+            user_id=request.user_id, memories=memories
         )
 
         return {
@@ -255,11 +249,11 @@ async def generate_insights(request: PredictionRequest):
                     "evidence": insight.evidence,
                     "confidence": insight.confidence,
                     "impact": insight.impact,
-                    "created_at": insight.created_at.isoformat()
+                    "created_at": insight.created_at.isoformat(),
                 }
                 for insight in insights
             ],
-            "count": len(insights)
+            "count": len(insights),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -269,6 +263,7 @@ async def generate_insights(request: PredictionRequest):
 # PEAK ACTIVITY ANALYSIS
 # ============================================================================
 
+
 @router.post("/activity/peaks")
 async def analyze_peak_activity(user_id: str, timezone_offset: int = 0):
     """Analyze peak activity times."""
@@ -277,8 +272,7 @@ async def analyze_peak_activity(user_id: str, timezone_offset: int = 0):
         memories = client.get_memories(user_id=user_id)
 
         analysis = temporal_analytics.analyze_peak_activity(
-            memories=memories,
-            timezone_offset=timezone_offset
+            memories=memories, timezone_offset=timezone_offset
         )
 
         return {
@@ -287,7 +281,7 @@ async def analyze_peak_activity(user_id: str, timezone_offset: int = 0):
             "peak_time_period": analysis.peak_time_period.value,
             "hourly_distribution": analysis.hourly_distribution,
             "daily_distribution": analysis.daily_distribution,
-            "time_period_distribution": analysis.time_period_distribution
+            "time_period_distribution": analysis.time_period_distribution,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -297,21 +291,16 @@ async def analyze_peak_activity(user_id: str, timezone_offset: int = 0):
 # TREND ANALYSIS
 # ============================================================================
 
+
 @router.post("/trends")
-async def analyze_trends(
-    user_id: str,
-    time_window_days: int = 30,
-    metric: str = "activity"
-):
+async def analyze_trends(user_id: str, time_window_days: int = 30, metric: str = "activity"):
     """Analyze trends over time."""
     try:
         client = MemoryClient()
         memories = client.get_memories(user_id=user_id)
 
         trend = temporal_analytics.analyze_trends(
-            memories=memories,
-            time_window_days=time_window_days,
-            metric=metric
+            memories=memories, time_window_days=time_window_days, metric=metric
         )
 
         return {
@@ -323,12 +312,8 @@ async def analyze_trends(
             "current_value": trend.current_value,
             "forecast": trend.forecast,
             "historical_values": [
-                {
-                    "date": dt.isoformat(),
-                    "value": val
-                }
-                for dt, val in trend.historical_values
-            ]
+                {"date": dt.isoformat(), "value": val} for dt, val in trend.historical_values
+            ],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -66,7 +66,7 @@ from typing import Any, Dict, List
 
 # Add local source to path if needed
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-_src_dir = os.path.join(os.path.dirname(_script_dir), 'src')
+_src_dir = os.path.join(os.path.dirname(_script_dir), "src")
 if os.path.exists(_src_dir) and _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 
@@ -104,7 +104,7 @@ class GroqHippocampAIChat:
         session_id: str = None,
         base_url: str = None,
         qdrant_url: str = None,
-        redis_url: str = None
+        redis_url: str = None,
     ):
         """Initialize the chat system.
 
@@ -135,21 +135,21 @@ class GroqHippocampAIChat:
                 # Remote mode - using HippocampAI SaaS
                 api_key = os.getenv("HIPPOCAMPAI_API_KEY")
                 self.memory_client = UnifiedMemoryClient(
-                    mode="remote",
-                    api_url=base_url,
-                    api_key=api_key
+                    mode="remote", api_url=base_url, api_key=api_key
                 )
                 self.console.print(f"[green]✓ HippocampAI connected to {base_url}[/green]")
             else:
                 # Local mode - direct connection to Qdrant/Redis
                 local_kwargs = {}
                 if qdrant_url:
-                    local_kwargs['qdrant_url'] = qdrant_url
+                    local_kwargs["qdrant_url"] = qdrant_url
                 if redis_url:
-                    local_kwargs['redis_url'] = redis_url
+                    local_kwargs["redis_url"] = redis_url
 
                 self.memory_client = UnifiedMemoryClient(mode="local", **local_kwargs)
-                self.console.print("[green]✓ HippocampAI memory system initialized (local mode)[/green]")
+                self.console.print(
+                    "[green]✓ HippocampAI memory system initialized (local mode)[/green]"
+                )
 
         except Exception as e:
             self.console.print(f"[red]Error initializing HippocampAI: {e}[/red]")
@@ -170,36 +170,84 @@ class GroqHippocampAIChat:
 
         # Fact patterns (identity, personal information, statements)
         fact_patterns = [
-            "my name is", "i'm", "i am", "call me", "i work", "i live",
-            "my job", "my age", "my birthday", "i have", "i own",
-            "i was born", "i graduated", "my address", "my email"
+            "my name is",
+            "i'm",
+            "i am",
+            "call me",
+            "i work",
+            "i live",
+            "my job",
+            "my age",
+            "my birthday",
+            "i have",
+            "i own",
+            "i was born",
+            "i graduated",
+            "my address",
+            "my email",
         ]
 
         # Preference patterns (likes, dislikes, opinions)
         preference_patterns = [
-            "i like", "i love", "i prefer", "i enjoy", "i hate",
-            "i dislike", "my favorite", "i'd rather", "i don't like",
-            "i appreciate", "i fancy", "i'm fond of"
+            "i like",
+            "i love",
+            "i prefer",
+            "i enjoy",
+            "i hate",
+            "i dislike",
+            "my favorite",
+            "i'd rather",
+            "i don't like",
+            "i appreciate",
+            "i fancy",
+            "i'm fond of",
         ]
 
         # Goal patterns (intentions, aspirations, plans)
         goal_patterns = [
-            "i want to", "i plan to", "my goal is", "i hope to",
-            "i aim to", "i intend to", "i wish to", "i'd like to",
-            "i need to", "i should", "i will", "going to"
+            "i want to",
+            "i plan to",
+            "my goal is",
+            "i hope to",
+            "i aim to",
+            "i intend to",
+            "i wish to",
+            "i'd like to",
+            "i need to",
+            "i should",
+            "i will",
+            "going to",
         ]
 
         # Habit patterns (routines, regular activities)
         habit_patterns = [
-            "i usually", "i always", "i often", "i regularly",
-            "every day", "every week", "every morning", "every night",
-            "i tend to", "i typically", "my routine", "i never"
+            "i usually",
+            "i always",
+            "i often",
+            "i regularly",
+            "every day",
+            "every week",
+            "every morning",
+            "every night",
+            "i tend to",
+            "i typically",
+            "my routine",
+            "i never",
         ]
 
         # Event patterns (specific occurrences, meetings, happenings)
         event_patterns = [
-            "happened", "occurred", "took place", "yesterday", "last week",
-            "last month", "ago", "meeting", "appointment", "on", "at"
+            "happened",
+            "occurred",
+            "took place",
+            "yesterday",
+            "last week",
+            "last month",
+            "ago",
+            "meeting",
+            "appointment",
+            "on",
+            "at",
         ]
 
         # Check patterns in order of specificity
@@ -248,8 +296,8 @@ class GroqHippocampAIChat:
                     "type": "context",  # Pass type in metadata, not as parameter
                     "timestamp": datetime.now().isoformat(),
                     "user_message": user_message,
-                    "assistant_message": assistant_message
-                }
+                    "assistant_message": assistant_message,
+                },
             )
 
             # Detect memory type for the user message
@@ -266,10 +314,12 @@ class GroqHippocampAIChat:
                     metadata={
                         "type": detected_type,  # Pass type in metadata
                         "timestamp": datetime.now().isoformat(),
-                        "context": assistant_message[:200]
-                    }
+                        "context": assistant_message[:200],
+                    },
                 )
-                self.console.print(f"[dim]📝 Automatically detected and stored {detected_type} memory[/dim]")
+                self.console.print(
+                    f"[dim]📝 Automatically detected and stored {detected_type} memory[/dim]"
+                )
 
         except Exception as e:
             self.console.print(f"[yellow]Warning: Failed to store memory: {e}[/yellow]")
@@ -289,15 +339,19 @@ class GroqHippocampAIChat:
                 query=query,
                 user_id=self.user_id,
                 session_id=self.session_id,  # Also filter by session_id
-                limit=limit
+                limit=limit,
             )
             # Convert RetrievalResult objects to dicts if needed
-            if results and hasattr(results[0], '__dict__'):
+            if results and hasattr(results[0], "__dict__"):
                 return [
                     {
-                        'text': r.memory.text if hasattr(r, 'memory') and r.memory else (r.text if hasattr(r, 'text') else str(r)),
-                        'score': r.score if hasattr(r, 'score') else 1.0,
-                        'metadata': r.memory.metadata if hasattr(r, 'memory') and r.memory else (r.metadata if hasattr(r, 'metadata') else {})
+                        "text": r.memory.text
+                        if hasattr(r, "memory") and r.memory
+                        else (r.text if hasattr(r, "text") else str(r)),
+                        "score": r.score if hasattr(r, "score") else 1.0,
+                        "metadata": r.memory.metadata
+                        if hasattr(r, "memory") and r.memory
+                        else (r.metadata if hasattr(r, "metadata") else {}),
                     }
                     for r in results
                 ]
@@ -323,9 +377,9 @@ class GroqHippocampAIChat:
         context_parts = ["Here's what I remember about our conversations:"]
 
         for i, memory in enumerate(memories, 1):
-            mem_text = memory.get('text', '')
-            mem_metadata = memory.get('metadata', {})
-            mem_type = mem_metadata.get('type', 'memory')
+            mem_text = memory.get("text", "")
+            mem_metadata = memory.get("metadata", {})
+            mem_type = mem_metadata.get("type", "memory")
             context_parts.append(f"{i}. [{mem_type}] {mem_text}")
 
         return "\n".join(context_parts) + "\n\n"
@@ -404,23 +458,19 @@ class GroqHippocampAIChat:
         """
         try:
             # Use recall with empty query to get recent memories
-            results = self.memory_client.recall(
-                query="",
-                user_id=self.user_id,
-                limit=limit
-            )
+            results = self.memory_client.recall(query="", user_id=self.user_id, limit=limit)
 
             if not results:
                 self.console.print("[yellow]No memories found[/yellow]")
                 return
 
             # Convert to list of dicts if needed
-            if results and hasattr(results[0], '__dict__'):
+            if results and hasattr(results[0], "__dict__"):
                 memories = [
                     {
-                        'text': r.text if hasattr(r, 'text') else str(r),
-                        'metadata': r.metadata if hasattr(r, 'metadata') else {},
-                        'score': r.score if hasattr(r, 'score') else 0
+                        "text": r.text if hasattr(r, "text") else str(r),
+                        "metadata": r.metadata if hasattr(r, "metadata") else {},
+                        "score": r.score if hasattr(r, "score") else 0,
                     }
                     for r in results
                 ]
@@ -433,14 +483,14 @@ class GroqHippocampAIChat:
             table.add_column("Score", style="yellow")
 
             for memory in memories:
-                mem_metadata = memory.get('metadata', {})
-                mem_type = mem_metadata.get('type', 'memory')
-                mem_text = memory.get('text', '')
+                mem_metadata = memory.get("metadata", {})
+                mem_type = mem_metadata.get("type", "memory")
+                mem_text = memory.get("text", "")
 
                 table.add_row(
                     mem_type,
-                    mem_text[:100] + ('...' if len(mem_text) > 100 else ''),
-                    f"{memory.get('score', 0):.2f}"
+                    mem_text[:100] + ("..." if len(mem_text) > 100 else ""),
+                    f"{memory.get('score', 0):.2f}",
                 )
 
             self.console.print(table)
@@ -460,12 +510,12 @@ class GroqHippocampAIChat:
                 return
 
             # Convert to list of dicts if needed
-            if results and hasattr(results[0], '__dict__'):
+            if results and hasattr(results[0], "__dict__"):
                 memories = [
                     {
-                        'text': r.text if hasattr(r, 'text') else str(r),
-                        'metadata': r.metadata if hasattr(r, 'metadata') else {},
-                        'score': r.score if hasattr(r, 'score') else 0
+                        "text": r.text if hasattr(r, "text") else str(r),
+                        "metadata": r.metadata if hasattr(r, "metadata") else {},
+                        "score": r.score if hasattr(r, "score") else 0,
                     }
                     for r in results
                 ]
@@ -475,20 +525,22 @@ class GroqHippocampAIChat:
             self.console.print(f"\n[green]Found {len(memories)} matching memories:[/green]\n")
 
             for i, memory in enumerate(memories, 1):
-                mem_metadata = memory.get('metadata', {})
-                mem_type = mem_metadata.get('type', 'memory')
-                mem_text = memory.get('text', '')
-                mem_tags = mem_metadata.get('tags', [])
-                mem_score = memory.get('score', 0)
+                mem_metadata = memory.get("metadata", {})
+                mem_type = mem_metadata.get("type", "memory")
+                mem_text = memory.get("text", "")
+                mem_tags = mem_metadata.get("tags", [])
+                mem_score = memory.get("score", 0)
 
-                self.console.print(Panel(
-                    f"[cyan]Type:[/cyan] {mem_type}\n"
-                    f"[cyan]Text:[/cyan] {mem_text}\n"
-                    f"[cyan]Score:[/cyan] {mem_score:.2f}\n"
-                    f"[cyan]Tags:[/cyan] {', '.join(mem_tags) if mem_tags else 'None'}",
-                    title=f"Memory {i}",
-                    border_style="blue"
-                ))
+                self.console.print(
+                    Panel(
+                        f"[cyan]Type:[/cyan] {mem_type}\n"
+                        f"[cyan]Text:[/cyan] {mem_text}\n"
+                        f"[cyan]Score:[/cyan] {mem_score:.2f}\n"
+                        f"[cyan]Tags:[/cyan] {', '.join(mem_tags) if mem_tags else 'None'}",
+                        title=f"Memory {i}",
+                        border_style="blue",
+                    )
+                )
 
         except Exception as e:
             self.console.print(f"[red]Error searching memories: {e}[/red]")
@@ -508,18 +560,16 @@ class GroqHippocampAIChat:
                 user_id=self.user_id,
                 session_id=self.session_id,
                 tags=["test", "crud"],
-                importance=7.5
+                importance=7.5,
             )
-            memory_id = memory.id if hasattr(memory, 'id') else str(memory)
+            memory_id = memory.id if hasattr(memory, "id") else str(memory)
 
             # Read
             _retrieved = self.memory_client.get_memory(memory_id)
 
             # Update
             _updated = self.memory_client.update_memory(
-                memory_id=memory_id,
-                text="Updated test memory",
-                tags=["test", "crud", "updated"]
+                memory_id=memory_id, text="Updated test memory", tags=["test", "crud", "updated"]
             )
 
             # Delete
@@ -541,7 +591,7 @@ class GroqHippocampAIChat:
             created = self.memory_client.batch_remember(batch_memories)
 
             # Get the IDs
-            batch_ids = [m.id if hasattr(m, 'id') else str(m) for m in created]
+            batch_ids = [m.id if hasattr(m, "id") else str(m) for m in created]
 
             # Batch get
             _retrieved = self.memory_client.batch_get_memories(batch_ids)
@@ -550,7 +600,9 @@ class GroqHippocampAIChat:
             _deleted = self.memory_client.batch_delete_memories(batch_ids)
 
             test_results.append(("Batch Operations", "✅ PASS"))
-            self.console.print(f"[green]  ✅ PASS: Created, retrieved, deleted {len(batch_ids)} memories[/green]")
+            self.console.print(
+                f"[green]  ✅ PASS: Created, retrieved, deleted {len(batch_ids)} memories[/green]"
+            )
         except Exception as e:
             test_results.append(("Batch Operations", f"❌ FAIL: {str(e)[:50]}"))
             self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
@@ -563,27 +615,23 @@ class GroqHippocampAIChat:
                 text="Important project deadline",
                 user_id=self.user_id,
                 tags=["work", "urgent"],
-                importance=9.0
+                importance=9.0,
             )
 
             # Filter by tags
             results = self.memory_client.recall(
-                query="project",
-                user_id=self.user_id,
-                filters={"tags": ["work"]},
-                limit=5
+                query="project", user_id=self.user_id, filters={"tags": ["work"]}, limit=5
             )
 
             # Filter by importance
             _results_important = self.memory_client.recall(
-                query="deadline",
-                user_id=self.user_id,
-                min_score=0.5,
-                limit=5
+                query="deadline", user_id=self.user_id, min_score=0.5, limit=5
             )
 
             test_results.append(("Advanced Filtering", "✅ PASS"))
-            self.console.print(f"[green]  ✅ PASS: Retrieved {len(results)} filtered memories[/green]")
+            self.console.print(
+                f"[green]  ✅ PASS: Retrieved {len(results)} filtered memories[/green]"
+            )
         except Exception as e:
             test_results.append(("Advanced Filtering", f"❌ FAIL: {str(e)[:50]}"))
             self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
@@ -596,7 +644,7 @@ class GroqHippocampAIChat:
                 user_id=self.user_id,
                 extract_entities=True,
                 extract_facts=True,
-                extract_relationships=True
+                extract_relationships=True,
             )
 
             test_results.append(("Entity Extraction", "✅ PASS"))
@@ -609,13 +657,14 @@ class GroqHippocampAIChat:
         self.console.print("\n[yellow]Test 5: Memory Expiration (TTL)[/yellow]")
         try:
             from datetime import timedelta
+
             expiry_time = datetime.now() + timedelta(days=7)
 
             _expiring_memory = self.memory_client.remember(
                 text="This memory expires in 7 days",
                 user_id=self.user_id,
                 expires_at=expiry_time,
-                tags=["temporary"]
+                tags=["temporary"],
             )
 
             test_results.append(("Memory Expiration", "✅ PASS"))
@@ -632,13 +681,12 @@ class GroqHippocampAIChat:
                 self.memory_client.remember(
                     text=f"I like coffee variation {i}",
                     user_id=self.user_id,
-                    tags=["preference", "duplicate-test"]
+                    tags=["preference", "duplicate-test"],
                 )
 
             # Consolidate
             _consolidated = self.memory_client.consolidate_memories(
-                user_id=self.user_id,
-                lookback_hours=24
+                user_id=self.user_id, lookback_hours=24
             )
 
             test_results.append(("Memory Consolidation", "✅ PASS"))
@@ -660,12 +708,11 @@ class GroqHippocampAIChat:
         # Test 8: Get All Memories
         self.console.print("\n[yellow]Test 8: Get All Memories[/yellow]")
         try:
-            all_memories = self.memory_client.get_memories(
-                user_id=self.user_id,
-                limit=100
-            )
+            all_memories = self.memory_client.get_memories(user_id=self.user_id, limit=100)
             test_results.append(("Get All Memories", "✅ PASS"))
-            self.console.print(f"[green]  ✅ PASS: Retrieved {len(all_memories)} total memories[/green]")
+            self.console.print(
+                f"[green]  ✅ PASS: Retrieved {len(all_memories)} total memories[/green]"
+            )
         except Exception as e:
             test_results.append(("Get All Memories", f"❌ FAIL: {str(e)[:50]}"))
             self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
@@ -675,7 +722,9 @@ class GroqHippocampAIChat:
         try:
             health = self.memory_client.health_check()
             test_results.append(("Health Check", "✅ PASS"))
-            self.console.print(f"[green]  ✅ PASS: System health: {health.get('status', 'unknown')}[/green]")
+            self.console.print(
+                f"[green]  ✅ PASS: System health: {health.get('status', 'unknown')}[/green]"
+            )
         except Exception as e:
             test_results.append(("Health Check", f"❌ FAIL: {str(e)[:50]}"))
             self.console.print(f"[red]  ❌ FAIL: {e}[/red]")
@@ -738,21 +787,23 @@ class GroqHippocampAIChat:
         """Compact and consolidate conversation memories with detailed metadata."""
         try:
             self.console.print("\n[bold cyan]📦 Memory Compaction[/bold cyan]\n")
-            
+
             # Ask for memory types to compact
-            self.console.print("[dim]Available memory types: fact, event, context, preference, goal, habit[/dim]")
+            self.console.print(
+                "[dim]Available memory types: fact, event, context, preference, goal, habit[/dim]"
+            )
             types_input = Prompt.ask(
                 "[yellow]Memory types to compact (comma-separated, or 'all')[/yellow]",
-                default="all"
+                default="all",
             )
-            
+
             memory_types = None
-            if types_input.lower() != 'all':
-                memory_types = [t.strip() for t in types_input.split(',')]
-            
+            if types_input.lower() != "all":
+                memory_types = [t.strip() for t in types_input.split(",")]
+
             # First do a dry run to show what would happen
             self.console.print("\n[yellow]Running preview...[/yellow]")
-            
+
             result = self.memory_client.compact_conversations(
                 user_id=self.user_id,
                 session_id=self.session_id,
@@ -760,46 +811,55 @@ class GroqHippocampAIChat:
                 dry_run=True,
                 memory_types=memory_types,
             )
-            
-            metrics = result.get('metrics', {})
-            
+
+            metrics = result.get("metrics", {})
+
             # Show preview table
             preview_table = Table(title="Compaction Preview (Dry Run)", show_header=True)
             preview_table.add_column("Metric", style="cyan", width=25)
             preview_table.add_column("Value", style="yellow")
-            
-            preview_table.add_row("Input Memories", str(metrics.get('input_memories', 0)))
+
+            preview_table.add_row("Input Memories", str(metrics.get("input_memories", 0)))
             preview_table.add_row("Input Tokens", f"{metrics.get('input_tokens', 0):,}")
-            preview_table.add_row("Output Summaries", str(metrics.get('output_memories', 0)))
+            preview_table.add_row("Output Summaries", str(metrics.get("output_memories", 0)))
             preview_table.add_row("Output Tokens", f"{metrics.get('output_tokens', 0):,}")
-            preview_table.add_row("Compression Ratio", f"{metrics.get('compression_ratio', 0) * 100:.1f}%")
+            preview_table.add_row(
+                "Compression Ratio", f"{metrics.get('compression_ratio', 0) * 100:.1f}%"
+            )
             preview_table.add_row("Tokens Saved", f"{metrics.get('tokens_saved', 0):,}")
-            preview_table.add_row("Storage Saved", f"{metrics.get('estimated_storage_saved_bytes', 0):,} bytes")
-            preview_table.add_row("Clusters Found", str(metrics.get('clusters_found', 0)))
-            preview_table.add_row("Est. Cost", f"${metrics.get('estimated_input_cost', 0) + metrics.get('estimated_output_cost', 0):.4f}")
-            
+            preview_table.add_row(
+                "Storage Saved", f"{metrics.get('estimated_storage_saved_bytes', 0):,} bytes"
+            )
+            preview_table.add_row("Clusters Found", str(metrics.get("clusters_found", 0)))
+            preview_table.add_row(
+                "Est. Cost",
+                f"${metrics.get('estimated_input_cost', 0) + metrics.get('estimated_output_cost', 0):.4f}",
+            )
+
             self.console.print(preview_table)
-            
+
             # Show types breakdown
-            types_compacted = metrics.get('types_compacted', {})
+            types_compacted = metrics.get("types_compacted", {})
             if types_compacted:
                 self.console.print("\n[dim]Types breakdown:[/dim]")
                 for t, count in types_compacted.items():
                     self.console.print(f"  • {t}: {count}")
-            
+
             # Show insights
-            insights = result.get('insights', [])
+            insights = result.get("insights", [])
             if insights:
                 self.console.print("\n[bold]💡 Insights:[/bold]")
                 for insight in insights:
                     self.console.print(f"  {insight}")
-            
+
             # Ask for confirmation
-            confirm = Prompt.ask("\n[yellow]Run compaction for real?[/yellow]", choices=["y", "n"], default="n")
-            
-            if confirm.lower() == 'y':
+            confirm = Prompt.ask(
+                "\n[yellow]Run compaction for real?[/yellow]", choices=["y", "n"], default="n"
+            )
+
+            if confirm.lower() == "y":
                 self.console.print("\n[cyan]Running compaction...[/cyan]")
-                
+
                 result = self.memory_client.compact_conversations(
                     user_id=self.user_id,
                     session_id=self.session_id,
@@ -807,77 +867,103 @@ class GroqHippocampAIChat:
                     dry_run=False,
                     memory_types=memory_types,
                 )
-                
-                if result.get('status') == 'completed':
+
+                if result.get("status") == "completed":
                     self.console.print("\n[green]✓ Compaction complete![/green]\n")
-                    
+
                     # Show final metrics
-                    final_metrics = result.get('metrics', {})
+                    final_metrics = result.get("metrics", {})
                     result_table = Table(title="Compaction Results", show_header=True)
                     result_table.add_column("Metric", style="cyan", width=25)
                     result_table.add_column("Value", style="green")
-                    
-                    result_table.add_row("Memories Merged", str(final_metrics.get('memories_merged', 0)))
-                    result_table.add_row("Tokens Saved", f"{final_metrics.get('tokens_saved', 0):,}")
-                    result_table.add_row("Storage Saved", f"{final_metrics.get('estimated_storage_saved_bytes', 0):,} bytes")
-                    result_table.add_row("Compression", f"{final_metrics.get('compression_ratio', 0) * 100:.1f}%")
-                    result_table.add_row("Key Facts Preserved", str(final_metrics.get('key_facts_preserved', 0)))
-                    result_table.add_row("Entities Preserved", str(final_metrics.get('entities_preserved', 0)))
-                    result_table.add_row("Context Retention", f"{final_metrics.get('context_retention_score', 0) * 100:.0f}%")
-                    result_table.add_row("Duration", f"{final_metrics.get('duration_seconds', 0):.2f}s")
-                    
+
+                    result_table.add_row(
+                        "Memories Merged", str(final_metrics.get("memories_merged", 0))
+                    )
+                    result_table.add_row(
+                        "Tokens Saved", f"{final_metrics.get('tokens_saved', 0):,}"
+                    )
+                    result_table.add_row(
+                        "Storage Saved",
+                        f"{final_metrics.get('estimated_storage_saved_bytes', 0):,} bytes",
+                    )
+                    result_table.add_row(
+                        "Compression", f"{final_metrics.get('compression_ratio', 0) * 100:.1f}%"
+                    )
+                    result_table.add_row(
+                        "Key Facts Preserved", str(final_metrics.get("key_facts_preserved", 0))
+                    )
+                    result_table.add_row(
+                        "Entities Preserved", str(final_metrics.get("entities_preserved", 0))
+                    )
+                    result_table.add_row(
+                        "Context Retention",
+                        f"{final_metrics.get('context_retention_score', 0) * 100:.0f}%",
+                    )
+                    result_table.add_row(
+                        "Duration", f"{final_metrics.get('duration_seconds', 0):.2f}s"
+                    )
+
                     self.console.print(result_table)
-                    
+
                     # Show preserved facts
-                    preserved_facts = result.get('preserved_facts', [])
+                    preserved_facts = result.get("preserved_facts", [])
                     if preserved_facts:
                         self.console.print("\n[bold]🧠 Preserved Key Facts:[/bold]")
                         for fact in preserved_facts[:5]:
                             self.console.print(f"  • {fact[:80]}{'...' if len(fact) > 80 else ''}")
-                    
+
                     # Show preserved entities
-                    preserved_entities = result.get('preserved_entities', [])
+                    preserved_entities = result.get("preserved_entities", [])
                     if preserved_entities:
-                        self.console.print(f"\n[bold]👤 Preserved Entities:[/bold] {', '.join(preserved_entities[:10])}")
-                    
+                        self.console.print(
+                            f"\n[bold]👤 Preserved Entities:[/bold] {', '.join(preserved_entities[:10])}"
+                        )
+
                     # Show final insights
-                    final_insights = result.get('insights', [])
+                    final_insights = result.get("insights", [])
                     if final_insights:
                         self.console.print("\n[bold]💡 Final Insights:[/bold]")
                         for insight in final_insights:
                             self.console.print(f"  {insight}")
-                    
+
                     self.console.print(f"\n[dim]{result.get('summary', '')}[/dim]")
-                    
-                elif result.get('status') == 'skipped':
-                    self.console.print(f"[yellow]⚠ Compaction skipped: {result.get('summary', 'Not enough memories')}[/yellow]")
+
+                elif result.get("status") == "skipped":
+                    self.console.print(
+                        f"[yellow]⚠ Compaction skipped: {result.get('summary', 'Not enough memories')}[/yellow]"
+                    )
                 else:
-                    self.console.print(f"[red]Compaction failed: {result.get('error', 'Unknown error')}[/red]")
+                    self.console.print(
+                        f"[red]Compaction failed: {result.get('error', 'Unknown error')}[/red]"
+                    )
             else:
                 self.console.print("[dim]Compaction cancelled.[/dim]")
-                
+
         except Exception as e:
             self.console.print(f"[red]Error during compaction: {e}[/red]")
 
     def run(self) -> None:
         """Run the interactive chat loop."""
-        self.console.print(Panel.fit(
-            "[bold cyan]Groq + HippocampAI Chat Demo[/bold cyan]\n"
-            f"Model: {self.model}\n"
-            f"User ID: {self.user_id[:16]}...\n"
-            f"Session ID: {self.session_id[:16]}...\n\n"
-            "[dim]Commands:[/dim]\n"
-            "  /memories - Show stored memories\n"
-            "  /search - Search memories\n"
-            "  /info - Show full session info\n"
-            "  /clear - Clear conversation history\n"
-            "  /test - Run feature tests\n"
-            "  /analytics - Show memory analytics\n"
-            "  /health - Check system health\n"
-            "  /help - Show this help\n"
-            "  /quit - Exit\n",
-            border_style="green"
-        ))
+        self.console.print(
+            Panel.fit(
+                "[bold cyan]Groq + HippocampAI Chat Demo[/bold cyan]\n"
+                f"Model: {self.model}\n"
+                f"User ID: {self.user_id[:16]}...\n"
+                f"Session ID: {self.session_id[:16]}...\n\n"
+                "[dim]Commands:[/dim]\n"
+                "  /memories - Show stored memories\n"
+                "  /search - Search memories\n"
+                "  /info - Show full session info\n"
+                "  /clear - Clear conversation history\n"
+                "  /test - Run feature tests\n"
+                "  /analytics - Show memory analytics\n"
+                "  /health - Check system health\n"
+                "  /help - Show this help\n"
+                "  /quit - Exit\n",
+                border_style="green",
+            )
+        )
 
         while True:
             try:
@@ -887,41 +973,43 @@ class GroqHippocampAIChat:
                     continue
 
                 # Handle commands
-                if user_input.startswith('/'):
+                if user_input.startswith("/"):
                     command = user_input.lower().strip()
 
-                    if command == '/quit' or command == '/exit':
+                    if command == "/quit" or command == "/exit":
                         self.console.print("[yellow]Goodbye! 👋[/yellow]")
                         break
-                    elif command == '/memories':
+                    elif command == "/memories":
                         self.show_memories()
                         continue
-                    elif command == '/search':
+                    elif command == "/search":
                         self.search_memories_interactive()
                         continue
-                    elif command == '/clear':
+                    elif command == "/clear":
                         self.conversation_history.clear()
                         self.console.print("[green]✓ Conversation history cleared[/green]")
                         continue
-                    elif command == '/info':
-                        self.console.print(Panel(
-                            f"[cyan]User ID:[/cyan] {self.user_id}\n"
-                            f"[cyan]Session ID:[/cyan] {self.session_id}\n"
-                            f"[cyan]Model:[/cyan] {self.model}",
-                            title="Session Information",
-                            border_style="cyan"
-                        ))
+                    elif command == "/info":
+                        self.console.print(
+                            Panel(
+                                f"[cyan]User ID:[/cyan] {self.user_id}\n"
+                                f"[cyan]Session ID:[/cyan] {self.session_id}\n"
+                                f"[cyan]Model:[/cyan] {self.model}",
+                                title="Session Information",
+                                border_style="cyan",
+                            )
+                        )
                         continue
-                    elif command == '/test':
+                    elif command == "/test":
                         self.test_all_features()
                         continue
-                    elif command == '/analytics':
+                    elif command == "/analytics":
                         self.show_analytics()
                         continue
-                    elif command == '/health':
+                    elif command == "/health":
                         self.show_health()
                         continue
-                    elif command == '/help':
+                    elif command == "/help":
                         self.console.print(
                             "[cyan]Available commands:[/cyan]\n"
                             "  /memories - Show stored memories\n"
@@ -936,7 +1024,7 @@ class GroqHippocampAIChat:
                             "  /quit - Exit"
                         )
                         continue
-                    elif command == '/compact':
+                    elif command == "/compact":
                         self.compact_memories()
                         continue
                     else:
@@ -984,37 +1072,33 @@ Examples:
 Environment Variables:
   GROQ_API_KEY            Your Groq API key (required)
   HIPPOCAMPAI_API_KEY     Your HippocampAI API key (for remote mode)
-        """
+        """,
     )
 
     parser.add_argument(
-        "--user-id",
-        type=str,
-        help="User ID for memory storage (auto-generated if not provided)"
+        "--user-id", type=str, help="User ID for memory storage (auto-generated if not provided)"
     )
 
     parser.add_argument(
         "--session-id",
         type=str,
-        help="Session ID for conversation tracking (auto-generated if not provided)"
+        help="Session ID for conversation tracking (auto-generated if not provided)",
     )
 
     parser.add_argument(
-        "--base-url",
-        type=str,
-        help="HippocampAI API base URL (e.g., http://localhost:8000)"
+        "--base-url", type=str, help="HippocampAI API base URL (e.g., http://localhost:8000)"
     )
 
     parser.add_argument(
         "--qdrant-url",
         type=str,
-        help="Qdrant server URL for local mode (e.g., http://100.113.229.40:6333)"
+        help="Qdrant server URL for local mode (e.g., http://100.113.229.40:6333)",
     )
 
     parser.add_argument(
         "--redis-url",
         type=str,
-        help="Redis server URL for local mode (e.g., redis://localhost:6379)"
+        help="Redis server URL for local mode (e.g., redis://localhost:6379)",
     )
 
     args = parser.parse_args()
@@ -1030,7 +1114,7 @@ Environment Variables:
         session_id=args.session_id,
         base_url=args.base_url,
         qdrant_url=args.qdrant_url,
-        redis_url=args.redis_url
+        redis_url=args.redis_url,
     )
 
     chat.run()
@@ -1038,31 +1122,35 @@ Environment Variables:
 
 def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
     """Look up the user_id associated with a session_id from Qdrant.
-    
+
     Args:
         session_id: The session ID to look up
         qdrant_url: Qdrant server URL
-        
+
     Returns:
         The user_id if found, otherwise the session_id itself
     """
     try:
         from qdrant_client import QdrantClient
         from qdrant_client.models import FieldCondition, Filter, MatchValue
-        
+
         url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
         client = QdrantClient(url=url)
-        
+
         collections = ["hippocampai_facts", "hippocampai_prefs", "personal_facts"]
-        
+
         # First, look for signup record with metadata.session_id
         for collection in collections:
             try:
                 if not client.collection_exists(collection):
                     continue
-                    
+
                 signup_filter = Filter(
-                    must=[FieldCondition(key="metadata.session_id", match=MatchValue(value=session_id))]
+                    must=[
+                        FieldCondition(
+                            key="metadata.session_id", match=MatchValue(value=session_id)
+                        )
+                    ]
                 )
                 results, _ = client.scroll(
                     collection_name=collection,
@@ -1073,17 +1161,19 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                 if results:
                     user_id = results[0].payload.get("user_id")
                     if user_id:
-                        print(f"[green]✓ Found user_id '{user_id}' for session '{session_id[:16]}...'[/green]")
+                        print(
+                            f"[green]✓ Found user_id '{user_id}' for session '{session_id[:16]}...'[/green]"
+                        )
                         return user_id
             except Exception:
                 continue
-        
+
         # Fallback: look for any record with this session_id
         for collection in collections:
             try:
                 if not client.collection_exists(collection):
                     continue
-                    
+
                 session_filter = Filter(
                     must=[FieldCondition(key="session_id", match=MatchValue(value=session_id))]
                 )
@@ -1100,10 +1190,12 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                         return user_id
             except Exception:
                 continue
-        
-        print(f"[yellow]⚠ Could not find user_id for session '{session_id}', using session_id as user_id[/yellow]")
+
+        print(
+            f"[yellow]⚠ Could not find user_id for session '{session_id}', using session_id as user_id[/yellow]"
+        )
         return session_id
-        
+
     except Exception as e:
         print(f"[yellow]⚠ Error looking up user_id: {e}[/yellow]")
         return session_id

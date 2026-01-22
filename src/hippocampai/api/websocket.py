@@ -29,6 +29,7 @@ connected_clients: dict[str, dict[str, Any]] = {}
 # CONNECTION HANDLERS
 # ============================================================================
 
+
 @sio.event
 async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
     """Handle client connection."""
@@ -56,6 +57,7 @@ async def disconnect(sid: str):
 # ============================================================================
 # SUBSCRIPTION HANDLERS
 # ============================================================================
+
 
 @sio.event
 async def subscribe_user(sid: str, data: dict):
@@ -131,6 +133,7 @@ async def unsubscribe(sid: str, data: dict):
 # ============================================================================
 # BROADCAST FUNCTIONS
 # ============================================================================
+
 
 async def broadcast_memory_created(user_id: str, memory: dict):
     """Broadcast when a new memory is created."""
@@ -268,6 +271,7 @@ async def broadcast_health_score_changed(user_id: str, old_score: float, new_sco
 # STATUS & DIAGNOSTICS
 # ============================================================================
 
+
 @sio.event
 async def get_status(sid: str):
     """Get connection status and subscriptions."""
@@ -298,6 +302,7 @@ async def ping(sid: str):
 # UTILITY FUNCTIONS
 # ============================================================================
 
+
 def get_connected_clients_count() -> int:
     """Get the number of connected clients."""
     return len(connected_clients)
@@ -305,23 +310,18 @@ def get_connected_clients_count() -> int:
 
 def get_user_connections(user_id: str) -> list[str]:
     """Get all connection IDs for a specific user."""
-    return [
-        sid for sid, client in connected_clients.items()
-        if client.get("user_id") == user_id
-    ]
+    return [sid for sid, client in connected_clients.items() if client.get("user_id") == user_id]
 
 
 def get_space_connections(space_id: str) -> list[str]:
     """Get all connection IDs subscribed to a space."""
     return [
-        sid for sid, client in connected_clients.items()
-        if space_id in client.get("spaces", set())
+        sid for sid, client in connected_clients.items() if space_id in client.get("spaces", set())
     ]
 
 
 def get_agent_connections(agent_id: str) -> list[str]:
     """Get all connection IDs subscribed to an agent."""
     return [
-        sid for sid, client in connected_clients.items()
-        if agent_id in client.get("agents", set())
+        sid for sid, client in connected_clients.items() if agent_id in client.get("agents", set())
     ]

@@ -23,7 +23,7 @@ Example:
     >>> # Start the API server
     >>> from hippocampai.platform import run_api_server
     >>> run_api_server(host="0.0.0.0", port=8000)
-    
+
     >>> # Use automation controller
     >>> from hippocampai.platform import AutomationController
     >>> controller = AutomationController()
@@ -83,71 +83,86 @@ if TYPE_CHECKING:
 
 def __getattr__(name: str):
     """Lazy loading for platform components."""
-    
+
     # API
     if name == "create_app":
         from hippocampai.api.app import app
+
         return app
-    
+
     if name == "run_api_server":
         from hippocampai.api.app import run_server
+
         return run_server
-    
+
     # Authentication
     if name == "AuthService":
         from hippocampai.auth.auth_service import AuthService
+
         return AuthService
-    
+
     if name == "RateLimiter":
         from hippocampai.auth.rate_limiter import RateLimiter
+
         return RateLimiter
-    
+
     # Automation
     if name == "AutomationController":
         from hippocampai.saas.automation import AutomationController
+
         return AutomationController
-    
+
     if name == "AutomationPolicy":
         from hippocampai.saas.automation import AutomationPolicy
+
         return AutomationPolicy
-    
+
     if name == "AutomationSchedule":
         from hippocampai.saas.automation import AutomationSchedule
+
         return AutomationSchedule
-    
+
     if name == "PolicyType":
         from hippocampai.saas.automation import PolicyType
+
         return PolicyType
-    
+
     # Tasks
     if name == "TaskManager":
         from hippocampai.saas.tasks import TaskManager
+
         return TaskManager
-    
+
     if name == "TaskPriority":
         from hippocampai.saas.tasks import TaskPriority
+
         return TaskPriority
-    
+
     if name == "TaskStatus":
         from hippocampai.saas.tasks import TaskStatus
+
         return TaskStatus
-    
+
     if name == "BackgroundTask":
         from hippocampai.saas.tasks import BackgroundTask
+
         return BackgroundTask
-    
+
     # Celery
     if name == "celery_app":
         from hippocampai.celery_app import celery_app
+
         return celery_app
-    
+
     # Configuration
     if name == "PlatformConfig":
         from hippocampai.platform.config import PlatformConfig
+
         return PlatformConfig
-    
+
     if name == "get_platform_config":
         from hippocampai.platform.config import get_platform_config
+
         return get_platform_config
-    
+
     raise AttributeError(f"module 'hippocampai.platform' has no attribute {name!r}")

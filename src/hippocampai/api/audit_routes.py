@@ -158,18 +158,10 @@ async def search_audit_logs(
 
         # Convert string enums to actual enums
         action = AuditAction(query_request.action) if query_request.action else None
-        actions = (
-            [AuditAction(a) for a in query_request.actions]
-            if query_request.actions
-            else None
-        )
-        severity = (
-            AuditSeverity(query_request.severity) if query_request.severity else None
-        )
+        actions = [AuditAction(a) for a in query_request.actions] if query_request.actions else None
+        severity = AuditSeverity(query_request.severity) if query_request.severity else None
         min_severity = (
-            AuditSeverity(query_request.min_severity)
-            if query_request.min_severity
-            else None
+            AuditSeverity(query_request.min_severity) if query_request.min_severity else None
         )
 
         query = AuditQuery(

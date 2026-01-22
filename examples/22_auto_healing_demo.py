@@ -36,11 +36,11 @@ def main():
     # Fresh, high-quality memories
     for i in range(5):
         client.remember(
-            f"Recent important project update #{i+1}",
+            f"Recent important project update #{i + 1}",
             type="fact",
             importance=8.0,
             tags=["project", "recent"],
-            confidence=0.9
+            confidence=0.9,
         )
     print("✓ Created 5 fresh, high-quality memories")
 
@@ -48,12 +48,12 @@ def main():
     for i in range(8):
         old_date = datetime.now() - timedelta(days=120 + i * 5)
         client.remember(
-            f"Old memory from 4 months ago #{i+1}",
+            f"Old memory from 4 months ago #{i + 1}",
             type="fact",
             importance=5.0,
             tags=["old", "stale"],
             confidence=0.7,
-            metadata={"created_at": old_date.isoformat()}
+            metadata={"created_at": old_date.isoformat()},
         )
     print("✓ Created 8 stale memories (120+ days old)")
 
@@ -64,7 +64,7 @@ def main():
             type="preference",
             importance=6.0,
             tags=["beverage"],
-            confidence=0.85
+            confidence=0.85,
         )
     print("✓ Created 3 duplicate memories (same content)")
 
@@ -75,7 +75,7 @@ def main():
             type="fact",
             importance=4.0,
             tags=["uncertain"],
-            confidence=0.2  # Very low
+            confidence=0.2,  # Very low
         )
     print("✓ Created 4 low-confidence memories")
 
@@ -85,7 +85,7 @@ def main():
             f"Memory without proper tags - item {i}",
             type="context",
             importance=5.0,
-            tags=[]  # No tags
+            tags=[],  # No tags
         )
     print("✓ Created 6 untagged memories")
 
@@ -131,7 +131,7 @@ def main():
         dedup_similarity_threshold=0.88,
         consolidate_threshold=3,
         require_user_approval=False,  # Auto-apply for demo
-        max_actions_per_run=50
+        max_actions_per_run=50,
     )
 
     print("✓ Auto-healing configuration:")
@@ -149,10 +149,7 @@ def main():
     print("=" * 80)
 
     cleanup_report = healing_engine.auto_cleanup(
-        user_id=client.user_id,
-        memories=memories,
-        config=config,
-        dry_run=True
+        user_id=client.user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Cleanup analysis completed:")
@@ -178,7 +175,7 @@ def main():
         memories=memories,
         config=config,
         strategy=ConsolidationStrategy.SEMANTIC_MERGE,
-        dry_run=True
+        dry_run=True,
     )
 
     print("✓ Deduplication analysis completed:")
@@ -219,8 +216,7 @@ def main():
         memory.access_count = 5 + (hash(memory.id) % 10)  # Random access counts
 
     importance_actions = healing_engine.auto_importance_adjustment(
-        memories=memories[:10],
-        access_weight=0.5
+        memories=memories[:10], access_weight=0.5
     )
 
     print("✓ Importance adjustment analysis:")
@@ -238,10 +234,7 @@ def main():
     print("=" * 80)
 
     full_report = healing_engine.run_full_health_check(
-        user_id=client.user_id,
-        memories=memories,
-        config=config,
-        dry_run=True
+        user_id=client.user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Full health check completed:")
@@ -269,7 +262,7 @@ def main():
         consolidation = healing_engine.create_consolidation(
             user_id=client.user_id,
             memories=duplicate_memories,
-            strategy=ConsolidationStrategy.SEMANTIC_MERGE
+            strategy=ConsolidationStrategy.SEMANTIC_MERGE,
         )
 
         if consolidation:

@@ -164,14 +164,14 @@ _simple_imports = {
 def __getattr__(name: str):
     """Lazy loading for heavy imports."""
     import importlib
-    
+
     if name in _lazy_imports:
         module = importlib.import_module(_lazy_imports[name])
         return getattr(module, name)
-    
+
     if name in _simple_imports:
         module_name, attr_name = _simple_imports[name]
         module = importlib.import_module(module_name)
         return getattr(module, attr_name)
-    
+
     raise AttributeError(f"module 'hippocampai.core' has no attribute {name!r}")

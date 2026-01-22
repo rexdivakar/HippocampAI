@@ -26,7 +26,7 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
     print(f"Connecting to Qdrant at {qdrant_url}")
     print(f"User ID: {user_id}")
     print(f"Session ID: {session_id}")
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
 
     # Query both collections
     for collection_name in [COLLECTION_FACTS, COLLECTION_PREFS]:
@@ -50,16 +50,11 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
             results = client.scroll(
                 collection_name=collection_name,
                 scroll_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="session_id",
-                            match=MatchValue(value=session_id)
-                        )
-                    ]
+                    must=[FieldCondition(key="session_id", match=MatchValue(value=session_id))]
                 ),
                 limit=100,
                 with_payload=True,
-                with_vectors=False
+                with_vectors=False,
             )
 
             points = results[0]  # First element is list of points
@@ -72,16 +67,11 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
                 results = client.scroll(
                     collection_name=collection_name,
                     scroll_filter=Filter(
-                        must=[
-                            FieldCondition(
-                                key="user_id",
-                                match=MatchValue(value=user_id)
-                            )
-                        ]
+                        must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
                     ),
                     limit=100,
                     with_payload=True,
-                    with_vectors=False
+                    with_vectors=False,
                 )
 
                 points = results[0]
@@ -106,7 +96,7 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
         except Exception as e:
             print(f"❌ Error querying {collection_name}: {e}")
 
-    print("="*80)
+    print("=" * 80)
 
 
 def list_all_collections(qdrant_url: str):

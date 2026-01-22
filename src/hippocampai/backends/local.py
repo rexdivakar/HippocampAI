@@ -56,7 +56,7 @@ class LocalBackend(BaseBackend):
     def qdrant_url(self) -> str:
         """Get the Qdrant URL from the underlying client config."""
         import os
-        
+
         # Priority: stored URL > client config > environment > default
         if self._qdrant_url:
             return self._qdrant_url

@@ -297,13 +297,13 @@ class QdrantStore:
         """Vector similarity search (with automatic retry on transient failures)."""
         must_conditions = []
         must_not_conditions = []
-        
+
         # Exclude soft-deleted memories using must_not (handles missing field case)
         if not include_deleted:
             must_not_conditions.append(
                 FieldCondition(key="is_deleted", match=MatchValue(value=True))
             )
-        
+
         if filters:
             if "user_id" in filters:
                 must_conditions.append(
@@ -319,13 +319,13 @@ class QdrantStore:
                 if isinstance(tags, str):
                     tags = [tags]
                 must_conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
-        
+
         # Build filter with must and must_not
         query_filter = None
         if must_conditions or must_not_conditions:
             query_filter = Filter(
                 must=must_conditions if must_conditions else None,
-                must_not=must_not_conditions if must_not_conditions else None
+                must_not=must_not_conditions if must_not_conditions else None,
             )
 
         # Build search params
@@ -363,7 +363,7 @@ class QdrantStore:
         include_archived: bool = False,
     ) -> list[dict[str, Any]]:
         """Scroll through points (with automatic retry on transient failures).
-        
+
         Args:
             collection_name: Name of the collection
             filters: Optional filters dict
@@ -374,13 +374,13 @@ class QdrantStore:
         must_conditions = []
         must_not_conditions = []
         should_conditions = []
-        
+
         # Exclude soft-deleted memories using must_not (handles missing field case)
         if not include_deleted:
             must_not_conditions.append(
                 FieldCondition(key="is_deleted", match=MatchValue(value=True))
             )
-        
+
         # Exclude archived memories by default
         if not include_archived:
             must_not_conditions.append(
@@ -405,10 +405,15 @@ class QdrantStore:
                 if "session_id" in filters:
                     # Use OR logic: match user_id OR session_id
                     should_conditions.append(
-                        FieldCondition(key="user_id", match=MatchValue(value=filters.get("user_id", filters["session_id"])))
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=filters.get("user_id", filters["session_id"])),
+                        )
                     )
                     should_conditions.append(
-                        FieldCondition(key="session_id", match=MatchValue(value=filters["session_id"]))
+                        FieldCondition(
+                            key="session_id", match=MatchValue(value=filters["session_id"])
+                        )
                     )
                     # Clear must_conditions for user_id since we're using should
                     must_conditions = [c for c in must_conditions if c.key not in ("user_id",)]
@@ -430,7 +435,7 @@ class QdrantStore:
             query_filter = Filter(
                 must=must_conditions if must_conditions else None,
                 must_not=must_not_conditions if must_not_conditions else None,
-                should=should_conditions if should_conditions else None
+                should=should_conditions if should_conditions else None,
             )
 
         try:

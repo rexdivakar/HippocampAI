@@ -191,22 +191,22 @@ class LLMMemoryClassifier:
         if USE_AGENTIC_CLASSIFIER:
             try:
                 from hippocampai.utils.agentic_classifier import get_agentic_classifier
-                
+
                 agentic = get_agentic_classifier(use_cache=self.use_cache)
                 result_obj = agentic.classify_with_details(text, default)
                 result = (result_obj.memory_type, result_obj.confidence)
-                
+
                 logger.info(
                     f"Agentic classification: {result_obj.memory_type.value} "
                     f"(confidence: {result_obj.confidence:.2f}, "
                     f"reasoning: {result_obj.reasoning[:50]}...)"
                 )
-                
+
                 # Cache result for consistency
                 if self.use_cache:
                     cache_key = self._get_cache_key(text)
                     _classification_cache[cache_key] = result
-                
+
                 return result
             except Exception as e:
                 logger.warning(f"Agentic classification failed: {e}, falling back to simple LLM")

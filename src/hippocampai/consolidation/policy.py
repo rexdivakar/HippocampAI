@@ -18,7 +18,9 @@ class ConsolidationPolicy:
     # Deletion thresholds
     min_importance_to_keep: float = float(os.getenv("CONSOLIDATION_MIN_IMPORTANCE", "3.0"))
     min_age_days_for_deletion: int = int(os.getenv("CONSOLIDATION_MIN_AGE_DAYS", "7"))
-    never_delete_if_accessed: bool = os.getenv("CONSOLIDATION_PROTECT_ACCESSED", "true").lower() == "true"
+    never_delete_if_accessed: bool = (
+        os.getenv("CONSOLIDATION_PROTECT_ACCESSED", "true").lower() == "true"
+    )
 
     # Archival thresholds
     archive_importance_threshold: float = float(os.getenv("CONSOLIDATION_ARCHIVE_THRESHOLD", "4.0"))
@@ -94,7 +96,10 @@ class ConsolidationPolicyEngine:
 
         # Check importance
         if memory.importance < self.policy.min_importance_to_keep:
-            return True, f"Low importance: {memory.importance:.1f} < {self.policy.min_importance_to_keep}"
+            return (
+                True,
+                f"Low importance: {memory.importance:.1f} < {self.policy.min_importance_to_keep}",
+            )
 
         return False, "Does not meet deletion criteria"
 
@@ -111,16 +116,24 @@ class ConsolidationPolicyEngine:
 
         # Always archive certain types if old enough
         age_days = (datetime.now(timezone.utc) - memory.created_at).days
-        if memory.type in self.policy.always_archive_types and age_days > self.policy.archive_age_days:
+        if (
+            memory.type in self.policy.always_archive_types
+            and age_days > self.policy.archive_age_days
+        ):
             return True, f"Old {memory.type}: {age_days} days"
 
         # Archive low-importance, unaccessed memories
-        if memory.importance < self.policy.archive_importance_threshold and memory.access_count == 0:
+        if (
+            memory.importance < self.policy.archive_importance_threshold
+            and memory.access_count == 0
+        ):
             return True, "Low importance + never accessed"
 
         return False, "Does not meet archival criteria"
 
-    def should_promote(self, memory: Memory, llm_decision: dict[str, Any] | None = None) -> tuple[bool, float, str]:
+    def should_promote(
+        self, memory: Memory, llm_decision: dict[str, Any] | None = None
+    ) -> tuple[bool, float, str]:
         """
         Determine if a memory should be promoted (importance increased).
 
@@ -129,7 +142,9 @@ class ConsolidationPolicyEngine:
         """
         # LLM explicit promotion
         if llm_decision and llm_decision.get("new_importance"):
-            new_importance = min(llm_decision["new_importance"], self.policy.max_importance_after_promotion)
+            new_importance = min(
+                llm_decision["new_importance"], self.policy.max_importance_after_promotion
+            )
             return True, new_importance, llm_decision.get("reason", "LLM decision")
 
         # Auto-promote frequently accessed memories
@@ -323,7 +338,9 @@ def apply_consolidation_decisions(
             result["to_archive"].append({"id": mem_id, "reason": arch_reason})
             result["stats"]["archived"] += 1
         else:
-            result["blocked"].append({"id": mem_id, "action": "delete", "reason": "Policy blocked deletion"})
+            result["blocked"].append(
+                {"id": mem_id, "action": "delete", "reason": "Policy blocked deletion"}
+            )
             logger.warning(f"Policy blocked deletion of {mem_id}: not deletable")
 
     # 2. Process promotions
@@ -369,7 +386,9 @@ def apply_consolidation_decisions(
             if "new_text" in update:
                 memory.text = update["new_text"]
             if "new_importance" in update:
-                memory.importance = min(update["new_importance"], policy.max_importance_after_promotion)
+                memory.importance = min(
+                    update["new_importance"], policy.max_importance_after_promotion
+                )
 
     # 4. Process synthetic memories
     for synthetic in llm_decisions.get("synthetic_memories", []):

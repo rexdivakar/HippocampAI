@@ -605,9 +605,7 @@ class MemoryHealthMonitor:
                 similarity_matrix = self._calculate_similarity_matrix(embeddings)
 
                 # Get upper triangle (excluding diagonal)
-                upper_triangle = similarity_matrix[
-                    np.triu_indices_from(similarity_matrix, k=1)
-                ]
+                upper_triangle = similarity_matrix[np.triu_indices_from(similarity_matrix, k=1)]
                 avg_similarity = np.mean(upper_triangle)
 
                 # Lower similarity = higher diversity
@@ -741,16 +739,24 @@ class MemoryHealthMonitor:
             should_delete = True
         elif staleness_score >= 0.6:
             if reason == StaleReason.TEMPORAL_CONTEXT:
-                recommendation = "Consider archiving this memory - time-sensitive information expired"
+                recommendation = (
+                    "Consider archiving this memory - time-sensitive information expired"
+                )
             elif reason == StaleReason.OUTDATED:
-                recommendation = "Consider archiving this memory - outdated but may have historical value"
+                recommendation = (
+                    "Consider archiving this memory - outdated but may have historical value"
+                )
             else:
                 recommendation = f"Consider archiving this memory - {reason.value}"
             should_archive = True
         elif staleness_score >= 0.4:
-            recommendation = f"Review and update this memory if still relevant (reason: {reason.value})"
+            recommendation = (
+                f"Review and update this memory if still relevant (reason: {reason.value})"
+            )
         else:
-            recommendation = f"Monitor this memory - showing early signs of staleness (reason: {reason.value})"
+            recommendation = (
+                f"Monitor this memory - showing early signs of staleness (reason: {reason.value})"
+            )
 
         return recommendation, should_archive, should_delete
 

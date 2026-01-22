@@ -207,7 +207,8 @@ def cluster_memories(memories: list[Memory]) -> list[MemoryCluster]:
                         theme=f"Memories from {window_start.strftime('%Y-%m-%d %H:%M')}",
                         time_window_start=current_cluster[0].created_at,
                         time_window_end=current_cluster[-1].created_at,
-                        avg_importance=sum(m.importance for m in current_cluster) / len(current_cluster),
+                        avg_importance=sum(m.importance for m in current_cluster)
+                        / len(current_cluster),
                     )
                     clusters.append(cluster)
 
@@ -246,7 +247,9 @@ def _run_consolidation_sync(
     Returns:
         Dictionary with consolidation results
     """
-    logger.info(f"Starting consolidation for user {user_id} (lookback={lookback_hours}h, dry_run={dry_run})")
+    logger.info(
+        f"Starting consolidation for user {user_id} (lookback={lookback_hours}h, dry_run={dry_run})"
+    )
     start_time = time.time()
 
     # Create consolidation run record
@@ -259,6 +262,7 @@ def _run_consolidation_sync(
 
     # Persist run to database
     from hippocampai.consolidation.db import get_db
+
     db = get_db()
     db.create_run(run)
     logger.debug(f"Created consolidation run {run.id} in database")
@@ -294,7 +298,12 @@ def _run_consolidation_sync(
         logger.info(f"Created {len(clusters)} memory clusters for {user_id}")
 
         # Step 3: Process each cluster with LLM
-        all_decisions = {"promoted_facts": [], "low_value_memory_ids": [], "updated_memories": [], "synthetic_memories": []}
+        all_decisions = {
+            "promoted_facts": [],
+            "low_value_memory_ids": [],
+            "updated_memories": [],
+            "synthetic_memories": [],
+        }
 
         for cluster in clusters:
             try:
@@ -311,7 +320,9 @@ def _run_consolidation_sync(
                             all_decisions[key].extend(llm_decision[key])
 
             except Exception as e:
-                logger.exception(f"Failed to process cluster {cluster.cluster_id} for {user_id}: {e}")
+                logger.exception(
+                    f"Failed to process cluster {cluster.cluster_id} for {user_id}: {e}"
+                )
                 continue
 
         # Step 4: Apply decisions with policy validation
@@ -489,6 +500,7 @@ def get_active_users(lookback_hours: int = 24) -> list[str]:
                         if created_at_str:
                             try:
                                 from dateutil import parser
+
                                 created_at = parser.parse(created_at_str)
                                 if created_at >= threshold:
                                     is_recent = True
@@ -498,6 +510,7 @@ def get_active_users(lookback_hours: int = 24) -> list[str]:
                         if not is_recent and updated_at_str:
                             try:
                                 from dateutil import parser
+
                                 updated_at = parser.parse(updated_at_str)
                                 if updated_at >= threshold:
                                     is_recent = True
@@ -542,6 +555,7 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
     try:
         # Use MemoryClient to fetch memories
         from hippocampai.client import MemoryClient
+
         client = MemoryClient()
 
         # Calculate time threshold
@@ -572,14 +586,14 @@ def collect_recent_memories(user_id: str, lookback_hours: int) -> list[Memory]:
         # Optionally filter by type (focus on transient memories)
         # recent_memories = [m for m in recent_memories if m.type in {MemoryType.EVENT, MemoryType.CONTEXT}]
 
-        logger.info(f"Collected {len(recent_memories)} memories for {user_id} from last {lookback_hours}h")
+        logger.info(
+            f"Collected {len(recent_memories)} memories for {user_id} from last {lookback_hours}h"
+        )
         return recent_memories
 
     except Exception as e:
         logger.exception(f"Failed to collect memories for {user_id}: {e}")
         return []
-
-
 
 
 def llm_review_cluster(
@@ -627,7 +641,9 @@ def llm_review_cluster(
             logger.error(f"Failed to parse LLM response as JSON: {response_text[:200]}")
             raise ValueError(f"LLM returned invalid JSON: {e}")
 
-        logger.debug(f"LLM decision for cluster: {len(decision.get('promoted_facts', []))} promoted, {len(decision.get('low_value_memory_ids', []))} to archive")
+        logger.debug(
+            f"LLM decision for cluster: {len(decision.get('promoted_facts', []))} promoted, {len(decision.get('low_value_memory_ids', []))} to archive"
+        )
 
         return decision
 
@@ -804,8 +820,7 @@ def get_user_context(
             k=15,
         )
         preference_texts = [
-            mem.memory.text for mem in preferences
-            if mem.memory.type == MemoryType.PREFERENCE
+            mem.memory.text for mem in preferences if mem.memory.type == MemoryType.PREFERENCE
         ][:5]  # Top 5 most relevant
 
         # Fetch semantically relevant goals
@@ -814,10 +829,9 @@ def get_user_context(
             user_id=user_id,
             k=15,
         )
-        goal_texts = [
-            mem.memory.text for mem in goals
-            if mem.memory.type == MemoryType.GOAL
-        ][:5]  # Top 5 most relevant
+        goal_texts = [mem.memory.text for mem in goals if mem.memory.type == MemoryType.GOAL][
+            :5
+        ]  # Top 5 most relevant
 
         # Fetch semantically relevant facts
         facts = client.recall_memories(
@@ -825,10 +839,9 @@ def get_user_context(
             user_id=user_id,
             k=15,
         )
-        fact_texts = [
-            mem.memory.text for mem in facts
-            if mem.memory.type == MemoryType.FACT
-        ][:5]  # Top 5 most relevant
+        fact_texts = [mem.memory.text for mem in facts if mem.memory.type == MemoryType.FACT][
+            :5
+        ]  # Top 5 most relevant
 
         # Fetch semantically relevant habits
         habits = client.recall_memories(
@@ -836,10 +849,9 @@ def get_user_context(
             user_id=user_id,
             k=10,
         )
-        habit_texts = [
-            mem.memory.text for mem in habits
-            if mem.memory.type == MemoryType.HABIT
-        ][:3]  # Top 3 most relevant
+        habit_texts = [mem.memory.text for mem in habits if mem.memory.type == MemoryType.HABIT][
+            :3
+        ]  # Top 3 most relevant
 
         # Get recent high-importance memories (temporal context)
         # Use broader query for recency check
@@ -852,7 +864,8 @@ def get_user_context(
         # Filter for recent AND important, excluding cluster memories
         cluster_ids = {mem.id for mem in cluster_memories} if cluster_memories else set()
         recent_topics = [
-            mem.memory.text for mem in recent_important
+            mem.memory.text
+            for mem in recent_important
             if mem.memory.importance >= 7.0
             and mem.memory.id not in cluster_ids
             and (datetime.now(timezone.utc) - mem.memory.created_at).days <= 7
@@ -921,6 +934,7 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
         actions: Actions dictionary from apply_consolidation_decisions
     """
     from hippocampai.client import MemoryClient
+
     client = MemoryClient()
 
     # Delete memories
@@ -938,7 +952,10 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
             # NOTE: You may need to implement this in your update_memory method
             client.update_memory(
                 memory_id=archive_action["id"],
-                updates={"is_archived": True, "archived_at": datetime.now(timezone.utc).isoformat()},
+                updates={
+                    "is_archived": True,
+                    "archived_at": datetime.now(timezone.utc).isoformat(),
+                },
             )
             logger.info(f"Archived memory {archive_action['id']}: {archive_action['reason']}")
         except Exception as e:
@@ -954,7 +971,9 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
                     "promotion_count": "+1",  # Increment
                 },
             )
-            logger.info(f"Promoted memory {promote_action['id']} to importance {promote_action['new_importance']}")
+            logger.info(
+                f"Promoted memory {promote_action['id']} to importance {promote_action['new_importance']}"
+            )
         except Exception as e:
             logger.exception(f"Failed to promote memory {promote_action['id']}: {e}")
 

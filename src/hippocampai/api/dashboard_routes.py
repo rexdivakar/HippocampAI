@@ -71,9 +71,7 @@ async def get_dashboard_stats(
     try:
         # Get all memories for the user (include session_id filter to match by either field)
         memories = client.get_memories(
-            user_id=user_id,
-            filters={"session_id": user_id},
-            limit=10000
+            user_id=user_id, filters={"session_id": user_id}, limit=10000
         )
         total_memories = len(memories)
 
@@ -169,11 +167,7 @@ async def get_dashboard_stats(
         )
 
         # Count archived memories
-        archived = sum(
-            1
-            for m in memories
-            if m.metadata and m.metadata.get("archived", False)
-        )
+        archived = sum(1 for m in memories if m.metadata and m.metadata.get("archived", False))
 
         # Calculate health score (simple heuristic)
         health_score = 85.0  # Base score
@@ -234,11 +228,7 @@ async def get_recent_activity(
         activities: list[ActivityItem] = []
 
         # Get recent memories (include session_id filter to match by either field)
-        memories = client.get_memories(
-            user_id=user_id,
-            filters={"session_id": user_id},
-            limit=50
-        )
+        memories = client.get_memories(user_id=user_id, filters={"session_id": user_id}, limit=50)
         recent_memories = sorted(memories, key=lambda m: m.created_at, reverse=True)[:limit]
 
         for memory in recent_memories:
@@ -287,6 +277,4 @@ async def get_recent_activity(
 
     except Exception as e:
         logger.exception(f"Failed to get recent activity for user {user_id}: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get recent activity: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get recent activity: {str(e)}")

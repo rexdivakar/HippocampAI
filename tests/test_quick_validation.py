@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
@@ -22,11 +22,12 @@ from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
 
 def test(name):
     """Test decorator."""
+
     def decorator(func):
         def wrapper():
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"Testing: {name}")
-            print('='*70)
+            print("=" * 70)
             try:
                 start = time.time()
                 result = func()
@@ -40,9 +41,12 @@ def test(name):
             except Exception as e:
                 print(f"❌ ERROR: {str(e)}")
                 import traceback
+
                 traceback.print_exc()
                 return False
+
         return wrapper
+
     return decorator
 
 
@@ -57,11 +61,7 @@ def test_core_operations():
 
     # Create
     memory = client.remember(
-        "Test memory for validation",
-        user_id=USER_ID,
-        type="fact",
-        importance=7.0,
-        tags=["test"]
+        "Test memory for validation", user_id=USER_ID, type="fact", importance=7.0, tags=["test"]
     )
     print(f"  ✓ Created memory: {memory.id[:8]}...")
 
@@ -71,10 +71,7 @@ def test_core_operations():
 
     # Update
     updated = client.update_memory(
-        memory_id=memory.id,
-        user_id=USER_ID,
-        text="Updated validation memory",
-        importance=8.0
+        memory_id=memory.id, user_id=USER_ID, text="Updated validation memory", importance=8.0
     )
     print(f"  ✓ Updated memory importance: {updated.importance}")
 
@@ -91,19 +88,13 @@ def test_sessions():
     client = MemoryClient()
 
     # Create session
-    session = client.create_session(
-        user_id=USER_ID,
-        title="Test Session"
-    )
+    session = client.create_session(user_id=USER_ID, title="Test Session")
     print(f"  ✓ Created session: {session.id[:8]}...")
 
     # Track messages
     for i in range(3):
         client.track_session_message(
-            session_id=session.id,
-            user_id=USER_ID,
-            message=f"Message {i}",
-            role="user"
+            session_id=session.id, user_id=USER_ID, message=f"Message {i}", role="user"
         )
     print("  ✓ Tracked 3 messages")
 
@@ -125,23 +116,12 @@ def test_collaboration():
     collab = CollaborationManager()
 
     # Create agents
-    agent1 = client.create_agent(
-        name="Agent 1",
-        user_id=USER_ID,
-        role="assistant"
-    )
-    agent2 = client.create_agent(
-        name="Agent 2",
-        user_id=USER_ID,
-        role="assistant"
-    )
+    agent1 = client.create_agent(name="Agent 1", user_id=USER_ID, role="assistant")
+    agent2 = client.create_agent(name="Agent 2", user_id=USER_ID, role="assistant")
     print("  ✓ Created 2 agents")
 
     # Create space
-    space = collab.create_space(
-        name="Test Space",
-        owner_agent_id=agent1.id
-    )
+    space = collab.create_space(name="Test Space", owner_agent_id=agent1.id)
     print(f"  ✓ Created shared space: {space.id[:8]}...")
 
     # Add collaborator
@@ -149,16 +129,12 @@ def test_collaboration():
         space_id=space.id,
         agent_id=agent2.id,
         permissions=[PermissionType.READ, PermissionType.WRITE],
-        inviter_id=agent1.id
+        inviter_id=agent1.id,
     )
     print("  ✓ Added collaborator with READ, WRITE permissions")
 
     # Add memory to space
-    memory = client.remember(
-        "Shared memory",
-        user_id=USER_ID,
-        agent_id=agent1.id
-    )
+    memory = client.remember("Shared memory", user_id=USER_ID, agent_id=agent1.id)
     collab.add_memory_to_space(space.id, memory.id, agent1.id)
     print("  ✓ Added memory to shared space")
 
@@ -182,12 +158,7 @@ def test_predictions():
 
     # Create memories with pattern
     for i in range(10):
-        client.remember(
-            f"Pattern memory {i}",
-            user_id=USER_ID,
-            type="habit",
-            importance=6.0
-        )
+        client.remember(f"Pattern memory {i}", user_id=USER_ID, type="habit", importance=6.0)
     print("  ✓ Created 10 memories for pattern detection")
 
     # Detect patterns
@@ -197,9 +168,7 @@ def test_predictions():
 
     # Generate recommendations
     recommendations = predictive.generate_recommendations(
-        user_id=USER_ID,
-        memories=memories,
-        max_recommendations=5
+        user_id=USER_ID, memories=memories, max_recommendations=5
     )
     print(f"  ✓ Generated {len(recommendations)} recommendation(s)")
 
@@ -208,7 +177,7 @@ def test_predictions():
         user_id=USER_ID,
         memories=memories,
         metric=ForecastMetric.ACTIVITY_LEVEL,
-        horizon=ForecastHorizon.NEXT_WEEK
+        horizon=ForecastHorizon.NEXT_WEEK,
     )
     print(f"  ✓ Forecasted activity: {forecast.predicted_value:.1f} memories/day")
 
@@ -231,7 +200,7 @@ def test_autohealing():
             type="fact",
             importance=5.0 + (i % 5),
             tags=[f"tag_{i % 3}"],
-            confidence=0.7 + (i % 3) * 0.1
+            confidence=0.7 + (i % 3) * 0.1,
         )
     print("  ✓ Created 15 diverse memories")
 
@@ -245,18 +214,12 @@ def test_autohealing():
 
     # Configure auto-healing
     config = AutoHealingConfig(
-        user_id=USER_ID,
-        auto_cleanup_enabled=True,
-        auto_dedup_enabled=True,
-        max_actions_per_run=20
+        user_id=USER_ID, auto_cleanup_enabled=True, auto_dedup_enabled=True, max_actions_per_run=20
     )
 
     # Run cleanup (dry run)
     report = healing_engine.auto_cleanup(
-        user_id=USER_ID,
-        memories=memories,
-        config=config,
-        dry_run=True
+        user_id=USER_ID, memories=memories, config=config, dry_run=True
     )
     print(f"  ✓ Auto-cleanup: {len(report.actions_recommended)} actions recommended")
 
@@ -335,9 +298,9 @@ def test_performance():
 
 def run_all_tests():
     """Run all validation tests."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("HIPPOCAMPAI QUICK VALIDATION TEST SUITE")
-    print("="*70)
+    print("=" * 70)
     print(f"Start: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     tests = [
@@ -356,9 +319,9 @@ def run_all_tests():
         results.append(result)
 
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST SUMMARY")
-    print("="*70)
+    print("=" * 70)
     passed = sum(results)
     total = len(results)
     pass_rate = (passed / total * 100) if total > 0 else 0
@@ -368,7 +331,7 @@ def run_all_tests():
     print(f"❌ Failed: {total - passed}")
 
     print(f"\nEnd: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*70)
+    print("=" * 70)
 
     return all(results)
 
