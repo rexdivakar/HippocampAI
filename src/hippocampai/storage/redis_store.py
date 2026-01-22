@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date, datetime
 from typing import Any, Optional, cast
 
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
+
+
+def _json_serializer(obj: Any) -> str:
+    """JSON serializer for objects not serializable by default."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, date):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 # Constants for error messages
 _REDIS_NOT_CONNECTED_ERROR = "Redis client not connected"
@@ -77,7 +87,7 @@ class AsyncRedisKVStore:
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        serialized = json.dumps(value)
+        serialized = json.dumps(value, default=_json_serializer)
         if ttl_seconds:
             await self._client.setex(key, ttl_seconds, serialized)
         else:

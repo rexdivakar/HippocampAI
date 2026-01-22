@@ -13,7 +13,6 @@ This provides more accurate and consistent classification than simple pattern ma
 import hashlib
 import json
 import logging
-import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -181,15 +180,21 @@ Respond with ONLY the JSON object."""
         # Clean up response
         response = response.strip()
 
-        # Try to extract JSON from markdown code blocks
-        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", response)
-        if json_match:
-            response = json_match.group(1)
+        # Try to extract JSON from markdown code blocks (safe string-based approach)
+        code_start = response.find("```")
+        if code_start != -1:
+            # Skip past the opening ``` and optional language identifier
+            content_start = response.find("\n", code_start)
+            if content_start != -1:
+                code_end = response.find("```", content_start)
+                if code_end != -1:
+                    response = response[content_start:code_end].strip()
 
-        # Try to find JSON object
-        json_match = re.search(r"\{[\s\S]*\}", response)
-        if json_match:
-            response = json_match.group(0)
+        # Try to find JSON object (safe approach: find first { and last })
+        brace_start = response.find("{")
+        brace_end = response.rfind("}")
+        if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+            response = response[brace_start : brace_end + 1]
 
         try:
             parsed: dict[str, Any] = json.loads(response)

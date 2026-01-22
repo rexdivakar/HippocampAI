@@ -464,8 +464,8 @@ class MemoryManagementService:
         Returns:
             Updated memory or None if not found
         """
-        # Get existing memory
-        memory = await self.get_memory(memory_id)
+        # Get existing memory (don't track access to avoid race condition with cache update)
+        memory = await self.get_memory(memory_id, track_access=False)
         if not memory:
             return None
 

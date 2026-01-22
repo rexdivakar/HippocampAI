@@ -8,7 +8,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from celery import group
+from celery import Task, group
 
 from hippocampai.celery_app import celery_app
 from hippocampai.consolidation.models import (
@@ -86,7 +86,7 @@ def emit_metric_memories(user_id: str, action: str, count: int = 1) -> None:
     bind=True,
     max_retries=3,
 )
-def run_daily_consolidation(self) -> dict[str, Any]:  # type: ignore[misc]
+def run_daily_consolidation(self: Task) -> dict[str, Any]:
     """
     Main task: Run nightly memory consolidation for all active users.
 
