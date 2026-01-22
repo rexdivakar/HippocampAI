@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../services/api';
-import type { BiTemporalFact, BiTemporalQueryResult } from '../types';
+import { useDebounce } from '../hooks/useDebounce';
+import type { BiTemporalFact } from '../types';
 import {
   Clock,
   History,
@@ -20,6 +21,14 @@ interface BiTemporalPageProps {
   userId: string;
 }
 
+// Pending operation state for optimistic updates
+interface PendingOperation {
+  type: 'revise' | 'retract';
+  factId: string;
+  originalFact?: BiTemporalFact;
+  newText?: string;
+}
+
 export function BiTemporalPage({ userId }: BiTemporalPageProps) {
   const [facts, setFacts] = useState<BiTemporalFact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,11 +38,16 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
   const [selectedFact, setSelectedFact] = useState<BiTemporalFact | null>(null);
   const [factHistory, setFactHistory] = useState<BiTemporalFact[]>([]);
   const [expandedFacts, setExpandedFacts] = useState<Set<string>>(new Set());
+  const [pendingOperations, setPendingOperations] = useState<Map<string, PendingOperation>>(new Map());
 
-  // Query filters
+  // Query filters with debouncing
   const [entityFilter, setEntityFilter] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
   const [includeSuperseded, setIncludeSuperseded] = useState(false);
+  
+  // Debounced filter values
+  const debouncedEntityFilter = useDebounce(entityFilter, 500);
+  const debouncedPropertyFilter = useDebounce(propertyFilter, 500);
 
   // Add fact form
   const [newFactText, setNewFactText] = useState('');
@@ -41,23 +55,45 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
   const [newFactProperty, setNewFactProperty] = useState('');
   const [newFactValidFrom, setNewFactValidFrom] = useState('');
   const [newFactValidTo, setNewFactValidTo] = useState('');
+  const [addingFact, setAddingFact] = useState(false);
 
+  // AbortController for cancellable requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load facts when filters change (debounced)
   useEffect(() => {
     loadFacts();
-  }, [userId, includeSuperseded]);
+  }, [userId, includeSuperseded, debouncedEntityFilter, debouncedPropertyFilter]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const loadFacts = async () => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     setError(null);
+    
     try {
       const result = await apiClient.queryBiTemporalFacts({
         user_id: userId,
-        entity_id: entityFilter || undefined,
-        property_name: propertyFilter || undefined,
+        entity_id: debouncedEntityFilter || undefined,
+        property_name: debouncedPropertyFilter || undefined,
         include_superseded: includeSuperseded,
       });
       setFacts(result.facts);
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       setError(err.message || 'Failed to load facts');
     } finally {
       setLoading(false);
@@ -66,6 +102,9 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
 
   const handleAddFact = async () => {
     if (!newFactText.trim()) return;
+
+    setAddingFact(true);
+    setError(null);
 
     try {
       await apiClient.storeBiTemporalFact({
@@ -81,33 +120,102 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
       loadFacts();
     } catch (err: any) {
       setError(err.message || 'Failed to add fact');
+    } finally {
+      setAddingFact(false);
     }
   };
 
+  // Optimistic update for revise
   const handleReviseFact = async (fact: BiTemporalFact, newText: string) => {
+    const operationId = `revise-${fact.id}`;
+    
+    // Store original for rollback
+    const pendingOp: PendingOperation = {
+      type: 'revise',
+      factId: fact.id,
+      originalFact: fact,
+      newText,
+    };
+    
+    // Optimistic update - show pending state
+    setPendingOperations(prev => new Map(prev).set(operationId, pendingOp));
+    
+    // Optimistically update the UI
+    setFacts(prev => prev.map(f => 
+      f.id === fact.id 
+        ? { ...f, text: newText, status: 'superseded' as const }
+        : f
+    ));
+
     try {
       await apiClient.reviseBiTemporalFact({
         original_fact_id: fact.id,
         new_text: newText,
         user_id: userId,
       });
+      
+      // Success - reload to get actual data
       loadFacts();
     } catch (err: any) {
+      // Rollback on failure
+      setFacts(prev => prev.map(f => 
+        f.id === fact.id ? fact : f
+      ));
       setError(err.message || 'Failed to revise fact');
+    } finally {
+      // Clear pending operation
+      setPendingOperations(prev => {
+        const next = new Map(prev);
+        next.delete(operationId);
+        return next;
+      });
     }
   };
 
+  // Optimistic update for retract
   const handleRetractFact = async (fact: BiTemporalFact) => {
     if (!confirm('Are you sure you want to retract this fact?')) return;
+
+    const operationId = `retract-${fact.id}`;
+    
+    // Store original for rollback
+    const pendingOp: PendingOperation = {
+      type: 'retract',
+      factId: fact.id,
+      originalFact: fact,
+    };
+    
+    // Optimistic update - show pending state
+    setPendingOperations(prev => new Map(prev).set(operationId, pendingOp));
+    
+    // Optimistically update the UI
+    setFacts(prev => prev.map(f => 
+      f.id === fact.id 
+        ? { ...f, status: 'retracted' as const }
+        : f
+    ));
 
     try {
       await apiClient.retractBiTemporalFact({
         fact_id: fact.id,
         user_id: userId,
       });
+      
+      // Success - reload to get actual data
       loadFacts();
     } catch (err: any) {
+      // Rollback on failure
+      setFacts(prev => prev.map(f => 
+        f.id === fact.id ? fact : f
+      ));
       setError(err.message || 'Failed to retract fact');
+    } finally {
+      // Clear pending operation
+      setPendingOperations(prev => {
+        const next = new Map(prev);
+        next.delete(operationId);
+        return next;
+      });
     }
   };
 
@@ -140,7 +248,14 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
     setExpandedFacts(newExpanded);
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string, factId: string) => {
+    // Check if there's a pending operation
+    const isPending = Array.from(pendingOperations.values()).some(op => op.factId === factId);
+    
+    if (isPending) {
+      return <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />;
+    }
+    
     switch (status) {
       case 'active':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -155,6 +270,10 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString();
+  };
+
+  const isPending = (factId: string) => {
+    return Array.from(pendingOperations.values()).some(op => op.factId === factId);
   };
 
   return (
@@ -220,9 +339,14 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
           </div>
           <button
             onClick={loadFacts}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
-            <Search className="w-4 h-4" />
+            {loading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
             Search
           </button>
         </div>
@@ -230,14 +354,25 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
-          {error}
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertCircle className="w-5 h-5" />
+              {error}
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <XCircle className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       )}
 
       {/* Facts List */}
       <div className="space-y-4">
-        {loading ? (
+        {loading && facts.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
           </div>
@@ -249,7 +384,11 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
           facts.map((fact) => (
             <div
               key={fact.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+              className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border transition-all ${
+                isPending(fact.id)
+                  ? 'border-blue-300 dark:border-blue-700 opacity-75'
+                  : 'border-gray-200 dark:border-gray-700'
+              }`}
             >
               <div
                 className="p-4 cursor-pointer"
@@ -258,13 +397,13 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      {getStatusIcon(fact.status)}
+                      {getStatusIcon(fact.status, fact.id)}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         fact.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                         fact.status === 'superseded' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
-                        {fact.status}
+                        {isPending(fact.id) ? 'updating...' : fact.status}
                       </span>
                       {fact.entity_id && (
                         <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
@@ -319,7 +458,8 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                         e.stopPropagation();
                         handleViewHistory(fact);
                       }}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                      disabled={isPending(fact.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
                     >
                       <History className="w-4 h-4" />
                       History
@@ -334,7 +474,8 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                               handleReviseFact(fact, newText);
                             }
                           }}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                          disabled={isPending(fact.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50"
                         >
                           <Edit className="w-4 h-4" />
                           Revise
@@ -344,7 +485,8 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                             e.stopPropagation();
                             handleRetractFact(fact);
                           }}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                          disabled={isPending(fact.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50"
                         >
                           <Trash2 className="w-4 h-4" />
                           Retract
@@ -434,16 +576,18 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                   setShowAddModal(false);
                   resetAddForm();
                 }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                disabled={addingFact}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddFact}
-                disabled={!newFactText.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newFactText.trim() || addingFact}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add Fact
+                {addingFact && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {addingFact ? 'Adding...' : 'Add Fact'}
               </button>
             </div>
           </div>
@@ -469,7 +613,13 @@ export function BiTemporalPage({ userId }: BiTemporalPageProps) {
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    {getStatusIcon(version.status)}
+                    {version.status === 'active' ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : version.status === 'superseded' ? (
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       Version {factHistory.length - index}
                     </span>

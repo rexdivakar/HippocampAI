@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
   Memory,
   RetrievalResult,
@@ -13,12 +13,57 @@ import type {
   BiTemporalFact,
   BiTemporalQueryResult,
   ContextPack,
-  ContextConstraints,
 } from '../types';
+
+// Retry configuration
+interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelay: 1000,
+  maxDelay: 10000,
+};
+
+// Extended config to track retries
+interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retryCount?: number;
+  _retryConfig?: RetryConfig;
+  signal?: AbortSignal;
+}
+
+// Sleep utility for retry delays
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
+// Calculate exponential backoff delay
+const getRetryDelay = (retryCount: number, config: RetryConfig): number => {
+  const delay = config.baseDelay * Math.pow(2, retryCount);
+  return Math.min(delay, config.maxDelay);
+};
+
+// Check if error is retryable
+const isRetryableError = (error: AxiosError): boolean => {
+  // Retry on network errors
+  if (!error.response) return true;
+  
+  // Retry on 5xx server errors
+  const status = error.response.status;
+  if (status >= 500 && status < 600) return true;
+  
+  // Retry on 429 (rate limited)
+  if (status === 429) return true;
+  
+  // Don't retry on client errors (4xx except 429)
+  return false;
+};
 
 class APIClient {
   private client: AxiosInstance;
   private v1Client: AxiosInstance;
+  private activeRequests: Map<string, AbortController> = new Map();
 
   constructor(baseURL: string = '/api') {
     // Client for /api prefixed routes (consolidation, dashboard, etc.)
@@ -27,6 +72,7 @@ class APIClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      timeout: 30000, // 30 second timeout
     });
 
     // Client for /v1 routes (memory operations - no /api prefix)
@@ -35,6 +81,7 @@ class APIClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      timeout: 30000,
     });
 
     // Add auth token interceptor to both clients
@@ -48,8 +95,80 @@ class APIClient {
       });
     };
 
+    // Add retry interceptor to both clients
+    const addRetryInterceptor = (client: AxiosInstance) => {
+      client.interceptors.response.use(
+        (response) => response,
+        async (error: AxiosError) => {
+          const config = error.config as ExtendedAxiosRequestConfig | undefined;
+          
+          if (!config) {
+            return Promise.reject(error);
+          }
+
+          // Check if request was cancelled
+          if (axios.isCancel(error)) {
+            return Promise.reject(error);
+          }
+
+          const retryConfig = config._retryConfig || DEFAULT_RETRY_CONFIG;
+          const retryCount = config._retryCount || 0;
+
+          // Check if we should retry
+          if (retryCount >= retryConfig.maxRetries || !isRetryableError(error)) {
+            return Promise.reject(error);
+          }
+
+          // Calculate delay and wait
+          const delay = getRetryDelay(retryCount, retryConfig);
+          console.log(`Retrying request (attempt ${retryCount + 1}/${retryConfig.maxRetries}) after ${delay}ms`);
+          await sleep(delay);
+
+          // Update retry count and retry
+          config._retryCount = retryCount + 1;
+          return client.request(config);
+        }
+      );
+    };
+
     addAuthInterceptor(this.client);
     addAuthInterceptor(this.v1Client);
+    addRetryInterceptor(this.client);
+    addRetryInterceptor(this.v1Client);
+  }
+
+  // Create an AbortController for a request, cancelling any previous request with the same key
+  createAbortController(requestKey: string): AbortController {
+    // Cancel any existing request with the same key
+    const existing = this.activeRequests.get(requestKey);
+    if (existing) {
+      existing.abort();
+    }
+
+    // Create new controller
+    const controller = new AbortController();
+    this.activeRequests.set(requestKey, controller);
+    return controller;
+  }
+
+  // Clean up an AbortController after request completes
+  cleanupAbortController(requestKey: string): void {
+    this.activeRequests.delete(requestKey);
+  }
+
+  // Cancel a specific request
+  cancelRequest(requestKey: string): void {
+    const controller = this.activeRequests.get(requestKey);
+    if (controller) {
+      controller.abort();
+      this.activeRequests.delete(requestKey);
+    }
+  }
+
+  // Cancel all active requests
+  cancelAllRequests(): void {
+    this.activeRequests.forEach((controller) => controller.abort());
+    this.activeRequests.clear();
   }
 
   // ============================================================================
@@ -427,10 +546,13 @@ class APIClient {
   // AGENTIC CLASSIFIER
   // ============================================================================
 
-  async classifyMemory(data: {
-    text: string;
-    user_id: string;
-  }): Promise<{
+  async classifyMemory(
+    data: {
+      text: string;
+      user_id?: string;
+    },
+    abortSignal?: AbortSignal
+  ): Promise<{
     memory_type: string;
     confidence: number;
     confidence_level: string;
@@ -438,7 +560,9 @@ class APIClient {
     alternative_type?: string;
     alternative_confidence?: number;
   }> {
-    const response = await this.v1Client.post('/v1/classify', data);
+    const response = await this.v1Client.post('/v1/classify', data, {
+      signal: abortSignal,
+    });
     return response.data;
   }
 }

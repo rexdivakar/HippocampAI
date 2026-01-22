@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiClient } from '../services/api';
 import {
   Brain,
   Sparkles,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
   Copy,
   Check,
+  XCircle,
 } from 'lucide-react';
 
 interface ClassificationResult {
@@ -71,72 +73,122 @@ const CONFIDENCE_COLORS = {
   UNCERTAIN: 'text-red-600 dark:text-red-400',
 };
 
-export function AgenticClassifierPage({ userId: _userId }: AgenticClassifierPageProps) {
+export function AgenticClassifierPage({ userId }: AgenticClassifierPageProps) {
   const [inputText, setInputText] = useState('');
   const [result, setResult] = useState<ClassificationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ text: string; result: ClassificationResult }>>([]);
   const [copied, setCopied] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // AbortController ref for cancelling requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Simulated classification (in production, this would call the API)
-  const handleClassify = async () => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Classify using the real API with retry support
+  const handleClassify = useCallback(async (retrying = false) => {
     if (!inputText.trim()) return;
 
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     setLoading(true);
-    setError(null);
+    if (!retrying) {
+      setError(null);
+      setRetryCount(0);
+    }
 
     try {
-      // Simulate API call with pattern-based classification
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const classificationResult = await apiClient.classifyMemory(
+        {
+          text: inputText,
+          user_id: userId,
+        },
+        signal
+      );
 
-      const text = inputText.toLowerCase();
-      let memoryType = 'context';
-      let confidence = 0.7;
-      let reasoning = 'Pattern-based classification';
+      // Check if request was aborted
+      if (signal.aborted) return;
 
-      // Simple pattern matching for demo
-      if (text.includes('my name is') || text.includes('i am') || text.includes('i work at') || text.includes('i live in')) {
-        memoryType = 'fact';
-        confidence = 0.92;
-        reasoning = 'Contains identity or biographical information patterns';
-      } else if (text.includes('i love') || text.includes('i prefer') || text.includes('i like') || text.includes('favorite')) {
-        memoryType = 'preference';
-        confidence = 0.89;
-        reasoning = 'Contains preference or opinion indicators';
-      } else if (text.includes('i want to') || text.includes('my goal') || text.includes('i plan to') || text.includes('i hope to')) {
-        memoryType = 'goal';
-        confidence = 0.88;
-        reasoning = 'Contains future intention or aspiration patterns';
-      } else if (text.includes('usually') || text.includes('every day') || text.includes('always') || text.includes('routine')) {
-        memoryType = 'habit';
-        confidence = 0.85;
-        reasoning = 'Contains routine or regular activity patterns';
-      } else if (text.includes('yesterday') || text.includes('tomorrow') || text.includes('meeting') || text.includes('last week')) {
-        memoryType = 'event';
-        confidence = 0.86;
-        reasoning = 'Contains temporal markers indicating specific occurrence';
-      }
-
-      const confidenceLevel = confidence >= 0.9 ? 'HIGH' : confidence >= 0.7 ? 'MEDIUM' : confidence >= 0.5 ? 'LOW' : 'UNCERTAIN';
-
-      const classificationResult: ClassificationResult = {
-        memory_type: memoryType,
-        confidence,
-        confidence_level: confidenceLevel,
-        reasoning,
-        alternative_type: memoryType === 'preference' ? 'fact' : undefined,
-        alternative_confidence: memoryType === 'preference' ? 0.45 : undefined,
+      const normalizedResult: ClassificationResult = {
+        memory_type: classificationResult.memory_type,
+        confidence: classificationResult.confidence,
+        confidence_level: classificationResult.confidence_level as ClassificationResult['confidence_level'],
+        reasoning: classificationResult.reasoning,
+        alternative_type: classificationResult.alternative_type,
+        alternative_confidence: classificationResult.alternative_confidence,
       };
 
-      setResult(classificationResult);
-      setHistory(prev => [{ text: inputText, result: classificationResult }, ...prev.slice(0, 9)]);
+      setResult(normalizedResult);
+      setHistory(prev => [{ text: inputText, result: normalizedResult }, ...prev.slice(0, 9)]);
+      setError(null);
+      setRetryCount(0);
     } catch (err: any) {
-      setError(err.message || 'Classification failed');
+      // Ignore abort errors
+      if (err.name === 'AbortError' || err.name === 'CanceledError') {
+        return;
+      }
+
+      // Handle error with user-friendly message
+      let errorMessage = 'Classification failed';
+      
+      if (err.response) {
+        // Server responded with error
+        const status = err.response.status;
+        if (status === 429) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.';
+        } else if (status >= 500) {
+          errorMessage = 'Server error. The classification service may be temporarily unavailable.';
+        } else if (status === 401 || status === 403) {
+          errorMessage = 'Authentication error. Please refresh the page and try again.';
+        } else {
+          errorMessage = err.response.data?.detail || err.message || 'Classification failed';
+        }
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (!navigator.onLine) {
+        errorMessage = 'No internet connection. Please check your network and try again.';
+      } else {
+        errorMessage = err.message || 'Classification failed. Please try again.';
+      }
+
+      setError(errorMessage);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [inputText, userId]);
+
+  // Retry handler
+  const handleRetry = useCallback(() => {
+    setRetryCount(prev => prev + 1);
+    handleClassify(true);
+  }, [handleClassify]);
+
+  // Cancel handler
+  const handleCancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  }, []);
 
   const handleCopyResult = async () => {
     if (!result) return;
@@ -191,32 +243,65 @@ export function AgenticClassifierPage({ userId: _userId }: AgenticClassifierPage
                   placeholder="Enter a memory to classify... e.g., 'I love coffee' or 'My name is Alex'"
                   rows={4}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  disabled={loading}
                 />
               </div>
 
-              <button
-                onClick={handleClassify}
-                disabled={!inputText.trim() || loading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Zap className="w-5 h-5" />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleClassify(false)}
+                  disabled={!inputText.trim() || loading}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Zap className="w-5 h-5" />
+                  )}
+                  {loading ? 'Classifying...' : 'Classify'}
+                </button>
+                
+                {loading && (
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    title="Cancel request"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
                 )}
-                {loading ? 'Classifying...' : 'Classify'}
-              </button>
+              </div>
             </div>
 
-            {/* Error */}
+            {/* Error with Retry */}
             {error && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-                {error}
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-red-700 dark:text-red-400">{error}</p>
+                      {retryCount > 0 && (
+                        <p className="text-sm text-red-600 dark:text-red-500 mt-1">
+                          Retry attempt {retryCount} failed
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRetry}
+                    disabled={loading}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Result */}
-            {result && (
+            {result && !error && (
               <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white">Classification Result</h3>
@@ -322,7 +407,8 @@ export function AgenticClassifierPage({ userId: _userId }: AgenticClassifierPage
                       <button
                         key={i}
                         onClick={() => setInputText(example)}
-                        className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
+                        disabled={loading}
+                        className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {example}
                       </button>

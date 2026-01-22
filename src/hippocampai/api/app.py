@@ -198,6 +198,20 @@ class ExpireMemoriesRequest(BaseModel):
     user_id: Optional[str] = None
 
 
+class ClassifyMemoryRequest(BaseModel):
+    text: str
+    user_id: Optional[str] = None
+
+
+class ClassifyMemoryResponse(BaseModel):
+    memory_type: str
+    confidence: float
+    confidence_level: str
+    reasoning: str
+    alternative_type: Optional[str] = None
+    alternative_confidence: Optional[float] = None
+
+
 # Routes
 @app.get("/healthz")
 def health_check() -> dict[str, str]:
@@ -354,6 +368,33 @@ def expire_memories(
         return {"success": True, "expired_count": expired_count}
     except Exception as e:
         logger.error(f"Expire memories failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/classify", response_model=ClassifyMemoryResponse)
+def classify_memory(request: ClassifyMemoryRequest) -> ClassifyMemoryResponse:
+    """
+    Classify a memory text using the agentic LLM-based classifier.
+
+    Returns the memory type, confidence score, reasoning, and alternative classification.
+    Uses multi-step LLM reasoning for accurate classification with fallback to pattern matching.
+    """
+    try:
+        from hippocampai.utils.agentic_classifier import get_agentic_classifier
+
+        classifier = get_agentic_classifier(use_cache=True)
+        result = classifier.classify_with_details(request.text)
+
+        return ClassifyMemoryResponse(
+            memory_type=result.memory_type.value,
+            confidence=result.confidence,
+            confidence_level=result.confidence_level.value.upper(),
+            reasoning=result.reasoning,
+            alternative_type=result.alternative_type.value if result.alternative_type else None,
+            alternative_confidence=result.alternative_confidence,
+        )
+    except Exception as e:
+        logger.error(f"Classification failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

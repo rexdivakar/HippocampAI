@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiClient } from '../services/api';
-import type { ContextPack, SelectedItem, DroppedItem } from '../types';
+import type { ContextPack } from '../types';
 import {
   Layers,
   Search,
@@ -10,8 +10,9 @@ import {
   ChevronUp,
   FileText,
   AlertTriangle,
-  Sparkles,
   Settings,
+  RefreshCw,
+  XCircle,
 } from 'lucide-react';
 
 interface ContextAssemblyPageProps {
@@ -26,6 +27,7 @@ export function ContextAssemblyPage({ userId }: ContextAssemblyPageProps) {
   const [copied, setCopied] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDropped, setShowDropped] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Settings
   const [tokenBudget, setTokenBudget] = useState(4000);
@@ -36,11 +38,33 @@ export function ContextAssemblyPage({ userId }: ContextAssemblyPageProps) {
   const [deduplicate, setDeduplicate] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
-  const handleAssemble = async () => {
+  // AbortController for cancellable requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleAssemble = useCallback(async (retrying = false) => {
     if (!query.trim()) return;
 
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
-    setError(null);
+    if (!retrying) {
+      setError(null);
+      setRetryCount(0);
+    }
+
     try {
       const result = await apiClient.assembleContext({
         user_id: userId,
@@ -54,12 +78,41 @@ export function ContextAssemblyPage({ userId }: ContextAssemblyPageProps) {
         type_filter: typeFilter.length > 0 ? typeFilter : undefined,
       });
       setContextPack(result);
+      setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to assemble context');
+      // Ignore abort errors
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
+      
+      // User-friendly error messages
+      let errorMessage = 'Failed to assemble context';
+      if (err.response?.status === 429) {
+        errorMessage = 'Too many requests. Please wait a moment and try again.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out. Try reducing the token budget or max items.';
+      } else if (!navigator.onLine) {
+        errorMessage = 'No internet connection.';
+      } else {
+        errorMessage = err.message || 'Failed to assemble context';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, userId, tokenBudget, maxItems, recencyBias, minRelevance, includeCitations, deduplicate, typeFilter]);
+
+  const handleRetry = useCallback(() => {
+    setRetryCount(prev => prev + 1);
+    handleAssemble(true);
+  }, [handleAssemble]);
+
+  const handleCancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setLoading(false);
+  }, []);
 
   const handleCopy = async () => {
     if (!contextPack) return;
@@ -127,18 +180,29 @@ export function ContextAssemblyPage({ userId }: ContextAssemblyPageProps) {
             {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
-          <button
-            onClick={handleAssemble}
-            disabled={!query.trim() || loading}
-            className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <Sparkles className="w-4 h-4 animate-pulse" />
-            ) : (
-              <Search className="w-4 h-4" />
+          <div className="flex gap-2">
+            {loading && (
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                <XCircle className="w-4 h-4" />
+                Cancel
+              </button>
             )}
-            {loading ? 'Assembling...' : 'Assemble Context'}
-          </button>
+            <button
+              onClick={() => handleAssemble(false)}
+              disabled={!query.trim() || loading}
+              className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              {loading ? 'Assembling...' : 'Assemble Context'}
+            </button>
+          </div>
         </div>
 
         {/* Settings Panel */}
@@ -252,10 +316,30 @@ export function ContextAssemblyPage({ userId }: ContextAssemblyPageProps) {
         )}
       </div>
 
-      {/* Error Message */}
+      {/* Error Message with Retry */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
-          {error}
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-red-700 dark:text-red-400">{error}</p>
+                {retryCount > 0 && (
+                  <p className="text-sm text-red-600 dark:text-red-500 mt-1">
+                    Retry attempt {retryCount} failed
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleRetry}
+              disabled={loading}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
         </div>
       )}
 
