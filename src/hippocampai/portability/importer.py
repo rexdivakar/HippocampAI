@@ -273,8 +273,9 @@ class MemoryImporter:
         if options.preserve_ids:
             try:
                 existing = self.client.get_memory(record.id)
-            except Exception:
-                pass
+            except (KeyError, ValueError, LookupError):
+                # Memory not found - expected for new imports
+                existing = None
 
         if existing:
             if options.merge_strategy == "skip":

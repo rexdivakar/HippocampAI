@@ -497,7 +497,8 @@ class ConversationCompactor:
                                 )
                                 if created_dt < cutoff:
                                     continue
-                            except Exception:
+                            except (ValueError, TypeError):
+                                # Malformed date, include memory anyway
                                 pass
 
                     all_memories.append({"id": str(r.id), "collection": collection, **payload})

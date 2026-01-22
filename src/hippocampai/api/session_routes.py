@@ -345,8 +345,8 @@ async def sync_from_qdrant() -> dict:
                                 )
                                 store.create_user(user)
                                 users_created += 1
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f"Could not create user {user_id}: {e}")
 
                     if session_id and session_id not in sessions_seen:
                         sessions_seen.add(session_id)
@@ -375,8 +375,8 @@ async def sync_from_qdrant() -> dict:
                                 store.update_session_memory_count(
                                     session_id, existing.memory_count + 1
                                 )
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f"Could not process session {session_id}: {e}")
 
                 if offset is None:
                     break

@@ -6,7 +6,7 @@ import os
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from celery import Task, group
 
@@ -382,8 +382,7 @@ def _run_consolidation_sync(
         )
 
         logger.info(f"Consolidation completed for {user_id}: {run.dream_report}")
-        result: dict[str, Any] = run.dict()
-        return result
+        return cast(dict[str, Any], run.dict())
 
     except Exception as e:
         run.status = ConsolidationStatus.FAILED
@@ -410,8 +409,7 @@ def _run_consolidation_sync(
             },
         )
 
-        failed_result: dict[str, Any] = run.dict()
-        return failed_result
+        return cast(dict[str, Any], run.dict())
 
 
 @celery_app.task(
@@ -420,7 +418,7 @@ def _run_consolidation_sync(
     max_retries=2,
 )
 def consolidate_user_memories(
-    self,  # type: ignore[misc]
+    self: Task,
     user_id: str,
     lookback_hours: int = 24,
     dry_run: bool = False,
