@@ -56,8 +56,21 @@ class BiTemporalStore:
                     },
                 )
                 logger.info(f"Created bi-temporal collection: {self.collection_name}")
+        except ConnectionError as e:
+            logger.warning(
+                f"Could not connect to Qdrant to ensure bi-temporal collection: {e}. "
+                "Collection will be created on first use."
+            )
+        except ValueError as e:
+            logger.error(f"Invalid configuration for bi-temporal collection: {e}")
+            raise
         except Exception as e:
-            logger.warning(f"Could not ensure bi-temporal collection: {e}")
+            # Log full exception for debugging but allow initialization to continue
+            logger.warning(
+                f"Could not ensure bi-temporal collection '{self.collection_name}': {e}. "
+                f"This may indicate Qdrant is not available yet.",
+                exc_info=True,
+            )
 
     def store_fact(
         self,
@@ -108,10 +121,9 @@ class BiTemporalStore:
         if original is None:
             raise ValueError(f"Original fact not found: {revision.original_fact_id}")
 
-        # Mark original as superseded
         now = datetime.now(timezone.utc)
 
-        # Create new fact version
+        # Create new fact version first (don't mutate original yet)
         new_fact = BiTemporalFact(
             fact_id=original.fact_id,  # Same logical fact
             text=revision.new_text,
@@ -129,22 +141,30 @@ class BiTemporalStore:
             metadata={**original.metadata, **revision.metadata},
         )
 
-        # Update original fact status
-        original.status = FactStatus.SUPERSEDED
-        original.superseded_by = new_fact.id
-        if original.valid_to is None:
-            original.valid_to = now  # End validity at revision time
-
-        # Store both
-        original_payload = self._fact_to_payload(original)
-        self.qdrant.upsert(
-            collection_name=self.collection_name,
-            id=original.id,
-            vector=vector,  # Keep original vector
-            payload=original_payload,
-        )
-
+        # Store the new fact first - this can exist independently
         self.store_fact(new_fact, vector)
+
+        # Now create an updated copy of the original fact (don't mutate the input)
+        # This ensures atomicity - if this fails, new_fact exists but original is unchanged
+        updated_original_payload = self._fact_to_payload(original)
+        updated_original_payload["status"] = FactStatus.SUPERSEDED.value
+        updated_original_payload["superseded_by"] = new_fact.id
+        if original.valid_to is None:
+            updated_original_payload["valid_to"] = now.isoformat()
+
+        # Update original fact in storage
+        try:
+            self.qdrant.update(
+                collection_name=self.collection_name,
+                id=original.id,
+                payload=updated_original_payload,
+            )
+        except Exception as e:
+            # Log error but don't fail - new_fact is stored, we can reconcile later
+            logger.error(
+                f"Failed to mark original fact {original.id} as superseded: {e}. "
+                f"New fact {new_fact.id} was created successfully."
+            )
 
         logger.info(
             f"Revised fact {original.id} -> {new_fact.id} "

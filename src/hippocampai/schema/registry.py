@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from hippocampai.schema.models import (
     EntityTypeDefinition,

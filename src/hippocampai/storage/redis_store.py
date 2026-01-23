@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional, Set, cast
 
 import redis.asyncio as redis
 
@@ -157,18 +157,25 @@ class AsyncRedisKVStore:
             return result
         return int(await result) if result is not None else 0
 
-    async def smembers(self, key: str) -> set[str]:  # type: ignore[valid-type]
-        """Get all members of a set."""
+    async def smembers(self, key: str) -> Set[str]:
+        """Get all members of a set.
+
+        Note: Return type uses typing.Set to avoid mypy confusing builtin set
+        with the class's set() method.
+        """
         await self.connect()
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
-        # smembers is synchronous in redis-py async client, returns a Set directly
-        members = self._client.smembers(key)
-        if isinstance(members, set):
-            return {str(m.decode() if isinstance(m, bytes) else m) for m in members}
-        # If it's a coroutine, await it
-        members_result = await members
-        return {str(m.decode() if isinstance(m, bytes) else m) for m in members_result}
+        # smembers returns a coroutine in redis-py async client
+        members_result = await self._client.smembers(key)
+        # Convert to Set[str], handling both bytes and str members
+        result: Set[str] = set()
+        for m in members_result:
+            if isinstance(m, bytes):
+                result.add(m.decode())
+            else:
+                result.add(str(m))
+        return result
 
     async def srem(self, key: str, *values: str) -> int:
         """Remove values from a set."""

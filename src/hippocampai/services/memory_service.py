@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import weakref
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, cast
 
@@ -51,8 +52,92 @@ from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
-# Memory locks to prevent concurrent modifications
-MEMORY_LOCKS = {}
+
+class MemoryLockManager:
+    """Thread-safe async lock manager for memory operations.
+
+    Uses weak references to automatically cleanup locks when no longer in use.
+    Provides atomic lock acquisition to prevent race conditions between coroutines.
+    """
+
+    def __init__(self, max_locks: int = 10000) -> None:
+        """Initialize the lock manager.
+
+        Args:
+            max_locks: Maximum number of locks to hold (prevents unbounded growth)
+        """
+        self._locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
+            weakref.WeakValueDictionary()
+        )
+        self._strong_refs: dict[str, asyncio.Lock] = {}
+        self._ref_counts: dict[str, int] = {}
+        self._manager_lock = asyncio.Lock()
+        self._max_locks = max_locks
+
+    async def acquire(self, memory_id: str) -> asyncio.Lock:
+        """Atomically get or create a lock for a memory ID.
+
+        Args:
+            memory_id: The memory ID to lock
+
+        Returns:
+            The lock for this memory ID (already acquired)
+        """
+        async with self._manager_lock:
+            # Check if we have a lock for this memory
+            lock = self._strong_refs.get(memory_id)
+            if lock is None:
+                # Cleanup if at capacity
+                if len(self._strong_refs) >= self._max_locks:
+                    self._cleanup_unused_locks()
+
+                # Create new lock
+                lock = asyncio.Lock()
+                self._strong_refs[memory_id] = lock
+                self._ref_counts[memory_id] = 0
+
+            # Increment reference count
+            self._ref_counts[memory_id] = self._ref_counts.get(memory_id, 0) + 1
+
+        # Acquire the lock outside the manager lock to prevent deadlock
+        await lock.acquire()
+        return lock
+
+    async def release(self, memory_id: str, lock: asyncio.Lock) -> None:
+        """Release a lock and decrement reference count.
+
+        Args:
+            memory_id: The memory ID being unlocked
+            lock: The lock to release
+        """
+        # Release the lock first
+        try:
+            lock.release()
+        except RuntimeError:
+            # Lock wasn't held - shouldn't happen but handle gracefully
+            logger.warning(f"Attempted to release unheld lock for memory {memory_id}")
+
+        async with self._manager_lock:
+            if memory_id in self._ref_counts:
+                self._ref_counts[memory_id] -= 1
+
+                # Remove lock if no more references
+                if self._ref_counts[memory_id] <= 0:
+                    self._strong_refs.pop(memory_id, None)
+                    self._ref_counts.pop(memory_id, None)
+
+    def _cleanup_unused_locks(self) -> None:
+        """Remove locks with zero references (called under _manager_lock)."""
+        to_remove = [
+            mid for mid, count in self._ref_counts.items() if count <= 0
+        ]
+        for memory_id in to_remove:
+            self._strong_refs.pop(memory_id, None)
+            self._ref_counts.pop(memory_id, None)
+
+
+# Global lock manager instance
+_memory_lock_manager = MemoryLockManager()
 
 
 class MemoryManagementService:
@@ -490,37 +575,36 @@ class MemoryManagementService:
         Returns:
             True if deleted, False otherwise
         """
-        # Atomically get or create a lock for this memory ID
-        lock = MEMORY_LOCKS.setdefault(memory_id, asyncio.Lock())
+        # Acquire lock using the lock manager (atomic operation)
+        lock = await _memory_lock_manager.acquire(memory_id)
 
         try:
-            async with lock:
-                # Get memory to check ownership and determine collection
-                memory = await self.get_memory(memory_id, track_access=False)
-                if not memory:
-                    return False
+            # Get memory to check ownership and determine collection
+            memory = await self.get_memory(memory_id, track_access=False)
+            if not memory:
+                return False
 
-                # Check authorization
-                if user_id and memory.user_id != user_id:
-                    logger.warning(
-                        f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
-                    )
-                    return False
-
-                # Delete from vector store
-                collection = memory.collection_name(
-                    self.qdrant.collection_facts, self.qdrant.collection_prefs
+            # Check authorization
+            if user_id and memory.user_id != user_id:
+                logger.warning(
+                    f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
                 )
-                self.qdrant.delete(collection_name=collection, ids=[memory_id])
+                return False
 
-                # Delete from Redis cache
-                await self.redis.delete_memory(memory_id)
+            # Delete from vector store
+            collection = memory.collection_name(
+                self.qdrant.collection_facts, self.qdrant.collection_prefs
+            )
+            self.qdrant.delete(collection_name=collection, ids=[memory_id])
 
-                logger.info(f"Deleted memory {memory_id}")
-                return True
+            # Delete from Redis cache
+            await self.redis.delete_memory(memory_id)
+
+            logger.info(f"Deleted memory {memory_id}")
+            return True
         finally:
-            # Clean up the lock to prevent memory leak
-            MEMORY_LOCKS.pop(memory_id, None)
+            # Release lock using the lock manager (handles cleanup automatically)
+            await _memory_lock_manager.release(memory_id, lock)
 
     async def get_memories(
         self,

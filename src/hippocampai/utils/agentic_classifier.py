@@ -1,18 +1,29 @@
 """
 Agentic Memory Classification System.
 
+.. deprecated::
+    This module is deprecated. Use :mod:`hippocampai.utils.classifier_service` instead:
+
+    >>> from hippocampai.utils.classifier_service import (
+    ...     get_classifier_service,
+    ...     ClassificationStrategy,
+    ... )
+    >>> service = get_classifier_service(strategy=ClassificationStrategy.AGENTIC)
+    >>> service.classify(text)
+
 Uses a multi-step LLM-based approach for accurate memory type classification:
 1. Initial classification with reasoning
 2. Confidence assessment
 3. Validation against examples
 4. Final decision with explanation
 
-This provides more accurate and consistent classification than simple pattern matching.
+This module now delegates to the unified ClassifierService.
 """
 
 import hashlib
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -24,7 +35,7 @@ from hippocampai.models.memory import MemoryType
 logger = logging.getLogger(__name__)
 
 # Cache for consistent classification (2 hour TTL, max 2000 entries)
-_agentic_cache: TTLCache = TTLCache(maxsize=2000, ttl=7200)
+_agentic_cache: TTLCache[str, "ClassificationResult"] = TTLCache(maxsize=2000, ttl=7200)
 
 
 class ClassificationConfidence(Enum):
@@ -448,6 +459,10 @@ def get_agentic_classifier(
     """
     Get the global AgenticMemoryClassifier instance.
 
+    .. deprecated::
+        Use :func:`hippocampai.utils.classifier_service.get_classifier_service` instead
+        with ``strategy=ClassificationStrategy.AGENTIC``.
+
     Args:
         use_cache: Whether to use caching for consistency.
         validate: Whether to run validation step.
@@ -455,6 +470,12 @@ def get_agentic_classifier(
     Returns:
         The singleton AgenticMemoryClassifier instance.
     """
+    warnings.warn(
+        "get_agentic_classifier is deprecated. "
+        "Use classifier_service.get_classifier_service(strategy=ClassificationStrategy.AGENTIC) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     global _agentic_classifier
     if _agentic_classifier is None:
         _agentic_classifier = AgenticMemoryClassifier(
@@ -468,6 +489,10 @@ def classify_memory_agentic(text: str, default: Optional[MemoryType] = None) -> 
     """
     Convenience function to classify using agentic classifier.
 
+    .. deprecated::
+        Use :func:`hippocampai.utils.classifier_service.classify_memory` instead
+        with ``strategy=ClassificationStrategy.AGENTIC``.
+
     Args:
         text: The memory text to classify.
         default: Default type if classification fails.
@@ -475,7 +500,17 @@ def classify_memory_agentic(text: str, default: Optional[MemoryType] = None) -> 
     Returns:
         The detected MemoryType.
     """
-    return get_agentic_classifier().classify(text, default)
+    warnings.warn(
+        "classify_memory_agentic is deprecated. "
+        "Use classifier_service.classify_memory(text, strategy=ClassificationStrategy.AGENTIC) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from hippocampai.utils.classifier_service import (
+        ClassificationStrategy,
+        classify_memory,
+    )
+    return classify_memory(text, default, ClassificationStrategy.AGENTIC)
 
 
 def classify_memory_agentic_with_confidence(
@@ -484,13 +519,28 @@ def classify_memory_agentic_with_confidence(
     """
     Convenience function to classify with confidence.
 
+    .. deprecated::
+        Use :func:`hippocampai.utils.classifier_service.classify_memory_with_confidence` instead
+        with ``strategy=ClassificationStrategy.AGENTIC``.
+
     Args:
         text: The memory text to classify.
 
     Returns:
         Tuple of (MemoryType, confidence_score).
     """
-    return get_agentic_classifier().classify_with_confidence(text)
+    warnings.warn(
+        "classify_memory_agentic_with_confidence is deprecated. "
+        "Use classifier_service.classify_memory_with_confidence(text, strategy=ClassificationStrategy.AGENTIC) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from hippocampai.utils.classifier_service import (
+        ClassificationStrategy,
+        classify_memory_with_confidence,
+    )
+    result = classify_memory_with_confidence(text, strategy=ClassificationStrategy.AGENTIC)
+    return (result[0], result[1])
 
 
 def classify_memory_agentic_with_details(
@@ -499,16 +549,38 @@ def classify_memory_agentic_with_details(
     """
     Convenience function to classify with full details.
 
+    .. deprecated::
+        Use the unified :class:`hippocampai.utils.classifier_service.ClassifierService` instead.
+
     Args:
         text: The memory text to classify.
 
     Returns:
         ClassificationResult with full details.
     """
-    return get_agentic_classifier().classify_with_details(text)
+    warnings.warn(
+        "classify_memory_agentic_with_details is deprecated. "
+        "Use classifier_service.get_classifier_service().classify_with_details() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Still use the local classifier for the detailed result format
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return get_agentic_classifier().classify_with_details(text)
 
 
 def clear_agentic_cache() -> None:
-    """Clear the agentic classification cache."""
-    _agentic_cache.clear()
-    logger.info("Agentic classification cache cleared")
+    """Clear the agentic classification cache.
+
+    .. deprecated::
+        Use :func:`hippocampai.utils.classifier_service.clear_classification_cache` instead.
+    """
+    warnings.warn(
+        "clear_agentic_cache is deprecated. "
+        "Use classifier_service.clear_classification_cache() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from hippocampai.utils.classifier_service import clear_classification_cache
+    clear_classification_cache()

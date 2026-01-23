@@ -1,8 +1,10 @@
 """API routes for conversation compaction."""
 
 import logging
+from collections import deque
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -10,6 +12,74 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/compaction", tags=["compaction"])
+
+
+# ============================================
+# COMPACTION HISTORY STORAGE
+# ============================================
+
+
+@dataclass
+class CompactionHistoryEntry:
+    """A single compaction history entry."""
+
+    id: str
+    user_id: str
+    session_id: Optional[str]
+    status: str
+    started_at: datetime
+    completed_at: Optional[datetime]
+    input_memories: int
+    output_memories: int
+    compression_ratio: float
+    tokens_saved: int
+    dry_run: bool
+    error: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class CompactionHistoryStore:
+    """In-memory store for compaction history with size limit."""
+
+    MAX_ENTRIES_PER_USER = 100
+
+    def __init__(self) -> None:
+        self._history: dict[str, deque[CompactionHistoryEntry]] = {}
+
+    def add(self, entry: CompactionHistoryEntry) -> None:
+        """Add a compaction history entry."""
+        if entry.user_id not in self._history:
+            self._history[entry.user_id] = deque(maxlen=self.MAX_ENTRIES_PER_USER)
+        self._history[entry.user_id].appendleft(entry)
+
+    def get(self, user_id: str, limit: int = 20) -> list[CompactionHistoryEntry]:
+        """Get compaction history for a user."""
+        if user_id not in self._history:
+            return []
+        entries = list(self._history[user_id])
+        return entries[:limit]
+
+    def add_from_result(self, result: Any) -> None:
+        """Add a compaction history entry from a CompactionResult."""
+        entry = CompactionHistoryEntry(
+            id=result.id,
+            user_id=result.user_id,
+            session_id=result.session_id,
+            status=result.status,
+            started_at=result.started_at,
+            completed_at=result.completed_at,
+            input_memories=result.metrics.input_memories,
+            output_memories=result.metrics.output_memories,
+            compression_ratio=result.metrics.compression_ratio,
+            tokens_saved=result.metrics.tokens_saved,
+            dry_run=result.dry_run,
+            error=result.error,
+        )
+        self.add(entry)
+
+
+# Global history store instance
+_compaction_history = CompactionHistoryStore()
 
 
 # ============================================
@@ -113,6 +183,9 @@ async def compact_conversations(request: CompactRequest) -> CompactionResponse:
             dry_run=request.dry_run,
             memory_types=request.memory_types,
         )
+
+        # Store in compaction history
+        _compaction_history.add_from_result(result)
 
         return CompactionResponse(
             id=result.id,
@@ -247,7 +320,28 @@ async def get_compactable_types() -> dict:
 async def get_compaction_history(
     user_id: str = Query(..., description="User ID"),
     limit: int = Query(20, ge=1, le=100),
-) -> list[dict]:
-    """Get compaction history for a user."""
-    # TODO: Store compaction history in database
-    return []
+) -> list[dict[str, Any]]:
+    """Get compaction history for a user.
+
+    Returns a list of past compaction operations with their results.
+    History is stored in-memory and will be cleared on server restart.
+    """
+    entries = _compaction_history.get(user_id, limit)
+
+    return [
+        {
+            "id": entry.id,
+            "user_id": entry.user_id,
+            "session_id": entry.session_id,
+            "status": entry.status,
+            "started_at": entry.started_at.isoformat(),
+            "completed_at": entry.completed_at.isoformat() if entry.completed_at else None,
+            "input_memories": entry.input_memories,
+            "output_memories": entry.output_memories,
+            "compression_ratio": entry.compression_ratio,
+            "tokens_saved": entry.tokens_saved,
+            "dry_run": entry.dry_run,
+            "error": entry.error,
+        }
+        for entry in entries
+    ]
