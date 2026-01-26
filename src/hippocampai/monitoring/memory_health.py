@@ -605,9 +605,7 @@ class MemoryHealthMonitor:
                 similarity_matrix = self._calculate_similarity_matrix(embeddings)
 
                 # Get upper triangle (excluding diagonal)
-                upper_triangle = similarity_matrix[
-                    np.triu_indices_from(similarity_matrix, k=1)
-                ]
+                upper_triangle = similarity_matrix[np.triu_indices_from(similarity_matrix, k=1)]
                 avg_similarity = np.mean(upper_triangle)
 
                 # Lower similarity = higher diversity
@@ -724,22 +722,41 @@ class MemoryHealthMonitor:
     def _generate_stale_recommendation(
         self, memory: Memory, staleness_score: float, reason: StaleReason
     ) -> tuple[str, bool, bool]:
-        """Generate recommendation for stale memory."""
+        """Generate recommendation for stale memory based on staleness score and reason."""
         should_archive = False
         should_delete = False
 
+        # Generate reason-specific recommendations
         if staleness_score >= 0.8:
-            recommendation = "Consider deleting this memory - very stale and low value"
+            if reason == StaleReason.LOW_CONFIDENCE:
+                recommendation = "Consider deleting this memory - very low confidence"
+            elif reason == StaleReason.NO_ACTIVITY:
+                recommendation = "Consider deleting this memory - never accessed and very old"
+            elif reason == StaleReason.REPLACED:
+                recommendation = "Consider deleting this memory - better version exists"
+            else:
+                recommendation = f"Consider deleting this memory - {reason.value}"
             should_delete = True
         elif staleness_score >= 0.6:
-            recommendation = (
-                "Consider archiving this memory - outdated but may have historical value"
-            )
+            if reason == StaleReason.TEMPORAL_CONTEXT:
+                recommendation = (
+                    "Consider archiving this memory - time-sensitive information expired"
+                )
+            elif reason == StaleReason.OUTDATED:
+                recommendation = (
+                    "Consider archiving this memory - outdated but may have historical value"
+                )
+            else:
+                recommendation = f"Consider archiving this memory - {reason.value}"
             should_archive = True
         elif staleness_score >= 0.4:
-            recommendation = "Review and update this memory if still relevant"
+            recommendation = (
+                f"Review and update this memory if still relevant (reason: {reason.value})"
+            )
         else:
-            recommendation = "Monitor this memory - showing early signs of staleness"
+            recommendation = (
+                f"Monitor this memory - showing early signs of staleness (reason: {reason.value})"
+            )
 
         return recommendation, should_archive, should_delete
 

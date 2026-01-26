@@ -262,9 +262,7 @@ try:
         from hippocampai.api.admin_routes import router as admin_router
 
         app.include_router(admin_router)
-        logger.warning(
-            "Admin routes registered. ENSURE authentication middleware is configured!"
-        )
+        logger.warning("Admin routes registered. ENSURE authentication middleware is configured!")
     else:
         logger.info("Admin routes disabled (set ENABLE_ADMIN_ROUTES=true to enable)")
 except ImportError as e:
@@ -1188,8 +1186,10 @@ async def calculate_freshness(
 
         # Sanitize access_count to prevent precise behavioral tracking
         # Round to ranges instead of exact counts
-        sanitized_access_count = "low" if memory.access_count < 10 else (
-            "medium" if memory.access_count < 50 else "high"
+        sanitized_access_count = (
+            "low"
+            if memory.access_count < 10
+            else ("medium" if memory.access_count < 50 else "high")
         )
 
         return {

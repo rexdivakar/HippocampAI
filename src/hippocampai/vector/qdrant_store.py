@@ -292,17 +292,25 @@ class QdrantStore:
         limit: int = 100,
         filters: Optional[dict[str, Any]] = None,
         ef: Optional[int] = None,
+        include_deleted: bool = False,
     ) -> list[dict[str, Any]]:
         """Vector similarity search (with automatic retry on transient failures)."""
-        query_filter = None
+        must_conditions = []
+        must_not_conditions = []
+
+        # Exclude soft-deleted memories using must_not (handles missing field case)
+        if not include_deleted:
+            must_not_conditions.append(
+                FieldCondition(key="is_deleted", match=MatchValue(value=True))
+            )
+
         if filters:
-            conditions = []
             if "user_id" in filters:
-                conditions.append(
+                must_conditions.append(
                     FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
                 )
             if "type" in filters:
-                conditions.append(
+                must_conditions.append(
                     FieldCondition(key="type", match=MatchValue(value=filters["type"]))
                 )
             if "tags" in filters:
@@ -310,9 +318,15 @@ class QdrantStore:
                 tags = filters["tags"]
                 if isinstance(tags, str):
                     tags = [tags]
-                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
-            if conditions:
-                query_filter = Filter(must=list(conditions))
+                must_conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
+
+        # Build filter with must and must_not
+        query_filter = None
+        if must_conditions or must_not_conditions:
+            query_filter = Filter(
+                must=must_conditions if must_conditions else None,
+                must_not=must_not_conditions if must_not_conditions else None,
+            )
 
         # Build search params
         hnsw_ef = ef if ef else self.ef_search
@@ -341,18 +355,71 @@ class QdrantStore:
 
     @get_qdrant_retry_decorator(max_attempts=3, min_wait=1, max_wait=5)
     def scroll(
-        self, collection_name: str, filters: Optional[dict[str, Any]] = None, limit: int = 100
+        self,
+        collection_name: str,
+        filters: Optional[dict[str, Any]] = None,
+        limit: int = 100,
+        include_deleted: bool = False,
+        include_archived: bool = False,
     ) -> list[dict[str, Any]]:
-        """Scroll through points (with automatic retry on transient failures)."""
-        query_filter = None
+        """Scroll through points (with automatic retry on transient failures).
+
+        Args:
+            collection_name: Name of the collection
+            filters: Optional filters dict
+            limit: Maximum number of results
+            include_deleted: If True, include soft-deleted memories
+            include_archived: If True, include archived memories
+        """
+        must_conditions = []
+        must_not_conditions = []
+        should_conditions = []
+
+        # Exclude soft-deleted memories using must_not (handles missing field case)
+        if not include_deleted:
+            must_not_conditions.append(
+                FieldCondition(key="is_deleted", match=MatchValue(value=True))
+            )
+
+        # Exclude archived memories by default
+        if not include_archived:
+            must_not_conditions.append(
+                FieldCondition(key="is_archived", match=MatchValue(value=True))
+            )
+
         if filters:
-            conditions = []
-            if "user_id" in filters:
-                conditions.append(
-                    FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
-                )
+            # Handle "should" filter for OR logic (e.g., user_id OR session_id)
+            if "should" in filters:
+                for should_item in filters["should"]:
+                    for key, value in should_item.items():
+                        should_conditions.append(
+                            FieldCondition(key=key, match=MatchValue(value=value))
+                        )
+            else:
+                # Standard user_id filter
+                if "user_id" in filters:
+                    must_conditions.append(
+                        FieldCondition(key="user_id", match=MatchValue(value=filters["user_id"]))
+                    )
+                # Also check session_id if provided
+                if "session_id" in filters:
+                    # Use OR logic: match user_id OR session_id
+                    should_conditions.append(
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=filters.get("user_id", filters["session_id"])),
+                        )
+                    )
+                    should_conditions.append(
+                        FieldCondition(
+                            key="session_id", match=MatchValue(value=filters["session_id"])
+                        )
+                    )
+                    # Clear must_conditions for user_id since we're using should
+                    must_conditions = [c for c in must_conditions if c.key not in ("user_id",)]
+
             if "type" in filters:
-                conditions.append(
+                must_conditions.append(
                     FieldCondition(key="type", match=MatchValue(value=filters["type"]))
                 )
             if "tags" in filters:
@@ -360,9 +427,16 @@ class QdrantStore:
                 tags = filters["tags"]
                 if isinstance(tags, str):
                     tags = [tags]
-                conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
-            if conditions:
-                query_filter = Filter(must=list(conditions))
+                must_conditions.append(FieldCondition(key="tags", match=MatchAny(any=tags)))
+
+        # Build the filter with must, must_not, and should
+        query_filter = None
+        if must_conditions or must_not_conditions or should_conditions:
+            query_filter = Filter(
+                must=must_conditions if must_conditions else None,
+                must_not=must_not_conditions if must_not_conditions else None,
+                should=should_conditions if should_conditions else None,
+            )
 
         try:
             results, _ = self.client.scroll(

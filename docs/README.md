@@ -33,6 +33,7 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 ### Core Documentation
 
+- **[Package Structure](PACKAGE_STRUCTURE.md)** ⭐ - Core vs Platform separation guide
 - **[API Reference](API_REFERENCE.md)** - Complete API documentation for all 102+ methods
 - **[Features Overview](FEATURES.md)** - Complete feature documentation
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and component architecture
@@ -40,6 +41,7 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 ### Specialized Guides
 
+- **[New Features Guide](NEW_FEATURES.md)** ⭐ NEW - Plugins, namespaces, export/import, offline mode, tiered storage, integrations
 - **[SaaS Platform Guide](SAAS_GUIDE.md)** - Multi-tenant SaaS deployment and authentication
 - **[Memory Management](MEMORY_MANAGEMENT.md)** - Health monitoring, duplicate detection, quality tracking
 - **[Celery Guide](CELERY_GUIDE.md)** - Background task processing with Celery
@@ -223,6 +225,8 @@ All source files from these consolidations have been removed in v0.3.0
 | Task | Documentation |
 |------|---------------|
 | **Get started in 30 seconds** ⭐ | [Quick Start - Simple API](QUICK_START_SIMPLE.md) |
+| **Package structure** ⭐ | [Package Structure](PACKAGE_STRUCTURE.md) |
+| **New features** ⭐ | [New Features Guide](NEW_FEATURES.md) |
 | **Why HippocampAI?** ⭐ | [Why We Built HippocampAI](WHY_WE_BUILT_HIPPOCAMPAI.md) |
 | **Complete overview** | [Unified Guide](UNIFIED_GUIDE.md) |
 | **Try interactive demo** | [Chat Demo Guide](CHAT_DEMO_GUIDE.md) |

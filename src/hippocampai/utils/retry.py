@@ -67,36 +67,51 @@ def get_qdrant_retry_decorator(
     )
 
 
+def _get_rate_limit_exceptions() -> tuple[type[Exception], ...]:
+    """Get rate limit exception types from installed packages."""
+    exceptions: list[type[Exception]] = []
+
+    try:
+        from openai import APIStatusError, RateLimitError
+
+        exceptions.extend([RateLimitError, APIStatusError])
+    except ImportError:
+        pass
+
+    return tuple(exceptions)
+
+
 def get_llm_retry_decorator(
-    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    min_wait: int = DEFAULT_MIN_WAIT,
-    max_wait: int = DEFAULT_MAX_WAIT,
+    max_attempts: int = 5,
+    min_wait: int = 2,
+    max_wait: int = 60,
 ) -> Callable[[F], F]:
     """Get retry decorator for LLM operations.
 
     Retries on common transient failures:
     - Connection errors
     - Timeout errors
-    - Rate limit errors
+    - Rate limit errors (429) - with longer backoff
     - Server errors (500-series)
 
     Args:
-        max_attempts: Maximum number of retry attempts
+        max_attempts: Maximum number of retry attempts (default 5 for rate limits)
         min_wait: Minimum wait time between retries (seconds)
-        max_wait: Maximum wait time between retries (seconds)
+        max_wait: Maximum wait time between retries (seconds, default 60 for rate limits)
 
     Returns:
         Retry decorator configured for LLM calls
     """
+    rate_limit_exceptions = _get_rate_limit_exceptions()
+
     return retry(
         retry=retry_if_exception_type(
             (
                 ConnectionError,
                 TimeoutError,
                 OSError,
-                # LLM-specific exceptions would go here
-                # e.g., openai.error.RateLimitError, anthropic.RateLimitError
             )
+            + rate_limit_exceptions
         ),
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential(

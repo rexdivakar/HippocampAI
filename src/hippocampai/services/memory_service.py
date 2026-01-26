@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import weakref
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, cast
 
@@ -51,8 +52,92 @@ from hippocampai.vector.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
-# Memory locks to prevent concurrent modifications
-MEMORY_LOCKS = {}
+
+class MemoryLockManager:
+    """Thread-safe async lock manager for memory operations.
+
+    Uses weak references to automatically cleanup locks when no longer in use.
+    Provides atomic lock acquisition to prevent race conditions between coroutines.
+    """
+
+    def __init__(self, max_locks: int = 10000) -> None:
+        """Initialize the lock manager.
+
+        Args:
+            max_locks: Maximum number of locks to hold (prevents unbounded growth)
+        """
+        self._locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
+            weakref.WeakValueDictionary()
+        )
+        self._strong_refs: dict[str, asyncio.Lock] = {}
+        self._ref_counts: dict[str, int] = {}
+        self._manager_lock = asyncio.Lock()
+        self._max_locks = max_locks
+
+    async def acquire(self, memory_id: str) -> asyncio.Lock:
+        """Atomically get or create a lock for a memory ID.
+
+        Args:
+            memory_id: The memory ID to lock
+
+        Returns:
+            The lock for this memory ID (already acquired)
+        """
+        async with self._manager_lock:
+            # Check if we have a lock for this memory
+            lock = self._strong_refs.get(memory_id)
+            if lock is None:
+                # Cleanup if at capacity
+                if len(self._strong_refs) >= self._max_locks:
+                    self._cleanup_unused_locks()
+
+                # Create new lock
+                lock = asyncio.Lock()
+                self._strong_refs[memory_id] = lock
+                self._ref_counts[memory_id] = 0
+
+            # Increment reference count
+            self._ref_counts[memory_id] = self._ref_counts.get(memory_id, 0) + 1
+
+        # Acquire the lock outside the manager lock to prevent deadlock
+        await lock.acquire()
+        return lock
+
+    async def release(self, memory_id: str, lock: asyncio.Lock) -> None:
+        """Release a lock and decrement reference count.
+
+        Args:
+            memory_id: The memory ID being unlocked
+            lock: The lock to release
+        """
+        # Release the lock first
+        try:
+            lock.release()
+        except RuntimeError:
+            # Lock wasn't held - shouldn't happen but handle gracefully
+            logger.warning(f"Attempted to release unheld lock for memory {memory_id}")
+
+        async with self._manager_lock:
+            if memory_id in self._ref_counts:
+                self._ref_counts[memory_id] -= 1
+
+                # Remove lock if no more references
+                if self._ref_counts[memory_id] <= 0:
+                    self._strong_refs.pop(memory_id, None)
+                    self._ref_counts.pop(memory_id, None)
+
+    def _cleanup_unused_locks(self) -> None:
+        """Remove locks with zero references (called under _manager_lock)."""
+        to_remove = [
+            mid for mid, count in self._ref_counts.items() if count <= 0
+        ]
+        for memory_id in to_remove:
+            self._strong_refs.pop(memory_id, None)
+            self._ref_counts.pop(memory_id, None)
+
+
+# Global lock manager instance
+_memory_lock_manager = MemoryLockManager()
 
 
 class MemoryManagementService:
@@ -188,6 +273,118 @@ class MemoryManagementService:
         cache_hash = hashlib.md5(cache_str.encode(), usedforsecurity=False).hexdigest()
         return f"query_cache:{cache_hash}"
 
+    async def _handle_duplicate_check(
+        self, memory: Memory, user_id: str, metadata: Optional[dict[str, Any]]
+    ) -> tuple[Optional[Memory], bool]:
+        """Handle duplicate check and return (existing_memory, should_continue)."""
+        if (metadata or {}).get("skip_duplicate_check", False):
+            return None, True
+
+        action, duplicate_ids = self.deduplicator.check_duplicate(memory, user_id)
+
+        if action == "skip":
+            logger.info(f"Skipping duplicate memory: {memory.id}")
+            existing_id = duplicate_ids[0]
+            try:
+                existing_memory = await self.get_memory(existing_id)
+                if existing_memory is None:
+                    logger.warning(f"Detected duplicate {existing_id} no longer exists, creating new memory")
+                    return None, True
+                return existing_memory, False
+            except Exception as e:
+                logger.error(f"Error retrieving duplicate memory {existing_id}: {e}")
+                raise MemoryNotFoundError(f"Duplicate memory {existing_id} not found")
+
+        if action == "update":
+            logger.info(f"Updating existing memory: {duplicate_ids[0]}")
+            existing_id = duplicate_ids[0]
+            updated_memory = await self.update_memory(
+                memory_id=existing_id,
+                text=memory.text,
+                importance=memory.importance,
+                tags=memory.tags,
+            )
+            if updated_memory is None:
+                raise MemoryNotFoundError(f"Failed to update memory {existing_id} - memory not found")
+            return updated_memory, False
+
+        return None, True
+
+    async def _apply_conflict_resolutions(
+        self, memory: Memory, conflicts: list, auto_resolve: bool
+    ) -> Memory:
+        """Apply conflict resolutions and return possibly modified memory."""
+        if not auto_resolve:
+            logger.info(f"Flagging {len(conflicts)} conflict(s) for user review")
+            memory.metadata["has_conflicts"] = True
+            memory.metadata["conflict_count"] = len(conflicts)
+            memory.metadata["conflict_ids"] = [c.id for c in conflicts]
+            return memory
+
+        memories_to_delete: set[str] = set()
+        keep_first_memory = None
+        merged_memory = None
+
+        for conflict in conflicts:
+            resolution = self.conflict_resolver.resolve_conflict(
+                conflict, strategy=self.conflict_resolution_strategy
+            )
+
+            if resolution.action == "keep_first":
+                keep_first_memory = conflict.memory_1
+                break
+            elif resolution.action == "keep_second":
+                memories_to_delete.add(conflict.memory_1.id)
+            elif resolution.action == "merge":
+                merged_memory = resolution.updated_memory
+                memories_to_delete.update(resolution.deleted_memory_ids)
+            elif resolution.action in ["flag", "keep_both"]:
+                await self.update_memory(
+                    memory_id=conflict.memory_1.id,
+                    metadata=conflict.memory_1.metadata,
+                )
+                memory.metadata.update(conflict.memory_2.metadata)
+
+        if keep_first_memory:
+            logger.info(f"Conflict resolved: keeping existing memory {keep_first_memory.id}")
+            return keep_first_memory
+        if merged_memory:
+            logger.info("Conflict resolved: merged memories into new memory")
+            memory = merged_memory
+
+        for mem_id in memories_to_delete:
+            try:
+                await self.delete_memory(mem_id)
+                logger.info(f"Deleted conflicting memory: {mem_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete memory {mem_id}: {e}")
+
+        return memory
+
+    async def _store_and_cache_memory(self, memory: Memory, text: str) -> None:
+        """Store memory in vector DB and cache."""
+        collection = memory.collection_name(
+            self.qdrant.collection_facts, self.qdrant.collection_prefs
+        )
+        vector = self.embedder.encode_single(text)
+        self.qdrant.upsert(
+            collection_name=collection, id=memory.id,
+            vector=vector, payload=memory.model_dump(mode="json"),
+        )
+        await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
+
+        try:
+            from hippocampai.monitoring.prometheus_metrics import (
+                memories_created_total,
+                memory_operations_total,
+                memory_size_bytes,
+            )
+            memory_operations_total.labels(operation="create", status="success").inc()
+            memories_created_total.labels(memory_type=memory.type.value).inc()
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(len(text.encode("utf-8")))
+        except Exception as metrics_err:
+            logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
+
     async def create_memory(
         self,
         text: str,
@@ -221,178 +418,41 @@ class MemoryManagementService:
         Returns:
             Created memory
         """
-        # Create memory object with all fields set
+        # Create memory object
         memory = Memory(
-            text=text,
-            user_id=user_id,
-            session_id=session_id,
-            type=MemoryType(memory_type),
-            importance=importance or 5.0,
-            tags=tags or [],
-            metadata=metadata or {},
+            text=text, user_id=user_id, session_id=session_id,
+            type=MemoryType(memory_type), importance=importance or 5.0,
+            tags=tags or [], metadata=metadata or {},
         )
-
-        # Set expiration if TTL provided
         if ttl_days:
             memory.expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
-
-        # Calculate size metrics
         memory.calculate_size_metrics()
 
-        action = None
-        duplicate_ids: list[str] = []
-        # Check duplicates unless explicitly skipped
-        if check_duplicate and not (metadata or {}).get("skip_duplicate_check", False):
-            action, duplicate_ids = self.deduplicator.check_duplicate(memory, user_id)
-
-            if action == "skip":
-                logger.info(f"Skipping duplicate memory: {memory.id}")
-                # Return existing memory
-                existing_id = duplicate_ids[0]
-                try:
-                    existing_memory = await self.get_memory(existing_id)
-                    if existing_memory is None:
-                        # If the memory was detected as duplicate but no longer exists,
-                        # we should create a new one
-                        logger.warning(
-                            f"Detected duplicate {existing_id} no longer exists, creating new memory"
-                        )
-                        # Continue with creation by setting action to store
-                        action = "store"
-                        duplicate_ids = []
-                    else:
-                        return existing_memory
-                except Exception as e:
-                    logger.error(f"Error retrieving duplicate memory {existing_id}: {e}")
-                    raise MemoryNotFoundError(f"Duplicate memory {existing_id} not found")
-            elif action == "update":
-                logger.info(f"Updating existing memory: {duplicate_ids[0]}")
-                # Update the first duplicate
-                existing_id = duplicate_ids[0]
-                updated_memory = await self.update_memory(
-                    memory_id=existing_id,
-                    text=text,
-                    importance=memory.importance,
-                    tags=memory.tags,
-                )
-                if updated_memory is None:
-                    raise MemoryNotFoundError(
-                        f"Failed to update memory {existing_id} - memory not found"
-                    )
-                return updated_memory
-            # If action is "store", continue with normal memory creation
+        # Check duplicates
+        if check_duplicate:
+            existing, should_continue = await self._handle_duplicate_check(memory, user_id, metadata)
+            if not should_continue:
+                return cast(Memory, existing)
 
         # Check for conflicts
         if check_conflicts and self.enable_conflict_resolution:
-            # Get existing memories of the same type
             existing_memories = await self.get_memories(
-                user_id=user_id,
-                memory_type=memory_type,
-                limit=100,  # Check recent memories
+                user_id=user_id, memory_type=memory_type, limit=100,
             )
-
             if existing_memories:
                 conflicts = self.conflict_resolver.detect_conflicts(
                     memory, existing_memories, check_llm=bool(self.llm)
                 )
-
                 if conflicts:
-                    logger.info(
-                        f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'"
-                    )
+                    logger.info(f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'")
+                    result = await self._apply_conflict_resolutions(memory, conflicts, auto_resolve_conflicts)
+                    # If we got back an existing memory (keep_first), return it
+                    if result.id != memory.id and result.id in [c.memory_1.id for c in conflicts]:
+                        return result
+                    memory = result
 
-                    # Auto-resolve if enabled
-                    if auto_resolve_conflicts:
-                        # Track all resolutions before applying changes
-                        resolutions = []
-                        memories_to_delete = set()  # Use set to avoid duplicates
-                        keep_first_memory = None  # Track if we should keep an existing memory
-                        merged_memory = None  # Track if we should use a merged memory
-
-                        # First pass - collect all resolution decisions
-                        for conflict in conflicts:
-                            resolution = self.conflict_resolver.resolve_conflict(
-                                conflict, strategy=self.conflict_resolution_strategy
-                            )
-                            resolutions.append(resolution)
-
-                            if resolution.action == "keep_first":
-                                # Remember to keep existing and not create new
-                                keep_first_memory = conflict.memory_1
-                                break  # No need to continue if we're keeping an existing memory
-                            elif resolution.action == "keep_second":
-                                # Will keep new memory, mark old for deletion
-                                memories_to_delete.add(conflict.memory_1.id)
-                            elif resolution.action == "merge":
-                                # Use merged memory, mark both for deletion
-                                merged_memory = resolution.updated_memory
-                                memories_to_delete.update(resolution.deleted_memory_ids)
-                            elif resolution.action in ["flag", "keep_both"]:
-                                # Update metadata for both memories
-                                await self.update_memory(
-                                    memory_id=conflict.memory_1.id,
-                                    metadata=conflict.memory_1.metadata,
-                                )
-                                memory.metadata.update(conflict.memory_2.metadata)
-
-                        # Apply resolutions
-                        if keep_first_memory:
-                            # Use existing memory instead of creating new
-                            logger.info(
-                                f"Conflict resolved: keeping existing memory {keep_first_memory.id}"
-                            )
-                            return keep_first_memory
-                        elif merged_memory:
-                            # Use merged memory instead
-                            logger.info("Conflict resolved: merged memories into new memory")
-                            memory = merged_memory
-
-                        # Delete conflicting memories in a single batch
-                        for mem_id in memories_to_delete:
-                            try:
-                                await self.delete_memory(mem_id)
-                                logger.info(f"Deleted conflicting memory: {mem_id}")
-                            except Exception as e:
-                                logger.warning(f"Failed to delete memory {mem_id}: {e}")
-
-                    else:
-                        # Just flag for review without auto-resolving
-                        logger.info(f"Flagging {len(conflicts)} conflict(s) for user review")
-                        memory.metadata["has_conflicts"] = True
-                        memory.metadata["conflict_count"] = len(conflicts)
-                        memory.metadata["conflict_ids"] = [c.id for c in conflicts]
-
-        # Store in vector database
-        collection = memory.collection_name(
-            self.qdrant.collection_facts, self.qdrant.collection_prefs
-        )
-        vector = self.embedder.encode_single(text)
-        self.qdrant.upsert(
-            collection_name=collection,
-            id=memory.id,
-            vector=vector,
-            payload=memory.model_dump(mode="json"),
-        )
-
-        # Cache in Redis
-        await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
-
-        # Track Prometheus metrics
-        try:
-            from hippocampai.monitoring.prometheus_metrics import (
-                memories_created_total,
-                memory_operations_total,
-                memory_size_bytes,
-            )
-
-            memory_operations_total.labels(operation="create", status="success").inc()
-            memories_created_total.labels(memory_type=memory.type.value).inc()
-            memory_size_bytes.labels(memory_type=memory.type.value).observe(
-                len(text.encode("utf-8"))
-            )
-        except Exception as metrics_err:
-            logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
-
+        # Store and cache
+        await self._store_and_cache_memory(memory, text)
         logger.info(f"Created memory {memory.id} for user {user_id}")
         return memory
 
@@ -464,8 +524,8 @@ class MemoryManagementService:
         Returns:
             Updated memory or None if not found
         """
-        # Get existing memory
-        memory = await self.get_memory(memory_id)
+        # Get existing memory (don't track access to avoid race condition with cache update)
+        memory = await self.get_memory(memory_id, track_access=False)
         if not memory:
             return None
 
@@ -515,37 +575,36 @@ class MemoryManagementService:
         Returns:
             True if deleted, False otherwise
         """
-        # Atomically get or create a lock for this memory ID
-        lock = MEMORY_LOCKS.setdefault(memory_id, asyncio.Lock())
+        # Acquire lock using the lock manager (atomic operation)
+        lock = await _memory_lock_manager.acquire(memory_id)
 
         try:
-            async with lock:
-                # Get memory to check ownership and determine collection
-                memory = await self.get_memory(memory_id, track_access=False)
-                if not memory:
-                    return False
+            # Get memory to check ownership and determine collection
+            memory = await self.get_memory(memory_id, track_access=False)
+            if not memory:
+                return False
 
-                # Check authorization
-                if user_id and memory.user_id != user_id:
-                    logger.warning(
-                        f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
-                    )
-                    return False
-
-                # Delete from vector store
-                collection = memory.collection_name(
-                    self.qdrant.collection_facts, self.qdrant.collection_prefs
+            # Check authorization
+            if user_id and memory.user_id != user_id:
+                logger.warning(
+                    f"Unauthorized delete attempt for memory {memory_id} by user {user_id}"
                 )
-                self.qdrant.delete(collection_name=collection, ids=[memory_id])
+                return False
 
-                # Delete from Redis cache
-                await self.redis.delete_memory(memory_id)
+            # Delete from vector store
+            collection = memory.collection_name(
+                self.qdrant.collection_facts, self.qdrant.collection_prefs
+            )
+            self.qdrant.delete(collection_name=collection, ids=[memory_id])
 
-                logger.info(f"Deleted memory {memory_id}")
-                return True
+            # Delete from Redis cache
+            await self.redis.delete_memory(memory_id)
+
+            logger.info(f"Deleted memory {memory_id}")
+            return True
         finally:
-            # Clean up the lock to prevent memory leak
-            MEMORY_LOCKS.pop(memory_id, None)
+            # Release lock using the lock manager (handles cleanup automatically)
+            await _memory_lock_manager.release(memory_id, lock)
 
     async def get_memories(
         self,

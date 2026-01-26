@@ -20,8 +20,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hippocampai_secret}
       USER_AUTH_ENABLED: ${USER_AUTH_ENABLED:-false}
 
-      # Qdrant
-      QDRANT_URL: http://qdrant:6333
+      # Qdrant (remote instance)
+      QDRANT_URL: http://100.113.229.40:6333
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -64,6 +64,14 @@ services:
       CONSOLIDATION_INTERVAL_HOURS: 168
       EXPIRATION_INTERVAL_HOURS: 1
 
+      # Sleep Phase / Active Consolidation
+      ACTIVE_CONSOLIDATION_ENABLED: ${ACTIVE_CONSOLIDATION_ENABLED:-true}
+      CONSOLIDATION_DRY_RUN: ${CONSOLIDATION_DRY_RUN:-false}
+      CONSOLIDATION_SCHEDULE_HOUR: ${CONSOLIDATION_SCHEDULE_HOUR:-3}
+      CONSOLIDATION_LOOKBACK_HOURS: ${CONSOLIDATION_LOOKBACK_HOURS:-24}
+      CONSOLIDATION_LLM_PROVIDER: ${CONSOLIDATION_LLM_PROVIDER:-groq}
+      CONSOLIDATION_LLM_MODEL: ${CONSOLIDATION_LLM_MODEL:-llama-3.1-8b-instant}
+
       # Celery Configuration
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
@@ -89,7 +97,7 @@ services:
       start_period: 40s
     volumes:
       - ./logs:/app/logs
-    command: uvicorn hippocampai.api.async_app:app --host 0.0.0.0 --port 8000 --workers 4
+    command: uvicorn hippocampai.api.app:socket_app --host 0.0.0.0 --port 8000 --workers 1
 
   # ==================== Task Queue Services ====================
 
@@ -105,8 +113,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
-      # Qdrant
-      QDRANT_URL: http://qdrant:6333
+      # Qdrant (remote instance)
+      QDRANT_URL: http://100.113.229.40:6333
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -154,8 +162,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
-      # Qdrant
-      QDRANT_URL: http://qdrant:6333
+      # Qdrant (remote instance)
+      QDRANT_URL: http://100.113.229.40:6333
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -290,6 +298,28 @@ services:
       timeout: 10s
       retries: 3
 
+  # ==================== Frontend UI ====================
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hippocampai-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-81}:81"
+    depends_on:
+      - hippocampai
+    networks:
+      - hippocampai-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:81"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   # ==================== Admin UI ====================
 
   # Admin Dashboard
@@ -342,7 +372,7 @@ services:
     container_name: hippocampai-grafana
     restart: unless-stopped
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "${GRAFANA_PORT:-3002}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}

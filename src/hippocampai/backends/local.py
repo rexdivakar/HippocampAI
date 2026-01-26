@@ -20,6 +20,7 @@ class LocalBackend(BaseBackend):
         Args:
             **kwargs: Arguments passed to MemoryClient constructor
         """
+        self._qdrant_url: Optional[str] = kwargs.get("qdrant_url")
         # Import here to avoid circular dependency
         try:
             from hippocampai.client import MemoryClient
@@ -51,6 +52,18 @@ class LocalBackend(BaseBackend):
 
             raise ConnectionError(error_msg) from e
 
+    @property
+    def qdrant_url(self) -> str:
+        """Get the Qdrant URL from the underlying client config."""
+        import os
+
+        # Priority: stored URL > client config > environment > default
+        if self._qdrant_url:
+            return self._qdrant_url
+        if hasattr(self._client, "config") and hasattr(self._client.config, "qdrant_url"):
+            return self._client.config.qdrant_url
+        return os.getenv("QDRANT_URL", "http://localhost:6333")
+
     def remember(
         self,
         text: str,
@@ -72,22 +85,45 @@ class LocalBackend(BaseBackend):
             delta = expires_at - now
             ttl_days = max(1, int(delta.total_seconds() / (24 * 3600)))
 
-        # Determine memory type from metadata or default to "fact"
-        memory_type = "fact"
-        if metadata and "type" in metadata:
+        # Determine memory type with automatic detection
+        memory_type = None
+
+        # Priority 1: Explicit type in metadata
+        if metadata and "type" in metadata and metadata["type"]:
             memory_type = metadata["type"]
+            logger.debug(f"Using explicit type from metadata: {memory_type}")
+        # Priority 2: Infer from tags
         elif tags:
-            # Infer type from tags if possible
             type_mapping = {
                 "preference": "preference",
                 "event": "event",
                 "fact": "fact",
-                "opinion": "opinion",
+                "goal": "goal",
+                "habit": "habit",
+                "context": "context",
             }
             for tag in tags:
                 if tag in type_mapping:
                     memory_type = type_mapping[tag]
+                    logger.debug(f"Using type inferred from tag '{tag}': {memory_type}")
                     break
+
+        # Priority 3: Automatic detection from text content (Agentic LLM-based with fallback)
+        if not memory_type:
+            try:
+                # Use agentic classification for multi-step reasoning
+                from hippocampai.utils.agentic_classifier import get_agentic_classifier
+
+                agentic_classifier = get_agentic_classifier(use_cache=True)
+                result = agentic_classifier.classify_with_details(text)
+                memory_type = result.memory_type.value
+                logger.info(
+                    f"Agentic classification: {memory_type} (confidence: {result.confidence:.2f}, "
+                    f"reasoning: {result.reasoning[:50]}...) for text: {text[:50]}..."
+                )
+            except Exception as e:
+                logger.warning(f"Failed to auto-detect memory type: {e}. Using default: fact")
+                memory_type = "fact"
 
         # Filter parameters that MemoryClient.remember() accepts
         memory_kwargs = {

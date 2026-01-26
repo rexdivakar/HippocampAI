@@ -15,6 +15,7 @@ class MemoryType(str, Enum):
     HABIT = "habit"
     EVENT = "event"
     CONTEXT = "context"
+    SUMMARY = "summary"  # Compacted/consolidated memories
 
 
 class Memory(BaseModel):

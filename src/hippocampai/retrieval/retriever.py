@@ -1,7 +1,7 @@
 """Hybrid retriever with two-stage ranking."""
 
 import logging
-from typing import Optional
+from typing import Optional, cast
 
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -76,6 +76,112 @@ class HybridRetriever:
 
         logger.info(f"Rebuilt BM25: facts={len(self.corpus_facts)}, prefs={len(self.corpus_prefs)}")
 
+    def _route_to_collections(self, query: str) -> list[str]:
+        """Determine which collections to search based on query routing."""
+        route = self.router.route(query)
+        if route == "both":
+            return [self.qdrant.collection_facts, self.qdrant.collection_prefs]
+        if route == "facts":
+            return [self.qdrant.collection_facts]
+        return [self.qdrant.collection_prefs]
+
+    def _perform_bm25_search(
+        self, collection: str, query: str
+    ) -> list[tuple[str, float]]:
+        """Perform BM25 search for a collection."""
+        if collection == self.qdrant.collection_facts and self.bm25_facts:
+            bm25_results = self.bm25_facts.search(query, top_k=self.top_k_qdrant)
+            return [(self.corpus_facts[idx][0], score) for idx, score in bm25_results]
+        if collection == self.qdrant.collection_prefs and self.bm25_prefs:
+            bm25_results = self.bm25_prefs.search(query, top_k=self.top_k_qdrant)
+            return [(self.corpus_prefs[idx][0], score) for idx, score in bm25_results]
+        return []
+
+    def _fuse_rankings(
+        self,
+        vector_ranking: list[tuple[str, float]],
+        bm25_ranking: list[tuple[str, float]],
+        search_mode: SearchMode,
+    ) -> list[tuple[str, float]]:
+        """Fuse rankings based on search mode."""
+        if search_mode == SearchMode.HYBRID and vector_ranking and bm25_ranking:
+            return cast(
+                list[tuple[str, float]],
+                reciprocal_rank_fusion([vector_ranking, bm25_ranking], k=self.rrf_k)
+            )
+        if search_mode == SearchMode.VECTOR_ONLY and vector_ranking:
+            return vector_ranking
+        if search_mode == SearchMode.KEYWORD_ONLY and bm25_ranking:
+            return bm25_ranking
+        return vector_ranking if vector_ranking else bm25_ranking
+
+    def _compute_final_score(
+        self,
+        payload: dict,
+        sim_score: float,
+        rerank_score: float,
+        enable_reranking: bool,
+    ) -> tuple[float, float, float, float]:
+        """Compute final score and component scores."""
+        importance_norm = payload.get("importance", 5.0) / 10.0
+        created_at = parse_iso_datetime(payload["created_at"])
+        mem_type = payload.get("type", "fact")
+        half_life = self.half_lives.get(mem_type, 30)
+        recency = recency_score(created_at, half_life)
+
+        rerank_norm = (rerank_score + 10) / 20
+        rerank_norm = max(0, min(1, rerank_norm))
+
+        final_score = fuse_scores(
+            sim=sim_score, rerank=rerank_norm, recency=recency,
+            importance=importance_norm, weights=self.weights,
+        )
+        return final_score, rerank_norm, recency, importance_norm
+
+    def _search_collection(
+        self,
+        collection: str,
+        query: str,
+        query_vector: Optional[list[float]],
+        final_filters: dict,
+        search_mode: SearchMode,
+    ) -> list[tuple[str, dict]]:
+        """Search a single collection and return candidates."""
+        # Perform vector search
+        vector_results: list[dict] = []
+        vector_ranking: list[tuple[str, float]] = []
+        if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY] and query_vector is not None:
+            vector_results = self.qdrant.search(
+                collection_name=collection, vector=query_vector,
+                limit=self.top_k_qdrant, filters=final_filters,
+            )
+            vector_ranking = [(r["id"], r["score"]) for r in vector_results]
+
+        # Perform BM25 search
+        bm25_ranking: list[tuple[str, float]] = []
+        if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY]:
+            bm25_ranking = self._perform_bm25_search(collection, query)
+
+        # Fuse results
+        fused = self._fuse_rankings(vector_ranking, bm25_ranking, search_mode)
+
+        # Build ID to result mapping
+        if search_mode == SearchMode.KEYWORD_ONLY and not vector_results:
+            id_to_result = {}
+            for doc_id, score in fused:
+                result = self.qdrant.get(collection_name=collection, id=doc_id)
+                if result:
+                    id_to_result[doc_id] = {"id": doc_id, "score": score, "payload": result["payload"]}
+        else:
+            id_to_result = {r["id"]: r for r in vector_results}
+
+        # Collect candidates
+        candidates = []
+        for doc_id, _ in fused[: self.top_k_qdrant]:
+            if doc_id in id_to_result:
+                candidates.append((doc_id, id_to_result[doc_id]))
+        return candidates
+
     def retrieve(
         self,
         query: str,
@@ -106,97 +212,26 @@ class HybridRetriever:
             enable_reranking: Enable cross-encoder reranking
             enable_score_breakdown: Include score breakdown in results
         """
-        # Route query
-        route = self.router.route(query)
-        collections = []
-        if route == "both":
-            collections = [self.qdrant.collection_facts, self.qdrant.collection_prefs]
-        elif route == "facts":
-            collections = [self.qdrant.collection_facts]
-        else:
-            collections = [self.qdrant.collection_prefs]
+        collections = self._route_to_collections(query)
 
         # Embed query (only if needed for vector search)
         query_vector = None
         if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY]:
             query_vector = self.embedder.encode_single(query)
 
+        # Construct filters
+        base_filters = {"user_id": user_id}
+        if session_id:
+            base_filters["session_id"] = session_id
+        final_filters = {**filters, **base_filters} if filters else base_filters
+
+        # Search all collections
         all_candidates = []
-
         for collection in collections:
-            vector_ranking = []
-            bm25_ranking = []
-            vector_results = []
-
-            # Construct base filters
-            base_filters = {"user_id": user_id}
-            if session_id:
-                base_filters["session_id"] = session_id
-
-            # Merge with additional filters if provided
-            final_filters = base_filters if not filters else {**filters, **base_filters}
-
-            # Vector search (if mode allows)
-            if (
-                search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY]
-                and query_vector is not None
-            ):
-                vector_results = self.qdrant.search(
-                    collection_name=collection,
-                    vector=query_vector,
-                    limit=self.top_k_qdrant,
-                    filters=final_filters,
-                )
-                vector_ranking = [(r["id"], r["score"]) for r in vector_results]
-
-            # BM25 search (if mode allows)
-            # NOTE: BM25 session filtering is complex and affects performance
-            # For now, we rely on vector search session filtering and post-filter BM25 results
-            if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY]:
-                if collection == self.qdrant.collection_facts and self.bm25_facts:
-                    bm25_results = self.bm25_facts.search(query, top_k=self.top_k_qdrant)
-                    bm25_ranking = [
-                        (self.corpus_facts[idx][0], score) for idx, score in bm25_results
-                    ]
-                elif collection == self.qdrant.collection_prefs and self.bm25_prefs:
-                    bm25_results = self.bm25_prefs.search(query, top_k=self.top_k_qdrant)
-                    bm25_ranking = [
-                        (self.corpus_prefs[idx][0], score) for idx, score in bm25_results
-                    ]
-
-            # Fusion based on search mode
-            if search_mode == SearchMode.HYBRID and vector_ranking and bm25_ranking:
-                # RRF fusion of both
-                fused = reciprocal_rank_fusion([vector_ranking, bm25_ranking], k=self.rrf_k)
-            elif search_mode == SearchMode.VECTOR_ONLY and vector_ranking:
-                # Vector only
-                fused = vector_ranking
-            elif search_mode == SearchMode.KEYWORD_ONLY and bm25_ranking:
-                # BM25 only
-                fused = bm25_ranking
-            else:
-                # Fallback to whatever is available
-                fused = vector_ranking if vector_ranking else bm25_ranking
-
-            # For keyword-only mode, we need to fetch full documents
-            if search_mode == SearchMode.KEYWORD_ONLY and not vector_results:
-                # Fetch documents by ID
-                id_to_result = {}
-                for doc_id, score in fused:
-                    result = self.qdrant.get(collection_name=collection, id=doc_id)
-                    if result:
-                        id_to_result[doc_id] = {
-                            "id": doc_id,
-                            "score": score,
-                            "payload": result["payload"],
-                        }
-            else:
-                id_to_result = {r["id"]: r for r in vector_results}
-
-            # Collect candidates
-            for doc_id, rrf_score in fused[: self.top_k_qdrant]:
-                if doc_id in id_to_result:
-                    all_candidates.append((doc_id, id_to_result[doc_id]))
+            candidates = self._search_collection(
+                collection, query, query_vector, final_filters, search_mode
+            )
+            all_candidates.extend(candidates)
 
         if not all_candidates:
             return []
@@ -214,62 +249,35 @@ class HybridRetriever:
 
         # Score fusion
         results = []
-        for doc_id, text, sim_score, rerank_score in reranked[:50]:  # Top 50 for fusion
+        for doc_id, text, sim_score, rerank_score in reranked[:50]:
             payload = next(c[1]["payload"] for c in all_candidates if c[0] == doc_id)
-
-            # Compute component scores
-            importance_norm = payload.get("importance", 5.0) / 10.0
-            created_at = parse_iso_datetime(payload["created_at"])
-            mem_type = payload.get("type", "fact")
-            half_life = self.half_lives.get(mem_type, 30)
-            recency = recency_score(created_at, half_life)
-
-            # Normalize rerank score
-            rerank_norm = (rerank_score + 10) / 20  # typical range [-10, 10]
-            rerank_norm = max(0, min(1, rerank_norm))
-
-            # Fuse
-            final_score = fuse_scores(
-                sim=sim_score,
-                rerank=rerank_norm,
-                recency=recency,
-                importance=importance_norm,
-                weights=self.weights,
+            final_score, rerank_norm, recency, importance_norm = self._compute_final_score(
+                payload, sim_score, rerank_score, enable_reranking
             )
 
+            mem_type = payload.get("type", "fact")
+            created_at = parse_iso_datetime(payload["created_at"])
             memory = Memory(
-                id=doc_id,
-                text=text,
-                user_id=payload["user_id"],
-                session_id=payload.get("session_id"),
-                type=mem_type,
+                id=doc_id, text=text, user_id=payload["user_id"],
+                session_id=payload.get("session_id"), type=mem_type,
                 importance=payload.get("importance", 5.0),
                 confidence=payload.get("confidence", 0.9),
-                tags=payload.get("tags", []),
-                created_at=created_at,
+                tags=payload.get("tags", []), created_at=created_at,
                 updated_at=parse_iso_datetime(payload["updated_at"]),
                 access_count=payload.get("access_count", 0),
                 metadata=payload.get("metadata", {}),
             )
 
-            # Build breakdown if requested
             breakdown = {}
             if enable_score_breakdown:
                 breakdown = {
-                    "sim": sim_score,
-                    "rerank": rerank_norm if enable_reranking else 0.0,
-                    "recency": recency,
-                    "importance": importance_norm,
-                    "final": final_score,
-                    "search_mode": search_mode.value,
-                    "reranking_enabled": enable_reranking,
+                    "sim": sim_score, "rerank": rerank_norm if enable_reranking else 0.0,
+                    "recency": recency, "importance": importance_norm, "final": final_score,
+                    "search_mode": search_mode.value, "reranking_enabled": enable_reranking,
                 }
 
-            # Apply session filtering as final security check
             if session_id is None or memory.session_id == session_id:
-                results.append(
-                    RetrievalResult(memory=memory, score=final_score, breakdown=breakdown)
-                )
+                results.append(RetrievalResult(memory=memory, score=final_score, breakdown=breakdown))
 
         # Sort and return top k
         results.sort(key=lambda r: r.score, reverse=True)

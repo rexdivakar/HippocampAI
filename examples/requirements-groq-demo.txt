@@ -1,0 +1,9 @@
+# Requirements for Groq + HippocampAI Demo
+
+# Core dependencies
+groq>=0.4.0
+hippocampai>=0.3.0
+rich>=13.0.0
+
+# Optional: For better experience
+python-dotenv>=1.0.0

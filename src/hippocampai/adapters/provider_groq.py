@@ -50,11 +50,11 @@ class GroqLLM(BaseLLM):
         result: str = self.chat(messages, max_tokens, temperature)
         return result
 
-    @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=10)
+    @get_llm_retry_decorator(max_attempts=5, min_wait=2, max_wait=60)
     def chat(
         self, messages: list[dict[str, Any]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
-        """Chat completion (with automatic retry on transient failures)."""
+        """Chat completion (with automatic retry on rate limits and transient failures)."""
         try:
             # Cast to proper type for OpenAI API
             response = self.client.chat.completions.create(

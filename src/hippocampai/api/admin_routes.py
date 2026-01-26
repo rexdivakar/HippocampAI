@@ -406,6 +406,39 @@ async def delete_api_key(
         )
 
 
+@router.post(
+    "/api-keys/{key_id}/rotate",
+    response_model=APIKeyResponse,
+    dependencies=[Depends(require_admin)],
+)
+async def rotate_api_key(
+    key_id: UUID,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> APIKeyResponse:
+    """Rotate an API key - generates new secret while preserving metadata (admin only).
+
+    This immediately invalidates the old key and generates a new one.
+    The new secret_key in the response is shown ONLY ONCE.
+
+    Args:
+        key_id: API key ID to rotate
+        auth_service: Auth service dependency
+
+    Returns:
+        New API key response with secret key (shown only once)
+
+    Raises:
+        HTTPException: If key not found
+    """
+    key_response = await auth_service.rotate_api_key(key_id)
+    if not key_response:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"API key {key_id} not found",
+        )
+    return key_response
+
+
 # Statistics Endpoints
 
 

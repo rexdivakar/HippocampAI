@@ -214,9 +214,65 @@ class MemoryTracker:
                 pattern.access_frequency = pattern.access_count / days_elapsed
 
     def _store_event(self, event: MemoryEvent) -> None:
-        """Store event to backend (placeholder for future implementation)."""
-        # TODO: Implement Redis/file storage
-        pass
+        """Store event to configured backend.
+
+        Supports:
+        - 'redis': Store to Redis list (requires redis connection)
+        - 'file': Append to JSONL file in data directory
+        - None: No persistent storage (events stay in memory only)
+        """
+        if self.storage_backend == "redis":
+            self._store_event_redis(event)
+        elif self.storage_backend == "file":
+            self._store_event_file(event)
+
+    def _store_event_redis(self, event: MemoryEvent) -> None:
+        """Store event to Redis."""
+        try:
+            import os
+
+            import redis
+
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            client = redis.from_url(redis_url)
+
+            # Store in user-specific list with expiry
+            key = f"hippocampai:events:{event.user_id}"
+            event_data = event.model_dump_json()
+            client.lpush(key, event_data)
+
+            # Keep only last 10000 events per user
+            client.ltrim(key, 0, 9999)
+
+            # Set expiry (30 days)
+            client.expire(key, 30 * 24 * 60 * 60)
+
+        except ImportError:
+            logger.debug("Redis not installed, skipping event storage")
+        except Exception as e:
+            logger.warning(f"Failed to store event to Redis: {e}")
+
+    def _store_event_file(self, event: MemoryEvent) -> None:
+        """Store event to JSONL file."""
+        try:
+            import os
+            from pathlib import Path
+
+            # Use data directory from env or default
+            data_dir = Path(os.getenv("HIPPOCAMPAI_DATA_DIR", "data"))
+            events_dir = data_dir / "events"
+            events_dir.mkdir(parents=True, exist_ok=True)
+
+            # File per user per day
+            date_str = event.timestamp.strftime("%Y-%m-%d")
+            event_file = events_dir / f"{event.user_id}_{date_str}.jsonl"
+
+            # Append event as JSONL
+            with open(event_file, "a") as f:
+                f.write(event.model_dump_json() + "\n")
+
+        except Exception as e:
+            logger.warning(f"Failed to store event to file: {e}")
 
     def get_memory_events(
         self,

@@ -10,7 +10,29 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.3.0 — Production-ready with 102+ methods, 50+ API endpoints, and comprehensive monitoring.
+**Current Release:** v0.4.0 — Major feature release with memory consolidation, multi-agent collaboration, and SaaS capabilities.
+
+---
+
+## Package Structure
+
+HippocampAI is organized into two main components for flexibility:
+
+| Package | Description | Use Case |
+|---------|-------------|----------|
+| `hippocampai.core` | Core memory engine (no SaaS dependencies) | Library integration, embedded use |
+| `hippocampai.platform` | SaaS platform (API, auth, Celery, monitoring) | Self-hosted SaaS deployment |
+
+```python
+# Core library only (lightweight)
+from hippocampai.core import MemoryClient, Memory, Config
+
+# SaaS platform features
+from hippocampai.platform import run_api_server, AutomationController
+
+# Or use the main package (includes everything, backward compatible)
+from hippocampai import MemoryClient
+```
 
 ---
 
@@ -71,6 +93,21 @@ print(f"Found: {results[0].memory.text}")
 | **SaaS Platform** | Multi-tenant auth, rate limiting, background tasks | [SaaS Guide](docs/SAAS_GUIDE.md) |
 | **Memory Quality** | Health monitoring, duplicate detection, quality tracking | [Memory Management](docs/MEMORY_MANAGEMENT.md) |
 | **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_GUIDE.md) |
+| **Memory Consolidation** ⭐ NEW | Sleep phase architecture with intelligent compaction | [Sleep Phase](docs/SLEEP_PHASE_ARCHITECTURE.md) |
+| **Multi-Agent Collaboration** ⭐ NEW | Shared memory spaces for agent coordination | [Collaboration](docs/MULTIAGENT_FEATURES.md) |
+| **React Dashboard** ⭐ NEW | Full-featured UI with analytics and visualization | [Frontend](frontend/README.md) |
+| **Predictive Analytics** ⭐ NEW | Memory usage predictions and pattern forecasting | [New Features](docs/NEW_FEATURES_GUIDE.md) |
+| **Auto-Healing** ⭐ NEW | Automatic detection and repair of memory issues | [New Features](docs/NEW_FEATURES_GUIDE.md) |
+| **Plugin System** | Custom processors, scorers, retrievers, filters | [New Features](docs/NEW_FEATURES.md#plugin-system) |
+| **Memory Namespaces** | Hierarchical organization with permissions | [New Features](docs/NEW_FEATURES.md#memory-namespaces) |
+| **Export/Import** | Portable formats (JSON, Parquet, CSV) for backup | [New Features](docs/NEW_FEATURES.md#exportimport-portability) |
+| **Offline Mode** | Queue operations when backend unavailable | [New Features](docs/NEW_FEATURES.md#offline-mode) |
+| **Tiered Storage** | Hot/warm/cold storage tiers for efficiency | [New Features](docs/NEW_FEATURES.md#tiered-storage) |
+| **Framework Integrations** | LangChain & LlamaIndex adapters | [New Features](docs/NEW_FEATURES.md#framework-integrations) |
+| **Bi-Temporal Facts** | Track facts with validity periods and time-travel queries | [Bi-Temporal Guide](docs/bi_temporal.md) |
+| **Context Assembly** | Automated context pack generation with token budgeting | [Context Assembly](docs/context_assembly.md) |
+| **Custom Schemas** | Define entity/relationship types without code changes | [Schema Guide](docs/custom_schema.md) |
+| **Benchmarks** | Reproducible performance benchmarks | [Benchmarks](docs/benchmarks.md) |
 
 ---
 
@@ -113,6 +150,7 @@ print(f"Found: {results[0].memory.text}")
 | **Configure settings** | [Configuration Guide](docs/CONFIGURATION.md) \| [Providers](docs/PROVIDERS.md) |
 | **Monitor & observe** | [Monitoring](docs/MONITORING_INTEGRATION_GUIDE.md) \| [Telemetry](docs/TELEMETRY.md) |
 | **Troubleshoot issues** | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| **Use new features** | [New Features Guide](docs/NEW_FEATURES.md) ⭐ NEW |
 | **View all documentation** | [Documentation Hub](docs/README.md) |
 
 ### Documentation Index
@@ -126,6 +164,7 @@ print(f"Found: {results[0].memory.text}")
 - [Configuration](docs/CONFIGURATION.md) - All configuration options
 
 **Advanced Topics:**
+- [New Features](docs/NEW_FEATURES.md) - Plugins, namespaces, export/import, offline mode, tiered storage
 - [Multi-Agent Features](docs/MULTIAGENT_FEATURES.md) - Agent coordination
 - [Intelligence Features](docs/FEATURES.md#intelligence-features) - Fact extraction, entity recognition
 - [Temporal Analytics](docs/FEATURES.md#temporal-reasoning) - Time-based queries
@@ -184,10 +223,18 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 **Includes:**
 - FastAPI server (port 8000)
+- React Dashboard (port 3001)
 - Celery workers with Beat scheduler
 - Flower monitoring (port 5555)
 - Prometheus metrics (port 9090)
 - Grafana dashboards (port 3000)
+
+### React Dashboard (New in v0.4.0)
+```bash
+cd frontend
+npm install
+npm run dev  # Development server on port 5173
+```
 
 [Production deployment guide →](docs/USER_GUIDE.md)
 
@@ -238,30 +285,9 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 ## Examples
 
-### Interactive Chat Demo
-
-Try the fully-functional chatbot with persistent memory:
-
-```bash
-# Set your Groq API key
-export GROQ_API_KEY="your-api-key-here"
-
-# Run the interactive chat
-python chat.py
-```
-
-**Features:**
-- Persistent memory across sessions
-- Context-aware responses
-- Pattern detection
-- Memory search
-- Session summaries
-
-[Complete chat demo guide →](docs/CHAT_DEMO_GUIDE.md)
-
 ### Code Examples
 
-Over 15 working examples in the `examples/` directory:
+Over 25 working examples in the `examples/` directory:
 
 ```bash
 # Basic operations
@@ -272,8 +298,11 @@ python examples/11_intelligence_features_demo.py
 python examples/13_temporal_reasoning_demo.py
 python examples/14_cross_session_insights_demo.py
 
-# Run all examples
-./run_examples.sh
+# New v0.4.0 features
+python examples/20_collaboration_demo.py      # Multi-agent collaboration
+python examples/21_predictive_analytics_demo.py  # Predictive analytics
+python examples/22_auto_healing_demo.py       # Auto-healing pipeline
+python examples/consolidation_demo.py         # Memory consolidation
 ```
 
 [View all examples →](examples/)
@@ -335,6 +364,34 @@ stats = client.get_memory_statistics(user_id="alice")
 # Sessions
 session = client.create_session(user_id="alice", title="Planning")
 client.complete_session(session.id, generate_summary=True)
+
+# Bi-Temporal Facts (NEW)
+from hippocampai.models.bitemporal import BiTemporalQuery
+fact = client.store_bitemporal_fact(
+    user_id="alice",
+    subject="alice",
+    predicate="works_at",
+    object_value="Acme Corp",
+    valid_from=datetime(2024, 1, 1),
+)
+facts = client.query_bitemporal_facts(BiTemporalQuery(
+    user_id="alice",
+    valid_at=datetime(2024, 6, 1),
+))
+
+# Context Assembly (NEW)
+from hippocampai.context.models import ContextConstraints
+context = client.assemble_context(
+    user_id="alice",
+    query="What are Alice's work preferences?",
+    constraints=ContextConstraints(token_budget=4000),
+)
+print(context.final_context_text)
+
+# Custom Schema Validation (NEW)
+from hippocampai.schema import SchemaRegistry
+registry = SchemaRegistry()
+result = registry.validate_entity("person", {"name": "Alice"})
 
 # See docs/LIBRARY_COMPLETE_REFERENCE.md for all 102+ methods
 ```

@@ -395,3 +395,48 @@ class UnifiedMemoryClient:
         if self.mode == "remote":
             return cast(dict[str, Any], self._backend.health_check())
         raise AttributeError("health_check() only available in remote mode")
+
+    def compact_conversations(
+        self,
+        user_id: str,
+        session_id: Optional[str] = None,
+        lookback_hours: int = 168,
+        min_memories: int = 5,
+        dry_run: bool = False,
+        memory_types: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
+        """
+        Compact and consolidate conversation memories.
+
+        This analyzes conversation memories, clusters them by topic/time,
+        and creates concise summaries while preserving key facts.
+
+        Args:
+            user_id: User identifier
+            session_id: Optional session filter
+            lookback_hours: How far back to look (default 1 week)
+            min_memories: Minimum memories to trigger compaction
+            dry_run: If True, preview without making changes
+            memory_types: Optional list of memory types to compact
+                         (e.g., ["fact", "event", "context"])
+
+        Returns:
+            CompactionResult dictionary with:
+            - metrics: Token counts, compression ratio, storage saved
+            - insights: Human-readable insights about the compaction
+            - preserved_facts: Key facts that were preserved
+            - preserved_entities: Entities that were preserved
+            - actions: Detailed list of actions taken
+        """
+        from hippocampai.consolidation.compactor import ConversationCompactor
+
+        compactor = ConversationCompactor(qdrant_url=self._backend.qdrant_url)
+        result = compactor.compact_conversations(
+            user_id=user_id,
+            session_id=session_id,
+            lookback_hours=lookback_hours,
+            min_memories=min_memories,
+            dry_run=dry_run,
+            memory_types=memory_types,
+        )
+        return result.to_dict()
