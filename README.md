@@ -10,7 +10,7 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.3.0 — Production-ready with 102+ methods, 50+ API endpoints, and comprehensive monitoring.
+**Current Release:** v0.4.0 — Major feature release with memory consolidation, multi-agent collaboration, and SaaS capabilities.
 
 ---
 
@@ -93,6 +93,11 @@ print(f"Found: {results[0].memory.text}")
 | **SaaS Platform** | Multi-tenant auth, rate limiting, background tasks | [SaaS Guide](docs/SAAS_GUIDE.md) |
 | **Memory Quality** | Health monitoring, duplicate detection, quality tracking | [Memory Management](docs/MEMORY_MANAGEMENT.md) |
 | **Background Tasks** | Celery-powered async operations, scheduled jobs | [Celery Guide](docs/CELERY_GUIDE.md) |
+| **Memory Consolidation** ⭐ NEW | Sleep phase architecture with intelligent compaction | [Sleep Phase](docs/SLEEP_PHASE_ARCHITECTURE.md) |
+| **Multi-Agent Collaboration** ⭐ NEW | Shared memory spaces for agent coordination | [Collaboration](docs/MULTIAGENT_FEATURES.md) |
+| **React Dashboard** ⭐ NEW | Full-featured UI with analytics and visualization | [Frontend](frontend/README.md) |
+| **Predictive Analytics** ⭐ NEW | Memory usage predictions and pattern forecasting | [New Features](docs/NEW_FEATURES_GUIDE.md) |
+| **Auto-Healing** ⭐ NEW | Automatic detection and repair of memory issues | [New Features](docs/NEW_FEATURES_GUIDE.md) |
 | **Plugin System** | Custom processors, scorers, retrievers, filters | [New Features](docs/NEW_FEATURES.md#plugin-system) |
 | **Memory Namespaces** | Hierarchical organization with permissions | [New Features](docs/NEW_FEATURES.md#memory-namespaces) |
 | **Export/Import** | Portable formats (JSON, Parquet, CSV) for backup | [New Features](docs/NEW_FEATURES.md#exportimport-portability) |
@@ -218,10 +223,18 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 **Includes:**
 - FastAPI server (port 8000)
+- React Dashboard (port 3001)
 - Celery workers with Beat scheduler
 - Flower monitoring (port 5555)
 - Prometheus metrics (port 9090)
 - Grafana dashboards (port 3000)
+
+### React Dashboard (New in v0.4.0)
+```bash
+cd frontend
+npm install
+npm run dev  # Development server on port 5173
+```
 
 [Production deployment guide →](docs/USER_GUIDE.md)
 
@@ -272,30 +285,9 @@ docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
 
 ## Examples
 
-### Interactive Chat Demo
-
-Try the fully-functional chatbot with persistent memory:
-
-```bash
-# Set your Groq API key
-export GROQ_API_KEY="your-api-key-here"
-
-# Run the interactive chat
-python chat.py
-```
-
-**Features:**
-- Persistent memory across sessions
-- Context-aware responses
-- Pattern detection
-- Memory search
-- Session summaries
-
-[Complete chat demo guide →](docs/CHAT_DEMO_GUIDE.md)
-
 ### Code Examples
 
-Over 15 working examples in the `examples/` directory:
+Over 25 working examples in the `examples/` directory:
 
 ```bash
 # Basic operations
@@ -306,8 +298,11 @@ python examples/11_intelligence_features_demo.py
 python examples/13_temporal_reasoning_demo.py
 python examples/14_cross_session_insights_demo.py
 
-# Run all examples
-./run_examples.sh
+# New v0.4.0 features
+python examples/20_collaboration_demo.py      # Multi-agent collaboration
+python examples/21_predictive_analytics_demo.py  # Predictive analytics
+python examples/22_auto_healing_demo.py       # Auto-healing pipeline
+python examples/consolidation_demo.py         # Memory consolidation
 ```
 
 [View all examples →](examples/)

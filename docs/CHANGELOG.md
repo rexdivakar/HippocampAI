@@ -7,6 +7,240 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+## [0.4.0] - 2026-01-26
+
+### Major Release - Memory Consolidation, Multi-Agent Collaboration, and SaaS Platform
+
+This release transforms HippocampAI into a comprehensive memory management platform for AI applications with significant new capabilities for production deployment.
+
+### Added
+
+#### Memory Consolidation & Sleep Phase Architecture
+
+- **NEW**: Memory Compaction System with DuckDB persistence
+  - Intelligent consolidation mimicking biological memory processes
+  - Session tracking and activity-based triggering
+  - Configurable compaction policies and thresholds
+  - `src/hippocampai/consolidation/` module with compactor, db, models, policy, prompts, and tasks
+  - Documentation: `docs/SLEEP_PHASE_ARCHITECTURE.md`
+
+- **NEW**: Bi-Temporal Facts Support
+  - Track both valid time (when fact was true) and transaction time (when recorded)
+  - Time-travel queries for historical state reconstruction
+  - Temporal versioning and fact invalidation
+  - `src/hippocampai/storage/bitemporal_store.py`
+  - Documentation: `docs/bi_temporal.md`
+
+#### Multi-Agent Collaboration
+
+- **NEW**: Shared Memory Spaces for Multi-Agent Systems
+  - Enable multiple agents to collaborate through shared memories
+  - Granular permission controls for memory sharing
+  - Cross-agent memory visibility and access
+  - `src/hippocampai/multiagent/collaboration.py`
+  - `src/hippocampai/models/collaboration.py`
+  - API: `src/hippocampai/api/collaboration_routes.py`
+
+#### Classification & Context Assembly
+
+- **NEW**: ClassifierService - Consolidated Classifier Architecture
+  - Unified classification system for better maintainability
+  - Agentic classifier with LLM support
+  - Memory type and importance classification
+  - `src/hippocampai/utils/classifier_service.py`
+  - `src/hippocampai/utils/agentic_classifier.py`
+
+- **NEW**: Context Assembly System
+  - Smart context building for RAG applications
+  - Token budget management and optimization
+  - Automatic context pack generation
+  - `src/hippocampai/context/assembler.py`
+  - Documentation: `docs/context_assembly.md`
+
+- **NEW**: Custom Schema Support
+  - Define and validate custom memory schemas
+  - Entity/relationship type definitions without code changes
+  - Schema registry and validation
+  - `src/hippocampai/schema/` module
+  - Documentation: `docs/custom_schema.md`
+
+#### SaaS & Enterprise Features
+
+- **NEW**: Comprehensive Audit Logging System
+  - Complete audit trail for compliance requirements
+  - Retention policies and log rotation
+  - `src/hippocampai/audit/` module
+
+- **NEW**: Usage Tracking and Analytics
+  - Monitor API usage and resource consumption
+  - Per-user and global usage statistics
+  - `src/hippocampai/api/usage_routes.py`
+
+- **NEW**: User Store with DuckDB Backend
+  - Persistent user management
+  - `src/hippocampai/storage/user_store.py`
+
+- **NEW**: Authentication Routes
+  - Full auth API with session management
+  - `src/hippocampai/api/auth_routes.py`
+
+#### New React Frontend Dashboard
+
+- **NEW**: Complete React + TypeScript + Tailwind CSS Dashboard
+  - Memory management and visualization
+  - Analytics and metrics dashboards
+  - Bi-temporal explorer
+  - Context assembly UI
+  - Schema management
+  - Sleep phase monitoring
+  - Real-time WebSocket updates
+  - `frontend/` directory with full React application
+
+#### Framework Integrations
+
+- **NEW**: LangChain Integration
+  - Use HippocampAI as LangChain memory backend
+  - `src/hippocampai/integrations/langchain.py`
+
+- **NEW**: LlamaIndex Integration
+  - Native support for LlamaIndex workflows
+  - `src/hippocampai/integrations/llamaindex.py`
+
+- **NEW**: Plugin System
+  - Extensible architecture for custom plugins
+  - Plugin registry and base classes
+  - `src/hippocampai/plugins/` module
+
+#### Additional Features
+
+- **NEW**: Predictive Analytics Pipeline
+  - Memory usage predictions
+  - Pattern forecasting
+  - `src/hippocampai/pipeline/predictive_analytics.py`
+  - `src/hippocampai/api/prediction_routes.py`
+
+- **NEW**: Auto-Healing Pipeline
+  - Automatic detection and repair of memory issues
+  - `src/hippocampai/pipeline/auto_healing.py`
+  - `src/hippocampai/api/healing_routes.py`
+
+- **NEW**: Tiered Storage
+  - Hot/warm/cold memory tiers for cost optimization
+  - `src/hippocampai/tiered/` module
+
+- **NEW**: Offline Client
+  - Queue operations for offline-first applications
+  - Automatic sync when connection restored
+  - `src/hippocampai/offline/` module
+
+- **NEW**: Namespace Management
+  - Organize memories with hierarchical namespaces
+  - `src/hippocampai/namespaces/` module
+
+- **NEW**: Memory Portability
+  - Import/export in multiple formats (JSON, Parquet, CSV)
+  - `src/hippocampai/portability/` module
+
+- **NEW**: Benchmarking Suite
+  - Performance benchmarks with data generator
+  - Reproducible benchmark runners
+  - `bench/` directory
+  - Documentation: `docs/benchmarks.md`
+
+- **NEW**: WebSocket Support
+  - Real-time updates via WebSocket connections
+  - `src/hippocampai/api/websocket.py`
+
+#### New API Routes
+
+- `src/hippocampai/api/bitemporal_routes.py` - Bi-temporal fact operations
+- `src/hippocampai/api/collaboration_routes.py` - Multi-agent collaboration
+- `src/hippocampai/api/compaction_routes.py` - Memory compaction control
+- `src/hippocampai/api/consolidation_routes.py` - Consolidation management
+- `src/hippocampai/api/context_routes.py` - Context assembly
+- `src/hippocampai/api/dashboard_routes.py` - Dashboard data
+- `src/hippocampai/api/healing_routes.py` - Auto-healing operations
+- `src/hippocampai/api/prediction_routes.py` - Predictive analytics
+- `src/hippocampai/api/session_routes.py` - Session management
+- `src/hippocampai/api/usage_routes.py` - Usage tracking
+
+#### Documentation
+
+- **NEW**: `docs/SLEEP_PHASE_ARCHITECTURE.md` - Sleep phase consolidation guide
+- **NEW**: `docs/bi_temporal.md` - Bi-temporal facts documentation
+- **NEW**: `docs/context_assembly.md` - Context assembly guide
+- **NEW**: `docs/custom_schema.md` - Custom schema documentation
+- **NEW**: `docs/benchmarks.md` - Benchmark documentation
+- **NEW**: `docs/PACKAGE_STRUCTURE.md` - Package organization guide
+- **NEW**: `docs/NEW_FEATURES_GUIDE.md` - Comprehensive new features guide
+- **NEW**: `docs/NEW_FEATURES_COMPLETE.md` - Complete feature documentation
+
+#### Examples
+
+- **NEW**: `examples/20_collaboration_demo.py` - Multi-agent collaboration
+- **NEW**: `examples/21_predictive_analytics_demo.py` - Predictive analytics
+- **NEW**: `examples/22_auto_healing_demo.py` - Auto-healing pipeline
+- **NEW**: `examples/consolidation_demo.py` - Memory consolidation
+- **NEW**: `examples/groq_llama_chat_demo.py` - Groq LLaMA integration
+- **NEW**: `examples/query_qdrant_memories.py` - Direct Qdrant queries
+
+#### Tests
+
+- **NEW**: `tests/test_agentic_classifier.py` - Classifier tests
+- **NEW**: `tests/test_benchmarks.py` - Benchmark tests
+- **NEW**: `tests/test_bitemporal.py` - Bi-temporal tests
+- **NEW**: `tests/test_comprehensive_integration.py` - Integration tests
+- **NEW**: `tests/test_context_assembly.py` - Context assembly tests
+- **NEW**: `tests/test_custom_schema.py` - Schema tests
+- **NEW**: `tests/test_new_features.py` - New feature tests
+- **NEW**: `tests/test_quick_validation.py` - Quick validation tests
+- **NEW**: `tests/test_saas_features.py` - SaaS feature tests
+- **NEW**: `tests/test_saas_library_integration.py` - SaaS integration tests
+
+### Changed
+
+- Refactored classification system into consolidated ClassifierService
+- Enhanced memory filtering and retrieval logic with race condition prevention
+- Improved error handling and logging in session synchronization and compaction
+- Updated client with extensive new methods for all new features
+- Enhanced retriever with improved filtering capabilities
+- Updated docker-compose.yml for frontend support
+
+### Removed
+
+- **BREAKING**: Removed legacy chat scripts in favor of examples:
+  - `chat.py`
+  - `chat_advanced.py`
+  - `cli_chat.py`
+  - `web_chat.py`
+  - `async_chatbot.py`
+- **BREAKING**: Removed old `admin_ui/` in favor of new React frontend
+- Removed `run_examples.sh` (examples can be run directly)
+- Removed `deployment_readiness_check.py` (functionality in tests)
+
+### Fixed
+
+- Fixed race conditions in memory retrieval logic
+- Improved JSON extraction method in classifier
+- Corrected test assertions for consolidation triggers
+- Enhanced type hints across multiple modules
+
+### Performance
+
+- **207 files changed** with 51,928 insertions and 5,127 deletions
+- New benchmark suite for reproducible performance testing
+- Optimized memory retrieval with improved filtering
+
+### Migration Notes
+
+#### From v0.3.0 to v0.4.0
+
+1. **Chat Scripts Removed**: Use examples in `examples/` directory instead
+2. **Admin UI Replaced**: New React frontend in `frontend/` directory
+3. **New Optional Dependencies**: Install with `pip install hippocampai[saas]` for full features
+
+---
+
 ## [0.3.0] - 2025-11-24
 
 ### Major Release - Simplified API & Documentation Reorganization
@@ -685,7 +919,8 @@ Not applicable (initial release)
 
 ---
 
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.3.0
 [0.2.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.2.5
 [0.1.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.1.5
