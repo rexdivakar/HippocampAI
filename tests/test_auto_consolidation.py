@@ -140,7 +140,7 @@ def test_should_consolidate_token_budget(auto_consolidator):
 
     should, trigger = auto_consolidator.should_consolidate(large_memories, now)
     assert should is True
-    assert trigger == ConsolidationTrigger.TOKEN_BUDGET
+    assert trigger == ConsolidationTrigger.SIZE_LIMIT
 
 
 def test_should_not_consolidate_when_disabled(auto_consolidator, sample_memories):

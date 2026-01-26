@@ -389,6 +389,49 @@ class AuthService:
             result = await conn.execute("DELETE FROM api_keys WHERE id = $1", key_id)
             return cast(bool, result.endswith("1"))
 
+    async def rotate_api_key(self, key_id: UUID) -> Optional[APIKeyResponse]:
+        """Rotate an API key - generates new secret while preserving metadata.
+
+        This revokes the old key and creates a new one with the same settings.
+        The old key becomes immediately invalid.
+
+        Args:
+            key_id: API key ID to rotate
+
+        Returns:
+            New API key response with secret (shown only once), None if key not found
+        """
+        async with self.db_pool.acquire() as conn:
+            # Get existing key details
+            row = await conn.fetchrow("SELECT * FROM api_keys WHERE id = $1", key_id)
+            if not row:
+                return None
+
+            # Generate new key
+            full_key, key_hash = self.generate_api_key()
+            key_prefix = full_key[:15]
+
+            # Update the key in a transaction
+            async with conn.transaction():
+                # Update with new hash and prefix, reset last_used
+                updated_row = await conn.fetchrow(
+                    """
+                    UPDATE api_keys
+                    SET key_hash = $1, key_prefix = $2, last_used_at = NULL, created_at = NOW()
+                    WHERE id = $3
+                    RETURNING *
+                    """,
+                    key_hash,
+                    key_prefix,
+                    key_id,
+                )
+
+                if not updated_row:
+                    return None
+
+                api_key = APIKey(**self._parse_api_key_row(updated_row))
+                return APIKeyResponse(api_key=api_key, secret_key=full_key)
+
     async def log_api_usage(
         self,
         api_key_id: UUID,

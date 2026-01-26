@@ -73,80 +73,123 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return cast(bool, request.app.state.user_auth_enabled)
         return self._user_auth_enabled
 
+    def _extract_api_key(self, request: Request) -> tuple[Optional[str], Optional[JSONResponse]]:
+        """Extract API key from Authorization header. Returns (api_key, error_response)."""
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            return None, JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Authentication required",
+                         "message": "Missing Authorization header. Provide 'Authorization: Bearer <api_key>'"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if not authorization.startswith("Bearer "):
+            return None, JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Invalid authorization format",
+                         "message": "Authorization header must be 'Bearer <api_key>'"},
+            )
+        return authorization.replace("Bearer ", "").strip(), None
+
+    async def _check_admin_access(
+        self, request: Request, auth_service: AuthService, user_id: str
+    ) -> Optional[JSONResponse]:
+        """Check admin access for admin endpoints. Returns error response if denied."""
+        is_admin_endpoint = any(
+            request.url.path.startswith(prefix) for prefix in self.ADMIN_PATHS_PREFIX
+        )
+        if not is_admin_endpoint:
+            return None
+        user = await auth_service.get_user(user_id)
+        if not user or not user.is_admin:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "Admin access required",
+                         "message": "This endpoint requires administrator privileges"},
+            )
+        return None
+
+    async def _check_rate_limit(
+        self, request: Request, rate_limiter: Optional[RateLimiter], key_data: dict
+    ) -> Optional[JSONResponse]:
+        """Check rate limits. Returns error response if exceeded."""
+        if key_data["tier"] == "admin" or not rate_limiter:
+            return None
+        allowed, rate_info = await rate_limiter.check_rate_limit(key_data["api_key_id"], key_data["tier"])
+        if allowed:
+            request.state.rate_limit_info = rate_info
+            return None
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={
+                "error": "Rate limit exceeded",
+                "message": f"Rate limit of {rate_info.limit} requests per {rate_info.window} exceeded",
+                "limit": rate_info.limit, "remaining": rate_info.remaining,
+                "reset_at": rate_info.reset_at, "window": rate_info.window,
+            },
+            headers={
+                "X-RateLimit-Limit": str(rate_info.limit),
+                "X-RateLimit-Remaining": str(rate_info.remaining),
+                "X-RateLimit-Reset": str(rate_info.reset_at),
+                "Retry-After": str(max(1, rate_info.reset_at - int(time.time()))),
+            },
+        )
+
+    async def _log_api_usage(
+        self, request: Request, auth_service: Optional[AuthService],
+        status_code: int, start_time: float, response: Optional[Response] = None
+    ) -> None:
+        """Log API usage."""
+        if not hasattr(request.state, "api_key_id") or not auth_service:
+            return
+        tokens_used = getattr(request.state, "tokens_used", 0)
+        if response and "X-Tokens-Used" in response.headers:
+            try:
+                tokens_used = int(response.headers["X-Tokens-Used"])
+            except (ValueError, TypeError):
+                pass
+        await auth_service.log_api_usage(
+            api_key_id=request.state.api_key_id, endpoint=request.url.path,
+            method=request.method, status_code=status_code,
+            tokens_used=tokens_used, response_time_ms=(time.time() - start_time) * 1000,
+        )
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Process request through authentication and rate limiting.
-
-        Args:
-            request: FastAPI request
-            call_next: Next middleware/handler
-
-        Returns:
-            Response from handler or error response
-        """
+        """Process request through authentication and rate limiting."""
         # Skip authentication for public paths
         if request.url.path in self.PUBLIC_PATHS:
             return cast(Response, await call_next(request))
 
-        # Get services from app state (lazy loading)
         auth_service = self._get_auth_service(request)
         rate_limiter = self._get_rate_limiter(request)
         user_auth_enabled = self._get_user_auth_enabled(request)
 
-        # If auth service not available, skip auth
         if not auth_service:
             return cast(Response, await call_next(request))
 
-        # Start timing
         start_time = time.time()
-
-        # Check if user auth is enabled via header (overrides global setting)
         x_user_auth = request.headers.get("X-User-Auth", "").lower()
         user_auth_required = user_auth_enabled and x_user_auth != "false"
 
         # Local mode bypass
         if not user_auth_required:
-            # Inject admin-level permissions for local mode
             request.state.user_id = None
             request.state.api_key_id = None
             request.state.tier = "admin"
             request.state.is_local_mode = True
+            return cast(Response, await call_next(request))
 
-            response = await call_next(request)
-            return cast(Response, response)
+        # Extract and validate API key
+        api_key, error_response = self._extract_api_key(request)
+        if error_response:
+            return error_response
 
-        # Extract Authorization header
-        authorization = request.headers.get("Authorization")
-        if not authorization:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "error": "Authentication required",
-                    "message": "Missing Authorization header. Provide 'Authorization: Bearer <api_key>'",
-                },
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # Extract API key
-        if not authorization.startswith("Bearer "):
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "error": "Invalid authorization format",
-                    "message": "Authorization header must be 'Bearer <api_key>'",
-                },
-            )
-
-        api_key = authorization.replace("Bearer ", "").strip()
-
-        # Validate API key
         key_data = await auth_service.validate_api_key(api_key)
         if not key_data:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "error": "Invalid API key",
-                    "message": "The provided API key is invalid, expired, or has been revoked",
-                },
+                content={"error": "Invalid API key",
+                         "message": "The provided API key is invalid, expired, or has been revoked"},
             )
 
         # Inject authentication context
@@ -156,50 +199,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.scopes = key_data["scopes"]
         request.state.is_local_mode = False
 
-        # Check if admin endpoint
-        is_admin_endpoint = any(
-            request.url.path.startswith(prefix) for prefix in self.ADMIN_PATHS_PREFIX
-        )
+        # Check admin access
+        admin_error = await self._check_admin_access(request, auth_service, key_data["user_id"])
+        if admin_error:
+            return admin_error
 
-        if is_admin_endpoint:
-            # Verify admin access
-            user = await auth_service.get_user(key_data["user_id"])
-            if not user or not user.is_admin:
-                return JSONResponse(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content={
-                        "error": "Admin access required",
-                        "message": "This endpoint requires administrator privileges",
-                    },
-                )
-
-        # Check rate limits (skip for admin tier)
-        if key_data["tier"] != "admin" and rate_limiter:
-            allowed, rate_info = await rate_limiter.check_rate_limit(
-                key_data["api_key_id"], key_data["tier"]
-            )
-
-            if not allowed:
-                return JSONResponse(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    content={
-                        "error": "Rate limit exceeded",
-                        "message": f"Rate limit of {rate_info.limit} requests per {rate_info.window} exceeded",
-                        "limit": rate_info.limit,
-                        "remaining": rate_info.remaining,
-                        "reset_at": rate_info.reset_at,
-                        "window": rate_info.window,
-                    },
-                    headers={
-                        "X-RateLimit-Limit": str(rate_info.limit),
-                        "X-RateLimit-Remaining": str(rate_info.remaining),
-                        "X-RateLimit-Reset": str(rate_info.reset_at),
-                        "Retry-After": str(max(1, rate_info.reset_at - int(time.time()))),
-                    },
-                )
-
-            # Add rate limit headers to request state for response
-            request.state.rate_limit_info = rate_info
+        # Check rate limits
+        rate_error = await self._check_rate_limit(request, rate_limiter, key_data)
+        if rate_error:
+            return rate_error
 
         # Call next handler
         try:
@@ -212,31 +220,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 response.headers["X-RateLimit-Remaining"] = str(rate_info.remaining)
                 response.headers["X-RateLimit-Reset"] = str(rate_info.reset_at)
 
-            # Log API usage
-            response_time_ms = (time.time() - start_time) * 1000
-            if hasattr(request.state, "api_key_id") and auth_service:
-                await auth_service.log_api_usage(
-                    api_key_id=request.state.api_key_id,
-                    endpoint=request.url.path,
-                    method=request.method,
-                    status_code=response.status_code,
-                    tokens_used=0,  # TODO: Extract from response if available
-                    response_time_ms=response_time_ms,
-                )
-
+            await self._log_api_usage(request, auth_service, response.status_code, start_time, response)
             return cast(Response, response)
 
         except HTTPException as e:
-            # Log failed requests too
-            if hasattr(request.state, "api_key_id") and auth_service:
-                await auth_service.log_api_usage(
-                    api_key_id=request.state.api_key_id,
-                    endpoint=request.url.path,
-                    method=request.method,
-                    status_code=e.status_code,
-                    tokens_used=0,
-                    response_time_ms=(time.time() - start_time) * 1000,
-                )
+            await self._log_api_usage(request, auth_service, e.status_code, start_time)
             raise
 
 

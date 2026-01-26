@@ -239,18 +239,25 @@ class MemoryConflictResolver:
         return 0.0
 
     def _check_temporal_inconsistency(self, memory1: Memory, memory2: Memory) -> bool:
-        """Check if memories have temporal inconsistencies."""
-        # Check if both mention ages that don't align with creation dates
-        # This is a simplified check - can be extended
+        """Check if memories have temporal inconsistencies.
+
+        Detects potential temporal conflicts when both memories mention ages
+        but were created at significantly different times.
+        """
         age_keywords = ["age", "years old", "born in"]
 
         text1_has_age = any(keyword in memory1.text.lower() for keyword in age_keywords)
         text2_has_age = any(keyword in memory2.text.lower() for keyword in age_keywords)
 
+        # If both mention ages and were created more than 1 year apart, flag as potential inconsistency
         if text1_has_age and text2_has_age:
-            # Extract ages (simple regex would be better but avoiding for simplicity)
-            # Return False for now - can be enhanced with proper age extraction
-            return False
+            time_diff_seconds = abs((memory1.timestamp - memory2.timestamp).total_seconds())
+            # 1 year = 365.25 days * 24 hours * 3600 seconds
+            one_year_seconds = 365.25 * 24 * 3600
+
+            if time_diff_seconds > one_year_seconds:
+                # Age mentions in memories created over a year apart may indicate inconsistency
+                return True
 
         return False
 

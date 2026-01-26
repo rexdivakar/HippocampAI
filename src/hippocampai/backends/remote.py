@@ -124,12 +124,36 @@ class RemoteBackend(BaseBackend):
         extract_facts: bool = False,
         extract_relationships: bool = False,
     ) -> Memory:
-        """Store a memory via API."""
+        """
+        Store a memory via API with automatic type detection.
+
+        If type is provided in metadata, it will be used.
+        Otherwise, the API will automatically detect the type based on content.
+        """
+        # Extract type from metadata if present, otherwise let API auto-detect
+        memory_type = None
+        if metadata and "type" in metadata:
+            memory_type = metadata["type"]
+        # Also check tags for type hints
+        elif tags:
+            type_mapping = {
+                "fact": "fact",
+                "preference": "preference",
+                "goal": "goal",
+                "habit": "habit",
+                "event": "event",
+                "context": "context",
+            }
+            for tag in tags:
+                if tag in type_mapping:
+                    memory_type = type_mapping[tag]
+                    break
+
         payload = {
             "text": text,
             "user_id": user_id,
             "session_id": session_id,
-            "type": "fact",
+            "type": memory_type,  # None means API will auto-detect
             "metadata": metadata or {},
             "tags": tags or [],
             "importance": importance,
@@ -141,7 +165,7 @@ class RemoteBackend(BaseBackend):
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        data = self._post("/v1/memories", payload)
+        data = self._post("/v1/memories:remember", payload)
         return self._dict_to_memory(data)
 
     def recall(

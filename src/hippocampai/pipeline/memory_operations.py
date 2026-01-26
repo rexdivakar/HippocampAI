@@ -383,6 +383,94 @@ class MemoryOperations:
 
         return memory
 
+    def _parse_datetime(self, value: Any) -> Optional[datetime]:
+        """Parse datetime from string or return as-is if already datetime."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if isinstance(value, datetime) and value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value
+
+    def _matches_identity_filters(
+        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
+    ) -> bool:
+        """Check user_id, session_id, and memory_type filters."""
+        if filter_criteria.user_ids and memory.get("user_id") not in filter_criteria.user_ids:
+            return False
+        if (
+            filter_criteria.session_ids
+            and memory.get("session_id") not in filter_criteria.session_ids
+        ):
+            return False
+        if filter_criteria.memory_types:
+            mem_type = memory.get("type")
+            if mem_type is not None and hasattr(mem_type, "value"):
+                mem_type = mem_type.value
+            if mem_type not in filter_criteria.memory_types:
+                return False
+        return True
+
+    def _matches_tag_filters(
+        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
+    ) -> bool:
+        """Check tag inclusion and exclusion filters."""
+        memory_tags = set(memory.get("tags", []))
+        if filter_criteria.tags_include:
+            if not all(tag in memory_tags for tag in filter_criteria.tags_include):
+                return False
+        if filter_criteria.tags_exclude:
+            if any(tag in memory_tags for tag in filter_criteria.tags_exclude):
+                return False
+        return True
+
+    def _matches_numeric_filters(
+        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
+    ) -> bool:
+        """Check importance and confidence range filters."""
+        importance = memory.get("importance", 0.0)
+        if filter_criteria.importance_min is not None and importance < filter_criteria.importance_min:
+            return False
+        if filter_criteria.importance_max is not None and importance > filter_criteria.importance_max:
+            return False
+
+        confidence = memory.get("confidence", 0.0)
+        if filter_criteria.confidence_min is not None and confidence < filter_criteria.confidence_min:
+            return False
+        if filter_criteria.confidence_max is not None and confidence > filter_criteria.confidence_max:
+            return False
+        return True
+
+    def _matches_timestamp_filters(
+        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
+    ) -> bool:
+        """Check created_at and updated_at range filters."""
+        created_at = self._parse_datetime(memory.get("created_at"))
+        if created_at:
+            if filter_criteria.created_before and created_at > filter_criteria.created_before:
+                return False
+            if filter_criteria.created_after and created_at < filter_criteria.created_after:
+                return False
+
+        updated_at = self._parse_datetime(memory.get("updated_at"))
+        if updated_at:
+            if filter_criteria.updated_before and updated_at > filter_criteria.updated_before:
+                return False
+            if filter_criteria.updated_after and updated_at < filter_criteria.updated_after:
+                return False
+        return True
+
+    def _matches_metadata_filters(
+        self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter
+    ) -> bool:
+        """Check metadata key-value filters."""
+        memory_metadata = memory.get("metadata", {})
+        for key, value in filter_criteria.metadata_filters.items():
+            if memory_metadata.get(key) != value:
+                return False
+        return True
+
     def matches_filter(self, memory: dict[str, Any], filter_criteria: BatchUpdateFilter) -> bool:
         """
         Check if a memory matches filter criteria.
@@ -394,95 +482,13 @@ class MemoryOperations:
         Returns:
             True if memory matches all criteria
         """
-        # User ID filter
-        if filter_criteria.user_ids and memory.get("user_id") not in filter_criteria.user_ids:
-            return False
-
-        # Session ID filter
-        if (
-            filter_criteria.session_ids
-            and memory.get("session_id") not in filter_criteria.session_ids
-        ):
-            return False
-
-        # Memory type filter
-        if filter_criteria.memory_types:
-            mem_type = memory.get("type")
-            if mem_type is not None and hasattr(mem_type, "value"):
-                mem_type = mem_type.value
-            if mem_type not in filter_criteria.memory_types:
-                return False
-
-        # Tags filter - include
-        if filter_criteria.tags_include:
-            memory_tags = set(memory.get("tags", []))
-            if not all(tag in memory_tags for tag in filter_criteria.tags_include):
-                return False
-
-        # Tags filter - exclude
-        if filter_criteria.tags_exclude:
-            memory_tags = set(memory.get("tags", []))
-            if any(tag in memory_tags for tag in filter_criteria.tags_exclude):
-                return False
-
-        # Importance filter
-        importance = memory.get("importance", 0.0)
-        if (
-            filter_criteria.importance_min is not None
-            and importance < filter_criteria.importance_min
-        ):
-            return False
-        if (
-            filter_criteria.importance_max is not None
-            and importance > filter_criteria.importance_max
-        ):
-            return False
-
-        # Confidence filter
-        confidence = memory.get("confidence", 0.0)
-        if (
-            filter_criteria.confidence_min is not None
-            and confidence < filter_criteria.confidence_min
-        ):
-            return False
-        if (
-            filter_criteria.confidence_max is not None
-            and confidence > filter_criteria.confidence_max
-        ):
-            return False
-
-        # Timestamp filters
-        created_at = memory.get("created_at")
-        if created_at:
-            if isinstance(created_at, str):
-                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-
-            if filter_criteria.created_before and created_at > filter_criteria.created_before:
-                return False
-            if filter_criteria.created_after and created_at < filter_criteria.created_after:
-                return False
-
-        updated_at = memory.get("updated_at")
-        if updated_at:
-            if isinstance(updated_at, str):
-                updated_at = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-            if updated_at.tzinfo is None:
-                updated_at = updated_at.replace(tzinfo=timezone.utc)
-
-            if filter_criteria.updated_before and updated_at > filter_criteria.updated_before:
-                return False
-            if filter_criteria.updated_after and updated_at < filter_criteria.updated_after:
-                return False
-
-        # Metadata filters
-        memory_metadata = memory.get("metadata", {})
-        for key, value in filter_criteria.metadata_filters.items():
-            if memory_metadata.get(key) != value:
-                return False
-
-        return True
+        return (
+            self._matches_identity_filters(memory, filter_criteria)
+            and self._matches_tag_filters(memory, filter_criteria)
+            and self._matches_numeric_filters(memory, filter_criteria)
+            and self._matches_timestamp_filters(memory, filter_criteria)
+            and self._matches_metadata_filters(memory, filter_criteria)
+        )
 
     def batch_update(
         self,
