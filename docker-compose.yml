@@ -21,7 +21,7 @@ services:
       USER_AUTH_ENABLED: ${USER_AUTH_ENABLED:-false}
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -114,7 +114,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -163,7 +163,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 

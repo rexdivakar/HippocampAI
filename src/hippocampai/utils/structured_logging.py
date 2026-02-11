@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional, cast
 
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter as _BaseJsonFormatter
 
 # Context variable for request/trace ID
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
@@ -46,7 +46,7 @@ class StructuredLogger(logging.Logger):
         super()._log(level, msg, args, exc_info, extra_dict, stack_info, stacklevel + 1)
 
 
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(_BaseJsonFormatter):
     """Custom JSON formatter with additional fields."""
 
     def __init__(self, fmt: Optional[str] = None, **kwargs: Any) -> None:

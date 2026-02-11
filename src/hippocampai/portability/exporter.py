@@ -316,7 +316,7 @@ class MemoryExporter:
         }
 
         table = pa.Table.from_pydict(data)
-        compression = "snappy" if options.compress else None
+        compression: str = "snappy" if options.compress else "none"
         pq.write_table(table, file_path, compression=compression)
 
         stats.total_bytes = sum(len(str(v).encode()) for v in data.values())

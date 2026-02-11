@@ -108,7 +108,6 @@ def test_memory_creation(backend: RemoteBackend, user_id: str):
         memory = backend.remember(
             text="The capital of France is Paris",
             user_id=user_id,
-            memory_type=MemoryType.FACT,
             metadata={
                 "test": "library_saas_integration",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -180,7 +179,6 @@ def test_memory_update(backend: RemoteBackend, memory_id: str, user_id: str):
     try:
         updated_memory = backend.update_memory(
             memory_id=memory_id,
-            user_id=user_id,
             text="The capital of France is Paris, known as the City of Light",
             metadata={"updated": True, "update_time": datetime.now(timezone.utc).isoformat()},
         )

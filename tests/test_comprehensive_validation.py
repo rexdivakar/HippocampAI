@@ -63,8 +63,11 @@ class TestDeprecationFixes:
         tel = MemoryTelemetry()
         trace_id = tel.start_trace(OperationType.REMEMBER, user_id="test")
         tel.end_trace(trace_id)
-        assert tel.traces[trace_id].start_time.tzinfo is not None
-        assert tel.traces[trace_id].end_time.tzinfo is not None
+        trace = tel.traces[trace_id]
+        assert trace.start_time.tzinfo is not None
+        end_time = trace.end_time
+        assert end_time is not None
+        assert end_time.tzinfo is not None
 
     def test_pydantic_v2_config(self):
         """Verify Pydantic V2 migration is complete."""
@@ -402,7 +405,7 @@ class TestLibraryIntegrations:
     def test_sentence_transformers(self):
         """Test Sentence Transformers embedding."""
         model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-        embedding = model.encode("test sentence")
+        embedding = np.asarray(model.encode("test sentence"))
         assert embedding.shape[0] == 384
 
     def test_pydantic_validation(self):

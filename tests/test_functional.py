@@ -49,7 +49,7 @@ def test_memory_creation():
             session_id="session_1",
             text="I prefer dark mode",
             type=MemoryType.PREFERENCE,
-            timestamp=datetime.now(),
+            created_at=datetime.now(),
             importance=0.8,
         ),
         Memory(
@@ -58,7 +58,7 @@ def test_memory_creation():
             session_id="session_1",
             text="Python is a programming language",
             type=MemoryType.FACT,
-            timestamp=datetime.now(),
+            created_at=datetime.now(),
             importance=0.6,
         ),
         Memory(
@@ -67,7 +67,7 @@ def test_memory_creation():
             session_id="session_1",
             text="Learn machine learning",
             type=MemoryType.GOAL,
-            timestamp=datetime.now(),
+            created_at=datetime.now(),
             importance=0.9,
         ),
     ]
@@ -145,7 +145,7 @@ def test_bm25_scoring():
         query = "Python programming"
 
         # BM25Retriever uses search() method
-        results = bm25.search(query, k=3)
+        results = bm25.search(query, top_k=3)
 
         print(f"  Query: '{query}'")
         print("  Top results:")
@@ -168,19 +168,19 @@ def test_rrf_fusion():
 
     from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 
-    # RRF expects lists of doc IDs (not tuples with scores)
-    rankings = [
-        ["doc_1", "doc_2", "doc_3"],  # Vector ranking
-        ["doc_2", "doc_1", "doc_4"],  # BM25 ranking
+    # RRF expects lists of (doc_id, score) tuples
+    rankings: list[list[tuple[str, float]]] = [
+        [("doc_1", 0.9), ("doc_2", 0.8), ("doc_3", 0.7)],  # Vector ranking
+        [("doc_2", 0.95), ("doc_1", 0.85), ("doc_4", 0.75)],  # BM25 ranking
     ]
 
     try:
-        fused_scores = reciprocal_rank_fusion(rankings, k=60)
+        fused_results = reciprocal_rank_fusion(rankings, k=60)
 
         print(f"  Vector ranking: {rankings[0]}")
         print(f"  BM25 ranking: {rankings[1]}")
         print("\n  Fused scores:")
-        for doc_id, score in sorted(fused_scores.items(), key=lambda x: x[1], reverse=True):
+        for doc_id, score in fused_results:
             print(f"    - {doc_id}: {score:.4f}")
 
         return True
@@ -196,7 +196,7 @@ def test_importance_decay():
     print("\n⏰ Testing Importance Decay...")
 
     try:
-        from hippocampai.utils.time import decay_score
+        from hippocampai.utils.scoring import recency_score
 
         now = datetime.now()
         test_cases = [
@@ -209,8 +209,8 @@ def test_importance_decay():
         half_life_days = 30
         print(f"  Half-life: {half_life_days} days\n")
 
-        for timestamp, initial_importance, label in test_cases:
-            decayed = decay_score(timestamp, half_life_days)
+        for created_at, initial_importance, label in test_cases:
+            decayed = recency_score(created_at, half_life_days)
             print(f"  {label}: {initial_importance} → {decayed:.4f}")
 
         return True
@@ -224,12 +224,12 @@ def test_scoring_combination():
     print("\n🎯 Testing Score Combination...")
 
     try:
-        from hippocampai.utils.scoring import weighted_score
+        from hippocampai.utils.scoring import fuse_scores
 
         # Test weighted scoring
         sim_score = 0.85
         rerank_score = 0.78
-        recency_score = 0.92
+        recency_val = 0.92
         importance_score = 0.65
 
         weights = {
@@ -239,8 +239,8 @@ def test_scoring_combination():
             "importance": 0.10,
         }
 
-        final_score = weighted_score(
-            sim_score, rerank_score, recency_score, importance_score, weights
+        final_score = fuse_scores(
+            sim_score, rerank_score, recency_val, importance_score, weights
         )
 
         print("  Component scores:")
@@ -251,7 +251,7 @@ def test_scoring_combination():
             f"    - rerank: {rerank_score:.3f} × {weights['rerank']:.2f} = {rerank_score * weights['rerank']:.3f}"
         )
         print(
-            f"    - recency: {recency_score:.3f} × {weights['recency']:.2f} = {recency_score * weights['recency']:.3f}"
+            f"    - recency: {recency_val:.3f} × {weights['recency']:.2f} = {recency_val * weights['recency']:.3f}"
         )
         print(
             f"    - importance: {importance_score:.3f} × {weights['importance']:.2f} = {importance_score * weights['importance']:.3f}"
@@ -270,29 +270,22 @@ def test_cache_functionality():
     print("\n💾 Testing Score Cache...")
 
     try:
-        from hippocampai.utils.cache import RerankerCache
+        from hippocampai.utils.cache import Cache
 
-        cache = RerankerCache(ttl_seconds=3600)
+        cache = Cache(ttl=3600)
 
-        # Add some entries
-        cache.set("query_1", "doc_1", 0.85)
-        cache.set("query_1", "doc_2", 0.72)
-        cache.set("query_2", "doc_1", 0.91)
+        # Add some entries using composite keys
+        cache.set("query_1:doc_1", 0.85)
+        cache.set("query_1:doc_2", 0.72)
+        cache.set("query_2:doc_1", 0.91)
 
         # Retrieve
-        score1 = cache.get("query_1", "doc_1")
-        score2 = cache.get("query_1", "doc_3")  # Not in cache
+        score1 = cache.get("query_1:doc_1")
+        score2 = cache.get("query_1:doc_3")  # Not in cache
 
         print("  ✓ Cached 3 entries")
         print(f"  ✓ Retrieved existing: {score1}")
         print(f"  ✓ Missing returns None: {score2}")
-
-        # Test stats
-        stats = cache.get_stats()
-        print("\n  Cache stats:")
-        print(f"    - Size: {stats['size']}")
-        print(f"    - Hits: {stats['hits']}")
-        print(f"    - Misses: {stats['misses']}")
 
         return True
     except Exception:
@@ -316,8 +309,8 @@ def test_pydantic_validation():
             session_id="session_1",
             text="Valid memory",
             type=MemoryType.FACT,
-            timestamp=datetime.now(),
-            importance=0.5,
+            created_at=datetime.now(),
+            importance=5.0,
         )
         print("  ✓ Valid memory created")
     except ValidationError as e:
@@ -332,8 +325,8 @@ def test_pydantic_validation():
             session_id="session_1",
             text="Invalid memory",
             type=MemoryType.FACT,
-            timestamp=datetime.now(),
-            importance=1.5,  # Should be 0-1
+            created_at=datetime.now(),
+            importance=15.0,  # Should be 0-10
         )
         print("  ⚠️  Invalid importance accepted (validation may be loose)")
     except ValidationError:
