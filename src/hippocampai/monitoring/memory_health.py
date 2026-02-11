@@ -54,6 +54,25 @@ class CoverageLevel(str, Enum):
     MISSING = "missing"  # 0 memories
 
 
+class IssueSeverity(str, Enum):
+    """Severity level for health issues."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class HealthIssue(BaseModel):
+    """A specific health issue detected in the memory store."""
+
+    severity: IssueSeverity
+    category: str
+    message: str
+    affected_memory_ids: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+
+
 class MemoryHealthScore(BaseModel):
     """Overall health score for memory store."""
 
@@ -68,6 +87,8 @@ class MemoryHealthScore(BaseModel):
     freshness_score: float = Field(ge=0.0, le=100.0)
     diversity_score: float = Field(ge=0.0, le=100.0)
     consistency_score: float = Field(ge=0.0, le=100.0)
+    engagement_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    issues: list[HealthIssue] = Field(default_factory=list)
     calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     recommendations: list[str] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
@@ -202,6 +223,12 @@ class MemoryHealthMonitor:
         low_quality_count = sum(1 for m in memories if m.confidence < self.min_confidence_threshold)
         duplicate_clusters = len(self.detect_duplicate_clusters(memories, cluster_type="soft"))
 
+        # Calculate engagement score based on access patterns
+        engagement_score = self._calculate_engagement_score(memories)
+
+        # Build issues list
+        issues = self._build_issues_list(memories, stale_count, low_quality_count, duplicate_clusters)
+
         # Calculate overall score (weighted average)
         overall_score = (
             freshness_score * 0.3
@@ -254,6 +281,8 @@ class MemoryHealthMonitor:
             freshness_score=freshness_score,
             diversity_score=diversity_score,
             consistency_score=consistency_score,
+            engagement_score=engagement_score,
+            issues=issues,
             recommendations=recommendations,
             metrics=metrics,
         )
@@ -883,3 +912,75 @@ class MemoryHealthMonitor:
             gaps.append(f"No recent memories for {topic} - may be outdated")
 
         return gaps
+
+    def _calculate_engagement_score(self, memories: list[Memory]) -> float:
+        """Calculate engagement score (0-100) based on access patterns."""
+        if not memories:
+            return 0.0
+
+        total_access = sum(m.access_count for m in memories)
+        avg_access = total_access / len(memories) if memories else 0
+
+        # Score based on average access count (more access = higher engagement)
+        access_score = min(avg_access * 10, 100.0)
+
+        # Boost for recently accessed memories
+        now = datetime.now(timezone.utc)
+        recent_access_count = sum(
+            1 for m in memories if m.updated_at and (now - m.updated_at).days < 7
+        )
+        recency_ratio = recent_access_count / len(memories) if memories else 0
+        recency_boost = recency_ratio * 30  # Up to 30% boost
+
+        return float(min(access_score + recency_boost, 100.0))
+
+    def _build_issues_list(
+        self,
+        memories: list[Memory],
+        stale_count: int,
+        low_quality_count: int,
+        duplicate_cluster_count: int,
+    ) -> list[HealthIssue]:
+        """Build a list of health issues based on analysis."""
+        issues: list[HealthIssue] = []
+        now = datetime.now(timezone.utc)
+        total = len(memories)
+
+        if stale_count > 0:
+            stale_ids = [m.id for m in memories if self._is_stale(m, now)]
+            severity = IssueSeverity.HIGH if stale_count > total * 0.2 else IssueSeverity.MEDIUM
+            issues.append(
+                HealthIssue(
+                    severity=severity,
+                    category="staleness",
+                    message=f"{stale_count} stale memories detected",
+                    affected_memory_ids=stale_ids[:50],
+                    suggestions=["Run cleanup to archive or remove stale memories"],
+                )
+            )
+
+        if low_quality_count > 0:
+            low_q_ids = [m.id for m in memories if m.confidence < self.min_confidence_threshold]
+            severity = IssueSeverity.HIGH if low_quality_count > total * 0.1 else IssueSeverity.LOW
+            issues.append(
+                HealthIssue(
+                    severity=severity,
+                    category="quality",
+                    message=f"{low_quality_count} low-confidence memories found",
+                    affected_memory_ids=low_q_ids[:50],
+                    suggestions=["Review and update or remove low-confidence memories"],
+                )
+            )
+
+        if duplicate_cluster_count > 0:
+            issues.append(
+                HealthIssue(
+                    severity=IssueSeverity.MEDIUM,
+                    category="duplicates",
+                    message=f"{duplicate_cluster_count} duplicate clusters detected",
+                    affected_memory_ids=[],
+                    suggestions=["Run deduplication to merge similar memories"],
+                )
+            )
+
+        return issues

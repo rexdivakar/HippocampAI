@@ -167,7 +167,12 @@ class AsyncRedisKVStore:
         if self._client is None:
             raise RuntimeError(_REDIS_NOT_CONNECTED_ERROR)
         # smembers returns a coroutine in redis-py async client
-        members_result = await self._client.smembers(key)
+        raw_result = self._client.smembers(key)
+        from collections.abc import Awaitable
+
+        members_result: set[object] = (
+            await raw_result if isinstance(raw_result, Awaitable) else raw_result
+        )
         # Convert to Set[str], handling both bytes and str members
         result: Set[str] = set()
         for m in members_result:

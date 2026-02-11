@@ -168,9 +168,9 @@ class MemoryGraph:
         """
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
-            degrees = [(node, self.graph.degree[node]) for node in user_nodes]
+            degrees = [(node, self.graph.degree(node)) for node in user_nodes]
         else:
-            degrees = list(self.graph.degree)
+            degrees = [(node, deg) for node, deg in self.graph.degree()]
 
         # Sort by degree descending
         degrees.sort(key=lambda x: x[1], reverse=True)

@@ -368,7 +368,12 @@ class UserStore:
         )
 
         logger.info(f"Restored session {record.session_id} by {restored_by}")
-        return self.get_session(record.session_id, include_deleted=True)
+        if not record.session_id:
+            raise ValueError(f"Record {record_id} has no session_id")
+        session = self.get_session(record.session_id, include_deleted=True)
+        if session is None:
+            raise ValueError(f"Session {record.session_id} not found after restore")
+        return session
 
     def _row_to_soft_delete(self, row: tuple) -> SoftDeleteRecord:
         """Convert database row to SoftDeleteRecord model."""
@@ -393,21 +398,22 @@ class UserStore:
 
     def get_stats(self) -> dict:
         """Get storage statistics."""
-        total_users = self.conn.execute(
+        row = self.conn.execute(
             "SELECT COUNT(*) FROM users WHERE is_deleted = FALSE"
-        ).fetchone()[0]
-        total_sessions = self.conn.execute(
+        ).fetchone()
+        total_users = row[0] if row else 0
+        row = self.conn.execute(
             "SELECT COUNT(*) FROM sessions WHERE is_deleted = FALSE"
-        ).fetchone()[0]
-        deleted_sessions = self.conn.execute(
+        ).fetchone()
+        total_sessions = row[0] if row else 0
+        row = self.conn.execute(
             "SELECT COUNT(*) FROM sessions WHERE is_deleted = TRUE"
-        ).fetchone()[0]
-        total_memories = (
-            self.conn.execute(
-                "SELECT SUM(memory_count) FROM sessions WHERE is_deleted = FALSE"
-            ).fetchone()[0]
-            or 0
-        )
+        ).fetchone()
+        deleted_sessions = row[0] if row else 0
+        row = self.conn.execute(
+            "SELECT SUM(memory_count) FROM sessions WHERE is_deleted = FALSE"
+        ).fetchone()
+        total_memories = (row[0] if row else 0) or 0
 
         return {
             "total_users": total_users,

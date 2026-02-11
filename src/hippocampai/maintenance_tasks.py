@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from celery import Celery
 from celery.schedules import crontab
 
 from hippocampai.celery_app import celery_app
@@ -25,18 +26,25 @@ def run_health_check_task(self: Any, user_id: str, config_dict: dict[str, Any]) 
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
-        client = MemoryClient(user_id=user_id)
+        client = MemoryClient()
 
         # Load configuration
         config = AutoHealingConfig(**config_dict)
 
         # Get all memories
-        memories = client.get_memories(include_expired=False)
+        memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
+
+        # Create auto-healing engine from client components
+        healing_engine = AutoHealingEngine(
+            health_monitor=client.health_monitor,
+            embedder=client.embedder,
+        )
 
         # Run health check
-        report = client.auto_healing_engine.run_full_health_check(
+        report = healing_engine.run_full_health_check(
             user_id=user_id, memories=memories, config=config, dry_run=not config.enabled
         )
 
@@ -77,18 +85,25 @@ def run_cleanup_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> di
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
-        client = MemoryClient(user_id=user_id)
+        client = MemoryClient()
 
         # Load configuration
         config = AutoHealingConfig(**config_dict)
 
         # Get all memories
-        memories = client.get_memories(include_expired=False)
+        memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
+
+        # Create auto-healing engine from client components
+        healing_engine = AutoHealingEngine(
+            health_monitor=client.health_monitor,
+            embedder=client.embedder,
+        )
 
         # Run cleanup
-        report = client.auto_healing_engine.auto_cleanup(
+        report = healing_engine.auto_cleanup(
             user_id=user_id, memories=memories, config=config, dry_run=not config.enabled
         )
 
@@ -127,18 +142,25 @@ def run_deduplication_task(self: Any, user_id: str, config_dict: dict[str, Any])
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
-        client = MemoryClient(user_id=user_id)
+        client = MemoryClient()
 
         # Load configuration
         config = AutoHealingConfig(**config_dict)
 
         # Get all memories
-        memories = client.get_memories(include_expired=False)
+        memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
+
+        # Create auto-healing engine from client components
+        healing_engine = AutoHealingEngine(
+            health_monitor=client.health_monitor,
+            embedder=client.embedder,
+        )
 
         # Run deduplication
-        report = client.auto_healing_engine.auto_consolidate(
+        report = healing_engine.auto_consolidate(
             user_id=user_id, memories=memories, config=config, dry_run=not config.enabled
         )
 
@@ -176,20 +198,24 @@ def generate_predictions_task(self: Any, user_id: str) -> dict[str, Any]:
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
 
         # Initialize client
-        client = MemoryClient(user_id=user_id)
+        client = MemoryClient()
 
         # Get all memories
-        memories = client.get_memories(include_expired=False)
+        memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
+
+        # Create predictive engine
+        predictive_engine = PredictiveAnalyticsEngine()
 
         # Generate predictions
-        predictions = client.predictive_engine.generate_predictive_insights(
+        predictions = predictive_engine.generate_predictive_insights(
             user_id=user_id, memories=memories
         )
 
         # Generate recommendations
-        recommendations = client.predictive_engine.generate_recommendations(
+        recommendations = predictive_engine.generate_recommendations(
             user_id=user_id, memories=memories
         )
 
@@ -228,15 +254,19 @@ def detect_anomalies_task(self: Any, user_id: str, lookback_days: int = 30) -> d
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
 
         # Initialize client
-        client = MemoryClient(user_id=user_id)
+        client = MemoryClient()
 
         # Get all memories
-        memories = client.get_memories(include_expired=False)
+        memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
+
+        # Create predictive engine
+        predictive_engine = PredictiveAnalyticsEngine()
 
         # Detect anomalies
-        anomalies = client.predictive_engine.detect_anomalies(
+        anomalies = predictive_engine.detect_anomalies(
             user_id=user_id, memories=memories, lookback_days=lookback_days
         )
 
@@ -259,33 +289,35 @@ def detect_anomalies_task(self: Any, user_id: str, lookback_days: int = 30) -> d
 
 
 # Schedule periodic tasks
-@celery_app.on_after_finalize.connect
-def setup_periodic_tasks(sender: Any, **kwargs: Any) -> None:
+def setup_periodic_tasks(sender: Celery, **kwargs: Any) -> None:
     """Set up periodic tasks for maintenance."""
     # Daily health check at 3 AM
     sender.add_periodic_task(
         crontab(hour=3, minute=0),
-        run_health_check_task.s(),
+        celery_app.signature("maintenance.run_health_check"),
         name="daily_health_check",
     )
 
     # Weekly cleanup on Sunday at 2 AM
     sender.add_periodic_task(
         crontab(hour=2, minute=0, day_of_week=0),
-        run_cleanup_task.s(),
+        celery_app.signature("maintenance.run_cleanup"),
         name="weekly_cleanup",
     )
 
     # Daily anomaly detection at 4 AM
     sender.add_periodic_task(
         crontab(hour=4, minute=0),
-        detect_anomalies_task.s(),
+        celery_app.signature("maintenance.detect_anomalies"),
         name="daily_anomaly_detection",
     )
 
     # Weekly predictions on Monday at 6 AM
     sender.add_periodic_task(
         crontab(hour=6, minute=0, day_of_week=1),
-        generate_predictions_task.s(),
+        celery_app.signature("maintenance.generate_predictions"),
         name="weekly_predictions",
     )
+
+
+celery_app.on_after_finalize.connect(setup_periodic_tasks)

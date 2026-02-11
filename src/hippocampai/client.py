@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from uuid import uuid4
 
+import numpy as np
+
 from hippocampai.adapters.provider_anthropic import AnthropicLLM
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
@@ -1105,7 +1107,7 @@ class MemoryClient:
             memory.expires_at = expires_at
 
         memory.updated_at = datetime.now(timezone.utc)
-        return vector
+        return vector.tolist() if vector is not None else None
 
     def _track_memory_update_event(
         self,
@@ -1176,7 +1178,7 @@ class MemoryClient:
             if vector is not None:
                 self.qdrant.upsert(
                     collection_name=collection, id=memory_id,
-                    vector=vector, payload=memory.model_dump(mode="json"),
+                    vector=np.array(vector), payload=memory.model_dump(mode="json"),
                 )
             else:
                 self.qdrant.update(
@@ -2461,7 +2463,7 @@ class MemoryClient:
         Example:
             >>> agent = client.create_agent("Research Assistant", "alice", role=AgentRole.SPECIALIST)
         """
-        agent: list[Any] = self.multiagent.create_agent(name, user_id, role, description, metadata)
+        agent: Agent = self.multiagent.create_agent(name, user_id, role, description, metadata)
         return agent
 
     def get_agent(self, agent_id: str) -> Optional[Agent]:
@@ -2514,7 +2516,7 @@ class MemoryClient:
             >>> run = client.create_run(agent.id, "alice", name="Research Session 1")
             >>> memory = client.remember("Key finding", "alice", agent_id=agent.id, run_id=run.id)
         """
-        run: list[Any] = self.multiagent.create_run(agent_id, user_id, name, metadata)
+        run: Run = self.multiagent.create_run(agent_id, user_id, name, metadata)
         return run
 
     def get_run(self, run_id: str) -> Optional[Run]:
@@ -3244,7 +3246,7 @@ class MemoryClient:
             >>> print(f"Topics: {summary.topics}")
             >>> print(f"Action items: {summary.action_items}")
         """
-        summary: str = self.summarizer.summarize_session(messages, session_id, style, entities)
+        summary: SessionSummary = self.summarizer.summarize_session(messages, session_id, style, entities)
         return summary
 
     def create_rolling_summary(
@@ -5400,7 +5402,7 @@ class MemoryClient:
 
             logger.info(f"Cloned memory {memory_id} to {cloned_memory.id}")
 
-            cloned_result: dict[str, Any] = cloned_memory
+            cloned_result: Memory = cloned_memory
             return cloned_result
 
         except Exception as e:
@@ -6359,7 +6361,7 @@ class MemoryClient:
 
         # Store
         store = self._get_bitemporal_store()
-        stored_fact = store.store_fact(fact, vector)
+        stored_fact = store.store_fact(fact, vector.tolist())
 
         logger.info(
             f"Stored bi-temporal fact: {stored_fact.id} "
@@ -6431,7 +6433,7 @@ class MemoryClient:
         vector = self.embedder.encode_single(new_text)
 
         store = self._get_bitemporal_store()
-        new_fact = store.revise_fact(revision, vector, user_id)
+        new_fact = store.revise_fact(revision, vector.tolist(), user_id)
 
         logger.info(
             f"Revised bi-temporal fact: {original_fact_id} -> {new_fact.id} (reason={reason})"
@@ -6546,7 +6548,7 @@ class MemoryClient:
         # Generate query vector if semantic search requested
         query_vector = None
         if query:
-            query_vector = self.embedder.encode_single(query)
+            query_vector = self.embedder.encode_single(query).tolist()
 
         store = self._get_bitemporal_store()
         result = store.query(bt_query, query_vector)

@@ -47,6 +47,10 @@ class Memory(BaseModel):
     embedding: Optional[list[float]] = None
     rank: Optional[float] = None
 
+    # Lifecycle/archival support
+    is_archived: bool = False
+    promotion_count: int = 0
+
     # Alias for backward compatibility
     @property
     def memory_type(self) -> MemoryType:

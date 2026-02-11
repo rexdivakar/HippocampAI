@@ -1864,7 +1864,7 @@ async def get_memory_temperature(
     - Recommended tier based on access patterns
     """
     try:
-        temperature: dict[str, Any] = await service.get_memory_temperature(memory_id)
+        temperature = await service.get_memory_temperature(memory_id)
         if not temperature:
             raise HTTPException(status_code=404, detail="Memory not found")
         return temperature

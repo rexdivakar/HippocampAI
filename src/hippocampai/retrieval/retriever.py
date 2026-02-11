@@ -3,6 +3,8 @@
 import logging
 from typing import Optional, cast
 
+import numpy as np
+
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
 from hippocampai.models.search import SearchMode
@@ -151,8 +153,9 @@ class HybridRetriever:
         vector_results: list[dict] = []
         vector_ranking: list[tuple[str, float]] = []
         if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY] and query_vector is not None:
+            vector_arr = np.array(query_vector) if isinstance(query_vector, list) else query_vector
             vector_results = self.qdrant.search(
-                collection_name=collection, vector=query_vector,
+                collection_name=collection, vector=vector_arr,
                 limit=self.top_k_qdrant, filters=final_filters,
             )
             vector_ranking = [(r["id"], r["score"]) for r in vector_results]
@@ -228,8 +231,11 @@ class HybridRetriever:
         # Search all collections
         all_candidates = []
         for collection in collections:
+            vector_list: Optional[list[float]] = (
+                query_vector.tolist() if query_vector is not None else None
+            )
             candidates = self._search_collection(
-                collection, query, query_vector, final_filters, search_mode
+                collection, query, vector_list, final_filters, search_mode
             )
             all_candidates.extend(candidates)
 

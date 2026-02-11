@@ -45,11 +45,12 @@ class _StubMessage:
 
 # Check if langchain is available
 try:
-    from langchain.callbacks.manager import CallbackManagerForRetrieverRun
+    from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
+    from langchain_core.documents import Document
+    from langchain_core.messages import AIMessage, HumanMessage
+    from langchain_core.retrievers import BaseRetriever
+
     from langchain.memory.chat_memory import BaseChatMemory
-    from langchain.schema import AIMessage, HumanMessage
-    from langchain.schema.document import Document
-    from langchain.schema.retriever import BaseRetriever
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from hippocampai.models.memory import Memory
+from hippocampai.models.memory import Memory, MemoryType
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +325,7 @@ class DeduplicationService:
                 # Find canonical (highest importance)
                 canonical = max(
                     cluster_members,
-                    key=lambda mid: memory_lookup.get(mid, Memory(text="", user_id="")).importance,
+                    key=lambda mid: memory_lookup.get(mid, Memory(text="", user_id="", type=MemoryType.CONTEXT)).importance,
                 )
 
                 canonical_mem = memory_lookup.get(canonical)

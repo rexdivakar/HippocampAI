@@ -251,7 +251,7 @@ class MemoryConflictResolver:
 
         # If both mention ages and were created more than 1 year apart, flag as potential inconsistency
         if text1_has_age and text2_has_age:
-            time_diff_seconds = abs((memory1.timestamp - memory2.timestamp).total_seconds())
+            time_diff_seconds = abs((memory1.created_at - memory2.created_at).total_seconds())
             # 1 year = 365.25 days * 24 hours * 3600 seconds
             one_year_seconds = 365.25 * 24 * 3600
 

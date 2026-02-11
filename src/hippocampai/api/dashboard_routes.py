@@ -61,7 +61,7 @@ class RecentActivity(BaseModel):
 def _get_entity_counts(client: MemoryClient, user_id: str) -> tuple[int, int]:
     """Get total entities and concepts count."""
     try:
-        all_entities = client.kg.get_all_entities(user_id=user_id)
+        all_entities = client.graph.get_all_entities(user_id=user_id)
         total_entities = len(all_entities)
         concepts = [e for e in all_entities if e.type == "concept"]
         return total_entities, len(concepts)
@@ -105,15 +105,16 @@ def _get_recent_memories(memories: list[Any], limit: int = 10) -> list[dict[str,
 def _get_cluster_stats(client: MemoryClient, user_id: str) -> list[dict[str, Any]]:
     """Get top clusters."""
     try:
-        clusters = client.get_clusters(user_id=user_id)
+        clusters = client.graph.get_clusters(user_id=user_id)
         return [
             {
-                "id": c.id,
-                "label": c.label,
-                "size": len(c.memory_ids),
-                "coherence": c.coherence_score,
+                "id": idx,
+                "size": len(cluster),
+                "memory_ids": list(cluster)[:5],
             }
-            for c in sorted(clusters, key=lambda x: len(x.memory_ids), reverse=True)[:5]
+            for idx, cluster in enumerate(
+                sorted(clusters, key=lambda x: len(x), reverse=True)[:5]
+            )
         ]
     except Exception as e:
         logger.warning(f"Could not get clusters: {e}")
@@ -123,7 +124,7 @@ def _get_cluster_stats(client: MemoryClient, user_id: str) -> list[dict[str, Any
 def _get_connection_count(client: MemoryClient, user_id: str) -> int:
     """Get total connections from knowledge graph."""
     try:
-        relationships = client.kg.get_all_relationships(user_id=user_id)
+        relationships = client.graph.get_all_relationships(user_id=user_id)
         return len(relationships)
     except Exception as e:
         logger.warning(f"Could not get relationships: {e}")
