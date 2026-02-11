@@ -393,7 +393,7 @@ from hippocampai.schema import SchemaRegistry
 registry = SchemaRegistry()
 result = registry.validate_entity("person", {"name": "Alice"})
 
-# See docs/LIBRARY_COMPLETE_REFERENCE.md for all 102+ methods
+# See docs/LIBRARY_COMPLETE_REFERENCE.md for the full method reference
 ```
 
 **[Full API Reference](docs/LIBRARY_COMPLETE_REFERENCE.md)** | **[REST API Reference](docs/SAAS_API_COMPLETE_REFERENCE.md)**
