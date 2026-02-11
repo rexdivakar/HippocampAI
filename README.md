@@ -10,7 +10,7 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.4.0 — Major feature release with memory consolidation, multi-agent collaboration, and SaaS capabilities.
+**Current Release:** v0.5.0 — Intelligent memory features: knowledge graph, graph-aware retrieval, feedback loops, triggers, procedural memory, and embedding migration.
 
 ---
 
@@ -98,6 +98,12 @@ print(f"Found: {results[0].memory.text}")
 | **React Dashboard** ⭐ NEW | Full-featured UI with analytics and visualization | [Frontend](frontend/README.md) |
 | **Predictive Analytics** ⭐ NEW | Memory usage predictions and pattern forecasting | [New Features](docs/NEW_FEATURES_GUIDE.md) |
 | **Auto-Healing** ⭐ NEW | Automatic detection and repair of memory issues | [New Features](docs/NEW_FEATURES_GUIDE.md) |
+| **Knowledge Graph** NEW | Real-time entity/relationship extraction on every remember() | [Features](docs/FEATURES.md#real-time-incremental-knowledge-graph) |
+| **Graph-Aware Retrieval** NEW | 3-way RRF fusion: vector + BM25 + graph | [Features](docs/FEATURES.md#graph-aware-retrieval) |
+| **Relevance Feedback** NEW | User feedback loop with exponential decay scoring | [Features](docs/FEATURES.md#memory-relevance-feedback-loop) |
+| **Memory Triggers** NEW | Event-driven webhooks, websocket, and log actions | [Features](docs/FEATURES.md#memory-triggers--event-driven-actions) |
+| **Procedural Memory** NEW | Self-optimizing prompts via learned behavioral rules | [Features](docs/FEATURES.md#procedural-memory--prompt-self-optimization) |
+| **Embedding Migration** NEW | Safe model migration with Celery background processing | [Features](docs/FEATURES.md#embedding-model-migration) |
 | **Plugin System** | Custom processors, scorers, retrievers, filters | [New Features](docs/NEW_FEATURES.md#plugin-system) |
 | **Memory Namespaces** | Hierarchical organization with permissions | [New Features](docs/NEW_FEATURES.md#memory-namespaces) |
 | **Export/Import** | Portable formats (JSON, Parquet, CSV) for backup | [New Features](docs/NEW_FEATURES.md#exportimport-portability) |
@@ -392,6 +398,14 @@ print(context.final_context_text)
 from hippocampai.schema import SchemaRegistry
 registry = SchemaRegistry()
 result = registry.validate_entity("person", {"name": "Alice"})
+
+# Relevance Feedback (NEW v0.5.0)
+client.rate_recall(
+    memory_id=results[0].memory.id,
+    user_id="alice",
+    query="coffee preferences",
+    feedback_type="relevant"
+)
 
 # See docs/LIBRARY_COMPLETE_REFERENCE.md for the full method reference
 ```

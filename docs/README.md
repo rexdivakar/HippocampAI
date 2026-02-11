@@ -2,7 +2,7 @@
 
 Welcome to the comprehensive documentation for HippocampAI - the enterprise-grade memory engine for intelligent AI systems.
 
-**Last Updated**: 2025-11-23
+**Last Updated**: 2026-02-11
 
 ---
 
@@ -41,12 +41,21 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 ### Specialized Guides
 
-- **[New Features Guide](NEW_FEATURES.md)** ⭐ NEW - Plugins, namespaces, export/import, offline mode, tiered storage, integrations
+- **[New Features Guide](NEW_FEATURES.md)** - Plugins, namespaces, export/import, offline mode, tiered storage, integrations
 - **[SaaS Platform Guide](SAAS_GUIDE.md)** - Multi-tenant SaaS deployment and authentication
 - **[Memory Management](MEMORY_MANAGEMENT.md)** - Health monitoring, duplicate detection, quality tracking
 - **[Celery Guide](CELERY_GUIDE.md)** - Background task processing with Celery
 - **[Configuration](CONFIGURATION.md)** - All configuration options
 - **[Providers](PROVIDERS.md)** - LLM provider setup (Ollama, OpenAI, Anthropic, Groq)
+
+### v0.5.0 Features
+
+- **[Knowledge Graph](FEATURES.md#real-time-incremental-knowledge-graph)** NEW - Real-time entity/relationship extraction
+- **[Graph-Aware Retrieval](FEATURES.md#graph-aware-retrieval)** NEW - 3-way RRF fusion (vector + BM25 + graph)
+- **[Relevance Feedback](FEATURES.md#memory-relevance-feedback-loop)** NEW - User feedback loop with decay scoring
+- **[Memory Triggers](FEATURES.md#memory-triggers--event-driven-actions)** NEW - Event-driven webhooks and actions
+- **[Procedural Memory](FEATURES.md#procedural-memory--prompt-self-optimization)** NEW - Self-optimizing prompts
+- **[Embedding Migration](FEATURES.md#embedding-model-migration)** NEW - Safe model migration with Celery
 
 ### Advanced Features
 
@@ -73,7 +82,6 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 
 ### Project Status
 
-- **[Project Status](PROJECT_STATUS.md)** - Current project status and production readiness
 - **[Implementation Complete](IMPLEMENTATION_COMPLETE.md)** - Recent implementation summary
 
 ### Additional Resources
@@ -81,8 +89,6 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 - **[Telemetry](TELEMETRY.md)** - Metrics and observability
 - **[Resilience](RESILIENCE.md)** - Error handling and retry logic
 - **[Project Overview](PROJECT_OVERVIEW.md)** - High-level project overview
-- **[Quick Reference](QUICK_REFERENCE.md)** - Quick reference guide
-- **[Next Steps](NEXT_STEPS.md)** - What to do after getting started
 
 ---
 
@@ -192,6 +198,21 @@ docs/
 ---
 
 ## Recent Changes
+
+### 2026-02-11: v0.5.0 — Intelligent Memory Features
+
+**6 New Features:**
+
+1. **Real-Time Knowledge Graph** — Auto-extraction of entities, facts, and relationships on every `remember()` call
+2. **Graph-Aware Retrieval** — 3-way RRF fusion combining vector, BM25, and graph-based scoring
+3. **Memory Relevance Feedback** — User feedback loop with exponentially-weighted scoring
+4. **Memory Triggers** — Event-driven actions (webhooks, websocket, log) on memory lifecycle events
+5. **Procedural Memory** — Self-optimizing prompts via learned behavioral rules
+6. **Embedding Migration** — Safe model migration with Celery background processing
+
+**Also added:** 16 new config fields, 15 new REST API endpoints, 2 new Celery tasks
+
+See the [Changelog](../CHANGELOG.md) for full details.
 
 ### 2025-11-23: Documentation Reorganization
 

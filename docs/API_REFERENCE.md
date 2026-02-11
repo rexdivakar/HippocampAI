@@ -1,6 +1,6 @@
 # HippocampAI API Reference
 
-Complete API reference for HippocampAI v0.3.0. This document covers all public methods in `MemoryClient`, `AsyncMemoryClient`, and `UnifiedMemoryClient`.
+Complete API reference for HippocampAI v0.5.0. This document covers all public methods in `MemoryClient`, `AsyncMemoryClient`, and `UnifiedMemoryClient`.
 
 ## Table of Contents
 
@@ -15,6 +15,10 @@ Complete API reference for HippocampAI v0.3.0. This document covers all public m
 - [Graph & Relationships](#graph--relationships)
 - [Version Control & Audit](#version-control--audit)
 - [Analytics & Insights](#analytics--insights)
+- [Feedback](#feedback) **NEW v0.5.0**
+- [Triggers](#triggers) **NEW v0.5.0**
+- [Procedural Memory](#procedural-memory) **NEW v0.5.0**
+- [Embedding Migration](#embedding-migration) **NEW v0.5.0**
 - [Telemetry & Monitoring](#telemetry--monitoring)
 - [Background Jobs](#background-jobs)
 - [Async Operations](#async-operations)
@@ -1170,6 +1174,288 @@ trends = client.analyze_trends(
 
 ---
 
+## Feedback
+
+**NEW in v0.5.0** — Memory relevance feedback endpoints.
+
+### POST /v1/memories/{memory_id}/feedback
+
+Submit feedback on a retrieved memory.
+
+```python
+import httpx
+
+response = httpx.post("http://localhost:8000/v1/memories/mem_123/feedback", json={
+    "user_id": "alice",
+    "query": "coffee preferences",
+    "feedback_type": "relevant"  # relevant, not_relevant, partially_relevant, outdated
+})
+
+result = response.json()
+# {"memory_id": "mem_123", "feedback_type": "relevant", "score": 0.75}
+```
+
+**Request Body (`FeedbackRequest`):**
+- `user_id` (str, required): User identifier
+- `query` (str, optional): The query that produced this result
+- `feedback_type` (str, required): One of `relevant`, `not_relevant`, `partially_relevant`, `outdated`
+
+**Response (`FeedbackResponse`):**
+- `memory_id` (str): Memory ID
+- `feedback_type` (str): Feedback type submitted
+- `score` (float): Updated aggregated score
+
+---
+
+### GET /v1/memories/{memory_id}/feedback
+
+Get aggregated feedback score for a memory.
+
+```bash
+curl http://localhost:8000/v1/memories/mem_123/feedback
+# {"memory_id": "mem_123", "score": 0.75, "event_count": 12}
+```
+
+---
+
+### GET /v1/feedback/stats
+
+Get feedback statistics for a user.
+
+```bash
+curl "http://localhost:8000/v1/feedback/stats?user_id=alice"
+# {"user_id": "alice", "stats": {"relevant": 45, "not_relevant": 3, "partially_relevant": 12, "outdated": 2}}
+```
+
+---
+
+## Triggers
+
+**NEW in v0.5.0** — Event-driven trigger endpoints.
+
+### POST /v1/triggers
+
+Register a new trigger.
+
+```python
+import httpx
+
+response = httpx.post("http://localhost:8000/v1/triggers", json={
+    "name": "High importance alert",
+    "user_id": "alice",
+    "event": "on_remember",
+    "conditions": [{"field": "importance", "operator": "gt", "value": 8.0}],
+    "action": "webhook",
+    "action_config": {"url": "https://hooks.example.com/alert"}
+})
+
+trigger = response.json()
+# {"id": "trg_abc", "name": "High importance alert", "user_id": "alice",
+#  "event": "on_remember", "action": "webhook", "enabled": true, "fired_count": 0}
+```
+
+**Request Body (`TriggerCreateRequest`):**
+- `name` (str, required): Trigger name
+- `user_id` (str, required): User identifier
+- `event` (str, required): Trigger event (`on_remember`, `on_recall`, `on_update`, `on_delete`, `on_conflict`, `on_expire`)
+- `conditions` (list[dict], optional): Conditions with `field`, `operator`, `value`
+- `action` (str, default `"log"`): Action type (`webhook`, `websocket`, `log`)
+- `action_config` (dict, optional): Action configuration (e.g., `{"url": "..."}` for webhooks)
+
+**Response (`TriggerResponse`):**
+- `id` (str), `name` (str), `user_id` (str), `event` (str), `action` (str), `enabled` (bool), `fired_count` (int)
+
+---
+
+### GET /v1/triggers
+
+List all triggers for a user.
+
+```bash
+curl "http://localhost:8000/v1/triggers?user_id=alice"
+```
+
+---
+
+### DELETE /v1/triggers/{trigger_id}
+
+Remove a trigger.
+
+```bash
+curl -X DELETE "http://localhost:8000/v1/triggers/trg_abc?user_id=alice"
+# {"success": true, "trigger_id": "trg_abc"}
+```
+
+---
+
+### GET /v1/triggers/{trigger_id}/history
+
+Get fire history for a trigger.
+
+```bash
+curl "http://localhost:8000/v1/triggers/trg_abc/history"
+# [{"trigger_id": "trg_abc", "memory_id": "mem_123", "event": "on_remember",
+#   "fired_at": "2026-02-10T15:30:00Z", "success": true, "error": null}]
+```
+
+---
+
+## Procedural Memory
+
+**NEW in v0.5.0** — Procedural rule management endpoints. All endpoints require `ENABLE_PROCEDURAL_MEMORY=true`.
+
+### GET /v1/procedural/rules
+
+List active procedural rules for a user.
+
+```bash
+curl "http://localhost:8000/v1/procedural/rules?user_id=alice"
+# [{"id": "rule_1", "user_id": "alice", "rule_text": "Keep answers under 100 words",
+#   "confidence": 0.85, "success_rate": 0.9, "active": true}]
+```
+
+---
+
+### POST /v1/procedural/extract
+
+Extract procedural rules from interactions.
+
+```python
+import httpx
+
+response = httpx.post("http://localhost:8000/v1/procedural/extract", json={
+    "user_id": "alice",
+    "interactions": [
+        "User asked to simplify the explanation",
+        "User preferred bullet points over paragraphs",
+        "User requested Python code examples"
+    ]
+})
+
+rules = response.json()
+# [{"id": "rule_2", "user_id": "alice", "rule_text": "Use bullet points",
+#   "confidence": 0.8, "success_rate": 0.5, "active": true}, ...]
+```
+
+**Request Body (`ExtractRequest`):**
+- `user_id` (str, required): User identifier
+- `interactions` (list[str], required, min 1): Interaction texts to analyze
+
+---
+
+### POST /v1/procedural/inject
+
+Inject rules into a prompt.
+
+```python
+import httpx
+
+response = httpx.post("http://localhost:8000/v1/procedural/inject", json={
+    "user_id": "alice",
+    "base_prompt": "Explain how databases work",
+    "max_rules": 3
+})
+
+result = response.json()
+# {"prompt": "...[enhanced prompt with rules]...", "rules_injected": 3}
+```
+
+**Request Body (`InjectRequest`):**
+- `user_id` (str, required): User identifier
+- `base_prompt` (str, required): Original prompt to enhance
+- `max_rules` (int, default 5): Maximum rules to inject
+
+**Response (`InjectResponse`):**
+- `prompt` (str): Enhanced prompt with injected rules
+- `rules_injected` (int): Number of rules injected
+
+---
+
+### PUT /v1/procedural/rules/{rule_id}/feedback
+
+Update rule effectiveness.
+
+```python
+import httpx
+
+response = httpx.put("http://localhost:8000/v1/procedural/rules/rule_1/feedback", json={
+    "was_successful": True
+})
+# {"id": "rule_1", "success_rate": 0.91, "updated_at": "2026-02-10T15:30:00Z"}
+```
+
+---
+
+### POST /v1/procedural/consolidate
+
+Consolidate redundant rules for a user.
+
+```bash
+curl -X POST "http://localhost:8000/v1/procedural/consolidate?user_id=alice"
+# {"user_id": "alice", "consolidated_count": 3}
+```
+
+---
+
+## Embedding Migration
+
+**NEW in v0.5.0** — Embedding model migration endpoints.
+
+### POST /v1/admin/embeddings/migrate
+
+Start an embedding model migration. Dispatches to Celery if available, otherwise runs inline.
+
+```python
+import httpx
+
+response = httpx.post("http://localhost:8000/v1/admin/embeddings/migrate", json={
+    "new_model": "BAAI/bge-base-en-v1.5",
+    "new_dimension": 768
+})
+
+migration = response.json()
+# {"id": "mig_abc", "old_model": "BAAI/bge-small-en-v1.5",
+#  "new_model": "BAAI/bge-base-en-v1.5", "status": "running",
+#  "total_memories": 5000, "migrated_count": 0, "failed_count": 0}
+```
+
+**Request Body (`MigrationStartRequest`):**
+- `new_model` (str, required): Target embedding model name
+- `new_dimension` (int, default 384): Target embedding dimension
+
+**Response (`MigrationResponse`):**
+- `id` (str): Migration ID
+- `old_model` (str): Previous model
+- `new_model` (str): Target model
+- `status` (str): `pending`, `running`, `completed`, `cancelled`, `failed`
+- `total_memories` (int): Total memories to migrate
+- `migrated_count` (int): Successfully migrated
+- `failed_count` (int): Failed migrations
+
+---
+
+### GET /v1/admin/embeddings/migration/{migration_id}
+
+Check migration status.
+
+```bash
+curl http://localhost:8000/v1/admin/embeddings/migration/mig_abc
+# {"id": "mig_abc", "status": "running", "migrated_count": 2500, "failed_count": 3, ...}
+```
+
+---
+
+### POST /v1/admin/embeddings/migration/{migration_id}/cancel
+
+Cancel a running migration.
+
+```bash
+curl -X POST http://localhost:8000/v1/admin/embeddings/migration/mig_abc/cancel
+# {"success": true, "migration_id": "mig_abc", "status": "cancelled"}
+```
+
+---
+
 ## Telemetry & Monitoring
 
 ### get_telemetry_metrics()
@@ -1408,6 +1694,7 @@ class MemoryType(Enum):
     HABIT = "habit"
     EVENT = "event"
     CONTEXT = "context"
+    PROCEDURAL = "procedural"  # NEW v0.5.0
 ```
 
 ### TimeRange (Enum)
@@ -1419,6 +1706,12 @@ class TimeRange(Enum):
     LAST_WEEK = "last_week"
     LAST_MONTH = "last_month"
     LAST_YEAR = "last_year"
+
+class SearchMode(Enum):
+    HYBRID = "hybrid"
+    VECTOR_ONLY = "vector_only"
+    KEYWORD_ONLY = "keyword_only"
+    GRAPH_HYBRID = "graph_hybrid"  # NEW v0.5.0 - 3-way RRF fusion
 ```
 
 ### RelationType (Enum)
@@ -1449,5 +1742,5 @@ See [CONFIGURATION.md](CONFIGURATION.md) for complete configuration options.
 
 ---
 
-**Version:** v0.3.0
-**Last Updated:** November 2025
+**Version:** v0.5.0
+**Last Updated:** February 2026
