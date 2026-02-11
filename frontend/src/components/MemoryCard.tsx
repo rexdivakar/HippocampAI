@@ -1,4 +1,4 @@
-import { Memory } from '../types';
+import { Memory, FeedbackType } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Brain,
@@ -10,6 +10,9 @@ import {
   Trash2,
   Eye,
   Share2,
+  ThumbsUp,
+  CircleDot,
+  ThumbsDown,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -19,6 +22,7 @@ interface MemoryCardProps {
   onEdit?: (memory: Memory) => void;
   onShare?: (memory: Memory) => void;
   onDelete?: (memory: Memory) => void;
+  onFeedback?: (memoryId: string, feedbackType: FeedbackType) => void;
   selected?: boolean;
 }
 
@@ -44,6 +48,7 @@ export function MemoryCard({
   onEdit,
   onShare,
   onDelete,
+  onFeedback,
   selected = false,
 }: MemoryCardProps) {
   return (
@@ -100,6 +105,31 @@ export function MemoryCard({
         </div>
 
         <div className="flex items-center space-x-1">
+          {onFeedback && (
+            <>
+              <button
+                onClick={() => onFeedback(memory.id, 'relevant')}
+                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                title="Relevant"
+              >
+                <ThumbsUp className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onFeedback(memory.id, 'partially_relevant')}
+                className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                title="Partially relevant"
+              >
+                <CircleDot className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onFeedback(memory.id, 'not_relevant')}
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                title="Not relevant"
+              >
+                <ThumbsDown className="w-4 h-4" />
+              </button>
+            </>
+          )}
           {onView && (
             <button
               onClick={() => onView(memory)}

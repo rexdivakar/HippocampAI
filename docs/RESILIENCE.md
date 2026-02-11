@@ -151,7 +151,7 @@ Each log entry includes:
 
 ```json
 {
-  "timestamp": "2025-10-21T10:30:45.123456+00:00",
+  "timestamp": "2026-02-11T10:30:45.123456+00:00",
   "level": "INFO",
   "logger": "hippocampai.memory.client",
   "module": "client",

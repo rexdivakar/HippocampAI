@@ -1071,4 +1071,4 @@ with backup_duration.time():
 ---
 
 **Version:** v0.3.0
-**Last Updated:** November 2025
+**Last Updated:** February 2026

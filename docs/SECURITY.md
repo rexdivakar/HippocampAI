@@ -1125,4 +1125,4 @@ Report security issues to: security@hippocampai.dev (placeholder - update with a
 ---
 
 **Version:** v0.2.5
-**Last Updated:** November 2025
+**Last Updated:** February 2026

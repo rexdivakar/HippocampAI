@@ -141,7 +141,7 @@ def generate_fact_content() -> str:
         year=random.randint(2015, 2024),
         count=random.randint(3, 20),
         topic=random.choice(TOPICS),
-        date=f"{random.randint(1, 28)} {random.choice(['Jan', 'Feb', 'Mar', 'Apr'])} 2025",
+        date=f"{random.randint(1, 28)} {random.choice(['Jan', 'Feb', 'Mar', 'Apr'])} 2026",
         field=random.choice(["Computer Science", "Engineering", "Business", "Design"]),
     )
 

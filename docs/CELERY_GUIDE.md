@@ -2,7 +2,7 @@
 
 **Complete guide to using Celery for distributed background task processing in HippocampAI**
 
-Last Updated: 2025-11-21
+Last Updated: 2026-02-11
 
 ---
 

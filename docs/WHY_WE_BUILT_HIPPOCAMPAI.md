@@ -516,7 +516,7 @@ Open Source = Open Development
 
 ## Roadmap: What's Next
 
-### Near Term (Q1 2025)
+### Near Term (Q1 2026)
 
 ```
 🎯 Performance Optimization
@@ -535,7 +535,7 @@ Open Source = Open Development
    - Performance insights
 ```
 
-### Medium Term (Q2-Q3 2025)
+### Medium Term (Q2-Q3 2026)
 
 ```
 🌐 Multi-Modal Support
@@ -554,7 +554,7 @@ Open Source = Open Development
    - Auto-scaling support
 ```
 
-### Long Term (Q4 2025+)
+### Long Term (Q4 2026+)
 
 ```
 🧠 Neural Memory

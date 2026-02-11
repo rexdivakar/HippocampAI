@@ -215,7 +215,7 @@ docs/
 
 See the [Changelog](../CHANGELOG.md) for full details.
 
-### 2025-11-23: Documentation Reorganization
+### 2026-02-11: Documentation Reorganization
 
 **New Essential Guides:**
 
@@ -230,7 +230,7 @@ See the [Changelog](../CHANGELOG.md) for full details.
 - Added unified test runner (`tests/run_all_tests.py`)
 - 99%+ test pass rate (81/82 tests)
 
-### Previous Version (v0.2.5 - 2025-11-21)
+### Previous Version (v0.2.5 - 2026-02-11)
 
 **Consolidated Guides Created:**
 

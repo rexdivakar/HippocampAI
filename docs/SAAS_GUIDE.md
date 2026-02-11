@@ -2,7 +2,7 @@
 
 **Complete guide to deploying, configuring, and using HippocampAI as a SaaS platform**
 
-Last Updated: 2025-11-21
+Last Updated: 2026-02-11
 
 ---
 

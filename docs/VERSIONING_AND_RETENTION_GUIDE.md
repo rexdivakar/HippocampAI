@@ -1,7 +1,7 @@
 # Versioning & Retention Guide
 
 **Version**: 0.2.5
-**Last Updated**: 2025-11-02
+**Last Updated**: 2026-02-11
 
 ---
 
@@ -235,7 +235,7 @@ print(audit_dict)
 #     "audit_id": "uuid",
 #     "memory_id": "mem_001",
 #     "change_type": "updated",
-#     "timestamp": "2025-10-28T12:00:00Z",
+#     "timestamp": "2026-10-28T12:00:00Z",
 #     "user_id": "user_001",
 #     "changes": {...},
 #     "metadata": {...}
@@ -596,5 +596,5 @@ For questions or issues:
 
 ---
 
-**Generated**: 2025-11-02
+**Generated**: 2026-02-11
 **Version**: 0.2.5

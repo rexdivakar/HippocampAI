@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { X, Eye, Code, Database, Zap, TrendingDown, Link as LinkIcon, FileJson } from 'lucide-react';
-import type { Memory } from '../types';
+import { X, Eye, Code, Database, Zap, TrendingDown, Link as LinkIcon, FileJson, ThumbsUp, ThumbsDown, CircleDot, AlertTriangle } from 'lucide-react';
+import type { Memory, FeedbackType } from '../types';
 import clsx from 'clsx';
 
 interface MemoryDetailDrawerProps {
   memory: Memory | null;
   isOpen: boolean;
   onClose: () => void;
+  onFeedback?: (memoryId: string, feedbackType: FeedbackType) => void;
 }
 
-export function MemoryDetailDrawer({ memory, isOpen, onClose }: MemoryDetailDrawerProps) {
+export function MemoryDetailDrawer({ memory, isOpen, onClose, onFeedback }: MemoryDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'technical' | 'json'>('overview');
 
   if (!isOpen || !memory) return null;
@@ -213,6 +214,43 @@ export function MemoryDetailDrawer({ memory, isOpen, onClose }: MemoryDetailDraw
                         {tag}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback */}
+              {onFeedback && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Rate This Memory</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => onFeedback(memory.id, 'relevant')}
+                      className="flex items-center space-x-1.5 px-3 py-2 text-sm bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                      <span>Relevant</span>
+                    </button>
+                    <button
+                      onClick={() => onFeedback(memory.id, 'partially_relevant')}
+                      className="flex items-center space-x-1.5 px-3 py-2 text-sm bg-yellow-50 text-yellow-700 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200"
+                    >
+                      <CircleDot className="w-4 h-4" />
+                      <span>Partial</span>
+                    </button>
+                    <button
+                      onClick={() => onFeedback(memory.id, 'not_relevant')}
+                      className="flex items-center space-x-1.5 px-3 py-2 text-sm bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                      <span>Not Relevant</span>
+                    </button>
+                    <button
+                      onClick={() => onFeedback(memory.id, 'outdated')}
+                      className="flex items-center space-x-1.5 px-3 py-2 text-sm bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Outdated</span>
+                    </button>
                   </div>
                 </div>
               )}

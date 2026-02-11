@@ -23,6 +23,10 @@ import { BiTemporalPage } from './pages/BiTemporalPage';
 import { ContextAssemblyPage } from './pages/ContextAssemblyPage';
 import { SchemaPage } from './pages/SchemaPage';
 import { AgenticClassifierPage } from './pages/AgenticClassifierPage';
+import { FeedbackPage } from './pages/FeedbackPage';
+import { TriggersPage } from './pages/TriggersPage';
+import { ProceduralMemoryPage } from './pages/ProceduralMemoryPage';
+import { EmbeddingMigrationPage } from './pages/EmbeddingMigrationPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 function App() {
@@ -98,6 +102,10 @@ function App() {
           <Route path="/health" element={<HealthPage userId={userId!} />} />
           <Route path="/analytics" element={<AnalyticsPage userId={userId!} />} />
           <Route path="/observability" element={<ObservabilityPage userId={userId!} />} />
+          <Route path="/feedback" element={<FeedbackPage userId={userId!} />} />
+          <Route path="/triggers" element={<TriggersPage userId={userId!} />} />
+          <Route path="/procedural" element={<ProceduralMemoryPage userId={userId!} />} />
+          <Route path="/migrations" element={<EmbeddingMigrationPage userId={userId!} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>

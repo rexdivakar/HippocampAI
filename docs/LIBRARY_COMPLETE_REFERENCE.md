@@ -1,7 +1,7 @@
 # HippocampAI Library Complete Function Reference
 
 **Version**: v0.3.0
-**Last Updated**: 2025-11-24
+**Last Updated**: 2026-02-11
 **Total Functions**: 102+
 
 Complete reference for all HippocampAI library functions with usage examples.
@@ -375,7 +375,7 @@ memories = client.get_memories(
         "type": "goal",
         "tags": ["work"],
         "min_importance": 8.0,
-        "created_after": "2025-11-01T00:00:00Z",
+        "created_after": "2026-11-01T00:00:00Z",
         "session_id": "work_session_123"
     },
     limit=50,
@@ -2476,7 +2476,7 @@ client.export_graph_to_json(
 
 ---
 
-**Last Updated**: 2025-11-24
+**Last Updated**: 2026-02-11
 **Library Version**: v0.3.0
 **Total Functions**: 102+
 **Status**: Production Ready

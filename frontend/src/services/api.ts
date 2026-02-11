@@ -13,6 +13,18 @@ import type {
   BiTemporalFact,
   BiTemporalQueryResult,
   ContextPack,
+  FeedbackType,
+  FeedbackResponse,
+  AggregatedFeedback,
+  FeedbackStats,
+  Trigger,
+  TriggerEvent,
+  TriggerCondition,
+  TriggerAction,
+  TriggerFireEntry,
+  ProceduralRule,
+  ProceduralInjectionResult,
+  EmbeddingMigration,
 } from '../types';
 
 // Retry configuration
@@ -564,6 +576,143 @@ class APIClient {
       signal: abortSignal,
     });
     return response.data;
+  }
+
+  // ============================================================================
+  // FEEDBACK
+  // ============================================================================
+
+  async submitFeedback(data: {
+    memory_id: string;
+    user_id: string;
+    query?: string;
+    feedback_type: FeedbackType;
+  }): Promise<FeedbackResponse> {
+    const response = await this.v1Client.post<FeedbackResponse>(
+      `/v1/memories/${data.memory_id}/feedback`,
+      { user_id: data.user_id, query: data.query || '', feedback_type: data.feedback_type }
+    );
+    return response.data;
+  }
+
+  async getMemoryFeedback(memoryId: string): Promise<AggregatedFeedback> {
+    const response = await this.v1Client.get<AggregatedFeedback>(
+      `/v1/memories/${memoryId}/feedback`
+    );
+    return response.data;
+  }
+
+  async getFeedbackStats(userId: string): Promise<FeedbackStats> {
+    const response = await this.v1Client.get<FeedbackStats>('/v1/feedback/stats', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  // ============================================================================
+  // TRIGGERS
+  // ============================================================================
+
+  async createTrigger(data: {
+    name: string;
+    user_id: string;
+    event: TriggerEvent;
+    conditions?: TriggerCondition[];
+    action?: TriggerAction;
+    action_config?: Record<string, any>;
+  }): Promise<Trigger> {
+    const response = await this.v1Client.post<Trigger>('/v1/triggers', data);
+    return response.data;
+  }
+
+  async listTriggers(userId: string): Promise<Trigger[]> {
+    const response = await this.v1Client.get<Trigger[]>('/v1/triggers', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async deleteTrigger(triggerId: string, userId: string): Promise<void> {
+    await this.v1Client.delete(`/v1/triggers/${triggerId}`, {
+      params: { user_id: userId },
+    });
+  }
+
+  async getTriggerHistory(triggerId: string): Promise<TriggerFireEntry[]> {
+    const response = await this.v1Client.get<TriggerFireEntry[]>(
+      `/v1/triggers/${triggerId}/history`
+    );
+    return response.data;
+  }
+
+  // ============================================================================
+  // PROCEDURAL MEMORY
+  // ============================================================================
+
+  async getProceduralRules(userId: string): Promise<ProceduralRule[]> {
+    const response = await this.v1Client.get<ProceduralRule[]>('/v1/procedural/rules', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async extractProceduralRules(userId: string, interactions: string[]): Promise<ProceduralRule[]> {
+    const response = await this.v1Client.post<ProceduralRule[]>(
+      '/v1/procedural/extract',
+      { user_id: userId, interactions }
+    );
+    return response.data;
+  }
+
+  async injectProceduralRules(userId: string, basePrompt: string): Promise<ProceduralInjectionResult> {
+    const response = await this.v1Client.post<ProceduralInjectionResult>(
+      '/v1/procedural/inject',
+      { user_id: userId, base_prompt: basePrompt }
+    );
+    return response.data;
+  }
+
+  async updateRuleFeedback(ruleId: string, wasSuccessful: boolean): Promise<{ id: string; success_rate: number; updated_at: string }> {
+    const response = await this.v1Client.put<{ id: string; success_rate: number; updated_at: string }>(
+      `/v1/procedural/rules/${ruleId}/feedback`,
+      { was_successful: wasSuccessful }
+    );
+    return response.data;
+  }
+
+  async consolidateRules(userId: string): Promise<{ user_id: string; consolidated_count: number }> {
+    const response = await this.v1Client.post<{ user_id: string; consolidated_count: number }>(
+      '/v1/procedural/consolidate',
+      null,
+      { params: { user_id: userId } }
+    );
+    return response.data;
+  }
+
+  // ============================================================================
+  // EMBEDDING MIGRATION
+  // ============================================================================
+
+  async startEmbeddingMigration(data: {
+    new_model: string;
+    new_dimension?: number;
+  }): Promise<EmbeddingMigration> {
+    const response = await this.v1Client.post<EmbeddingMigration>(
+      '/v1/admin/embeddings/migrate',
+      data
+    );
+    return response.data;
+  }
+
+  async getMigrationStatus(migrationId: string): Promise<EmbeddingMigration> {
+    const response = await this.v1Client.get<EmbeddingMigration>(
+      `/v1/admin/embeddings/migration/${migrationId}`
+    );
+    return response.data;
+  }
+
+  async cancelMigration(migrationId: string): Promise<void> {
+    await this.v1Client.post(`/v1/admin/embeddings/migration/${migrationId}/cancel`);
   }
 }
 

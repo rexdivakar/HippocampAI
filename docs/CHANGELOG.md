@@ -298,7 +298,7 @@ This release transforms HippocampAI into a comprehensive memory management platf
 
 ---
 
-## [0.3.0] - 2025-11-24
+## [0.3.0] - 2026-02-11
 
 ### Major Release - Simplified API & Documentation Reorganization
 
@@ -477,7 +477,7 @@ session.add_message("user", "Hello")
 - **Test Pass Rate:** 99%+ (81/82 tests)
 - **Example Scripts:** 25+
 
-## [0.2.5] - 2025-11-02
+## [0.2.5] - 2026-02-11
 
 ### Major Release - Production-Ready Enterprise Memory Engine
 
@@ -777,7 +777,7 @@ This release establishes HippocampAI as a production-ready alternative to existi
 
 ---
 
-## [0.1.5] - 2025-10-21
+## [0.1.5] - 2026-02-11
 
 ### Highlights
 
@@ -796,7 +796,7 @@ This release establishes HippocampAI as a production-ready alternative to existi
 - Standardized timestamp parsing in `HybridRetriever` by routing ISO strings through `parse_iso_datetime`.
 - Updated retrieval tests to use `now_utc()` for timezone-aware recency scoring assertions.
 
-## [0.1.0] - 2025-10-20
+## [0.1.0] - 2026-02-11
 
 ### Added
 

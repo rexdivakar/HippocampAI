@@ -100,9 +100,9 @@ Create a new memory with optional deduplication check.
   "importance": 8.0,
   "confidence": 0.9,
   "tags": ["geography", "europe"],
-  "created_at": "2025-01-15T10:30:00Z",
-  "updated_at": "2025-01-15T10:30:00Z",
-  "expires_at": "2025-02-14T10:30:00Z",
+  "created_at": "2026-01-15T10:30:00Z",
+  "updated_at": "2026-01-15T10:30:00Z",
+  "expires_at": "2026-02-14T10:30:00Z",
   "access_count": 0,
   "text_length": 31,
   "token_count": 7,
@@ -160,7 +160,7 @@ Update an existing memory.
   "metadata": {
     "updated_by": "user"
   },
-  "expires_at": "2025-12-31T23:59:59Z"
+  "expires_at": "2026-12-31T23:59:59Z"
 }
 ```
 
@@ -171,7 +171,7 @@ Update an existing memory.
   "id": "mem_abc123",
   "text": "Paris is the capital and largest city of France",
   "importance": 9.0,
-  "updated_at": "2025-01-15T11:00:00Z",
+  "updated_at": "2026-01-15T11:00:00Z",
   ...
 }
 ```

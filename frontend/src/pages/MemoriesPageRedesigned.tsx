@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
-import type { Memory, MemoryFilters } from '../types';
+import type { Memory, MemoryFilters, FeedbackType } from '../types';
 import { MemoryListItem } from '../components/memory/MemoryListItem';
 import { MemoryDetailPanel } from '../components/memory/MemoryDetailPanel';
 import { MemoryFilterSidebar } from '../components/memory/MemoryFilterSidebar';
@@ -104,6 +104,24 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
       setSelectedMemory(null);
     },
   });
+
+  // Feedback mutation
+  const feedbackMutation = useMutation({
+    mutationFn: ({ memoryId, feedbackType }: { memoryId: string; feedbackType: FeedbackType }) =>
+      apiClient.submitFeedback({
+        memory_id: memoryId,
+        user_id: userId,
+        feedback_type: feedbackType,
+      }),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Feedback submission failed:', msg);
+    },
+  });
+
+  const handleFeedback = (memoryId: string, feedbackType: FeedbackType) => {
+    feedbackMutation.mutate({ memoryId, feedbackType });
+  };
 
   // WebSocket real-time updates
   const { on, off } = useWebSocket({ userId });
@@ -346,6 +364,7 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
                 memory={selectedMemory}
                 onEdit={setEditingMemory}
                 onDelete={handleDelete}
+                onFeedback={handleFeedback}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">

@@ -348,3 +348,102 @@ export interface BenchmarkSuite {
   results: BenchmarkResult[];
   system_info: Record<string, any>;
 }
+
+// ============================================================================
+// FEEDBACK TYPES
+// ============================================================================
+
+export type FeedbackType = 'relevant' | 'not_relevant' | 'partially_relevant' | 'outdated';
+
+export interface FeedbackResponse {
+  memory_id: string;
+  feedback_type: string;
+  score: number;
+}
+
+export interface AggregatedFeedback {
+  memory_id: string;
+  score: number;
+  event_count: number;
+  breakdown?: Record<string, number>;
+}
+
+export interface FeedbackStats {
+  user_id: string;
+  stats: Record<string, number>;
+}
+
+// ============================================================================
+// TRIGGER TYPES
+// ============================================================================
+
+export type TriggerEvent =
+  | 'on_remember'
+  | 'on_recall'
+  | 'on_update'
+  | 'on_delete'
+  | 'on_conflict'
+  | 'on_expire';
+
+export type TriggerConditionOp = 'eq' | 'gt' | 'lt' | 'contains' | 'matches';
+
+export type TriggerAction = 'webhook' | 'log' | 'websocket';
+
+export interface TriggerCondition {
+  field: string;
+  operator: TriggerConditionOp;
+  value: string;
+}
+
+export interface Trigger {
+  id: string;
+  name: string;
+  user_id: string;
+  event: TriggerEvent;
+  action: TriggerAction;
+  enabled: boolean;
+  fired_count: number;
+}
+
+export interface TriggerFireEntry {
+  trigger_id: string;
+  memory_id: string;
+  event: string;
+  fired_at: string;
+  success: boolean;
+  error?: string;
+}
+
+// ============================================================================
+// PROCEDURAL MEMORY TYPES
+// ============================================================================
+
+export interface ProceduralRule {
+  id: string;
+  user_id: string;
+  rule_text: string;
+  confidence: number;
+  success_rate: number;
+  active: boolean;
+}
+
+export interface ProceduralInjectionResult {
+  prompt: string;
+  rules_injected: number;
+}
+
+// ============================================================================
+// EMBEDDING MIGRATION TYPES
+// ============================================================================
+
+export type MigrationStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+
+export interface EmbeddingMigration {
+  id: string;
+  old_model: string;
+  new_model: string;
+  status: MigrationStatus;
+  total_memories: number;
+  migrated_count: number;
+  failed_count: number;
+}

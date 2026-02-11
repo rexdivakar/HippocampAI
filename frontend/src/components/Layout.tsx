@@ -29,6 +29,10 @@ import {
   FileText,
   Database,
   Zap,
+  MessageCircle,
+  BookOpen,
+  Bell,
+  ArrowRightLeft,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { CopyableField } from './CopyableField';
@@ -112,6 +116,8 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
     { path: '/context', label: 'Context Assembly', icon: FileText },
     { path: '/schema', label: 'Custom Schema', icon: Database },
     { path: '/classifier', label: 'Memory Classifier', icon: Zap },
+    { path: '/feedback', label: 'Feedback', icon: MessageCircle },
+    { path: '/procedural', label: 'Procedural Memory', icon: BookOpen },
   ];
 
   const managementItems = [
@@ -119,6 +125,8 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
     { path: '/collaboration', label: 'Collaboration', icon: Users },
     { path: '/agents', label: 'Agents', icon: Bot },
     { path: '/policies', label: 'Policies', icon: Shield },
+    { path: '/triggers', label: 'Triggers', icon: Bell },
+    { path: '/migrations', label: 'Embedding Migration', icon: ArrowRightLeft },
   ];
 
   const isPathActive = (paths: string[]) => {
@@ -547,7 +555,7 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <p>© 2025 HippocampAI. Autonomous memory engine with hybrid retrieval.</p>
+            <p>© 2026 HippocampAI. Autonomous memory engine with hybrid retrieval.</p>
             <div className="flex items-center space-x-4">
               <a href="https://github.com/rexdivakar/HippocampAI/tree/main/docs" target="_blank" rel="noopener noreferrer" className="hover:text-primary-600 transition-colors">Documentation</a>
               <a href="/api" target="_blank" rel="noopener noreferrer" className="hover:text-primary-600 transition-colors">API</a>

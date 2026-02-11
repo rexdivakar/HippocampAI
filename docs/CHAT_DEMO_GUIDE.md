@@ -155,13 +155,13 @@ alice> /memories
 🧠 RECENT MEMORIES (Last 10)
 
 1. [PREFERENCE] I prefer oat milk in my coffee
-   Importance: 8/10 | Created: 2025-11-03 10:15
+   Importance: 8/10 | Created: 2026-02-11 10:15
 
 2. [FACT] I work as a software engineer at TechCorp
-   Importance: 7/10 | Created: 2025-11-03 10:14
+   Importance: 7/10 | Created: 2026-02-11 10:14
 
 3. [GOAL] I want to learn more about LLMs
-   Importance: 9/10 | Created: 2025-11-03 10:14
+   Importance: 9/10 | Created: 2026-02-11 10:14
 ```
 
 ### `/search` - Search Memories
@@ -275,7 +275,7 @@ The more you share, the better the memory system works:
 ✅ Good:
 "I'm a software engineer specializing in Python and Go"
 "I prefer working remotely on Mondays and Wednesdays"
-"My goal is to launch a SaaS product by Q2 2025"
+"My goal is to launch a SaaS product by Q2 2026"
 
 ❌ Too vague:
 "I like coding"
