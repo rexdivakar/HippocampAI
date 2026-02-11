@@ -36,40 +36,44 @@ except ImportError:
 
         LLAMAINDEX_AVAILABLE = True
     except ImportError:
-
-        class BaseRetriever:  # type: ignore[no-redef]
-            """Stub base retriever when llama_index is not installed."""
-
-            pass
-
-        class NodeWithScore:  # type: ignore[no-redef]
-            """Stub for NodeWithScore when llama_index is not installed."""
-
-            def __init__(self, node: Any = None, score: float = 0.0) -> None:
-                self.node = node
-                self.score = score
-
-        class TextNode:  # type: ignore[no-redef]
-            """Stub for TextNode when llama_index is not installed."""
-
-            def __init__(
-                self,
-                text: str = "",
-                id_: Optional[str] = None,
-                metadata: Optional[dict[str, Any]] = None,
-            ) -> None:
-                self.text = text
-                self.id_ = id_
-                self.metadata = metadata or {}
-
-        class QueryBundle:  # type: ignore[no-redef]
-            """Stub for QueryBundle when llama_index is not installed."""
-
-            def __init__(self, query_str: str = "") -> None:
-                self.query_str = query_str
+        pass
 
 
-class HippocampRetriever(BaseRetriever):
+if not LLAMAINDEX_AVAILABLE:
+
+    class BaseRetriever:
+        """Stub base retriever when llama_index is not installed."""
+
+        pass
+
+    class NodeWithScore:
+        """Stub for NodeWithScore when llama_index is not installed."""
+
+        def __init__(self, node: Any = None, score: float = 0.0) -> None:
+            self.node = node
+            self.score = score
+
+    class TextNode:
+        """Stub for TextNode when llama_index is not installed."""
+
+        def __init__(
+            self,
+            text: str = "",
+            id_: Optional[str] = None,
+            metadata: Optional[dict[str, Any]] = None,
+        ) -> None:
+            self.text = text
+            self.id_ = id_
+            self.metadata = metadata or {}
+
+    class QueryBundle:
+        """Stub for QueryBundle when llama_index is not installed."""
+
+        def __init__(self, query_str: str = "") -> None:
+            self.query_str = query_str
+
+
+class HippocampRetriever(BaseRetriever):  # type: ignore[misc]
     """LlamaIndex retriever backed by HippocampAI.
 
     Retrieves relevant memories as LlamaIndex nodes.

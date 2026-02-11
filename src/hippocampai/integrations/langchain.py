@@ -33,19 +33,23 @@ try:
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
+    pass
 
-    class BaseChatMemory:  # type: ignore[no-redef]
+
+if not LANGCHAIN_AVAILABLE:
+
+    class BaseChatMemory:
         """Stub for BaseChatMemory when langchain is not installed."""
 
         def __init__(self, **kwargs: Any) -> None:
             pass
 
-    class BaseRetriever:  # type: ignore[no-redef]
+    class BaseRetriever:
         """Stub for BaseRetriever when langchain is not installed."""
 
         pass
 
-    class Document:  # type: ignore[no-redef]
+    class Document:
         """Stub for Document when langchain is not installed."""
 
         def __init__(
@@ -54,25 +58,25 @@ except ImportError:
             self.page_content = page_content
             self.metadata = metadata or {}
 
-    class AIMessage:  # type: ignore[no-redef]
+    class AIMessage:
         """Stub for AIMessage when langchain is not installed."""
 
         def __init__(self, content: str = "") -> None:
             self.content = content
 
-    class HumanMessage:  # type: ignore[no-redef]
+    class HumanMessage:
         """Stub for HumanMessage when langchain is not installed."""
 
         def __init__(self, content: str = "") -> None:
             self.content = content
 
-    class CallbackManagerForRetrieverRun:  # type: ignore[no-redef]
+    class CallbackManagerForRetrieverRun:
         """Stub for CallbackManagerForRetrieverRun when langchain is not installed."""
 
         pass
 
 
-class HippocampMemory(BaseChatMemory):
+class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
     """LangChain memory backed by HippocampAI.
 
     Stores conversation history as memories and retrieves relevant
@@ -179,7 +183,7 @@ class HippocampMemory(BaseChatMemory):
         pass
 
 
-class HippocampRetriever(BaseRetriever):
+class HippocampRetriever(BaseRetriever):  # type: ignore[misc]
     """LangChain retriever backed by HippocampAI.
 
     Retrieves relevant memories as LangChain Documents.
