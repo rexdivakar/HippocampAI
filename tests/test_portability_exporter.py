@@ -1,5 +1,4 @@
 import gzip
-import io
 import json
 import os
 import tempfile
@@ -7,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from hippocampai.models.memory import Memory, MemoryType
 from hippocampai.portability.exporter import MemoryExporter
 from hippocampai.portability.formats import ExportFormat, ExportOptions
-from hippocampai.models.memory import Memory, MemoryType
 
 
 class FakeEmbedder:
