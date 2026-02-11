@@ -200,14 +200,8 @@ class MemoryGraph:
             subgraph = self.graph
 
         num_nodes = subgraph.number_of_nodes()
-        # Calculate average degree using predecessors + successors to avoid degree property type ambiguity
-        if num_nodes > 0:
-            degree_sum = sum(
-                len(list(subgraph.predecessors(node))) + len(list(subgraph.successors(node)))
-                for node in subgraph.nodes()
-            )
-        else:
-            degree_sum = 0
+        # Sum of (in-degree + out-degree) for all nodes = 2 * number_of_edges
+        degree_sum = 2 * subgraph.number_of_edges()
 
         return {
             "num_nodes": num_nodes,

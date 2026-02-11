@@ -2,81 +2,31 @@
 
 Provides LangChain-compatible memory and retriever components.
 
+Requires: ``pip install langchain-core langchain-classic``
+
 Example:
-    >>> from langchain.chains import ConversationChain
     >>> from hippocampai import MemoryClient
     >>> from hippocampai.integrations.langchain import HippocampMemory
     >>>
     >>> client = MemoryClient()
     >>> memory = HippocampMemory(client, user_id="alice")
-    >>> chain = ConversationChain(llm=llm, memory=memory)
-    >>> response = chain.predict(input="Hello!")
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from langchain_classic.memory.chat_memory import BaseChatMemory
+from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.retrievers import BaseRetriever
+
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
-LANGCHAIN_AVAILABLE = False
 
-# Check if langchain is available
-try:
-    from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
-    from langchain_core.documents import Document
-    from langchain_core.messages import AIMessage, HumanMessage
-    from langchain_core.retrievers import BaseRetriever
-
-    from langchain.memory.chat_memory import BaseChatMemory
-
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    pass
-
-
-if not LANGCHAIN_AVAILABLE:
-
-    class BaseChatMemory:
-        """Stub for BaseChatMemory when langchain is not installed."""
-
-        def __init__(self, **kwargs: Any) -> None:
-            pass
-
-    class BaseRetriever:
-        """Stub for BaseRetriever when langchain is not installed."""
-
-        pass
-
-    class Document:
-        """Stub for Document when langchain is not installed."""
-
-        def __init__(
-            self, page_content: str = "", metadata: Optional[Dict[str, Any]] = None
-        ) -> None:
-            self.page_content = page_content
-            self.metadata = metadata or {}
-
-    class AIMessage:
-        """Stub for AIMessage when langchain is not installed."""
-
-        def __init__(self, content: str = "") -> None:
-            self.content = content
-
-    class HumanMessage:
-        """Stub for HumanMessage when langchain is not installed."""
-
-        def __init__(self, content: str = "") -> None:
-            self.content = content
-
-    class CallbackManagerForRetrieverRun:
-        """Stub for CallbackManagerForRetrieverRun when langchain is not installed."""
-
-        pass
-
-
-class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
+class HippocampMemory(BaseChatMemory):
     """LangChain memory backed by HippocampAI.
 
     Stores conversation history as memories and retrieves relevant
@@ -97,7 +47,7 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
     input_key: str = "input"
     output_key: str = "output"
     return_messages: bool = True
-    k: int = 5  # Number of memories to retrieve
+    k: int = 5
 
     def __init__(
         self,
@@ -108,11 +58,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
         k: int = 5,
         **kwargs: Any,
     ):
-        if not LANGCHAIN_AVAILABLE:
-            raise ImportError(
-                "LangChain is required for this integration. Install with: pip install langchain"
-            )
-
         super().__init__(**kwargs)
         self.client = client
         self.user_id = user_id
@@ -132,7 +77,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
         if not query:
             return {self.memory_key: [] if self.return_messages else ""}
 
-        # Retrieve relevant memories
         results = self.client.recall(
             query=query,
             user_id=self.user_id,
@@ -143,7 +87,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
         if self.return_messages:
             messages = []
             for result in results:
-                # Determine message type from metadata
                 msg_type = result.memory.metadata.get("message_type", "human")
                 if msg_type == "ai":
                     messages.append(AIMessage(content=result.memory.text))
@@ -151,7 +94,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
                     messages.append(HumanMessage(content=result.memory.text))
             return {self.memory_key: messages}
         else:
-            # Return as string
             history = "\n".join([r.memory.text for r in results])
             return {self.memory_key: history}
 
@@ -160,7 +102,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
         input_text = inputs.get(self.input_key, "")
         output_text = outputs.get(self.output_key, "")
 
-        # Save human message
         if input_text:
             self.client.remember(
                 text=input_text,
@@ -169,7 +110,6 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
                 type="context",
             )
 
-        # Save AI response
         if output_text:
             self.client.remember(
                 text=output_text,
@@ -180,10 +120,9 @@ class HippocampMemory(BaseChatMemory):  # type: ignore[misc]
 
     def clear(self) -> None:
         """Clear memory (not implemented - memories are persistent)."""
-        pass
 
 
-class HippocampRetriever(BaseRetriever):  # type: ignore[misc]
+class HippocampRetriever(BaseRetriever):
     """LangChain retriever backed by HippocampAI.
 
     Retrieves relevant memories as LangChain Documents.
@@ -210,11 +149,6 @@ class HippocampRetriever(BaseRetriever):  # type: ignore[misc]
         filter_types: Optional[List[str]] = None,
         **kwargs: Any,
     ):
-        if not LANGCHAIN_AVAILABLE:
-            raise ImportError(
-                "LangChain is required for this integration. Install with: pip install langchain"
-            )
-
         super().__init__(**kwargs)
         self.client = client
         self.user_id = user_id
@@ -239,11 +173,9 @@ class HippocampRetriever(BaseRetriever):  # type: ignore[misc]
 
         documents = []
         for result in results:
-            # Apply score threshold
             if result.score < self.score_threshold:
                 continue
 
-            # Apply type filter
             if self.filter_types:
                 mem_type = result.memory.type
                 if hasattr(mem_type, "value"):
