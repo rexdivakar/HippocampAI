@@ -26,6 +26,7 @@ def run_health_check_task(self: Any, user_id: str, config_dict: dict[str, Any]) 
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.monitoring.memory_health import MemoryHealthMonitor
         from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
@@ -38,8 +39,9 @@ def run_health_check_task(self: Any, user_id: str, config_dict: dict[str, Any]) 
         memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
 
         # Create auto-healing engine from client components
+        monitor = MemoryHealthMonitor(embedder=client.embedder)
         healing_engine = AutoHealingEngine(
-            health_monitor=client.health_monitor,
+            health_monitor=monitor,
             embedder=client.embedder,
         )
 
@@ -85,6 +87,7 @@ def run_cleanup_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> di
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.monitoring.memory_health import MemoryHealthMonitor
         from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
@@ -97,8 +100,9 @@ def run_cleanup_task(self: Any, user_id: str, config_dict: dict[str, Any]) -> di
         memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
 
         # Create auto-healing engine from client components
+        monitor = MemoryHealthMonitor(embedder=client.embedder)
         healing_engine = AutoHealingEngine(
-            health_monitor=client.health_monitor,
+            health_monitor=monitor,
             embedder=client.embedder,
         )
 
@@ -142,6 +146,7 @@ def run_deduplication_task(self: Any, user_id: str, config_dict: dict[str, Any])
     """
     try:
         from hippocampai.client import MemoryClient
+        from hippocampai.monitoring.memory_health import MemoryHealthMonitor
         from hippocampai.pipeline.auto_healing import AutoHealingEngine
 
         # Initialize client
@@ -154,8 +159,9 @@ def run_deduplication_task(self: Any, user_id: str, config_dict: dict[str, Any])
         memories = client.get_memories(user_id=user_id, filters={"include_expired": False})
 
         # Create auto-healing engine from client components
+        monitor = MemoryHealthMonitor(embedder=client.embedder)
         healing_engine = AutoHealingEngine(
-            health_monitor=client.health_monitor,
+            health_monitor=monitor,
             embedder=client.embedder,
         )
 
@@ -320,4 +326,5 @@ def setup_periodic_tasks(sender: Celery, **kwargs: Any) -> None:
     )
 
 
-celery_app.on_after_finalize.connect(setup_periodic_tasks)
+if celery_app.on_after_finalize is not None:
+    celery_app.on_after_finalize.connect(setup_periodic_tasks)

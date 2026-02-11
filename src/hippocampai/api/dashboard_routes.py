@@ -61,10 +61,9 @@ class RecentActivity(BaseModel):
 def _get_entity_counts(client: MemoryClient, user_id: str) -> tuple[int, int]:
     """Get total entities and concepts count."""
     try:
-        all_entities = client.graph.get_all_entities(user_id=user_id)
-        total_entities = len(all_entities)
-        concepts = [e for e in all_entities if e.type == "concept"]
-        return total_entities, len(concepts)
+        stats = client.graph.get_graph_stats(user_id=user_id)
+        total_entities = stats.get("num_nodes", 0)
+        return total_entities, 0
     except Exception as e:
         logger.warning(f"Could not get entities: {e}")
         return 0, 0
@@ -124,8 +123,8 @@ def _get_cluster_stats(client: MemoryClient, user_id: str) -> list[dict[str, Any
 def _get_connection_count(client: MemoryClient, user_id: str) -> int:
     """Get total connections from knowledge graph."""
     try:
-        relationships = client.graph.get_all_relationships(user_id=user_id)
-        return len(relationships)
+        stats = client.graph.get_graph_stats(user_id=user_id)
+        return stats.get("num_edges", 0)
     except Exception as e:
         logger.warning(f"Could not get relationships: {e}")
         return 0

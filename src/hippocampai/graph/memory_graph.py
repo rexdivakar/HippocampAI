@@ -168,9 +168,10 @@ class MemoryGraph:
         """
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
-            degrees = [(node, self.graph.degree(node)) for node in user_nodes]
+            degree_view = dict(self.graph.degree(user_nodes))
+            degrees = [(node, degree_view.get(node, 0)) for node in user_nodes]
         else:
-            degrees = [(node, deg) for node, deg in self.graph.degree()]
+            degrees = [(node, deg) for node, deg in self.graph.degree]
 
         # Sort by degree descending
         degrees.sort(key=lambda x: x[1], reverse=True)
@@ -196,8 +197,8 @@ class MemoryGraph:
         num_nodes = subgraph.number_of_nodes()
         # Calculate average degree - subgraph.degree is a DegreeView iterable of (node, degree) tuples
         if num_nodes > 0:
-            degree_list: list[tuple[Any, int]] = list(subgraph.degree)
-            degree_sum = sum(degree for _, degree in degree_list)
+            degree_dict = dict(subgraph.degree)
+            degree_sum = sum(degree_dict.values())
         else:
             degree_sum = 0
 

@@ -13,35 +13,14 @@ Example:
     >>> response = chain.predict(input="Hello!")
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
-# Stub classes for when langchain is not available
-class _StubBaseChatMemory:
-    """Stub for BaseChatMemory when langchain is not installed."""
-    def __init__(self, **kwargs: Any) -> None:
-        pass
-
-
-class _StubBaseRetriever:
-    """Stub for BaseRetriever when langchain is not installed."""
-    pass
-
-
-class _StubDocument:
-    """Stub for Document when langchain is not installed."""
-    def __init__(self, page_content: str = "", metadata: Optional[Dict[str, Any]] = None) -> None:
-        self.page_content = page_content
-        self.metadata = metadata or {}
-
-
-class _StubMessage:
-    """Stub for Message when langchain is not installed."""
-    def __init__(self, content: str = "") -> None:
-        self.content = content
-
+LANGCHAIN_AVAILABLE = False
 
 # Check if langchain is available
 try:
@@ -54,13 +33,43 @@ try:
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    BaseChatMemory = _StubBaseChatMemory
-    BaseRetriever = _StubBaseRetriever
-    Document = _StubDocument
-    AIMessage = _StubMessage
-    HumanMessage = _StubMessage
-    CallbackManagerForRetrieverRun = None
+
+    class BaseChatMemory:  # type: ignore[no-redef]
+        """Stub for BaseChatMemory when langchain is not installed."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+    class BaseRetriever:  # type: ignore[no-redef]
+        """Stub for BaseRetriever when langchain is not installed."""
+
+        pass
+
+    class Document:  # type: ignore[no-redef]
+        """Stub for Document when langchain is not installed."""
+
+        def __init__(
+            self, page_content: str = "", metadata: Optional[Dict[str, Any]] = None
+        ) -> None:
+            self.page_content = page_content
+            self.metadata = metadata or {}
+
+    class AIMessage:  # type: ignore[no-redef]
+        """Stub for AIMessage when langchain is not installed."""
+
+        def __init__(self, content: str = "") -> None:
+            self.content = content
+
+    class HumanMessage:  # type: ignore[no-redef]
+        """Stub for HumanMessage when langchain is not installed."""
+
+        def __init__(self, content: str = "") -> None:
+            self.content = content
+
+    class CallbackManagerForRetrieverRun:  # type: ignore[no-redef]
+        """Stub for CallbackManagerForRetrieverRun when langchain is not installed."""
+
+        pass
 
 
 class HippocampMemory(BaseChatMemory):
@@ -88,7 +97,7 @@ class HippocampMemory(BaseChatMemory):
 
     def __init__(
         self,
-        client: "MemoryClient",
+        client: MemoryClient,
         user_id: str,
         session_id: Optional[str] = None,
         memory_key: str = "history",
@@ -189,7 +198,7 @@ class HippocampRetriever(BaseRetriever):
 
     def __init__(
         self,
-        client: "MemoryClient",
+        client: MemoryClient,
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
@@ -214,8 +223,8 @@ class HippocampRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional["CallbackManagerForRetrieverRun"] = None,
-    ) -> List["Document"]:
+        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
+    ) -> List[Document]:
         """Retrieve relevant documents."""
         results = self.client.recall(
             query=query,
@@ -257,7 +266,7 @@ class HippocampRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional["CallbackManagerForRetrieverRun"] = None,
-    ) -> List["Document"]:
+        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
+    ) -> List[Document]:
         """Async retrieve (falls back to sync)."""
         return self._get_relevant_documents(query, run_manager=run_manager)

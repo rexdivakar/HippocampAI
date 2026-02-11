@@ -135,6 +135,9 @@ if TYPE_CHECKING:
     from hippocampai.multiagent import MultiAgentManager
     from hippocampai.optimized_client import OptimizedMemoryClient
     from hippocampai.session import SessionManager
+    from hippocampai.simple import Memory as SimpleMemory  # noqa: N811
+    from hippocampai.simple import MemoryManager, MemoryStore
+    from hippocampai.simple import Session as SimpleSession  # noqa: N811
     from hippocampai.telemetry import OperationType, get_telemetry
     from hippocampai.unified_client import UnifiedMemoryClient
 

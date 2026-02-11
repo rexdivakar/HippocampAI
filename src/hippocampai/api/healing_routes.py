@@ -161,16 +161,23 @@ async def detect_duplicates(user_id: str, similarity_threshold: float = 0.90):
         return {
             "clusters": [
                 {
-                    "representative_id": cluster.representative_memory.id,
-                    "representative_text": cluster.representative_memory.text,
-                    "duplicate_count": len(cluster.duplicate_memory_ids),
-                    "duplicate_ids": cluster.duplicate_memory_ids,
-                    "average_similarity": cluster.average_similarity,
-                    "suggested_action": cluster.suggested_action.value,
+                    "representative_id": cluster.representative_memory_id,
+                    "representative_text": next(
+                        (m.text for m in cluster.memories if m.id == cluster.representative_memory_id),
+                        cluster.memories[0].text if cluster.memories else "",
+                    ),
+                    "duplicate_count": len(cluster.memories),
+                    "duplicate_ids": [m.id for m in cluster.memories],
+                    "average_similarity": (
+                        sum(cluster.similarity_scores) / len(cluster.similarity_scores)
+                        if cluster.similarity_scores
+                        else 0.0
+                    ),
+                    "suggested_action": cluster.cluster_type.value,
                 }
                 for cluster in clusters
             ],
-            "total_duplicates": sum(len(c.duplicate_memory_ids) for c in clusters),
+            "total_duplicates": sum(len(c.memories) for c in clusters),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
