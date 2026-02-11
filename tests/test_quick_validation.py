@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
-from hippocampai.models.agent import PermissionType
+from hippocampai.models.agent import AgentRole, PermissionType
 from hippocampai.models.healing import AutoHealingConfig
 from hippocampai.models.prediction import ForecastHorizon, ForecastMetric
 from hippocampai.monitoring.memory_health import MemoryHealthMonitor
@@ -71,8 +71,9 @@ def test_core_operations():
 
     # Update
     updated = client.update_memory(
-        memory_id=memory.id, user_id=USER_ID, text="Updated validation memory", importance=8.0
+        memory_id=memory.id, text="Updated validation memory", importance=8.0
     )
+    assert updated is not None
     print(f"  ✓ Updated memory importance: {updated.importance}")
 
     # Delete
@@ -94,16 +95,18 @@ def test_sessions():
     # Track messages
     for i in range(3):
         client.track_session_message(
-            session_id=session.id, user_id=USER_ID, message=f"Message {i}", role="user"
+            session_id=session.id, user_id=USER_ID, text=f"Message {i}", type="fact"
         )
     print("  ✓ Tracked 3 messages")
 
     # Get session
-    retrieved = client.get_session(session.id, user_id=USER_ID)
+    retrieved = client.get_session(session.id)
+    assert retrieved is not None
     print(f"  ✓ Retrieved session with {retrieved.message_count} messages")
 
     # Complete
-    completed = client.complete_session(session.id, user_id=USER_ID)
+    completed = client.complete_session(session.id)
+    assert completed is not None
     print(f"  ✓ Completed session: {completed.status.value}")
 
     return True
@@ -116,8 +119,8 @@ def test_collaboration():
     collab = CollaborationManager()
 
     # Create agents
-    agent1 = client.create_agent(name="Agent 1", user_id=USER_ID, role="assistant")
-    agent2 = client.create_agent(name="Agent 2", user_id=USER_ID, role="assistant")
+    agent1 = client.create_agent(name="Agent 1", user_id=USER_ID, role=AgentRole.ASSISTANT)
+    agent2 = client.create_agent(name="Agent 2", user_id=USER_ID, role=AgentRole.ASSISTANT)
     print("  ✓ Created 2 agents")
 
     # Create space
@@ -188,7 +191,7 @@ def test_predictions():
 def test_autohealing():
     """Test auto-healing features."""
     client = MemoryClient()
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
     healing_engine = AutoHealingEngine(health_monitor, embedder)
 
@@ -200,7 +203,6 @@ def test_autohealing():
             type="fact",
             importance=5.0 + (i % 5),
             tags=[f"tag_{i % 3}"],
-            confidence=0.7 + (i % 3) * 0.1,
         )
     print("  ✓ Created 15 diverse memories")
 

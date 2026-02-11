@@ -266,9 +266,11 @@ class TieredStorageManager:
             stats[tier].memory_count += 1
             stats[tier].storage_bytes += len(memory.text.encode())
 
-            if stats[tier].oldest_memory is None or memory.created_at < stats[tier].oldest_memory:
+            oldest = stats[tier].oldest_memory
+            if oldest is None or memory.created_at < oldest:
                 stats[tier].oldest_memory = memory.created_at
-            if stats[tier].newest_memory is None or memory.created_at > stats[tier].newest_memory:
+            newest = stats[tier].newest_memory
+            if newest is None or memory.created_at > newest:
                 stats[tier].newest_memory = memory.created_at
 
         return stats

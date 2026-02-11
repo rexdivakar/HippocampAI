@@ -112,7 +112,7 @@ def test_memory_model():
         session_id="session_789",
         text="Test memory content",
         type=MemoryType.FACT,
-        timestamp=datetime.now(),
+        created_at=datetime.now(),
         importance=0.8,
         embedding=[0.1] * 384,  # Typical embedding dimension
     )

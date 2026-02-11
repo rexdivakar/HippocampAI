@@ -355,14 +355,14 @@ class AutoHealingEngine:
         health_after = health_before.overall_score
 
         # Calculate improvements
-        improvements = {
-            "stale_memories_reduced": 0,
-            "duplicates_removed": len(
+        improvements: dict[str, float] = {
+            "stale_memories_reduced": 0.0,
+            "duplicates_removed": float(len(
                 [a for a in all_actions_applied if a.action_type == HealingActionType.MERGE]
-            ),
-            "tags_added": len(
+            )),
+            "tags_added": float(len(
                 [a for a in all_actions_applied if a.action_type == HealingActionType.UPDATE_TAGS]
-            ),
+            )),
         }
 
         report = HealingReport(
@@ -439,6 +439,10 @@ class AutoHealingEngine:
             consolidated_memory_id=None,  # Would be created
             summary=f"Consolidated {len(memories)} memories using {strategy.value}",
             content_preserved=content_preserved,
+            original_data={
+                "texts": all_texts,
+                "tags": list(all_tags),
+            },
             metadata={
                 "avg_importance": total_importance / len(memories),
                 "avg_confidence": total_confidence / len(memories),

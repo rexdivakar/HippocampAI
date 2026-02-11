@@ -8,6 +8,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import numpy as np
+from qdrant_client.models import Distance, VectorParams
+
 from hippocampai.models.bitemporal import (
     BiTemporalFact,
     BiTemporalQuery,
@@ -50,10 +53,10 @@ class BiTemporalStore:
             if not self.qdrant.client.collection_exists(self.collection_name):
                 self.qdrant.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config={
-                        "size": self.qdrant.dimension,
-                        "distance": "Cosine",
-                    },
+                    vectors_config=VectorParams(
+                        size=self.qdrant.dimension,
+                        distance=Distance.COSINE,
+                    ),
                 )
                 logger.info(f"Created bi-temporal collection: {self.collection_name}")
         except ConnectionError as e:
@@ -91,7 +94,7 @@ class BiTemporalStore:
         self.qdrant.upsert(
             collection_name=self.collection_name,
             id=fact.id,
-            vector=vector,
+            vector=np.array(vector),
             payload=payload,
         )
 
@@ -228,7 +231,7 @@ class BiTemporalStore:
             # Semantic search with filters
             results = self.qdrant.search(
                 collection_name=self.collection_name,
-                vector=query_vector,
+                vector=np.array(query_vector),
                 limit=query.limit,
                 filters=filters,
             )

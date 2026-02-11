@@ -2,6 +2,7 @@
 
 import time
 from typing import Any, Callable, Optional, cast
+from uuid import UUID
 
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -100,7 +101,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         )
         if not is_admin_endpoint:
             return None
-        user = await auth_service.get_user(user_id)
+        user = await auth_service.get_user(UUID(user_id))
         if not user or not user.is_admin:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -181,8 +182,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # Extract and validate API key
         api_key, error_response = self._extract_api_key(request)
-        if error_response:
-            return error_response
+        if error_response or api_key is None:
+            return error_response or JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Authentication required",
+                         "message": "API key is required"},
+            )
 
         key_data = await auth_service.validate_api_key(api_key)
         if not key_data:

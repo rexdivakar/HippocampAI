@@ -194,11 +194,15 @@ def run_benchmark(
     if not latencies:
         latencies = [0.0]
 
+    successful = max(0, iterations - errors)
+    duration_sec = total_time / 1000 if total_time > 0 else 0
+    ops_sec = (successful / duration_sec) if duration_sec > 0 and successful > 0 else 0.0
+
     return BenchmarkResult(
         name=name,
         operations=iterations,
         total_time_ms=total_time,
-        ops_per_second=(iterations - errors) / (total_time / 1000) if total_time > 0 else 0,
+        ops_per_second=ops_sec,
         latency_p50_ms=percentile(latencies, 50),
         latency_p95_ms=percentile(latencies, 95),
         latency_p99_ms=percentile(latencies, 99),
@@ -231,12 +235,18 @@ class HippocampBenchmarks:
     def client(self) -> Any:
         """Get HippocampAI client."""
         if self._client is None:
-            from hippocampai import HippocampAI
-
-            self._client = HippocampAI(
-                api_key=self.api_key,
-                base_url=self.api_url,
-            )
+            try:
+                from hippocampai import HippocampAI
+            except Exception as e:
+                raise RuntimeError(f"Failed to import HippocampAI client: {e}")
+            try:
+                self._client = HippocampAI(
+                    api_key=self.api_key,
+                    base_url=self.api_url,
+                    timeout=30,
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to initialize HippocampAI client (url={self.api_url}): {e}")
         return self._client
 
     def run_all(
@@ -298,13 +308,22 @@ class HippocampBenchmarks:
         memory_iter = iter(memories)
 
         def ingest_one() -> None:
-            memory = next(memory_iter)
-            self.client.add(
-                user_id=memory.user_id,
-                content=memory.content,
-                memory_type=memory.memory_type,
-                importance=memory.importance,
-            )
+            memory = next(memory_iter, None)
+            if memory is None:
+                return
+            for attempt in range(3):
+                try:
+                    self.client.add(
+                        user_id=memory.user_id,
+                        content=memory.content,
+                        memory_type=memory.memory_type,
+                        importance=memory.importance,
+                        timeout=15,
+                    )
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
 
         # Reset iterator for actual benchmark
         memory_iter = iter(memories)
@@ -329,11 +348,14 @@ class HippocampBenchmarks:
         query_iter = iter(queries)
 
         def retrieve_one() -> None:
-            query = next(query_iter)
+            query = next(query_iter, None)
+            if query is None:
+                return
             self.client.search(
                 user_id=self._test_user_id,
                 query=query,
                 top_k=10,
+                timeout=15,
             )
 
         return run_benchmark(
@@ -356,7 +378,9 @@ class HippocampBenchmarks:
         query_iter = iter(queries)
 
         def assemble_one() -> None:
-            query = next(query_iter)
+            query = next(query_iter, None)
+            if query is None:
+                return
             from hippocampai.context.models import ContextConstraints
 
             constraints = ContextConstraints(token_budget=4000)
@@ -364,6 +388,7 @@ class HippocampBenchmarks:
                 user_id=self._test_user_id,
                 query=query,
                 constraints=constraints,
+                timeout=30,
             )
 
         return run_benchmark(
@@ -374,9 +399,18 @@ class HippocampBenchmarks:
         )
 
     def cleanup(self) -> None:
-        """Clean up benchmark data."""
+        """Clean up benchmark data.
+
+        Note: This will only run if the client exposes a safe delete API.
+        In environments without delete support, this is a no-op and users
+        should manually purge test data for the bench user.
+        """
         logger.info(f"Cleaning up benchmark user: {self._test_user_id}")
-        # Note: Would need a delete_all method or similar
+        try:
+            if hasattr(self.client, "delete_user_data"):
+                self.client.delete_user_data(user_id=self._test_user_id)
+        except Exception as e:
+            logger.warning(f"Cleanup skipped/failed: {e}")
 
 
 def save_results(

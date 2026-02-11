@@ -2,68 +2,26 @@
 
 Provides LlamaIndex-compatible retriever and memory store.
 
+Requires: ``pip install llama-index-core``
+
 Example:
-    >>> from llama_index import VectorStoreIndex
     >>> from hippocampai import MemoryClient
     >>> from hippocampai.integrations.llamaindex import HippocampRetriever
     >>>
     >>> client = MemoryClient()
     >>> retriever = HippocampRetriever(client, user_id="alice")
-    >>> # Use with query engine
     >>> response = retriever.retrieve("What do I like?")
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, List, Optional
+
+from llama_index.core.retrievers import BaseRetriever
+from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
-
-# Stub classes for when llama_index is not available
-class _StubNodeWithScore:
-    """Stub for NodeWithScore when llama_index is not installed."""
-    def __init__(self, node: Any, score: float = 0.0) -> None:
-        self.node = node
-        self.score = score
-
-
-class _StubTextNode:
-    """Stub for TextNode when llama_index is not installed."""
-    def __init__(self, text: str = "", id_: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> None:
-        self.text = text
-        self.id_ = id_
-        self.metadata = metadata or {}
-
-
-class _StubQueryBundle:
-    """Stub for QueryBundle when llama_index is not installed."""
-    def __init__(self, query_str: str = "") -> None:
-        self.query_str = query_str
-
-
-class _StubBaseRetriever:
-    """Stub base retriever when llama_index is not installed."""
-    pass
-
-
-# Check if llama_index is available
-try:
-    from llama_index.core.retrievers import BaseRetriever
-    from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
-
-    LLAMAINDEX_AVAILABLE = True
-except ImportError:
-    try:
-        # Try older import path
-        from llama_index.retrievers import BaseRetriever
-        from llama_index.schema import NodeWithScore, QueryBundle, TextNode
-
-        LLAMAINDEX_AVAILABLE = True
-    except ImportError:
-        LLAMAINDEX_AVAILABLE = False
-        BaseRetriever = _StubBaseRetriever
-        NodeWithScore = _StubNodeWithScore
-        TextNode = _StubTextNode
-        QueryBundle = _StubQueryBundle
 
 
 class HippocampRetriever(BaseRetriever):
@@ -80,7 +38,7 @@ class HippocampRetriever(BaseRetriever):
 
     def __init__(
         self,
-        client: "MemoryClient",
+        client: MemoryClient,
         user_id: str,
         session_id: Optional[str] = None,
         k: int = 5,
@@ -88,11 +46,6 @@ class HippocampRetriever(BaseRetriever):
         filter_types: Optional[List[str]] = None,
         **kwargs: Any,
     ):
-        if not LLAMAINDEX_AVAILABLE:
-            raise ImportError(
-                "LlamaIndex is required for this integration. Install with: pip install llama-index"
-            )
-
         super().__init__(**kwargs)
         self.client = client
         self.user_id = user_id
@@ -101,7 +54,7 @@ class HippocampRetriever(BaseRetriever):
         self.score_threshold = score_threshold
         self.filter_types = filter_types
 
-    def _retrieve(self, query_bundle: "QueryBundle") -> List["NodeWithScore"]:
+    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """Retrieve nodes for a query."""
         query = query_bundle.query_str
 
@@ -114,11 +67,9 @@ class HippocampRetriever(BaseRetriever):
 
         nodes = []
         for result in results:
-            # Apply score threshold
             if result.score < self.score_threshold:
                 continue
 
-            # Apply type filter
             if self.filter_types:
                 mem_type = result.memory.type
                 if hasattr(mem_type, "value"):
@@ -142,7 +93,7 @@ class HippocampRetriever(BaseRetriever):
 
         return nodes
 
-    async def _aretrieve(self, query_bundle: "QueryBundle") -> List["NodeWithScore"]:
+    async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """Async retrieve (falls back to sync)."""
         return self._retrieve(query_bundle)
 
@@ -160,15 +111,10 @@ class HippocampMemoryStore:
 
     def __init__(
         self,
-        client: "MemoryClient",
+        client: MemoryClient,
         user_id: str,
         namespace: Optional[str] = None,
     ):
-        if not LLAMAINDEX_AVAILABLE:
-            raise ImportError(
-                "LlamaIndex is required for this integration. Install with: pip install llama-index"
-            )
-
         self.client = client
         self.user_id = user_id
         self.namespace = namespace
@@ -202,7 +148,7 @@ class HippocampMemoryStore:
 
         return memory_ids
 
-    def get_all_documents(self, limit: int = 1000) -> List["TextNode"]:
+    def get_all_documents(self, limit: int = 1000) -> List[TextNode]:
         """Get all documents as LlamaIndex nodes."""
         memories = self.client.get_memories(self.user_id, limit=limit)
 

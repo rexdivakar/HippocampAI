@@ -82,7 +82,7 @@ class TestBenchmarkRunner:
 
     def test_percentile(self) -> None:
         """Test percentile calculation."""
-        data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        data: list[float] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
         assert percentile(data, 50) == 5.5
         assert percentile(data, 0) == 1.0

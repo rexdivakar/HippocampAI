@@ -1,7 +1,11 @@
 """Hybrid retriever with two-stage ranking."""
 
+from __future__ import annotations
+
 import logging
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
+
+import numpy as np
 
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -13,6 +17,10 @@ from hippocampai.retrieval.rrf import reciprocal_rank_fusion
 from hippocampai.utils.scoring import fuse_scores, recency_score
 from hippocampai.utils.time import parse_iso_datetime
 from hippocampai.vector.qdrant_store import QdrantStore
+
+if TYPE_CHECKING:
+    from hippocampai.feedback.feedback_manager import FeedbackManager
+    from hippocampai.retrieval.graph_retriever import GraphRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +38,8 @@ class HybridRetriever:
         rrf_k: int = 60,
         weights: Optional[dict[str, float]] = None,
         half_lives: Optional[dict[str, int]] = None,
+        graph_retriever: Optional[GraphRetriever] = None,
+        feedback_manager: Optional[FeedbackManager] = None,
     ):
         self.qdrant = qdrant_store
         self.embedder = embedder
@@ -38,6 +48,8 @@ class HybridRetriever:
         self.top_k_qdrant = top_k_qdrant
         self.top_k_final = top_k_final
         self.rrf_k = rrf_k
+        self.graph_retriever = graph_retriever
+        self.feedback_manager = feedback_manager
 
         self.weights = weights or {"sim": 0.55, "rerank": 0.20, "recency": 0.15, "importance": 0.10}
 
@@ -102,8 +114,23 @@ class HybridRetriever:
         vector_ranking: list[tuple[str, float]],
         bm25_ranking: list[tuple[str, float]],
         search_mode: SearchMode,
+        graph_ranking: Optional[list[tuple[str, float]]] = None,
     ) -> list[tuple[str, float]]:
         """Fuse rankings based on search mode."""
+        if search_mode == SearchMode.GRAPH_HYBRID:
+            rankings: list[list[tuple[str, float]]] = []
+            if vector_ranking:
+                rankings.append(vector_ranking)
+            if bm25_ranking:
+                rankings.append(bm25_ranking)
+            if graph_ranking:
+                rankings.append(graph_ranking)
+            if rankings:
+                return cast(
+                    list[tuple[str, float]],
+                    reciprocal_rank_fusion(rankings, k=self.rrf_k),
+                )
+            return []
         if search_mode == SearchMode.HYBRID and vector_ranking and bm25_ranking:
             return cast(
                 list[tuple[str, float]],
@@ -121,6 +148,8 @@ class HybridRetriever:
         sim_score: float,
         rerank_score: float,
         enable_reranking: bool,
+        doc_id: Optional[str] = None,
+        graph_score: float = 0.0,
     ) -> tuple[float, float, float, float]:
         """Compute final score and component scores."""
         importance_norm = payload.get("importance", 5.0) / 10.0
@@ -132,9 +161,15 @@ class HybridRetriever:
         rerank_norm = (rerank_score + 10) / 20
         rerank_norm = max(0, min(1, rerank_norm))
 
+        # Feedback score (neutral 0.5 if no feedback manager)
+        feedback_score = 0.5
+        if self.feedback_manager is not None and doc_id is not None:
+            feedback_score = self.feedback_manager.get_memory_feedback_score(doc_id)
+
         final_score = fuse_scores(
             sim=sim_score, rerank=rerank_norm, recency=recency,
             importance=importance_norm, weights=self.weights,
+            graph=graph_score, feedback=feedback_score,
         )
         return final_score, rerank_norm, recency, importance_norm
 
@@ -150,16 +185,17 @@ class HybridRetriever:
         # Perform vector search
         vector_results: list[dict] = []
         vector_ranking: list[tuple[str, float]] = []
-        if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY] and query_vector is not None:
+        if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY, SearchMode.GRAPH_HYBRID] and query_vector is not None:
+            vector_arr = np.array(query_vector) if isinstance(query_vector, list) else query_vector
             vector_results = self.qdrant.search(
-                collection_name=collection, vector=query_vector,
+                collection_name=collection, vector=vector_arr,
                 limit=self.top_k_qdrant, filters=final_filters,
             )
             vector_ranking = [(r["id"], r["score"]) for r in vector_results]
 
         # Perform BM25 search
         bm25_ranking: list[tuple[str, float]] = []
-        if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY]:
+        if search_mode in [SearchMode.HYBRID, SearchMode.KEYWORD_ONLY, SearchMode.GRAPH_HYBRID]:
             bm25_ranking = self._perform_bm25_search(collection, query)
 
         # Fuse results
@@ -216,8 +252,16 @@ class HybridRetriever:
 
         # Embed query (only if needed for vector search)
         query_vector = None
-        if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY]:
+        if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY, SearchMode.GRAPH_HYBRID]:
             query_vector = self.embedder.encode_single(query)
+
+        # Graph retrieval scores (used for GRAPH_HYBRID score fusion)
+        graph_scores: dict[str, float] = {}
+        if search_mode == SearchMode.GRAPH_HYBRID and self.graph_retriever is not None:
+            graph_results = self.graph_retriever.search(
+                query=query, user_id=user_id, top_k=self.top_k_qdrant,
+            )
+            graph_scores = dict(graph_results)
 
         # Construct filters
         base_filters = {"user_id": user_id}
@@ -228,8 +272,11 @@ class HybridRetriever:
         # Search all collections
         all_candidates = []
         for collection in collections:
+            vector_list: Optional[list[float]] = (
+                query_vector.tolist() if query_vector is not None else None
+            )
             candidates = self._search_collection(
-                collection, query, query_vector, final_filters, search_mode
+                collection, query, vector_list, final_filters, search_mode
             )
             all_candidates.extend(candidates)
 
@@ -252,7 +299,8 @@ class HybridRetriever:
         for doc_id, text, sim_score, rerank_score in reranked[:50]:
             payload = next(c[1]["payload"] for c in all_candidates if c[0] == doc_id)
             final_score, rerank_norm, recency, importance_norm = self._compute_final_score(
-                payload, sim_score, rerank_score, enable_reranking
+                payload, sim_score, rerank_score, enable_reranking,
+                doc_id=doc_id, graph_score=graph_scores.get(doc_id, 0.0),
             )
 
             mem_type = payload.get("type", "fact")

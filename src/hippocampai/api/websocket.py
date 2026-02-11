@@ -252,6 +252,19 @@ async def broadcast_healing_action(user_id: str, action: dict[str, Any]) -> None
     logger.debug(f"Broadcast healing:action to user:{user_id}")
 
 
+async def broadcast_graph_updated(user_id: str, update_data: dict[str, Any]) -> None:
+    """Broadcast when the knowledge graph is updated."""
+    await sio.emit(
+        "graph:updated",
+        {
+            "update": update_data,
+            "timestamp": datetime.now().isoformat(),
+        },
+        room=f"user:{user_id}",
+    )
+    logger.debug(f"Broadcast graph:updated to user:{user_id}")
+
+
 async def broadcast_health_score_changed(user_id: str, old_score: float, new_score: float) -> None:
     """Broadcast when health score changes significantly."""
     await sio.emit(

@@ -260,6 +260,9 @@ async def restore_session(request: RestoreSessionRequest) -> SessionResponse:
         if not record:
             raise HTTPException(status_code=404, detail="Soft delete record not found")
 
+        if not record.session_id:
+            raise HTTPException(status_code=400, detail="Record has no session_id")
+
         # Restore memories in Qdrant
         await _restore_qdrant_memories(record.session_id)
 
@@ -319,7 +322,7 @@ async def sync_from_qdrant() -> dict:
                     break
 
                 for point in results:
-                    payload = point.payload
+                    payload = point.payload or {}
                     user_id = payload.get("user_id")
                     session_id = payload.get("session_id")
 
@@ -400,7 +403,7 @@ async def sync_from_qdrant() -> dict:
 async def _soft_delete_qdrant_memories(session_id: str) -> int:
     """Mark memories in Qdrant as soft-deleted by adding is_deleted flag."""
     from qdrant_client import QdrantClient
-    from qdrant_client.models import FieldCondition, Filter, MatchValue
+    from qdrant_client.models import FieldCondition, Filter, MatchValue, PointIdsList
 
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
     client = QdrantClient(url=qdrant_url)
@@ -433,7 +436,7 @@ async def _soft_delete_qdrant_memories(session_id: str) -> int:
                 client.set_payload(
                     collection_name=collection,
                     payload={"is_deleted": True, "deleted_at": datetime.utcnow().isoformat()},
-                    points=point_ids,
+                    points=PointIdsList(points=point_ids),
                 )
 
                 total_updated += len(point_ids)
@@ -448,7 +451,7 @@ async def _soft_delete_qdrant_memories(session_id: str) -> int:
 async def _restore_qdrant_memories(session_id: str) -> int:
     """Remove soft-delete flag from memories in Qdrant."""
     from qdrant_client import QdrantClient
-    from qdrant_client.models import FieldCondition, Filter, MatchValue
+    from qdrant_client.models import FieldCondition, Filter, MatchValue, PointIdsList
 
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
     client = QdrantClient(url=qdrant_url)
@@ -483,7 +486,7 @@ async def _restore_qdrant_memories(session_id: str) -> int:
                 client.set_payload(
                     collection_name=collection,
                     payload={"is_deleted": False, "deleted_at": None},
-                    points=point_ids,
+                    points=PointIdsList(points=point_ids),
                 )
 
                 total_updated += len(point_ids)

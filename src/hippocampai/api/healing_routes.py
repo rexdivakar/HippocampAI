@@ -155,22 +155,29 @@ async def detect_duplicates(user_id: str, similarity_threshold: float = 0.90):
         memories = client.get_memories(user_id=user_id)
 
         clusters = health_monitor.detect_duplicate_clusters(
-            memories=memories, similarity_threshold=similarity_threshold
+            memories=memories, cluster_type="soft"
         )
 
         return {
             "clusters": [
                 {
-                    "representative_id": cluster.representative_memory.id,
-                    "representative_text": cluster.representative_memory.text,
-                    "duplicate_count": len(cluster.duplicate_memory_ids),
-                    "duplicate_ids": cluster.duplicate_memory_ids,
-                    "average_similarity": cluster.average_similarity,
-                    "suggested_action": cluster.suggested_action.value,
+                    "representative_id": cluster.representative_memory_id,
+                    "representative_text": next(
+                        (m.text for m in cluster.memories if m.id == cluster.representative_memory_id),
+                        cluster.memories[0].text if cluster.memories else "",
+                    ),
+                    "duplicate_count": len(cluster.memories),
+                    "duplicate_ids": [m.id for m in cluster.memories],
+                    "average_similarity": (
+                        sum(cluster.similarity_scores) / len(cluster.similarity_scores)
+                        if cluster.similarity_scores
+                        else 0.0
+                    ),
+                    "suggested_action": cluster.cluster_type.value,
                 }
                 for cluster in clusters
             ],
-            "total_duplicates": sum(len(c.duplicate_memory_ids) for c in clusters),
+            "total_duplicates": sum(len(c.memories) for c in clusters),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -183,16 +190,18 @@ async def detect_knowledge_gaps(user_id: str):
         client = MemoryClient()
         memories = client.get_memories(user_id=user_id)
 
-        gaps = health_monitor.detect_knowledge_gaps(memories)
+        coverage = health_monitor.analyze_topic_coverage(memories)
+
+        gaps = [tc for tc in coverage if tc.coverage_level.value in ("missing", "minimal", "sparse")]
 
         return {
             "gaps": [
                 {
-                    "gap_type": gap.gap_type.value,
-                    "description": gap.description,
-                    "severity": gap.severity.value,
-                    "suggested_topics": gap.suggested_topics,
-                    "related_memory_ids": gap.related_memory_ids,
+                    "topic": gap.topic,
+                    "coverage_level": gap.coverage_level.value,
+                    "memory_count": gap.memory_count,
+                    "quality_score": gap.quality_score,
+                    "gaps": gap.gaps,
                 }
                 for gap in gaps
             ],
@@ -260,7 +269,7 @@ async def auto_deduplication(request: DeduplicationRequest):
             user_id=request.user_id, dedup_similarity_threshold=request.similarity_threshold
         )
 
-        report = healing_engine.auto_deduplication(
+        report = healing_engine.auto_consolidate(
             user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
         )
 
@@ -337,11 +346,15 @@ async def auto_tagging(request: TaggingRequest):
         client = MemoryClient()
         memories = client.get_memories(user_id=request.user_id)
 
-        config = AutoHealingConfig(user_id=request.user_id)
+        tag_actions = healing_engine.auto_tag(memories=memories)
 
-        report = healing_engine.auto_tag(
-            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
-        )
+        # Apply if not dry run
+        applied_actions = []
+        if not request.dry_run:
+            for action in tag_actions:
+                if action.auto_applicable:
+                    action.apply("auto_healing")
+                    applied_actions.append(action)
 
         return {
             "success": True,
@@ -349,19 +362,16 @@ async def auto_tagging(request: TaggingRequest):
             "tagging_suggestions": [
                 {
                     "memory_id": action.memory_ids[0],
-                    "suggested_tags": action.changes.get("suggested_tags", [])
-                    if action.changes
-                    else [],
+                    "suggested_tags": action.metadata.get("suggested_tags", []),
                     "reason": action.reason,
                 }
-                for action in report.actions_recommended[: request.max_suggestions]
+                for action in tag_actions[: request.max_suggestions]
             ],
             "tags_applied": sum(
-                len(action.changes.get("suggested_tags", []))
-                for action in report.actions_applied
-                if action.changes
+                len(action.metadata.get("suggested_tags", []))
+                for action in applied_actions
             ),
-            "summary": report.summary,
+            "summary": f"Generated {len(tag_actions)} tag suggestions, applied {len(applied_actions)}",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -374,11 +384,15 @@ async def auto_importance_adjustment(request: ImportanceAdjustmentRequest):
         client = MemoryClient()
         memories = client.get_memories(user_id=request.user_id)
 
-        config = AutoHealingConfig(user_id=request.user_id)
+        importance_actions = healing_engine.auto_importance_adjustment(memories=memories)
 
-        report = healing_engine.auto_adjust_importance(
-            user_id=request.user_id, memories=memories, config=config, dry_run=request.dry_run
-        )
+        # Apply if not dry run
+        applied_actions = []
+        if not request.dry_run:
+            for action in importance_actions:
+                if action.auto_applicable:
+                    action.apply("auto_healing")
+                    applied_actions.append(action)
 
         return {
             "success": True,
@@ -386,18 +400,13 @@ async def auto_importance_adjustment(request: ImportanceAdjustmentRequest):
             "adjustments": [
                 {
                     "memory_id": action.memory_ids[0],
-                    "old_importance": action.changes.get("old_importance")
-                    if action.changes
-                    else None,
-                    "new_importance": action.changes.get("new_importance")
-                    if action.changes
-                    else None,
+                    "new_importance": action.metadata.get("new_importance"),
                     "reason": action.reason,
                 }
-                for action in report.actions_recommended[: request.max_adjustments]
+                for action in importance_actions[: request.max_adjustments]
             ],
-            "total_adjusted": len(report.actions_applied),
-            "summary": report.summary,
+            "total_adjusted": len(applied_actions),
+            "summary": f"Generated {len(importance_actions)} importance adjustments, applied {len(applied_actions)}",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -433,7 +442,7 @@ async def run_full_health_check(user_id: str, dry_run: bool = True):
                 for action_type in HealingActionType
             },
             "summary": report.summary,
-            "timestamp": report.timestamp.isoformat(),
+            "timestamp": report.started_at.isoformat(),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -14,6 +14,7 @@ class SearchMode(str, Enum):
     HYBRID = "hybrid"  # Vector + BM25 with RRF fusion
     VECTOR_ONLY = "vector_only"  # Vector search only
     KEYWORD_ONLY = "keyword_only"  # BM25 keyword search only
+    GRAPH_HYBRID = "graph_hybrid"  # Vector + BM25 + Graph with RRF fusion
 
 
 class SavedSearch(BaseModel):

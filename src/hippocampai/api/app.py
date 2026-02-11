@@ -149,6 +149,43 @@ except ImportError as e:
     logger.warning(f"Could not load context routes: {e}")
 
 
+# Include feedback routes
+try:
+    from hippocampai.api.feedback_routes import router as feedback_router
+
+    app.include_router(feedback_router)
+    logger.info("Feedback routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load feedback routes: {e}")
+
+# Include trigger routes
+try:
+    from hippocampai.api.trigger_routes import router as trigger_router
+
+    app.include_router(trigger_router)
+    logger.info("Trigger routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load trigger routes: {e}")
+
+# Include procedural memory routes
+try:
+    from hippocampai.api.procedural_routes import router as procedural_router
+
+    app.include_router(procedural_router)
+    logger.info("Procedural memory routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load procedural memory routes: {e}")
+
+# Include migration routes
+try:
+    from hippocampai.api.migration_routes import router as migration_router
+
+    app.include_router(migration_router)
+    logger.info("Migration routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load migration routes: {e}")
+
+
 # Request/Response models
 class RememberRequest(BaseModel):
     text: str

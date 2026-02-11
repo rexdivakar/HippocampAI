@@ -160,6 +160,7 @@ class TestMultiAgentManager:
             is_active=False,
         )
 
+        assert updated is not None
         assert updated.name == "New Name"
         assert updated.description == "Updated description"
         assert updated.is_active is False
@@ -217,6 +218,7 @@ class TestMultiAgentManager:
 
         # Complete
         completed = manager.complete_run(run.id, status="completed")
+        assert completed is not None
         assert completed.status == "completed"
         assert completed.completed_at is not None
 

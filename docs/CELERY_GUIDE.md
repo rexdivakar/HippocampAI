@@ -286,6 +286,8 @@ CELERY_WORKER_MAX_TASKS_PER_CHILD=200
 | `auto_summarization_task` | Create summaries | background | 20-90s |
 | `compression_task` | Advanced compression | background | 15-60s |
 | `expire_memories_task` | Clean up expired memories | scheduled | 5-20s |
+| `migrate_embeddings_task` | Re-encode all memories for a new embedding model | memory_ops | 10-60min |
+| `consolidate_procedural_rules` | Merge redundant procedural rules per user | background | 10-60s |
 
 ### Submit Tasks Programmatically
 
@@ -294,8 +296,9 @@ from hippocampai.celery_app import (
     deduplication_task,
     consolidation_task,
     health_check_task,
-    auto_summarization_task
+    auto_summarization_task,
 )
+from hippocampai.tasks import migrate_embeddings_task
 
 # Submit deduplication task
 task = deduplication_task.delay(
@@ -316,6 +319,39 @@ elif task.failed():
 else:
     print(f"Status: {task.state}")
 ```
+
+### New v0.5.0 Tasks
+
+#### migrate_embeddings_task
+
+Re-encodes all stored memories when changing the embedding model. Dispatched by `POST /v1/admin/embeddings/migrate`.
+
+- **Queue:** `memory_ops`
+- **soft_time_limit:** 3600 seconds (1 hour)
+- **Accepts:** `migration_id` (str) — the migration record ID
+- **Progress:** Updates `migrated_count` and `failed_count` on the migration record
+
+```python
+from hippocampai.tasks import migrate_embeddings_task
+
+# Dispatched automatically by the migration API endpoint
+task = migrate_embeddings_task.delay(migration_id="mig_abc")
+print(f"Migration task: {task.id}")
+```
+
+#### consolidate_procedural_rules
+
+Merges redundant procedural rules for a user using LLM-based semantic comparison. Keeps the total rule count under `PROCEDURAL_RULE_MAX_COUNT`.
+
+- **Queue:** `background`
+- **Accepts:** `user_id` (str)
+
+```python
+# Can be triggered via POST /v1/procedural/consolidate?user_id=alice
+# or programmatically
+```
+
+---
 
 ### Submit Tasks via REST API
 

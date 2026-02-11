@@ -110,8 +110,10 @@ def run_daily_consolidation(self: Task) -> dict[str, Any]:
 
         # Process each user in parallel using Celery chord
         # This allows us to run consolidation for multiple users concurrently
+        # Celery tasks have a dynamic `.s` (signature) attribute added at runtime
+        task_signature = getattr(consolidate_user_memories, "s")
         job = group(
-            consolidate_user_memories.s(
+            task_signature(
                 user_id=user_id,
                 lookback_hours=CONSOLIDATION_LOOKBACK_HOURS,
                 dry_run=CONSOLIDATION_DRY_RUN,
@@ -486,7 +488,7 @@ def get_active_users(lookback_hours: int = 24) -> list[str]:
 
                     # Process this batch
                     for point in results:
-                        payload = point.payload
+                        payload = point.payload or {}
                         user_id = payload.get("user_id")
 
                         if not user_id:
@@ -815,7 +817,7 @@ def get_user_context(
         logger.debug(f"Dynamic context query for {user_id}: '{semantic_query[:100]}...'")
 
         # Fetch semantically relevant preferences
-        preferences = client.recall_memories(
+        preferences = client.recall(
             query=semantic_query,
             user_id=user_id,
             k=15,
@@ -825,7 +827,7 @@ def get_user_context(
         ][:5]  # Top 5 most relevant
 
         # Fetch semantically relevant goals
-        goals = client.recall_memories(
+        goals = client.recall(
             query=semantic_query,
             user_id=user_id,
             k=15,
@@ -835,7 +837,7 @@ def get_user_context(
         ]  # Top 5 most relevant
 
         # Fetch semantically relevant facts
-        facts = client.recall_memories(
+        facts = client.recall(
             query=semantic_query,
             user_id=user_id,
             k=15,
@@ -845,7 +847,7 @@ def get_user_context(
         ]  # Top 5 most relevant
 
         # Fetch semantically relevant habits
-        habits = client.recall_memories(
+        habits = client.recall(
             query=semantic_query,
             user_id=user_id,
             k=10,
@@ -856,7 +858,7 @@ def get_user_context(
 
         # Get recent high-importance memories (temporal context)
         # Use broader query for recency check
-        recent_important = client.recall_memories(
+        recent_important = client.recall(
             query=semantic_query,
             user_id=user_id,
             k=30,
@@ -953,7 +955,7 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
             # NOTE: You may need to implement this in your update_memory method
             client.update_memory(
                 memory_id=archive_action["id"],
-                updates={
+                metadata={
                     "is_archived": True,
                     "archived_at": datetime.now(timezone.utc).isoformat(),
                 },
@@ -967,10 +969,8 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
         try:
             client.update_memory(
                 memory_id=promote_action["id"],
-                updates={
-                    "importance": promote_action["new_importance"],
-                    "promotion_count": "+1",  # Increment
-                },
+                importance=promote_action["new_importance"],
+                metadata={"promotion_count": "+1"},
             )
             logger.info(
                 f"Promoted memory {promote_action['id']} to importance {promote_action['new_importance']}"
@@ -981,13 +981,13 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
     # Update memories
     for update_action in actions["to_update"]:
         try:
-            updates = {}
+            update_kwargs: dict[str, Any] = {}
             if "new_text" in update_action:
-                updates["text"] = update_action["new_text"]
+                update_kwargs["text"] = update_action["new_text"]
             if "new_importance" in update_action:
-                updates["importance"] = update_action["new_importance"]
+                update_kwargs["importance"] = update_action["new_importance"]
 
-            client.update_memory(memory_id=update_action["id"], updates=updates)
+            client.update_memory(memory_id=update_action["id"], **update_kwargs)
             logger.info(f"Updated memory {update_action['id']}")
         except Exception as e:
             logger.exception(f"Failed to update memory {update_action['id']}: {e}")
@@ -995,12 +995,16 @@ def persist_consolidation_changes(user_id: str, actions: dict[str, Any]) -> None
     # Create synthetic memories
     for synthetic in actions["to_create"]:
         try:
-            new_memory = client.create_memory(
+            new_memory = client.remember(
                 text=synthetic["text"],
                 user_id=user_id,
-                memory_type=synthetic.get("type", "context"),
+                type=synthetic.get("type", "context"),
                 importance=synthetic.get("importance", 7.0),
                 tags=synthetic.get("tags", []),
+            )
+            # Store synthetic metadata on the newly created memory
+            client.update_memory(
+                memory_id=new_memory.id,
                 metadata={
                     "source_memory_ids": synthetic.get("source_ids", []),
                     "is_synthetic": True,

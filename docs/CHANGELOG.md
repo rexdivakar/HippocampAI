@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+## [0.5.0] - 2026-02-11
+
+### Major Release — Intelligent Memory Features
+
+### Added
+
+- **Memory Relevance Feedback Loop** with exponentially-weighted rolling average scoring (30-day half-life)
+  - FeedbackType: relevant, not_relevant, partially_relevant, outdated
+  - Integration into retrieval scoring via `WEIGHT_FEEDBACK`
+  - 3 new REST API endpoints for feedback submission, aggregation, and statistics
+
+- **Memory Triggers / Event-Driven Actions** for reacting to memory lifecycle events
+  - TriggerEvent: on_remember, on_recall, on_update, on_delete, on_conflict, on_expire
+  - TriggerAction: webhook, websocket, log
+  - Condition operators: eq, gt, lt, contains, matches
+  - Fire history tracking
+  - 4 new REST API endpoints for trigger CRUD and history
+
+- **Graph-Aware Retrieval** with 3-way RRF fusion (vector + BM25 + graph)
+  - GraphRetriever: entity extraction, graph traversal, scored memory list
+  - Score formula: `entity_confidence * edge_weight / (1 + hop_distance)`
+  - New `GRAPH_HYBRID` search mode in SearchMode enum
+
+- **Procedural Memory / Prompt Self-Optimization**
+  - LLM-based rule extraction with heuristic fallback
+  - Rule injection into prompts with effectiveness tracking (EMA: 0.9 * old + 0.1 * new)
+  - Rule consolidation to merge redundant rules via LLM
+  - 5 new REST API endpoints for rules CRUD, extraction, injection, and consolidation
+
+- **Real-Time Incremental Knowledge Graph** with persistence
+  - Auto-extraction on every `remember()`: entities, facts, relationships, topics
+  - KnowledgeGraph with entity/fact/topic node types
+  - Pattern-based and LLM-based extraction modes
+  - JSON persistence with configurable auto-save interval
+
+- **Embedding Model Migration** with Celery background processing
+  - Model change detection via `EMBED_MODEL_VERSION`
+  - Migration workflow: start, batch re-encode, complete/cancel
+  - `migrate_embeddings_task` Celery task with 1-hour soft time limit
+  - 3 new REST API endpoints for migration management
+
+- 16 new configuration fields across 6 feature groups
+- 15 new REST API endpoints across 4 route groups (feedback, triggers, procedural, migration)
+- 2 new Celery tasks: `migrate_embeddings_task`, `consolidate_procedural_rules`
+- `PROCEDURAL` memory type added to MemoryType enum
+- `GRAPH_HYBRID` search mode added to SearchMode enum
+- `EMBEDDING_MIGRATED` change type added to ChangeType enum
+
+### Changed
+
+- Scoring weights now include `graph` and `feedback` components with auto-normalization via `get_weights()`
+- Decay half-lives now include `procedural` type via `get_half_lives()`
+- MemoryClient singleton pattern in API dependencies
+- `fuse_scores()` extended with graph and feedback kwargs
+
+---
+
 ## [0.4.0] - 2026-01-26
 
 ### Major Release - Memory Consolidation, Multi-Agent Collaboration, and SaaS Platform
@@ -919,7 +976,8 @@ Not applicable (initial release)
 
 ---
 
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.3.0
 [0.2.5]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.2.5

@@ -344,7 +344,7 @@ class TestAuditRoutes:
         from hippocampai.api.audit_routes import router
 
         # Check router has routes
-        routes = [r.path for r in router.routes]
+        routes = [getattr(r, "path", "") for r in router.routes]
 
         assert "/logs" in routes or any("/logs" in r for r in routes)
 
