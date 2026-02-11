@@ -40,6 +40,10 @@ class HealingAction(BaseModel):
     is_applied: bool = False
     was_successful: Optional[bool] = None
     error_message: Optional[str] = None
+    impact_score: float = Field(default=0.0, description="Numerical impact score (0-10)")
+    changes: Optional[dict[str, Any]] = Field(
+        default=None, description="Details of changes made or proposed"
+    )
 
     def apply(self, applied_by: str = "system") -> None:
         """Mark action as applied."""

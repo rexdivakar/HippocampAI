@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from uuid import uuid4
 
+import numpy as np
+
 from hippocampai.adapters.provider_anthropic import AnthropicLLM
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
@@ -226,6 +228,7 @@ class MemoryClient:
             rrf_k=self.config.rrf_k,
             weights=self.config.get_weights(),
             half_lives=self.config.get_half_lives(),
+            # graph_retriever and feedback_manager are wired after their initialization below
         )
 
         # LLM (optional)
@@ -250,6 +253,52 @@ class MemoryClient:
 
         # Advanced Features
         self.graph = KnowledgeGraph()  # Enhanced with entity and fact support
+
+        # Feature 3: Graph-Aware Retrieval
+        if self.config.enable_graph_retrieval:
+            from hippocampai.retrieval.graph_retriever import GraphRetriever
+
+            self.graph_retriever: Optional["GraphRetriever"] = GraphRetriever(
+                graph=self.graph,
+                entity_recognizer=self.entity_recognizer,
+                max_depth=self.config.graph_retrieval_max_depth,
+            )
+            self.retriever.graph_retriever = self.graph_retriever
+        else:
+            self.graph_retriever = None
+
+        # Feature 1: Memory Relevance Feedback
+        from hippocampai.feedback.feedback_manager import FeedbackManager
+
+        self.feedback_manager = FeedbackManager(
+            feedback_window_days=self.config.feedback_window_days,
+        )
+        self.retriever.feedback_manager = self.feedback_manager
+
+        # Feature 2: Memory Triggers
+        from hippocampai.triggers.trigger_manager import TriggerManager
+
+        self.trigger_manager = TriggerManager(
+            webhook_timeout=self.config.trigger_webhook_timeout,
+        )
+
+        # Feature 4: Procedural Memory
+        from hippocampai.procedural.procedural_memory import ProceduralMemoryManager
+
+        self.procedural = ProceduralMemoryManager(
+            max_rules=self.config.procedural_rule_max_count,
+            llm=self.llm if self.config.enable_procedural_memory else None,
+        )
+
+        # Feature 6: Embedding Model Migration
+        from hippocampai.embed.migration import EmbeddingMigrationManager
+
+        self.migration_manager = EmbeddingMigrationManager(
+            qdrant_store=self.qdrant,
+            embedder=self.embedder,
+            config=self.config,
+        )
+
         self.version_control = MemoryVersionControl()
         self.kv_store = MemoryKVStore(cache_ttl=300)  # 5 min cache
         self.context_injector = ContextInjector()
@@ -538,11 +587,13 @@ class MemoryClient:
         self.telemetry.add_event(trace_id, "embedding", status="success")
 
         self.telemetry.add_event(trace_id, "vector_store", status="in_progress")
+        payload = memory.model_dump(mode="json")
+        payload["embed_model"] = self.config.embed_model
         self.qdrant.upsert(
             collection_name=collection,
             id=memory.id,
             vector=vector,
-            payload=memory.model_dump(mode="json"),
+            payload=payload,
         )
         self.telemetry.add_event(
             trace_id, "vector_store", status="success", collection=collection
@@ -550,6 +601,75 @@ class MemoryClient:
 
         logger.info(f"Stored memory: {memory.id}, type={memory.type}")
         return collection
+
+    def _update_knowledge_graph(self, memory: Memory) -> None:
+        """Extract entities, facts, and relationships and populate the KnowledgeGraph.
+
+        This method is called after storing a memory in Qdrant. Failures here
+        must not break the remember() flow.
+        """
+        try:
+            # 1. Add memory node
+            metadata = {
+                "node_type": "memory",
+                "type": memory.type.value,
+                "created_at": memory.created_at.isoformat(),
+            }
+            self.graph.add_memory(memory.id, memory.user_id, metadata)
+
+            # 2. Extract and add entities
+            entities = self.entity_recognizer.extract_entities(memory.text)
+            for entity in entities:
+                self.graph.add_entity(entity)
+                self.graph.link_memory_to_entity(
+                    memory.id, entity.entity_id, confidence=entity.confidence
+                )
+
+            # 3. Extract and add relationships between entities
+            relationships = self.entity_recognizer.extract_relationships(
+                memory.text, entities
+            )
+            for rel in relationships:
+                self.graph.link_entities(rel)
+
+            # 4. Extract and add facts
+            facts = self.fact_extractor.extract_facts(memory.text, memory.id)
+            for fact in facts:
+                fact_id = f"fact_{hash(fact.fact) % 10**10}"
+                self.graph.add_fact(fact, fact_id=fact_id)
+                self.graph.link_memory_to_fact(memory.id, fact_id, confidence=fact.confidence)
+
+            # 5. Link memory to topics via tags
+            for tag in memory.tags:
+                self.graph.link_memory_to_topic(memory.id, tag)
+
+            # 6. Auto-persist if interval elapsed
+            self._maybe_persist_graph()
+
+            logger.debug(
+                f"Knowledge graph updated for memory {memory.id}: "
+                f"{len(entities)} entities, {len(relationships)} relationships, "
+                f"{len(facts)} facts"
+            )
+        except Exception as e:
+            logger.warning(f"Knowledge graph update failed for memory {memory.id}: {e}")
+
+    def _maybe_persist_graph(self) -> None:
+        """Persist the knowledge graph if the auto-save interval has elapsed."""
+        import time
+
+        now = time.time()
+        if not hasattr(self, "_last_graph_save"):
+            self._last_graph_save = 0.0
+
+        if now - self._last_graph_save >= self.config.graph_auto_save_interval:
+            try:
+                from hippocampai.graph.graph_persistence import save
+
+                save(self.graph, self.config.graph_persistence_path)
+                self._last_graph_save = now
+            except Exception as e:
+                logger.warning(f"Graph persistence failed: {e}")
 
     def _apply_conflict_resolution(
         self,
@@ -779,6 +899,10 @@ class MemoryClient:
             # Store in Qdrant
             collection = self._store_memory_in_qdrant(memory, trace_id)
 
+            # Update knowledge graph (real-time incremental)
+            if self.config.enable_realtime_graph:
+                self._update_knowledge_graph(memory)
+
             # Auto-resolve conflicts if enabled
             if auto_resolve_conflicts:
                 memory = self._auto_resolve_memory_conflicts(
@@ -793,6 +917,19 @@ class MemoryClient:
             # Track events and metrics
             self._track_memory_creation(memory, user_id, session_id, tags, auto_resolve_conflicts)
             self._track_prometheus_metrics(memory)
+
+            # Evaluate triggers
+            if self.config.enable_triggers:
+                try:
+                    from hippocampai.triggers.trigger_manager import TriggerEvent
+
+                    self.trigger_manager.evaluate_triggers(
+                        event=TriggerEvent.ON_REMEMBER,
+                        memory_data=memory.model_dump(mode="json"),
+                        user_id=user_id,
+                    )
+                except Exception as trigger_err:
+                    logger.warning(f"Trigger evaluation failed: {trigger_err}")
 
             return memory
         except Exception as e:
@@ -937,6 +1074,39 @@ class MemoryClient:
         except Exception as e:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             raise
+
+    def rate_recall(
+        self,
+        memory_id: str,
+        user_id: str,
+        feedback_type: str,
+        query: str = "",
+    ) -> dict[str, Any]:
+        """Rate a recalled memory for relevance feedback.
+
+        Args:
+            memory_id: ID of the memory being rated.
+            user_id: User providing feedback.
+            feedback_type: One of "relevant", "not_relevant", "partially_relevant", "outdated".
+            query: The query that produced this memory.
+
+        Returns:
+            Dict with memory_id, feedback_type, and score.
+        """
+        from hippocampai.feedback.feedback_manager import FeedbackType
+
+        ft = FeedbackType(feedback_type)
+        event = self.feedback_manager.record_feedback(
+            memory_id=memory_id,
+            user_id=user_id,
+            feedback_type=ft,
+            query=query,
+        )
+        return {
+            "memory_id": memory_id,
+            "feedback_type": event.feedback_type.value,
+            "score": event.score,
+        }
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
@@ -1105,7 +1275,7 @@ class MemoryClient:
             memory.expires_at = expires_at
 
         memory.updated_at = datetime.now(timezone.utc)
-        return vector
+        return vector.tolist() if vector is not None else None
 
     def _track_memory_update_event(
         self,
@@ -1176,7 +1346,7 @@ class MemoryClient:
             if vector is not None:
                 self.qdrant.upsert(
                     collection_name=collection, id=memory_id,
-                    vector=vector, payload=memory.model_dump(mode="json"),
+                    vector=np.array(vector), payload=memory.model_dump(mode="json"),
                 )
             else:
                 self.qdrant.update(
@@ -1199,6 +1369,19 @@ class MemoryClient:
                 memory_operations_total.labels(operation="update", status="success").inc()
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus update metrics: {metrics_err}")
+
+            # Evaluate triggers for update
+            if self.config.enable_triggers:
+                try:
+                    from hippocampai.triggers.trigger_manager import TriggerEvent as _TE
+
+                    self.trigger_manager.evaluate_triggers(
+                        event=_TE.ON_UPDATE,
+                        memory_data=memory.model_dump(mode="json"),
+                        user_id=memory.user_id,
+                    )
+                except Exception as trigger_err:
+                    logger.warning(f"Trigger evaluation failed on update: {trigger_err}")
 
             return memory
 
@@ -1276,6 +1459,19 @@ class MemoryClient:
                     # We don't have memory_type here, so we'll skip memories_deleted_total for now
                 except Exception as metrics_err:
                     logger.warning(f"Failed to track Prometheus delete metrics: {metrics_err}")
+
+                # Evaluate triggers for deletion
+                if self.config.enable_triggers:
+                    try:
+                        from hippocampai.triggers.trigger_manager import TriggerEvent as _TE
+
+                        self.trigger_manager.evaluate_triggers(
+                            event=_TE.ON_DELETE,
+                            memory_data={"id": memory_id, "user_id": user_id or "system"},
+                            user_id=user_id or "system",
+                        )
+                    except Exception as trigger_err:
+                        logger.warning(f"Trigger evaluation failed on delete: {trigger_err}")
 
                 return True
             logger.warning(f"Memory {memory_id} not found")
@@ -2461,7 +2657,7 @@ class MemoryClient:
         Example:
             >>> agent = client.create_agent("Research Assistant", "alice", role=AgentRole.SPECIALIST)
         """
-        agent: list[Any] = self.multiagent.create_agent(name, user_id, role, description, metadata)
+        agent: Agent = self.multiagent.create_agent(name, user_id, role, description, metadata)
         return agent
 
     def get_agent(self, agent_id: str) -> Optional[Agent]:
@@ -2514,7 +2710,7 @@ class MemoryClient:
             >>> run = client.create_run(agent.id, "alice", name="Research Session 1")
             >>> memory = client.remember("Key finding", "alice", agent_id=agent.id, run_id=run.id)
         """
-        run: list[Any] = self.multiagent.create_run(agent_id, user_id, name, metadata)
+        run: Run = self.multiagent.create_run(agent_id, user_id, name, metadata)
         return run
 
     def get_run(self, run_id: str) -> Optional[Run]:
@@ -3244,7 +3440,7 @@ class MemoryClient:
             >>> print(f"Topics: {summary.topics}")
             >>> print(f"Action items: {summary.action_items}")
         """
-        summary: str = self.summarizer.summarize_session(messages, session_id, style, entities)
+        summary: SessionSummary = self.summarizer.summarize_session(messages, session_id, style, entities)
         return summary
 
     def create_rolling_summary(
@@ -5400,7 +5596,7 @@ class MemoryClient:
 
             logger.info(f"Cloned memory {memory_id} to {cloned_memory.id}")
 
-            cloned_result: dict[str, Any] = cloned_memory
+            cloned_result: Memory = cloned_memory
             return cloned_result
 
         except Exception as e:
@@ -6359,7 +6555,7 @@ class MemoryClient:
 
         # Store
         store = self._get_bitemporal_store()
-        stored_fact = store.store_fact(fact, vector)
+        stored_fact = store.store_fact(fact, vector.tolist())
 
         logger.info(
             f"Stored bi-temporal fact: {stored_fact.id} "
@@ -6431,7 +6627,7 @@ class MemoryClient:
         vector = self.embedder.encode_single(new_text)
 
         store = self._get_bitemporal_store()
-        new_fact = store.revise_fact(revision, vector, user_id)
+        new_fact = store.revise_fact(revision, vector.tolist(), user_id)
 
         logger.info(
             f"Revised bi-temporal fact: {original_fact_id} -> {new_fact.id} (reason={reason})"
@@ -6546,7 +6742,7 @@ class MemoryClient:
         # Generate query vector if semantic search requested
         query_vector = None
         if query:
-            query_vector = self.embedder.encode_single(query)
+            query_vector = self.embedder.encode_single(query).tolist()
 
         store = self._get_bitemporal_store()
         result = store.query(bt_query, query_vector)

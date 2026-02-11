@@ -466,9 +466,13 @@ class ConversationCompactor:
                 if memory_types:
                     conditions.append(FieldCondition(key="type", match=MatchAny(any=memory_types)))
 
+                from typing import cast as _cast
+
+                from qdrant_client.models import Condition
+
                 results, _ = self.client.scroll(
                     collection_name=collection,
-                    scroll_filter=Filter(must=conditions),
+                    scroll_filter=Filter(must=_cast(list[Condition], conditions)),
                     limit=1000,
                     with_payload=True,
                 )
@@ -699,9 +703,11 @@ Summary:"""
                     "metadata": summary.get("metadata", {}),
                 }
 
+                from qdrant_client.models import PointStruct
+
                 self.client.upsert(
                     collection_name=collection,
-                    points=[{"id": memory_id, "vector": vector.tolist(), "payload": payload}],
+                    points=[PointStruct(id=memory_id, vector=vector.tolist(), payload=payload)],
                 )
 
             except Exception as e:

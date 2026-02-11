@@ -163,12 +163,59 @@ class Config(BaseSettings):
         default=24, validation_alias="CONFLICT_RESOLUTION_INTERVAL_HOURS"
     )
 
+    # Feature 5: Real-Time Incremental Knowledge Graph
+    enable_realtime_graph: bool = Field(default=True, validation_alias="ENABLE_REALTIME_GRAPH")
+    graph_extraction_mode: str = Field(
+        default="pattern", validation_alias="GRAPH_EXTRACTION_MODE"
+    )  # "pattern" or "llm"
+    graph_persistence_path: str = Field(
+        default="data/knowledge_graph.json", validation_alias="GRAPH_PERSISTENCE_PATH"
+    )
+    graph_auto_save_interval: int = Field(
+        default=300, validation_alias="GRAPH_AUTO_SAVE_INTERVAL"
+    )  # seconds
+
+    # Feature 3: Graph-Aware Retrieval
+    enable_graph_retrieval: bool = Field(
+        default=False, validation_alias="ENABLE_GRAPH_RETRIEVAL"
+    )
+    graph_retrieval_max_depth: int = Field(
+        default=2, validation_alias="GRAPH_RETRIEVAL_MAX_DEPTH"
+    )
+    weight_graph: float = Field(default=0.0, validation_alias="WEIGHT_GRAPH")
+
+    # Feature 1: Memory Relevance Feedback Loop
+    weight_feedback: float = Field(default=0.1, validation_alias="WEIGHT_FEEDBACK")
+    feedback_window_days: int = Field(default=90, validation_alias="FEEDBACK_WINDOW_DAYS")
+
+    # Feature 2: Memory Triggers
+    enable_triggers: bool = Field(default=True, validation_alias="ENABLE_TRIGGERS")
+    trigger_webhook_timeout: int = Field(
+        default=10, validation_alias="TRIGGER_WEBHOOK_TIMEOUT"
+    )
+
+    # Feature 4: Procedural Memory
+    enable_procedural_memory: bool = Field(
+        default=False, validation_alias="ENABLE_PROCEDURAL_MEMORY"
+    )
+    procedural_rule_max_count: int = Field(
+        default=50, validation_alias="PROCEDURAL_RULE_MAX_COUNT"
+    )
+    half_life_procedural: int = Field(
+        default=180, validation_alias="HALF_LIFE_PROCEDURAL"
+    )
+
+    # Feature 6: Embedding Model Migration
+    embed_model_version: str = Field(default="1", validation_alias="EMBED_MODEL_VERSION")
+
     def get_weights(self) -> dict[str, float]:
         return {
             "sim": self.weight_sim,
             "rerank": self.weight_rerank,
             "recency": self.weight_recency,
             "importance": self.weight_importance,
+            "graph": self.weight_graph,
+            "feedback": self.weight_feedback,
         }
 
     def get_half_lives(self) -> dict[str, int]:
@@ -179,6 +226,7 @@ class Config(BaseSettings):
             "event": self.half_life_events,
             "context": self.half_life_facts,
             "habit": self.half_life_prefs,
+            "procedural": self.half_life_procedural,
         }
 
 

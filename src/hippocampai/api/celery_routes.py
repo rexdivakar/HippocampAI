@@ -107,10 +107,11 @@ async def submit_create_memory_task(request: MemoryCreateRequest) -> TaskSubmitR
         metadata=request.metadata,
     )
 
+    task_id = str(task.id) if task.id is not None else ""
     return TaskSubmitResponse(
-        task_id=task.id,
+        task_id=task_id,
         status="submitted",
-        message=f"Memory creation task submitted. Track with task_id: {task.id}",
+        message=f"Memory creation task submitted. Track with task_id: {task_id}",
     )
 
 
@@ -131,10 +132,11 @@ async def submit_batch_create_memories_task(
         check_duplicates=request.check_duplicates,
     )
 
+    task_id = str(task.id) if task.id is not None else ""
     return TaskSubmitResponse(
-        task_id=task.id,
+        task_id=task_id,
         status="submitted",
-        message=f"Batch memory creation task submitted for {len(request.memories)} memories. Track with task_id: {task.id}",
+        message=f"Batch memory creation task submitted for {len(request.memories)} memories. Track with task_id: {task_id}",
     )
 
 
@@ -155,10 +157,11 @@ async def submit_recall_memories_task(request: MemoryRecallRequest) -> TaskSubmi
         filters=request.filters,
     )
 
+    task_id = str(task.id) if task.id is not None else ""
     return TaskSubmitResponse(
-        task_id=task.id,
+        task_id=task_id,
         status="submitted",
-        message=f"Memory recall task submitted. Track with task_id: {task.id}",
+        message=f"Memory recall task submitted. Track with task_id: {task_id}",
     )
 
 
@@ -176,10 +179,11 @@ async def submit_update_memory_task(request: MemoryUpdateRequest) -> TaskSubmitR
         updates=request.updates,
     )
 
+    task_id = str(task.id) if task.id is not None else ""
     return TaskSubmitResponse(
-        task_id=task.id,
+        task_id=task_id,
         status="submitted",
-        message=f"Memory update task submitted. Track with task_id: {task.id}",
+        message=f"Memory update task submitted. Track with task_id: {task_id}",
     )
 
 
@@ -196,10 +200,11 @@ async def submit_delete_memory_task(request: MemoryDeleteRequest) -> TaskSubmitR
         user_id=request.user_id,
     )
 
+    task_id = str(task.id) if task.id is not None else ""
     return TaskSubmitResponse(
-        task_id=task.id,
+        task_id=task_id,
         status="submitted",
-        message=f"Memory deletion task submitted. Track with task_id: {task.id}",
+        message=f"Memory deletion task submitted. Track with task_id: {task_id}",
     )
 
 

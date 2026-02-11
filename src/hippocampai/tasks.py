@@ -461,6 +461,88 @@ def create_collection_snapshots(self: Any) -> dict[str, str]:
 # ============================================================================
 
 
+@celery_app.task(
+    name="hippocampai.tasks.migrate_embeddings_task",
+    bind=True,
+    soft_time_limit=3600,
+)
+def migrate_embeddings_task(
+    self: Any,
+    migration_id: str,
+) -> dict[str, Any]:
+    """
+    Re-embed all memories with a new embedding model.
+
+    Runs as a long-lived Celery task with a 1-hour soft time limit.
+
+    Args:
+        migration_id: ID of the EmbeddingMigration to execute.
+
+    Returns:
+        Final migration status and counts.
+    """
+    try:
+        from hippocampai.api.deps import get_memory_client
+
+        client = get_memory_client()
+        migration = client.migration_manager.run_migration(migration_id)
+
+        logger.info(
+            f"Task {self.request.id}: Migration {migration_id} finished "
+            f"status={migration.status.value}, "
+            f"migrated={migration.migrated_count}, failed={migration.failed_count}"
+        )
+        return {
+            "migration_id": migration.id,
+            "status": migration.status.value,
+            "migrated_count": migration.migrated_count,
+            "failed_count": migration.failed_count,
+        }
+    except Exception as exc:
+        logger.error(f"Task {self.request.id} migration failed: {exc}")
+        raise
+
+
+@celery_app.task(name="hippocampai.tasks.consolidate_procedural_rules", bind=True)
+def consolidate_procedural_rules(
+    self: Any,
+    user_id: str,
+) -> dict[str, Any]:
+    """
+    Consolidate procedural rules for a user (merge redundant/contradicting rules).
+
+    Args:
+        user_id: User whose rules to consolidate.
+
+    Returns:
+        Statistics about consolidation.
+    """
+    try:
+        from hippocampai.config import get_config
+        from hippocampai.procedural.procedural_memory import ProceduralMemoryManager
+
+        config = get_config()
+        if not config.enable_procedural_memory:
+            return {"status": "disabled"}
+
+        manager = ProceduralMemoryManager(
+            max_rules=config.procedural_rule_max_count,
+        )
+        rules = manager.consolidate_rules(user_id)
+
+        logger.info(
+            f"Task {self.request.id}: Consolidated procedural rules for {user_id}, "
+            f"result={len(rules)} rules"
+        )
+        return {
+            "user_id": user_id,
+            "consolidated_count": len(rules),
+        }
+    except Exception as exc:
+        logger.error(f"Task {self.request.id} failed: {exc}")
+        raise
+
+
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
 def health_check_task(self: Any) -> dict[str, Any]:
     """

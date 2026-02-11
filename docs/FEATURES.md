@@ -14,9 +14,15 @@ This document provides comprehensive documentation for all memory management fea
 8. [Session Management](#session-management)
 9. [Temporal Reasoning](#temporal-reasoning)
 10. [Cross-Session Insights](#cross-session-insights)
-11. [Storage & Caching](#storage--caching)
-12. [Monitoring & Telemetry](#monitoring--telemetry)
-13. [API Reference](#api-reference)
+11. [Real-Time Incremental Knowledge Graph](#real-time-incremental-knowledge-graph) **NEW v0.5.0**
+12. [Graph-Aware Retrieval](#graph-aware-retrieval) **NEW v0.5.0**
+13. [Memory Relevance Feedback Loop](#memory-relevance-feedback-loop) **NEW v0.5.0**
+14. [Memory Triggers / Event-Driven Actions](#memory-triggers--event-driven-actions) **NEW v0.5.0**
+15. [Procedural Memory / Prompt Self-Optimization](#procedural-memory--prompt-self-optimization) **NEW v0.5.0**
+16. [Embedding Model Migration](#embedding-model-migration) **NEW v0.5.0**
+17. [Storage & Caching](#storage--caching)
+18. [Monitoring & Telemetry](#monitoring--telemetry)
+19. [API Reference](#api-reference)
 
 ---
 
@@ -375,6 +381,48 @@ popular = client.get_memories_advanced(
 ---
 
 ## Graph & Relationships
+
+### Architecture: In-Memory Graph with JSON Persistence
+
+HippocampAI uses **NetworkX** (an in-memory directed graph library) rather than a dedicated graph database. This is a deliberate architectural choice for v0.5.0:
+
+**How it works:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Triple-Store Architecture                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   Qdrant (Vector DB)     NetworkX (Graph)     BM25 (Text)   │
+│   ├─ Embeddings          ├─ Entities          ├─ Keywords   │
+│   ├─ Similarity search   ├─ Relationships     ├─ Full-text  │
+│   └─ Payload filtering   ├─ Facts & Topics    └─ Ranking    │
+│                          └─ Graph traversal                  │
+│                                                              │
+│   Storage: Qdrant        Storage: JSON file   Storage: RAM   │
+│   collections            (auto-saved)                        │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│   Score Fusion (6 weights):                                  │
+│   sim + rerank + recency + importance + graph + feedback     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Class hierarchy:**
+- `nx.DiGraph` → `MemoryGraph` (base, memory-to-memory relationships) → `KnowledgeGraph` (entities, facts, topics, inference)
+
+**Persistence:**
+- Graph state is serialized to JSON at `GRAPH_PERSISTENCE_PATH` (default: `data/knowledge_graph.json`)
+- Auto-save runs every `GRAPH_AUTO_SAVE_INTERVAL` seconds (default: 300)
+- On startup, the graph is loaded from JSON back into memory
+
+**Why not a graph database (yet)?**
+- Zero external dependencies — no Neo4j/ArangoDB to deploy
+- Sub-millisecond traversal for typical graph sizes (< 100K nodes)
+- JSON persistence is sufficient for single-instance deployments
+- Neo4j integration is on the roadmap for multi-instance and large-scale deployments (see [Roadmap](#roadmap))
+
+**Location:** `src/hippocampai/graph/memory_graph.py`, `src/hippocampai/graph/knowledge_graph.py`, `src/hippocampai/graph/graph_persistence.py`
 
 ### Graph Index for Memory Relationships
 
@@ -2254,6 +2302,399 @@ report = {
 
 ---
 
+## Real-Time Incremental Knowledge Graph
+
+**NEW in v0.5.0** — Automatic entity and relationship extraction on every `remember()` call, building a persistent knowledge graph alongside the vector store.
+
+### Overview
+
+When `ENABLE_REALTIME_GRAPH=true`, every call to `client.remember()` automatically extracts entities, facts, relationships, and topics from the memory text and adds them to a `KnowledgeGraph`. The graph supports three node types: **entity**, **fact**, and **topic**.
+
+### Data Flow
+
+```
+remember("Alice works at Google on TensorFlow")
+    │
+    ├──► Qdrant: store embedding vector + payload
+    │
+    ├──► BM25: index text for keyword search
+    │
+    └──► KnowledgeGraph (NetworkX):
+         ├─ Extract entities: Alice (person), Google (org), TensorFlow (tech)
+         ├─ Extract relationships: Alice→works_at→Google, Alice→works_on→TensorFlow
+         ├─ Link memory ID to each entity node
+         └─ Auto-save graph to JSON (every 300s)
+
+recall("What frameworks does Alice use?")
+    │
+    ├──► Vector search (Qdrant) → ranked list #1
+    ├──► BM25 keyword search → ranked list #2
+    ├──► Graph traversal (NetworkX):
+    │    ├─ Extract "Alice" from query
+    │    ├─ Find Alice node → traverse edges (max_depth=2)
+    │    ├─ Score: entity_confidence * edge_weight / (1 + hop_distance)
+    │    └─ Return ranked list #3
+    │
+    └──► Reciprocal Rank Fusion (3-way) → final results
+         Weights: sim + rerank + recency + importance + graph + feedback
+```
+
+### Key Methods
+
+```python
+from hippocampai.graph.knowledge_graph import KnowledgeGraph
+
+kg = KnowledgeGraph()
+
+# Add entities and link to memories
+kg.add_entity(name="Python", entity_type="technology", metadata={})
+kg.link_memory_to_entity(memory_id="mem_123", entity_name="Python")
+
+# Query entity timeline
+timeline = kg.get_entity_timeline("Python")
+
+# Infer new facts from graph structure
+inferred = kg.infer_new_facts(user_id="alice")
+```
+
+### Persistence
+
+The graph is persisted to JSON at the path specified by `GRAPH_PERSISTENCE_PATH` (default: `data/knowledge_graph.json`). Auto-save runs every `GRAPH_AUTO_SAVE_INTERVAL` seconds (default: 300).
+
+### Extraction Modes
+
+- **`pattern`** (default): Fast regex-based extraction of entities and relationships. No LLM required.
+- **`llm`**: Uses the configured LLM provider for deeper semantic extraction. Higher quality but slower.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_REALTIME_GRAPH` | `true` | Enable auto-extraction |
+| `GRAPH_EXTRACTION_MODE` | `pattern` | `pattern` or `llm` |
+| `GRAPH_PERSISTENCE_PATH` | `data/knowledge_graph.json` | Persistence file path |
+| `GRAPH_AUTO_SAVE_INTERVAL` | `300` | Auto-save interval (seconds) |
+
+### Example
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# Storing a memory automatically extracts entities and relationships
+memory = client.remember(
+    "Alice works at Google on the TensorFlow team",
+    user_id="alice"
+)
+# Knowledge graph now contains:
+#   entities: Alice (person), Google (organization), TensorFlow (technology)
+#   relationships: Alice -> works_at -> Google, Alice -> works_on -> TensorFlow
+```
+
+---
+
+## Graph-Aware Retrieval
+
+**NEW in v0.5.0** — Augment vector + BM25 retrieval with graph-based scoring for deeper contextual recall.
+
+### Overview
+
+When `ENABLE_GRAPH_RETRIEVAL=true`, the `GraphRetriever` adds a third scoring signal alongside vector similarity and BM25. The process:
+
+1. Extract entities from the query
+2. Traverse the knowledge graph from matched entities up to `GRAPH_RETRIEVAL_MAX_DEPTH` hops
+3. Score connected memories: `entity_confidence * edge_weight / (1 + hop_distance)`
+4. Fuse all three signals via Reciprocal Rank Fusion (RRF): **vector + BM25 + graph**
+
+### Search Mode
+
+A new `GRAPH_HYBRID` search mode is available in the `SearchMode` enum, enabling 3-way RRF fusion.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_GRAPH_RETRIEVAL` | `false` | Enable graph retrieval |
+| `GRAPH_RETRIEVAL_MAX_DEPTH` | `2` | Max traversal depth |
+| `WEIGHT_GRAPH` | `0.0` | Graph weight in score fusion |
+
+### Example
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# With graph retrieval enabled, recall uses 3-way fusion
+results = client.recall(
+    query="What frameworks does Alice use?",
+    user_id="alice",
+    k=5
+)
+
+# Each result includes graph score in breakdown
+for r in results:
+    print(f"{r.memory.text} (score: {r.score:.3f})")
+    print(f"  Breakdown: {r.breakdown}")
+    # breakdown includes: sim, rerank, recency, importance, graph
+```
+
+---
+
+## Memory Relevance Feedback Loop
+
+**NEW in v0.5.0** — Collect user feedback on retrieved memories to improve future retrieval quality.
+
+### Overview
+
+Users can rate retrieved memories as `relevant`, `not_relevant`, `partially_relevant`, or `outdated`. Feedback is aggregated using an exponentially-weighted rolling average with a 30-day half-life and integrated into retrieval scoring via `WEIGHT_FEEDBACK`.
+
+### Feedback Types
+
+| Type | Effect |
+|------|--------|
+| `relevant` | Boosts memory score (1.0) |
+| `not_relevant` | Penalizes memory score (0.0) |
+| `partially_relevant` | Mild boost (0.5) |
+| `outdated` | Penalizes and flags for review (0.0) |
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/memories/{memory_id}/feedback` | Submit feedback |
+| `GET` | `/v1/memories/{memory_id}/feedback` | Get aggregated score |
+| `GET` | `/v1/feedback/stats` | Get user feedback statistics |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WEIGHT_FEEDBACK` | `0.1` | Feedback weight in score fusion |
+| `FEEDBACK_WINDOW_DAYS` | `90` | Lookback window for feedback events |
+
+### Example
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# Recall and get results
+results = client.recall("coffee preferences", user_id="alice")
+
+# Rate the first result as relevant
+client.rate_recall(
+    memory_id=results[0].memory.id,
+    user_id="alice",
+    query="coffee preferences",
+    feedback_type="relevant"
+)
+
+# Future recalls will boost this memory's score
+```
+
+---
+
+## Memory Triggers / Event-Driven Actions
+
+**NEW in v0.5.0** — Register triggers that fire actions (webhooks, websocket messages, logs) when memory events occur.
+
+### Overview
+
+Triggers allow you to react to memory lifecycle events with configurable conditions and actions.
+
+### Trigger Events
+
+| Event | Fires When |
+|-------|------------|
+| `on_remember` | New memory created |
+| `on_recall` | Memory retrieved |
+| `on_update` | Memory updated |
+| `on_delete` | Memory deleted |
+| `on_conflict` | Conflict detected |
+| `on_expire` | Memory expired |
+
+### Trigger Actions
+
+| Action | Description |
+|--------|-------------|
+| `webhook` | POST to configured URL |
+| `websocket` | Send via WebSocket |
+| `log` | Write to application log |
+
+### Condition Operators
+
+Triggers support conditions with operators: `eq`, `gt`, `lt`, `contains`, `matches`.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/triggers` | Create a trigger |
+| `GET` | `/v1/triggers?user_id=...` | List triggers |
+| `DELETE` | `/v1/triggers/{trigger_id}?user_id=...` | Delete a trigger |
+| `GET` | `/v1/triggers/{trigger_id}/history` | Get fire history |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_TRIGGERS` | `true` | Enable trigger system |
+| `TRIGGER_WEBHOOK_TIMEOUT` | `10` | Webhook timeout (seconds) |
+
+### Example
+
+```python
+import httpx
+
+# Create a webhook trigger for high-importance memories
+response = httpx.post("http://localhost:8000/v1/triggers", json={
+    "name": "High importance alert",
+    "user_id": "alice",
+    "event": "on_remember",
+    "conditions": [
+        {"field": "importance", "operator": "gt", "value": 8.0}
+    ],
+    "action": "webhook",
+    "action_config": {
+        "url": "https://hooks.example.com/memory-alert"
+    }
+})
+
+trigger = response.json()
+print(f"Trigger created: {trigger['id']}")
+```
+
+---
+
+## Procedural Memory / Prompt Self-Optimization
+
+**NEW in v0.5.0** — Extract, store, and inject behavioral rules that optimize LLM prompts based on interaction history.
+
+### Overview
+
+Procedural memory automatically learns "how to" rules from user interactions and injects them into prompts to improve response quality over time.
+
+### Key Capabilities
+
+1. **Rule Extraction**: Analyze interactions to extract behavioral rules (LLM-based with heuristic fallback)
+2. **Rule Injection**: Inject relevant rules into prompts before LLM calls
+3. **Effectiveness Tracking**: Track rule success via EMA: `0.9 * old_rate + 0.1 * new_outcome`
+4. **Rule Consolidation**: Merge redundant rules via LLM to stay under `PROCEDURAL_RULE_MAX_COUNT`
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/procedural/rules?user_id=...` | List active rules |
+| `POST` | `/v1/procedural/extract` | Extract rules from interactions |
+| `POST` | `/v1/procedural/inject` | Inject rules into a prompt |
+| `PUT` | `/v1/procedural/rules/{rule_id}/feedback` | Update rule effectiveness |
+| `POST` | `/v1/procedural/consolidate?user_id=...` | Consolidate redundant rules |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_PROCEDURAL_MEMORY` | `false` | Enable procedural memory |
+| `PROCEDURAL_RULE_MAX_COUNT` | `50` | Max rules per user |
+| `HALF_LIFE_PROCEDURAL` | `180` | Rule decay half-life (days) |
+
+### Example
+
+```python
+import httpx
+
+# Extract rules from recent interactions
+response = httpx.post("http://localhost:8000/v1/procedural/extract", json={
+    "user_id": "alice",
+    "interactions": [
+        "User prefers concise answers under 100 words",
+        "User always wants code examples in Python",
+        "User dislikes technical jargon"
+    ]
+})
+
+rules = response.json()
+print(f"Extracted {len(rules)} rules")
+
+# Inject rules into a prompt
+response = httpx.post("http://localhost:8000/v1/procedural/inject", json={
+    "user_id": "alice",
+    "base_prompt": "Explain how neural networks work",
+    "max_rules": 3
+})
+
+result = response.json()
+print(f"Enhanced prompt with {result['rules_injected']} rules")
+print(result["prompt"])
+```
+
+---
+
+## Embedding Model Migration
+
+**NEW in v0.5.0** — Safely migrate all stored embeddings when changing the embedding model.
+
+### Overview
+
+When you change `EMBED_MODEL`, existing vectors become incompatible with new queries. The migration system provides:
+
+1. **Model change detection**: `detect_model_change()` compares the current model against `EMBED_MODEL_VERSION`
+2. **Migration workflow**: Start a migration that re-encodes all memories in batches
+3. **Celery background task**: `migrate_embeddings_task` with 1-hour soft time limit
+4. **Progress tracking**: Track `migrated_count`, `failed_count`, and status
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/admin/embeddings/migrate` | Start migration |
+| `GET` | `/v1/admin/embeddings/migration/{id}` | Check status |
+| `POST` | `/v1/admin/embeddings/migration/{id}/cancel` | Cancel migration |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBED_MODEL_VERSION` | `1` | Current model version tag |
+
+### Example
+
+```python
+import httpx
+
+# Start migration to a new model
+response = httpx.post("http://localhost:8000/v1/admin/embeddings/migrate", json={
+    "new_model": "BAAI/bge-base-en-v1.5",
+    "new_dimension": 768
+})
+
+migration = response.json()
+print(f"Migration started: {migration['id']}")
+print(f"Status: {migration['status']}")
+print(f"Total memories: {migration['total_memories']}")
+
+# Check progress
+status = httpx.get(f"http://localhost:8000/v1/admin/embeddings/migration/{migration['id']}")
+print(f"Migrated: {status.json()['migrated_count']}")
+print(f"Failed: {status.json()['failed_count']}")
+```
+
+### Migration States
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Migration created but not started |
+| `running` | Re-encoding in progress |
+| `completed` | All memories re-encoded |
+| `cancelled` | Migration cancelled by user |
+| `failed` | Migration failed (check logs) |
+
+---
+
 ## Storage & Caching
 
 ### Key-Value Store
@@ -2631,14 +3072,17 @@ client.delete_memories([id1, id2, id3], user_id="alice")
 - [x] Context injection
 - [x] KV store caching
 - [x] Comprehensive testing
+- [x] Real-Time Incremental Knowledge Graph (v0.5.0)
+- [x] Graph-Aware Retrieval with 3-way RRF fusion (v0.5.0)
+- [x] Memory Relevance Feedback Loop (v0.5.0)
+- [x] Memory Triggers / Event-Driven Actions (v0.5.0)
+- [x] Procedural Memory / Prompt Self-Optimization (v0.5.0)
+- [x] Embedding Model Migration (v0.5.0)
 
 ### Future Enhancements 🚀
-- [ ] Persistent graph storage (Neo4j integration)
+- [ ] Persistent graph storage (Neo4j integration) — **WIP** (currently uses NetworkX in-memory + JSON persistence)
 - [ ] Redis backend for KV store
-- [ ] Automatic relationship discovery
-- [ ] Memory consolidation scheduler
 - [ ] Multi-user permission system
-- [ ] Real-time memory updates
 - [ ] Advanced analytics dashboard
 
 ---

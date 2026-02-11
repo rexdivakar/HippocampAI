@@ -17,7 +17,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 # Colors for output
@@ -99,7 +99,7 @@ QUICK_TESTS = [
 
 
 def run_pytest(
-    test_files: List[str], verbose: bool = True, capture: str = "no", markers: str = None
+    test_files: List[str], verbose: bool = True, capture: str = "no", markers: Optional[str] = None
 ) -> int:
     """Run pytest with specified test files."""
     cmd = ["python", "-m", "pytest"]

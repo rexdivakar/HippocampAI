@@ -141,9 +141,21 @@ Respond with ONLY the type word (fact, preference, goal, habit, event, or contex
 
     def _init_llm(self) -> None:
         """Try to initialize LLM from config."""
+        import os
+
         try:
-            from hippocampai.llm import get_llm_provider
-            self.llm = get_llm_provider()
+            from hippocampai.config import get_config
+
+            config = get_config()
+
+            if config.llm_provider == "groq" and config.allow_cloud:
+                from hippocampai.adapters.provider_groq import GroqLLM
+                api_key = os.getenv("GROQ_API_KEY")
+                if api_key:
+                    self.llm = GroqLLM(api_key=api_key, model=config.llm_model)
+            elif config.llm_provider == "ollama":
+                from hippocampai.adapters.provider_ollama import OllamaLLM
+                self.llm = OllamaLLM(model=config.llm_model, base_url=config.llm_base_url)
         except Exception as e:
             logger.debug(f"Could not initialize LLM: {e}")
 

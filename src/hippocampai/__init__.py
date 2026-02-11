@@ -161,7 +161,19 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.graph import RelationType as RelationType
     from hippocampai.multiagent import MultiAgentManager as MultiAgentManager
     from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
+    from hippocampai.saas.automation import AutomationController as AutomationController
+    from hippocampai.saas.automation import AutomationPolicy as AutomationPolicy
+    from hippocampai.saas.automation import AutomationSchedule as AutomationSchedule
+    from hippocampai.saas.automation import PolicyType as PolicyType
+    from hippocampai.saas.tasks import BackgroundTask as BackgroundTask
+    from hippocampai.saas.tasks import TaskManager as TaskManager
+    from hippocampai.saas.tasks import TaskPriority as TaskPriority
+    from hippocampai.saas.tasks import TaskStatus as TaskStatus
     from hippocampai.session import SessionManager as SessionManager
+    from hippocampai.simple import Memory as SimpleMemory  # noqa: N811
+    from hippocampai.simple import MemoryManager as MemoryManager
+    from hippocampai.simple import MemoryStore as MemoryStore
+    from hippocampai.simple import Session as SimpleSession  # noqa: N811
     from hippocampai.storage import MemoryKVStore as MemoryKVStore
     from hippocampai.telemetry import OperationType as OperationType
     from hippocampai.telemetry import get_telemetry as get_telemetry

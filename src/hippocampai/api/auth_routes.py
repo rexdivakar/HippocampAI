@@ -121,7 +121,7 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
                 )
                 if results and len(results) > 0:
                     payload = results[0].payload
-                    user_id = payload.get("user_id")
+                    user_id = payload.get("user_id") if payload else None
                     if user_id:
                         logger.info(
                             f"Found user_id '{user_id}' via signup record for session '{unique_id}' in {collection_name}"

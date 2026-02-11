@@ -16,7 +16,7 @@ import sys
 import time
 import traceback
 import tracemalloc
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 # Add src to path
@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
-from hippocampai.models.agent import PermissionType
+from hippocampai.models.agent import AgentRole, PermissionType
 from hippocampai.models.healing import AutoHealingConfig
 from hippocampai.models.prediction import ForecastHorizon, ForecastMetric
 from hippocampai.monitoring.memory_health import MemoryHealthMonitor
@@ -100,23 +100,25 @@ def test_wrapper(test_name: str):
 @test_wrapper("1.1 Basic Memory Operations")
 def test_basic_memory_operations():
     """Test basic CRUD operations."""
-    client = MemoryClient(user_id="test_user_basic")
+    user_id = "test_user_basic"
+    client = MemoryClient()
 
     # Create
     memory = client.remember(
-        "Test memory for basic operations", type="fact", importance=7.0, tags=["test", "basic"]
+        "Test memory for basic operations", user_id=user_id, type="fact", importance=7.0, tags=["test", "basic"]
     )
     assert memory.id is not None
     assert memory.text == "Test memory for basic operations"
     print(f"  Created memory: {memory.id}")
 
     # Read
-    recalled = client.recall("basic operations", k=1)
+    recalled = client.recall("basic operations", user_id=user_id, k=1)
     assert len(recalled) > 0
     print(f"  Recalled {len(recalled)} memories")
 
     # Update
     updated = client.update_memory(memory_id=memory.id, text="Updated test memory", importance=8.0)
+    assert updated is not None
     assert updated.text == "Updated test memory"
     assert updated.importance == 8.0
     print(f"  Updated memory: {memory.id}")
@@ -132,17 +134,19 @@ def test_basic_memory_operations():
 @test_wrapper("1.2 Batch Operations")
 def test_batch_operations():
     """Test batch operations."""
-    client = MemoryClient(user_id="test_user_batch")
+    user_id = "test_user_batch"
+    client = MemoryClient()
 
-    # Batch create
+    # Batch create using a loop (no batch_remember method)
     texts = [f"Batch memory {i}" for i in range(10)]
-    memories = client.batch_remember(texts, type="fact", importance=6.0)
+    memories = [client.remember(text, user_id=user_id, type="fact", importance=6.0) for text in texts]
     assert len(memories) == 10
     print(f"  Batch created {len(memories)} memories")
 
-    # Batch delete
+    # Batch delete using a loop (no batch_delete method)
     memory_ids = [m.id for m in memories[:5]]
-    success = client.batch_delete(memory_ids)
+    delete_results = [client.delete_memory(mid) for mid in memory_ids]
+    success = all(delete_results)
     assert success is True
     print(f"  Batch deleted {len(memory_ids)} memories")
 
@@ -152,17 +156,18 @@ def test_batch_operations():
 @test_wrapper("1.3 Session Management")
 def test_session_management():
     """Test session creation and management."""
-    client = MemoryClient(user_id="test_user_session")
+    user_id = "test_user_session"
+    client = MemoryClient()
 
     # Create session
-    session = client.create_session(title="Test Session", metadata={"test": True})
+    session = client.create_session(user_id=user_id, title="Test Session", metadata={"test": True})
     assert session.id is not None
     print(f"  Created session: {session.id}")
 
     # Track messages
     for i in range(5):
         client.track_session_message(
-            session_id=session.id, message=f"Test message {i}", role="user"
+            session_id=session.id, text=f"Test message {i}", user_id=user_id
         )
     print("  Tracked 5 messages")
 
@@ -174,6 +179,7 @@ def test_session_management():
 
     # Complete session
     completed = client.complete_session(session.id, generate_summary=False)
+    assert completed is not None
     assert completed.status.value == "completed"
     print("  Completed session")
 
@@ -188,12 +194,13 @@ def test_session_management():
 @test_wrapper("2.1 Shared Memory Spaces")
 def test_shared_spaces():
     """Test shared memory space creation and management."""
-    client = MemoryClient(user_id="test_user_collab")
+    user_id = "test_user_collab"
+    client = MemoryClient()
     collab_manager = CollaborationManager()
 
     # Create agents
-    agent1 = client.create_agent("Agent 1", role="assistant")
-    agent2 = client.create_agent("Agent 2", role="assistant")
+    agent1 = client.create_agent("Agent 1", user_id=user_id, role=AgentRole.ASSISTANT)
+    agent2 = client.create_agent("Agent 2", user_id=user_id, role=AgentRole.ASSISTANT)
     print(f"  Created agents: {agent1.id[:8]}..., {agent2.id[:8]}...")
 
     # Create space
@@ -227,7 +234,7 @@ def test_shared_spaces():
     print("  Permissions verified: READ=True, WRITE=True, DELETE=False")
 
     # Add memory to space
-    memory = client.remember("Shared memory", agent_id=agent1.id)
+    memory = client.remember("Shared memory", user_id=user_id, agent_id=agent1.id)
     collab_manager.add_memory_to_space(space.id, memory.id, agent1.id)
     assert memory.id in space.memory_ids
     print(f"  Added memory to space: {memory.id[:8]}...")
@@ -238,14 +245,15 @@ def test_shared_spaces():
 @test_wrapper("2.2 Collaboration Events")
 def test_collaboration_events():
     """Test event tracking in collaboration."""
-    client = MemoryClient(user_id="test_user_events")
+    user_id = "test_user_events"
+    client = MemoryClient()
     collab_manager = CollaborationManager()
 
-    agent = client.create_agent("Event Agent", role="assistant")
+    agent = client.create_agent("Event Agent", user_id=user_id, role=AgentRole.ASSISTANT)
     space = collab_manager.create_space("Event Test Space", owner_agent_id=agent.id)
 
     # Generate some events
-    memory = client.remember("Event memory", agent_id=agent.id)
+    memory = client.remember("Event memory", user_id=user_id, agent_id=agent.id)
     collab_manager.add_memory_to_space(space.id, memory.id, agent.id)
     collab_manager.update_memory_in_space(space.id, memory.id, agent.id)
 
@@ -265,11 +273,12 @@ def test_collaboration_events():
 @test_wrapper("2.3 Notifications")
 def test_notifications():
     """Test notification system."""
-    client = MemoryClient(user_id="test_user_notif")
+    user_id = "test_user_notif"
+    client = MemoryClient()
     collab_manager = CollaborationManager()
 
-    agent1 = client.create_agent("Agent 1", role="assistant")
-    agent2 = client.create_agent("Agent 2", role="assistant")
+    agent1 = client.create_agent("Agent 1", user_id=user_id, role=AgentRole.ASSISTANT)
+    agent2 = client.create_agent("Agent 2", user_id=user_id, role=AgentRole.ASSISTANT)
 
     space = collab_manager.create_space("Notif Space", owner_agent_id=agent1.id)
     collab_manager.add_collaborator(space.id, agent2.id, [PermissionType.READ], agent1.id)
@@ -298,17 +307,17 @@ def test_notifications():
 @test_wrapper("3.1 Pattern Detection")
 def test_pattern_detection():
     """Test temporal pattern detection."""
-    client = MemoryClient(user_id="test_user_patterns")
+    user_id = "test_user_patterns"
+    client = MemoryClient()
     temporal = TemporalAnalytics()
 
     # Create memories with daily pattern
     for i in range(15):
-        date = datetime.now() - timedelta(days=i)
         client.remember(
-            f"Daily memory {i}", type="habit", metadata={"created_at": date.isoformat()}
+            f"Daily memory {i}", user_id=user_id, type="habit",
         )
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     patterns = temporal.detect_temporal_patterns(memories, min_occurrences=3)
 
     assert len(patterns) > 0
@@ -322,21 +331,22 @@ def test_pattern_detection():
 @test_wrapper("3.2 Anomaly Detection")
 def test_anomaly_detection():
     """Test anomaly detection."""
-    client = MemoryClient(user_id="test_user_anomaly")
+    user_id = "test_user_anomaly"
+    client = MemoryClient()
     temporal = TemporalAnalytics()
     predictive = PredictiveAnalyticsEngine(temporal)
 
     # Create normal pattern
     for i in range(10):
-        client.remember(f"Normal memory {i}", type="fact", importance=5.0)
+        client.remember(f"Normal memory {i}", user_id=user_id, type="fact", importance=5.0)
 
     # Create anomalous burst
     for i in range(30):
-        client.remember(f"Anomaly memory {i}", type="fact", importance=9.0)
+        client.remember(f"Anomaly memory {i}", user_id=user_id, type="fact", importance=9.0)
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     anomalies = predictive.detect_anomalies(
-        user_id=client.user_id, memories=memories, lookback_days=30
+        user_id=user_id, memories=memories, lookback_days=30
     )
 
     print(f"  Detected {len(anomalies)} anomal(ies)")
@@ -349,17 +359,18 @@ def test_anomaly_detection():
 @test_wrapper("3.3 Recommendations")
 def test_recommendations():
     """Test recommendation generation."""
-    client = MemoryClient(user_id="test_user_recs")
+    user_id = "test_user_recs"
+    client = MemoryClient()
     temporal = TemporalAnalytics()
     predictive = PredictiveAnalyticsEngine(temporal)
 
     # Create diverse memories
     for i in range(20):
-        client.remember(f"Memory {i}", type="fact", importance=5.0 + i % 5)
+        client.remember(f"Memory {i}", user_id=user_id, type="fact", importance=5.0 + i % 5)
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     recommendations = predictive.generate_recommendations(
-        user_id=client.user_id, memories=memories, max_recommendations=5
+        user_id=user_id, memories=memories, max_recommendations=5
     )
 
     print(f"  Generated {len(recommendations)} recommendation(s)")
@@ -372,20 +383,20 @@ def test_recommendations():
 @test_wrapper("3.4 Forecasting")
 def test_forecasting():
     """Test metric forecasting."""
-    client = MemoryClient(user_id="test_user_forecast")
+    user_id = "test_user_forecast"
+    client = MemoryClient()
     temporal = TemporalAnalytics()
     predictive = PredictiveAnalyticsEngine(temporal)
 
     # Create memory history
     for i in range(30):
-        date = datetime.now() - timedelta(days=i)
         client.remember(
-            f"Historical memory {i}", type="fact", metadata={"created_at": date.isoformat()}
+            f"Historical memory {i}", user_id=user_id, type="fact",
         )
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     forecast = predictive.forecast_metric(
-        user_id=client.user_id,
+        user_id=user_id,
         memories=memories,
         metric=ForecastMetric.ACTIVITY_LEVEL,
         horizon=ForecastHorizon.NEXT_WEEK,
@@ -407,21 +418,22 @@ def test_forecasting():
 @test_wrapper("4.1 Health Monitoring")
 def test_health_monitoring():
     """Test health score calculation."""
-    client = MemoryClient(user_id="test_user_health")
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    user_id = "test_user_health"
+    client = MemoryClient()
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
 
     # Create diverse memories
     for i in range(20):
         client.remember(
             f"Memory {i}",
+            user_id=user_id,
             type="fact",
             importance=5.0 + i % 5,
             tags=[f"tag_{i % 3}"],
-            confidence=0.7 + (i % 3) * 0.1,
         )
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     health_score = health_monitor.calculate_health_score(memories, detailed=True)
 
     print(f"  Overall health: {health_score.overall_score:.1f}/100")
@@ -440,36 +452,35 @@ def test_health_monitoring():
 @test_wrapper("4.2 Auto-Cleanup")
 def test_auto_cleanup():
     """Test automatic cleanup."""
-    client = MemoryClient(user_id="test_user_cleanup")
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    user_id = "test_user_cleanup"
+    client = MemoryClient()
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
     healing_engine = AutoHealingEngine(health_monitor, embedder)
 
     # Create stale memories
     for i in range(5):
-        old_date = datetime.now() - timedelta(days=120)
         client.remember(
             f"Stale memory {i}",
+            user_id=user_id,
             type="fact",
             importance=3.0,
-            confidence=0.4,
-            metadata={"created_at": old_date.isoformat()},
         )
 
     # Create fresh memories
     for i in range(5):
-        client.remember(f"Fresh memory {i}", type="fact", importance=7.0)
+        client.remember(f"Fresh memory {i}", user_id=user_id, type="fact", importance=7.0)
 
     config = AutoHealingConfig(
-        user_id=client.user_id,
+        user_id=user_id,
         auto_cleanup_enabled=True,
         cleanup_threshold_days=90,
         max_actions_per_run=50,
     )
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     report = healing_engine.auto_cleanup(
-        user_id=client.user_id, memories=memories, config=config, dry_run=True
+        user_id=user_id, memories=memories, config=config, dry_run=True
     )
 
     print(f"  Actions recommended: {len(report.actions_recommended)}")
@@ -484,21 +495,22 @@ def test_auto_cleanup():
 @test_wrapper("4.3 Duplicate Detection")
 def test_duplicate_detection():
     """Test duplicate memory detection."""
-    client = MemoryClient(user_id="test_user_dupes")
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    user_id = "test_user_dupes"
+    client = MemoryClient()
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
 
     # Create duplicates
     for i in range(3):
         client.remember(
-            "I prefer coffee over tea in the morning", type="preference", importance=6.0
+            "I prefer coffee over tea in the morning", user_id=user_id, type="preference", importance=6.0
         )
 
     # Create unique memories
     for i in range(5):
-        client.remember(f"Unique memory {i}", type="fact")
+        client.remember(f"Unique memory {i}", user_id=user_id, type="fact")
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     clusters = health_monitor.detect_duplicate_clusters(
         memories, cluster_type="soft", min_cluster_size=2
     )
@@ -515,8 +527,9 @@ def test_duplicate_detection():
 @test_wrapper("4.4 Auto-Tagging")
 def test_auto_tagging():
     """Test automatic tagging."""
-    client = MemoryClient(user_id="test_user_tags")
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    user_id = "test_user_tags"
+    client = MemoryClient()
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
     healing_engine = AutoHealingEngine(health_monitor, embedder)
 
@@ -525,6 +538,7 @@ def test_auto_tagging():
     for i in range(5):
         mem = client.remember(
             "This is about work and meetings at the office",
+            user_id=user_id,
             type="fact",
             tags=[],  # No tags
         )
@@ -549,25 +563,26 @@ def test_auto_tagging():
 def test_simple_api():
     """Test mem0-compatible SimpleMemory API."""
     try:
-        simple = SimpleMemory(user_id="test_user_simple")
+        user_id = "test_user_simple"
+        simple = SimpleMemory()
 
         # Test add
-        result = simple.add("Test memory for simple API", metadata={"test": True})
-        assert "id" in result
-        print(f"  Added memory: {result['id']}")
+        result = simple.add("Test memory for simple API", user_id=user_id, metadata={"test": True})
+        assert result.id is not None
+        print(f"  Added memory: {result.id}")
 
         # Test search
-        results = simple.search("simple API", limit=5)
-        assert len(results) > 0
-        print(f"  Searched: {len(results)} results")
+        search_results = simple.search("simple API", user_id=user_id, limit=5)
+        assert len(search_results) > 0
+        print(f"  Searched: {len(search_results)} results")
 
         # Test get_all
-        all_memories = simple.get_all()
+        all_memories = simple.get_all(user_id=user_id)
         assert len(all_memories) > 0
         print(f"  Retrieved all: {len(all_memories)} memories")
 
         # Test delete
-        delete_result = simple.delete(result["id"])
+        delete_result = simple.delete(result.id)
         print(f"  Deleted: {delete_result}")
 
         return True
@@ -580,24 +595,26 @@ def test_simple_api():
 @test_wrapper("5.2 Multi-User Isolation")
 def test_multi_user_isolation():
     """Test that users are properly isolated."""
-    user1 = MemoryClient(user_id="test_user_1")
-    user2 = MemoryClient(user_id="test_user_2")
+    user1_id = "test_user_1"
+    user2_id = "test_user_2"
+    client1 = MemoryClient()
+    client2 = MemoryClient()
 
     # User 1 creates memory
-    mem1 = user1.remember("User 1's private memory")
+    mem1 = client1.remember("User 1's private memory", user_id=user1_id)
 
     # User 2 creates memory
-    mem2 = user2.remember("User 2's private memory")
+    mem2 = client2.remember("User 2's private memory", user_id=user2_id)
 
     # User 1 should only see their memories
-    user1_memories = user1.get_memories()
+    user1_memories = client1.get_memories(user_id=user1_id)
     user1_ids = [m.id for m in user1_memories]
     assert mem1.id in user1_ids
     assert mem2.id not in user1_ids
     print("  User 1 isolation verified")
 
     # User 2 should only see their memories
-    user2_memories = user2.get_memories()
+    user2_memories = client2.get_memories(user_id=user2_id)
     user2_ids = [m.id for m in user2_memories]
     assert mem2.id in user2_ids
     assert mem1.id not in user2_ids
@@ -616,12 +633,14 @@ def test_memory_usage():
     """Test memory usage under load."""
     tracemalloc.start()
 
-    client = MemoryClient(user_id="test_user_memory")
+    user_id = "test_user_memory"
+    client = MemoryClient()
 
     # Create 100 memories
     for i in range(100):
         client.remember(
             f"Memory {i} with some content to test memory usage",
+            user_id=user_id,
             type="fact",
             importance=5.0 + (i % 5),
             tags=[f"tag_{i % 10}"],
@@ -649,12 +668,13 @@ def test_memory_usage():
 @test_wrapper("6.2 Performance Benchmarks")
 def test_performance():
     """Test performance of key operations."""
-    client = MemoryClient(user_id="test_user_perf")
+    user_id = "test_user_perf"
+    client = MemoryClient()
 
     # Benchmark: Create
     start = time.time()
     for i in range(50):
-        client.remember(f"Perf test memory {i}", type="fact")
+        client.remember(f"Perf test memory {i}", user_id=user_id, type="fact")
     create_time = time.time() - start
     create_per_sec = 50 / create_time
     print(f"  Create: {create_per_sec:.1f} ops/sec")
@@ -663,7 +683,7 @@ def test_performance():
     # Benchmark: Recall
     start = time.time()
     for i in range(20):
-        client.recall("perf test", k=10)
+        client.recall("perf test", user_id=user_id, k=10)
     recall_time = time.time() - start
     recall_per_sec = 20 / recall_time
     print(f"  Recall: {recall_per_sec:.1f} ops/sec")
@@ -672,7 +692,7 @@ def test_performance():
     # Benchmark: Get
     start = time.time()
     for _ in range(100):
-        _ = client.get_memories()
+        _ = client.get_memories(user_id=user_id)
     get_time = time.time() - start
     get_per_sec = 100 / get_time
     print(f"  Get: {get_per_sec:.1f} ops/sec")
@@ -684,7 +704,8 @@ def test_performance():
 @test_wrapper("6.3 Large Dataset Handling")
 def test_large_dataset():
     """Test handling of larger datasets."""
-    client = MemoryClient(user_id="test_user_large")
+    user_id = "test_user_large"
+    client = MemoryClient()
 
     print("  Creating 500 memories...")
     start = time.time()
@@ -692,6 +713,7 @@ def test_large_dataset():
     for i in range(500):
         client.remember(
             f"Large dataset memory {i} with some additional content",
+            user_id=user_id,
             type="fact",
             importance=5.0 + (i % 10),
             tags=[f"tag_{i % 20}"],
@@ -710,7 +732,7 @@ def test_large_dataset():
 
     # Test recall on large dataset
     start = time.time()
-    results_recall = client.recall("dataset memory", k=20)
+    results_recall = client.recall("dataset memory", user_id=user_id, k=20)
     recall_time = time.time() - start
 
     print(f"  Recall on 500 memories: {recall_time:.3f}s")
@@ -729,7 +751,8 @@ def test_large_dataset():
 @test_wrapper("7.1 Error Handling")
 def test_error_handling():
     """Test error handling for invalid operations."""
-    client = MemoryClient(user_id="test_user_errors")
+    user_id = "test_user_errors"
+    client = MemoryClient()
 
     # Test invalid memory ID
     try:
@@ -741,7 +764,7 @@ def test_error_handling():
 
     # Test empty text
     try:
-        memory = client.remember("")
+        memory = client.remember("", user_id=user_id)
         if memory.text == "":
             results.add_warning("7.1 Error Handling", "Empty text allowed")
         print("  ✓ Empty text handled")
@@ -750,7 +773,7 @@ def test_error_handling():
 
     # Test invalid importance
     try:
-        memory = client.remember("Test", importance=15.0)  # Out of range
+        memory = client.remember("Test", user_id=user_id, importance=15.0)  # Out of range
         if memory.importance > 10:
             results.add_warning("7.1 Error Handling", "Importance not clamped to valid range")
         print("  ✓ Invalid importance handled")
@@ -765,13 +788,14 @@ def test_concurrent_operations():
     """Test concurrent memory operations."""
     import threading
 
-    client = MemoryClient(user_id="test_user_concurrent")
+    user_id = "test_user_concurrent"
+    client = MemoryClient()
     errors = []
 
     def create_memories(thread_id, count):
         try:
             for i in range(count):
-                client.remember(f"Thread {thread_id} memory {i}", type="fact")
+                client.remember(f"Thread {thread_id} memory {i}", user_id=user_id, type="fact")
         except Exception as e:
             errors.append(str(e))
 
@@ -793,7 +817,7 @@ def test_concurrent_operations():
         print("  ✓ All concurrent operations succeeded")
 
     # Verify all memories created
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     print(f"  Total memories after concurrent ops: {len(memories)}")
 
     return True

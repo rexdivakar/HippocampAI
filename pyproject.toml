@@ -42,7 +42,7 @@ dependencies = [
     "rank-bm25>=0.2,<1.0",
     "sentence-transformers>=2.2,<3.0",
     "tenacity>=8.2,<9.0",
-    "python-json-logger>=2.0,<3.0",
+    "python-json-logger>=3.0,<5.0",
     "PyYAML>=6.0,<7.0",
 ]
 

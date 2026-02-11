@@ -21,7 +21,7 @@ services:
       USER_AUTH_ENABLED: ${USER_AUTH_ENABLED:-false}
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -83,6 +83,33 @@ services:
       # Monitoring
       PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-true}
 
+      # Real-Time Knowledge Graph
+      ENABLE_REALTIME_GRAPH: ${ENABLE_REALTIME_GRAPH:-true}
+      GRAPH_EXTRACTION_MODE: ${GRAPH_EXTRACTION_MODE:-pattern}
+      GRAPH_PERSISTENCE_PATH: ${GRAPH_PERSISTENCE_PATH:-data/knowledge_graph.json}
+      GRAPH_AUTO_SAVE_INTERVAL: ${GRAPH_AUTO_SAVE_INTERVAL:-300}
+
+      # Graph-Aware Retrieval
+      ENABLE_GRAPH_RETRIEVAL: ${ENABLE_GRAPH_RETRIEVAL:-false}
+      GRAPH_RETRIEVAL_MAX_DEPTH: ${GRAPH_RETRIEVAL_MAX_DEPTH:-2}
+      WEIGHT_GRAPH: ${WEIGHT_GRAPH:-0.0}
+
+      # Memory Relevance Feedback
+      WEIGHT_FEEDBACK: ${WEIGHT_FEEDBACK:-0.1}
+      FEEDBACK_WINDOW_DAYS: ${FEEDBACK_WINDOW_DAYS:-90}
+
+      # Memory Triggers
+      ENABLE_TRIGGERS: ${ENABLE_TRIGGERS:-true}
+      TRIGGER_WEBHOOK_TIMEOUT: ${TRIGGER_WEBHOOK_TIMEOUT:-10}
+
+      # Procedural Memory
+      ENABLE_PROCEDURAL_MEMORY: ${ENABLE_PROCEDURAL_MEMORY:-false}
+      PROCEDURAL_RULE_MAX_COUNT: ${PROCEDURAL_RULE_MAX_COUNT:-50}
+      HALF_LIFE_PROCEDURAL: ${HALF_LIFE_PROCEDURAL:-180}
+
+      # Embedding Migration
+      EMBED_MODEL_VERSION: ${EMBED_MODEL_VERSION:-1}
+
     depends_on:
       - postgres
       - qdrant
@@ -114,7 +141,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
@@ -163,7 +190,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/2
 
       # Qdrant (remote instance)
-      QDRANT_URL: http://100.113.229.40:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       COLLECTION_FACTS: hippocampai_facts
       COLLECTION_PREFS: hippocampai_prefs
 
