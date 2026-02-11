@@ -31,6 +31,7 @@ class MemoryEventType(str, Enum):
     ACCESS_PATTERN = "access_pattern"
     STALENESS_DETECTED = "staleness_detected"
     FRESHNESS_UPDATED = "freshness_updated"
+    GRAPH_UPDATED = "graph_updated"
 
 
 class MemoryEventSeverity(str, Enum):

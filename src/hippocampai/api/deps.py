@@ -10,11 +10,16 @@ from fastapi import Header, HTTPException, Query
 from hippocampai.client import MemoryClient
 from hippocampai.config import get_config
 
+_client: Optional[MemoryClient] = None
+
 
 def get_memory_client() -> MemoryClient:
-    """Get shared memory client instance."""
-    config = get_config()
-    return MemoryClient(config=config)
+    """Get shared memory client instance (singleton)."""
+    global _client
+    if _client is None:
+        config = get_config()
+        _client = MemoryClient(config=config)
+    return _client
 
 
 # ============================================

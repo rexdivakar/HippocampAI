@@ -20,6 +20,7 @@ class ChangeType(str, Enum):
     ACCESSED = "accessed"
     RELATIONSHIP_ADDED = "relationship_added"
     RELATIONSHIP_REMOVED = "relationship_removed"
+    EMBEDDING_MIGRATED = "embedding_migrated"
 
 
 @dataclass
