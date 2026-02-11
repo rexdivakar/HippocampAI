@@ -382,6 +382,48 @@ popular = client.get_memories_advanced(
 
 ## Graph & Relationships
 
+### Architecture: In-Memory Graph with JSON Persistence
+
+HippocampAI uses **NetworkX** (an in-memory directed graph library) rather than a dedicated graph database. This is a deliberate architectural choice for v0.5.0:
+
+**How it works:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Triple-Store Architecture                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   Qdrant (Vector DB)     NetworkX (Graph)     BM25 (Text)   │
+│   ├─ Embeddings          ├─ Entities          ├─ Keywords   │
+│   ├─ Similarity search   ├─ Relationships     ├─ Full-text  │
+│   └─ Payload filtering   ├─ Facts & Topics    └─ Ranking    │
+│                          └─ Graph traversal                  │
+│                                                              │
+│   Storage: Qdrant        Storage: JSON file   Storage: RAM   │
+│   collections            (auto-saved)                        │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│   Score Fusion (6 weights):                                  │
+│   sim + rerank + recency + importance + graph + feedback     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Class hierarchy:**
+- `nx.DiGraph` → `MemoryGraph` (base, memory-to-memory relationships) → `KnowledgeGraph` (entities, facts, topics, inference)
+
+**Persistence:**
+- Graph state is serialized to JSON at `GRAPH_PERSISTENCE_PATH` (default: `data/knowledge_graph.json`)
+- Auto-save runs every `GRAPH_AUTO_SAVE_INTERVAL` seconds (default: 300)
+- On startup, the graph is loaded from JSON back into memory
+
+**Why not a graph database (yet)?**
+- Zero external dependencies — no Neo4j/ArangoDB to deploy
+- Sub-millisecond traversal for typical graph sizes (< 100K nodes)
+- JSON persistence is sufficient for single-instance deployments
+- Neo4j integration is on the roadmap for multi-instance and large-scale deployments (see [Roadmap](#roadmap))
+
+**Location:** `src/hippocampai/graph/memory_graph.py`, `src/hippocampai/graph/knowledge_graph.py`, `src/hippocampai/graph/graph_persistence.py`
+
 ### Graph Index for Memory Relationships
 
 NetworkX-based directed graph for mapping relationships between memories.
@@ -2268,6 +2310,35 @@ report = {
 
 When `ENABLE_REALTIME_GRAPH=true`, every call to `client.remember()` automatically extracts entities, facts, relationships, and topics from the memory text and adds them to a `KnowledgeGraph`. The graph supports three node types: **entity**, **fact**, and **topic**.
 
+### Data Flow
+
+```
+remember("Alice works at Google on TensorFlow")
+    │
+    ├──► Qdrant: store embedding vector + payload
+    │
+    ├──► BM25: index text for keyword search
+    │
+    └──► KnowledgeGraph (NetworkX):
+         ├─ Extract entities: Alice (person), Google (org), TensorFlow (tech)
+         ├─ Extract relationships: Alice→works_at→Google, Alice→works_on→TensorFlow
+         ├─ Link memory ID to each entity node
+         └─ Auto-save graph to JSON (every 300s)
+
+recall("What frameworks does Alice use?")
+    │
+    ├──► Vector search (Qdrant) → ranked list #1
+    ├──► BM25 keyword search → ranked list #2
+    ├──► Graph traversal (NetworkX):
+    │    ├─ Extract "Alice" from query
+    │    ├─ Find Alice node → traverse edges (max_depth=2)
+    │    ├─ Score: entity_confidence * edge_weight / (1 + hop_distance)
+    │    └─ Return ranked list #3
+    │
+    └──► Reciprocal Rank Fusion (3-way) → final results
+         Weights: sim + rerank + recency + importance + graph + feedback
+```
+
 ### Key Methods
 
 ```python
@@ -3009,7 +3080,7 @@ client.delete_memories([id1, id2, id3], user_id="alice")
 - [x] Embedding Model Migration (v0.5.0)
 
 ### Future Enhancements 🚀
-- [ ] Persistent graph storage (Neo4j integration)
+- [ ] Persistent graph storage (Neo4j integration) — **WIP** (currently uses NetworkX in-memory + JSON persistence)
 - [ ] Redis backend for KV store
 - [ ] Multi-user permission system
 - [ ] Advanced analytics dashboard

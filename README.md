@@ -134,7 +134,7 @@ print(f"Found: {results[0].memory.text}")
 - **102+ Methods**: Complete API covering all use cases
 - **Production-Tested**: Battle-tested in real applications
 
-[See detailed comparison →](docs/FEATURES.md#competitive-advantages)
+[See detailed comparison →](docs/COMPETITIVE_ADVANTAGES.md)
 
 ---
 

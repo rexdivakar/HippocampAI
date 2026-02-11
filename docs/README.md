@@ -79,6 +79,7 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 ### About & Vision
 
 - **[Why We Built HippocampAI](WHY_WE_BUILT_HIPPOCAMPAI.md)** ⭐ - Our story, vision, and what makes us unique
+- **[Competitive Advantages](COMPETITIVE_ADVANTAGES.md)** ⭐ - How HippocampAI compares to mem0, Zep, Letta, Cognee, and LangMem
 
 ### Project Status
 
@@ -249,6 +250,7 @@ All source files from these consolidations have been removed in v0.3.0
 | **Package structure** ⭐ | [Package Structure](PACKAGE_STRUCTURE.md) |
 | **New features** ⭐ | [New Features Guide](NEW_FEATURES.md) |
 | **Why HippocampAI?** ⭐ | [Why We Built HippocampAI](WHY_WE_BUILT_HIPPOCAMPAI.md) |
+| **Compare to alternatives** ⭐ | [Competitive Advantages](COMPETITIVE_ADVANTAGES.md) |
 | **Complete overview** | [Unified Guide](UNIFIED_GUIDE.md) |
 | **Try interactive demo** | [Chat Demo Guide](CHAT_DEMO_GUIDE.md) |
 | **First time setup** | [Getting Started](GETTING_STARTED.md) |
