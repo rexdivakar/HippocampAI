@@ -543,6 +543,74 @@ def consolidate_procedural_rules(
         raise
 
 
+@celery_app.task(name="hippocampai.tasks.evaluate_prospective_triggers", bind=True)
+def evaluate_prospective_triggers(self: Any) -> dict[str, Any]:
+    """
+    Evaluate time-based prospective memory intents.
+
+    Returns:
+        Statistics about triggered intents.
+    """
+    try:
+        from hippocampai.config import get_config
+        from hippocampai.prospective.prospective_memory import ProspectiveMemoryManager
+
+        config = get_config()
+        if not config.enable_prospective_memory:
+            return {"status": "disabled"}
+
+        manager = ProspectiveMemoryManager(
+            max_intents_per_user=config.prospective_max_intents_per_user,
+            eval_interval_seconds=config.prospective_eval_interval_seconds,
+        )
+        triggered = manager.evaluate_time_triggers()
+
+        logger.info(
+            f"Task {self.request.id}: Evaluated prospective triggers, "
+            f"{len(triggered)} intent(s) fired"
+        )
+        return {
+            "triggered_count": len(triggered),
+            "triggered_ids": [i.id for i in triggered],
+        }
+    except Exception as exc:
+        logger.error(f"Task {self.request.id} failed: {exc}")
+        raise
+
+
+@celery_app.task(name="hippocampai.tasks.expire_prospective_intents", bind=True)
+def expire_prospective_intents(self: Any, user_id: Optional[str] = None) -> dict[str, Any]:
+    """
+    Expire stale prospective memory intents.
+
+    Args:
+        user_id: Optional user to scope expiration to.
+
+    Returns:
+        Number of expired intents.
+    """
+    try:
+        from hippocampai.config import get_config
+        from hippocampai.prospective.prospective_memory import ProspectiveMemoryManager
+
+        config = get_config()
+        if not config.enable_prospective_memory:
+            return {"status": "disabled"}
+
+        manager = ProspectiveMemoryManager(
+            max_intents_per_user=config.prospective_max_intents_per_user,
+        )
+        expired_count = manager.expire_stale_intents(user_id=user_id)
+
+        logger.info(
+            f"Task {self.request.id}: Expired {expired_count} prospective intent(s)"
+        )
+        return {"expired_count": expired_count}
+    except Exception as exc:
+        logger.error(f"Task {self.request.id} failed: {exc}")
+        raise
+
+
 @celery_app.task(name="hippocampai.tasks.health_check_task", bind=True)
 def health_check_task(self: Any) -> dict[str, Any]:
     """

@@ -393,24 +393,20 @@ class TestCaching:
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
 
-    @patch("hippocampai.utils.agentic_classifier.get_agentic_classifier")
-    def test_classify_memory_agentic(self, mock_get_classifier):
+    @patch("hippocampai.utils.classifier_service.classify_memory")
+    def test_classify_memory_agentic(self, mock_classify):
         """Test classify_memory_agentic function."""
-        mock_classifier = MagicMock()
-        mock_classifier.classify.return_value = MemoryType.FACT
-        mock_get_classifier.return_value = mock_classifier
+        mock_classify.return_value = MemoryType.FACT
 
         result = classify_memory_agentic("My name is Alex")
 
         assert result == MemoryType.FACT
-        mock_classifier.classify.assert_called_once_with("My name is Alex", None)
+        mock_classify.assert_called_once()
 
-    @patch("hippocampai.utils.agentic_classifier.get_agentic_classifier")
-    def test_classify_memory_agentic_with_confidence(self, mock_get_classifier):
+    @patch("hippocampai.utils.classifier_service.classify_memory_with_confidence")
+    def test_classify_memory_agentic_with_confidence(self, mock_classify):
         """Test classify_memory_agentic_with_confidence function."""
-        mock_classifier = MagicMock()
-        mock_classifier.classify_with_confidence.return_value = (MemoryType.PREFERENCE, 0.9)
-        mock_get_classifier.return_value = mock_classifier
+        mock_classify.return_value = (MemoryType.PREFERENCE, 0.9)
 
         memory_type, confidence = classify_memory_agentic_with_confidence("I love pizza")
 

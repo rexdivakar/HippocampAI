@@ -30,6 +30,9 @@ from hippocampai.vector.qdrant_store import QdrantStore
 logger = logging.getLogger(__name__)
 
 # Prometheus metrics
+PROMETHEUS_AVAILABLE = False
+PrometheusMiddleware: Any = None
+get_metrics: Any = None
 try:
     from hippocampai.monitoring.prometheus_metrics import (
         PrometheusMiddleware,
@@ -38,7 +41,6 @@ try:
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:
-    PROMETHEUS_AVAILABLE = False
     logger.warning("Prometheus client not available - metrics disabled")
 
 # Global service instances

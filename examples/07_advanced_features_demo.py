@@ -196,10 +196,7 @@ def main():
     memories = client.get_memories(user_id=user_id)
     tracked = next(m for m in memories if m.id == track_memory.id)
     print(f"✓ Access count: {tracked.access_count}")
-    if hasattr(tracked, "last_accessed_at") and tracked.last_accessed_at:
-        print(f"✓ Last accessed: {tracked.last_accessed_at}")
-    else:
-        print("✓ Access tracking enabled (last_accessed_at stored in payload)")
+    print("✓ Access tracking enabled (access count stored in memory)")
 
     # === 6. ADVANCED FILTERING ===
     print_section("6. Advanced Filtering & Sorting")
@@ -350,7 +347,7 @@ def main():
         print(f"  - {key}: {value}")
 
     # KV store stats
-    kv_stats = client.kv_store.get_statistics()
+    kv_stats = client.kv_store.get_stats()
     print("\nKV Store:")
     for key, value in kv_stats.items():
         print(f"  - {key}: {value}")

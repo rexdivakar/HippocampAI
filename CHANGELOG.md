@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+## [0.5.1] - 2026-02-13
+
+### Added
+
+- **Prospective Memory / Remembering to Remember** — a new cognitive memory capability for AI agents
+  - `PROSPECTIVE` memory type added to MemoryType enum (routed to prefs collection)
+  - Two trigger modes: **time-based** (fire at datetime/cron) and **event-based** (fire when recall query matches keywords, regex, or embedding similarity)
+  - `ProspectiveIntent` model with full lifecycle: pending, triggered, completed, expired, cancelled
+  - `ProspectiveMemoryManager` with CRUD, context evaluation, time trigger evaluation, NL parsing (LLM + heuristic fallback), recurrence handling, expiry, and consolidation
+  - Recurrence support: none, daily, weekly, monthly, custom_cron (via croniter)
+  - Priority-based ordering (0-10) for triggered intents
+  - Cosine similarity matching for embedding-based event triggers
+  - Recall pipeline integration: triggered intents automatically surface as `RetrievalResult` objects during `recall()`
+  - `ON_PROSPECTIVE_TRIGGER` event added to trigger system for webhook/websocket/log notifications
+  - Background evaluation loop in `BackgroundTaskManager` for periodic time-based intent evaluation
+  - 2 new Celery tasks: `evaluate_prospective_triggers`, `expire_prospective_intents`
+  - 9 new REST API endpoints under `/v1/prospective/` (intents CRUD, parse, evaluate, consolidate, expire)
+  - 4 new configuration fields: `enable_prospective_memory`, `prospective_max_intents_per_user`, `prospective_eval_interval_seconds`, `half_life_prospective`
+  - Frontend: `ProspectiveMemoryPage` with create/parse/evaluate/cancel/complete/consolidate/expire UI
+  - Frontend: API client methods, TypeScript types, navigation integration
+  - Library exports: `ProspectiveIntent`, `ProspectiveMemoryManager`, `ProspectiveStatus`, `ProspectiveTriggerType`, `RecurrencePattern`
+  - 33 unit tests covering CRUD, keyword/regex/embedding matching, time triggers, recurrence, lifecycle, NL parsing, and model integration
+
+---
+
 ## [0.5.0] - 2026-02-11
 
 ### Major Release — Intelligent Memory Features

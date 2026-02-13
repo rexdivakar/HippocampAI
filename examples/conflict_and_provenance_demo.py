@@ -36,7 +36,6 @@ def demo_basic_conflict_resolution():
         user_id=user_id,
         type="preference",
         importance=7,
-        confidence=0.9,
     )
     print(f"✓ Memory 1: {mem1.text}")
 
@@ -47,7 +46,6 @@ def demo_basic_conflict_resolution():
         user_id=user_id,
         type="preference",
         importance=8,
-        confidence=0.95,
     )
     print(f"✓ Memory 2: {mem2.text}")
 
@@ -105,7 +103,6 @@ def demo_resolution_strategies():
             user_id=user_id,
             type="fact",
             importance=8,
-            confidence=0.95,
         )
 
         time.sleep(0.1)
@@ -115,7 +112,6 @@ def demo_resolution_strategies():
             user_id=user_id,
             type="fact",
             importance=8,
-            confidence=0.80,
         )
 
         # Resolve
@@ -312,7 +308,6 @@ def demo_complete_workflow():
         user_id=user_id,
         type="preference",
         importance=7,
-        confidence=0.9,
     )
 
     client.track_memory_provenance(
@@ -338,7 +333,6 @@ def demo_complete_workflow():
         user_id=user_id,
         type="preference",
         importance=8,
-        confidence=0.95,
     )
 
     client.track_memory_provenance(

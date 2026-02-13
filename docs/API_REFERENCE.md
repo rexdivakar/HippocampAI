@@ -19,6 +19,7 @@ Complete API reference for HippocampAI v0.5.0. This document covers all public m
 - [Triggers](#triggers) **NEW v0.5.0**
 - [Procedural Memory](#procedural-memory) **NEW v0.5.0**
 - [Embedding Migration](#embedding-migration) **NEW v0.5.0**
+- [Prospective Memory](#prospective-memory) **NEW v0.5.1**
 - [Telemetry & Monitoring](#telemetry--monitoring)
 - [Background Jobs](#background-jobs)
 - [Async Operations](#async-operations)
@@ -1452,6 +1453,109 @@ Cancel a running migration.
 ```bash
 curl -X POST http://localhost:8000/v1/admin/embeddings/migration/mig_abc/cancel
 # {"success": true, "migration_id": "mig_abc", "status": "cancelled"}
+```
+
+---
+
+## Prospective Memory
+
+**NEW in v0.5.1** — Prospective memory enables AI agents to remember to perform intended actions at the right time or context.
+
+### ProspectiveMemoryManager (client.prospective)
+
+#### create_intent()
+
+Create a prospective intent with explicit fields.
+
+```python
+intent = client.prospective.create_intent(
+    user_id="alice",
+    intent_text="When the user mentions budget, bring up Q3 cost overrun",
+    trigger_type=ProspectiveTriggerType.EVENT_BASED,
+    context_keywords=["budget", "cost"],
+    priority=8,
+    recurrence=RecurrencePattern.NONE,
+)
+```
+
+**Parameters:**
+- `user_id` (str): User ID
+- `intent_text` (str): Human-readable description of the intent
+- `trigger_type` (ProspectiveTriggerType): `TIME_BASED`, `EVENT_BASED`, or `HYBRID`
+- `action_description` (str): What to do when triggered
+- `trigger_at` (datetime): When to fire (time-based)
+- `context_keywords` (list[str]): Keywords to match in recall queries
+- `context_pattern` (str): Regex pattern to match
+- `context_embedding` (list[float]): Embedding vector for similarity matching
+- `similarity_threshold` (float): Cosine similarity threshold (default: 0.75)
+- `recurrence` (RecurrencePattern): `NONE`, `DAILY`, `WEEKLY`, `MONTHLY`, `CUSTOM_CRON`
+- `priority` (int): 0-10 priority score
+- `expires_at` (datetime): Auto-expire after this time
+- `tags` (list[str]): Tags for organization
+
+**Returns:** `ProspectiveIntent`
+
+#### create_intent_from_natural_language()
+
+Parse natural language into a structured intent using LLM (with heuristic fallback).
+
+```python
+intent = client.prospective.create_intent_from_natural_language(
+    user_id="alice",
+    text="Every Monday, summarize the week's key decisions",
+)
+```
+
+#### evaluate_context()
+
+Check pending event-based intents against a recall query. Returns triggered intents sorted by priority.
+
+```python
+triggered = client.prospective.evaluate_context(
+    user_id="alice",
+    context_text="What's our budget status?",
+    context_embedding=[0.1, 0.2, ...],  # optional
+)
+```
+
+#### evaluate_time_triggers()
+
+Check all pending time-based intents. Called by background loop.
+
+```python
+triggered = client.prospective.evaluate_time_triggers()
+```
+
+#### list_intents() / get_intent() / cancel_intent() / complete_intent()
+
+Standard CRUD operations for managing intent lifecycle.
+
+### REST API Endpoints
+
+```bash
+# Create intent
+curl -X POST http://localhost:8000/v1/prospective/intents \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "alice", "intent_text": "Follow up with John", "trigger_type": "event_based", "context_keywords": ["john"]}'
+
+# Parse natural language
+curl -X POST http://localhost:8000/v1/prospective/intents:parse \
+  -d '{"user_id": "alice", "text": "When the user mentions budget, bring up Q3 report"}'
+
+# List intents
+curl "http://localhost:8000/v1/prospective/intents?user_id=alice&status=pending"
+
+# Evaluate context
+curl -X POST http://localhost:8000/v1/prospective/evaluate \
+  -d '{"user_id": "alice", "context_text": "Let us discuss the budget"}'
+
+# Cancel / Complete
+curl -X PUT "http://localhost:8000/v1/prospective/intents/{id}/cancel?user_id=alice"
+curl -X PUT "http://localhost:8000/v1/prospective/intents/{id}/complete?user_id=alice"
+
+# Consolidate / Expire
+curl -X POST http://localhost:8000/v1/prospective/consolidate -d '{"user_id": "alice"}'
+curl -X POST http://localhost:8000/v1/prospective/expire -d '{"user_id": "alice"}'
 ```
 
 ---

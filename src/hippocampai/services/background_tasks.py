@@ -18,6 +18,7 @@ class BackgroundTaskManager:
     - Automatic consolidation
     - Memory expiration
     - Cache cleanup
+    - Prospective memory time-based evaluation
     """
 
     def __init__(
@@ -30,6 +31,9 @@ class BackgroundTaskManager:
         auto_consolidation_enabled: bool = False,  # Off by default
         dedup_threshold: float = 0.88,
         consolidation_threshold: float = 0.85,
+        prospective_manager: Optional[Any] = None,
+        prospective_eval_interval_seconds: int = 60,
+        trigger_manager: Optional[Any] = None,
     ):
         """
         Initialize background task manager.
@@ -52,6 +56,9 @@ class BackgroundTaskManager:
         self.auto_consolidation_enabled = auto_consolidation_enabled
         self.dedup_threshold = dedup_threshold
         self.consolidation_threshold = consolidation_threshold
+        self.prospective_manager = prospective_manager
+        self.prospective_eval_interval_seconds = prospective_eval_interval_seconds
+        self.trigger_manager = trigger_manager
 
         self._tasks: list[asyncio.Task] = []
         self._running = False
@@ -75,6 +82,10 @@ class BackgroundTaskManager:
         # Start consolidation task if enabled
         if self.auto_consolidation_enabled:
             self._tasks.append(asyncio.create_task(self._consolidation_loop()))
+
+        # Start prospective memory evaluation loop if manager provided
+        if self.prospective_manager is not None:
+            self._tasks.append(asyncio.create_task(self._prospective_evaluation_loop()))
 
         logger.info(f"Started {len(self._tasks)} background tasks")
 
@@ -207,6 +218,57 @@ class BackgroundTaskManager:
         )
         return result
 
+    async def _prospective_evaluation_loop(self) -> None:
+        """Periodic task to evaluate time-based prospective intents."""
+        interval = self.prospective_eval_interval_seconds
+        logger.info(f"Prospective evaluation task started (interval: {interval}s)")
+
+        while self._running:
+            try:
+                await asyncio.sleep(interval)
+
+                if self.prospective_manager is None:
+                    continue
+
+                triggered = self.prospective_manager.evaluate_time_triggers()
+                if triggered:
+                    logger.info(
+                        f"Prospective evaluation: {len(triggered)} time-based intent(s) fired"
+                    )
+
+                    # Fire through trigger system if available
+                    if self.trigger_manager is not None:
+                        from hippocampai.triggers.trigger_manager import TriggerEvent
+
+                        for intent in triggered:
+                            try:
+                                self.trigger_manager.evaluate_triggers(
+                                    event=TriggerEvent.ON_PROSPECTIVE_TRIGGER,
+                                    memory_data={
+                                        "id": intent.id,
+                                        "text": intent.intent_text,
+                                        "type": "prospective",
+                                        "intent_id": intent.id,
+                                        "action_description": intent.action_description,
+                                        "priority": intent.priority,
+                                    },
+                                    user_id=intent.user_id,
+                                )
+                            except Exception as te:
+                                logger.warning(f"Trigger evaluation failed for intent {intent.id}: {te}")
+
+                # Also expire stale intents periodically
+                expired = self.prospective_manager.expire_stale_intents()
+                if expired:
+                    logger.info(f"Prospective evaluation: expired {expired} stale intent(s)")
+
+            except asyncio.CancelledError:
+                logger.info("Prospective evaluation task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error in prospective evaluation task: {e}", exc_info=True)
+                await asyncio.sleep(10)
+
     def get_status(self) -> dict:
         """Get status of background tasks."""
         return {
@@ -221,5 +283,7 @@ class BackgroundTaskManager:
                 "auto_consolidation_enabled": self.auto_consolidation_enabled,
                 "dedup_threshold": self.dedup_threshold,
                 "consolidation_threshold": self.consolidation_threshold,
+                "prospective_eval_interval_seconds": self.prospective_eval_interval_seconds,
+                "prospective_enabled": self.prospective_manager is not None,
             },
         }

@@ -334,7 +334,7 @@ class MemoryHealthMonitor:
 
                 # Determine if duplicate based on cluster type
                 is_duplicate = False
-                detected_type = None
+                detected_type: DuplicateClusterType = DuplicateClusterType.SOFT
 
                 if similarity >= self.exact_duplicate_threshold:
                     is_duplicate = True

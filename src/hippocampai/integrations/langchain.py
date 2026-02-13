@@ -16,11 +16,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from langchain_classic.memory.chat_memory import BaseChatMemory
-from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
-from langchain_core.documents import Document
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.retrievers import BaseRetriever
+LANGCHAIN_AVAILABLE = False
+try:
+    from langchain_classic.memory.chat_memory import BaseChatMemory
+    from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
+    from langchain_core.documents import Document
+    from langchain_core.messages import AIMessage, HumanMessage
+    from langchain_core.retrievers import BaseRetriever
+
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    BaseChatMemory = object  # type: ignore[assignment,misc]
+    BaseRetriever = object  # type: ignore[assignment,misc]
+    CallbackManagerForRetrieverRun = Any  # type: ignore[assignment,misc]
+    Document = Any  # type: ignore[assignment,misc]
+    AIMessage = Any  # type: ignore[assignment,misc]
+    HumanMessage = Any  # type: ignore[assignment,misc]
 
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient

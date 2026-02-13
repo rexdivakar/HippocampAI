@@ -118,6 +118,7 @@ export function Layout({ children, userId, onLogout, wsConnected }: LayoutProps)
     { path: '/classifier', label: 'Memory Classifier', icon: Zap },
     { path: '/feedback', label: 'Feedback', icon: MessageCircle },
     { path: '/procedural', label: 'Procedural Memory', icon: BookOpen },
+    { path: '/prospective', label: 'Prospective Memory', icon: Bell },
   ];
 
   const managementItems = [

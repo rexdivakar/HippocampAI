@@ -78,6 +78,11 @@ class AutomationPolicy(BaseModel):
     conflict_strategy: str = "temporal"  # temporal, confidence, importance
     auto_resolve_conflicts: bool = True
 
+    # Prospective memory settings
+    prospective_memory: bool = False
+    prospective_eval_interval_seconds: int = 60
+    prospective_max_intents: int = 100
+
     # Metadata
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

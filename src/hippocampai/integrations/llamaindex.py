@@ -17,8 +17,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional
 
-from llama_index.core.retrievers import BaseRetriever
-from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
+LLAMAINDEX_AVAILABLE = False
+try:
+    from llama_index.core.retrievers import BaseRetriever
+    from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
+
+    LLAMAINDEX_AVAILABLE = True
+except ImportError:
+    BaseRetriever = object  # type: ignore[assignment,misc]
+    NodeWithScore = Any  # type: ignore[assignment,misc]
+    QueryBundle = Any  # type: ignore[assignment,misc]
+    TextNode = Any  # type: ignore[assignment,misc]
 
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient

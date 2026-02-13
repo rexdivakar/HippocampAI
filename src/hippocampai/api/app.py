@@ -176,6 +176,15 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load procedural memory routes: {e}")
 
+# Include prospective memory routes
+try:
+    from hippocampai.api.prospective_routes import router as prospective_router
+
+    app.include_router(prospective_router)
+    logger.info("Prospective memory routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load prospective memory routes: {e}")
+
 # Include migration routes
 try:
     from hippocampai.api.migration_routes import router as migration_router

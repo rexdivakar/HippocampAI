@@ -20,9 +20,10 @@ This document provides comprehensive documentation for all memory management fea
 14. [Memory Triggers / Event-Driven Actions](#memory-triggers--event-driven-actions) **NEW v0.5.0**
 15. [Procedural Memory / Prompt Self-Optimization](#procedural-memory--prompt-self-optimization) **NEW v0.5.0**
 16. [Embedding Model Migration](#embedding-model-migration) **NEW v0.5.0**
-17. [Storage & Caching](#storage--caching)
-18. [Monitoring & Telemetry](#monitoring--telemetry)
-19. [API Reference](#api-reference)
+17. [Prospective Memory / Remembering to Remember](#prospective-memory--remembering-to-remember) **NEW v0.5.1**
+18. [Storage & Caching](#storage--caching)
+19. [Monitoring & Telemetry](#monitoring--telemetry)
+20. [API Reference](#api-reference)
 
 ---
 
@@ -2692,6 +2693,103 @@ print(f"Failed: {status.json()['failed_count']}")
 | `completed` | All memories re-encoded |
 | `cancelled` | Migration cancelled by user |
 | `failed` | Migration failed (check logs) |
+
+---
+
+## Prospective Memory / Remembering to Remember
+
+**NEW in v0.5.1** — Prospective memory enables AI agents to "remember to remember" — performing intended actions at the right time or context in the future.
+
+### Overview
+
+Two trigger modes:
+- **Time-based**: Fire at a specific datetime or on a cron schedule (evaluated by background loop)
+- **Event-based**: Fire when a recall query matches keywords, regex, or embedding similarity (evaluated inline during `recall()`)
+
+### Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| `ProspectiveIntent` | A future intention with trigger conditions, priority, and lifecycle status |
+| `ProspectiveStatus` | Lifecycle: `pending` → `triggered` → `completed` (or `expired` / `cancelled`) |
+| `ProspectiveTriggerType` | `time_based`, `event_based`, or `hybrid` |
+| `RecurrencePattern` | `none`, `daily`, `weekly`, `monthly`, `custom_cron` |
+
+### Usage
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+
+# Create an event-based intent
+intent = client.prospective.create_intent(
+    user_id="alice",
+    intent_text="When the user mentions budget, bring up Q3 cost overrun",
+    trigger_type=ProspectiveTriggerType.EVENT_BASED,
+    context_keywords=["budget", "cost", "spending"],
+    priority=8,
+)
+
+# Create from natural language (LLM parses into structured intent)
+intent = client.prospective.create_intent_from_natural_language(
+    user_id="alice",
+    text="Every Monday, summarize the week's key decisions",
+)
+
+# Evaluate context (happens automatically during recall())
+triggered = client.prospective.evaluate_context(
+    user_id="alice",
+    context_text="What's our budget status?",
+)
+
+# Triggered intents automatically appear in recall() results
+results = client.recall("budget discussion", user_id="alice")
+# Results may include: RetrievalResult(memory.type=PROSPECTIVE, score=priority/10)
+```
+
+### How It Works
+
+**Event-based flow:**
+1. User creates intent with `context_keywords=["budget"]`
+2. On every `recall(query="What's our budget status?")`:
+   - `evaluate_context()` checks keyword match → "budget" found
+   - Intent transitions to `TRIGGERED`
+   - Appended to recall results as `RetrievalResult(type=PROSPECTIVE)`
+
+**Time-based flow:**
+1. User creates intent with `trigger_at=tomorrow_3pm`
+2. Background loop polls every N seconds
+3. When `now >= trigger_at`: intent transitions to `TRIGGERED`
+4. `ON_PROSPECTIVE_TRIGGER` event fires through trigger system
+
+**Recurring flow:**
+1. Intent with `recurrence=WEEKLY, trigger_at=next_monday`
+2. On Monday: fires, then resets to `PENDING` with `trigger_at=next_monday`
+3. Repeats until `expires_at` or `remaining_occurrences=0`
+
+### REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/prospective/intents` | Create intent (explicit fields) |
+| `POST` | `/v1/prospective/intents:parse` | Create intent from natural language |
+| `GET` | `/v1/prospective/intents` | List user's intents (query: `user_id`, `status?`) |
+| `GET` | `/v1/prospective/intents/{intent_id}` | Get single intent |
+| `PUT` | `/v1/prospective/intents/{intent_id}/cancel` | Cancel intent |
+| `PUT` | `/v1/prospective/intents/{intent_id}/complete` | Mark completed |
+| `POST` | `/v1/prospective/evaluate` | Evaluate context against pending intents |
+| `POST` | `/v1/prospective/consolidate` | Consolidate redundant intents |
+| `POST` | `/v1/prospective/expire` | Force-expire stale intents |
+
+### Configuration
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `ENABLE_PROSPECTIVE_MEMORY` | `false` | Feature flag |
+| `PROSPECTIVE_MAX_INTENTS_PER_USER` | `100` | Max pending intents per user |
+| `PROSPECTIVE_EVAL_INTERVAL_SECONDS` | `60` | Background evaluation loop interval |
+| `HALF_LIFE_PROSPECTIVE` | `30` | Decay half-life in days |
 
 ---
 

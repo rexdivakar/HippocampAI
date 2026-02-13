@@ -3,7 +3,7 @@ export interface Memory {
   id: string;
   text: string;
   user_id: string;
-  type: 'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context';
+  type: 'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context' | 'summary' | 'procedural' | 'prospective';
   importance: number;
   confidence: number;
   tags: string[];
@@ -383,7 +383,8 @@ export type TriggerEvent =
   | 'on_update'
   | 'on_delete'
   | 'on_conflict'
-  | 'on_expire';
+  | 'on_expire'
+  | 'on_prospective_trigger';
 
 export type TriggerConditionOp = 'eq' | 'gt' | 'lt' | 'contains' | 'matches';
 
@@ -430,6 +431,35 @@ export interface ProceduralRule {
 export interface ProceduralInjectionResult {
   prompt: string;
   rules_injected: number;
+}
+
+// ============================================================================
+// EMBEDDING MIGRATION TYPES
+// ============================================================================
+
+// ============================================================================
+// PROSPECTIVE MEMORY TYPES
+// ============================================================================
+
+export type ProspectiveStatus = 'pending' | 'triggered' | 'completed' | 'expired' | 'cancelled';
+export type ProspectiveTriggerType = 'time_based' | 'event_based' | 'hybrid';
+export type RecurrencePattern = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom_cron';
+
+export interface ProspectiveIntent {
+  id: string;
+  user_id: string;
+  intent_text: string;
+  action_description: string;
+  trigger_type: ProspectiveTriggerType;
+  status: ProspectiveStatus;
+  priority: number;
+  trigger_count: number;
+  created_at: string;
+  triggered_at?: string;
+  expires_at?: string;
+  context_keywords: string[];
+  recurrence: RecurrencePattern;
+  tags: string[];
 }
 
 // ============================================================================

@@ -897,6 +897,7 @@ class MemoryManagementService:
         logger.debug(f"Query cache miss for key {cache_key}")
 
         # Update weights if provided
+        original_weights: dict[str, Any] | None = None
         if custom_weights:
             original_weights = self.retriever.weights.copy()
             self.retriever.weights.update(custom_weights)
@@ -931,7 +932,7 @@ class MemoryManagementService:
             return cast(list[Any], results)
         finally:
             # Restore original weights
-            if custom_weights:
+            if custom_weights and original_weights is not None:
                 self.retriever.weights = original_weights
 
     async def deduplicate_user_memories(

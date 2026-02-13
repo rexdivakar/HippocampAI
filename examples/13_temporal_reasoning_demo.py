@@ -301,7 +301,10 @@ def main():
 
     # Initialize client
     print("\n🚀 Initializing HippocampAI client...")
-    client = MemoryClient(collection_name="temporal_demo")
+    client = MemoryClient(
+        collection_facts="temporal_demo_facts",
+        collection_prefs="temporal_demo_prefs",
+    )
     user_id = "demo_user_temporal"
 
     # Create sample memories

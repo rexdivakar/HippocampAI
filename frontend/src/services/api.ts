@@ -24,6 +24,7 @@ import type {
   TriggerFireEntry,
   ProceduralRule,
   ProceduralInjectionResult,
+  ProspectiveIntent,
   EmbeddingMigration,
 } from '../types';
 
@@ -685,6 +686,108 @@ class APIClient {
       '/v1/procedural/consolidate',
       null,
       { params: { user_id: userId } }
+    );
+    return response.data;
+  }
+
+  // ============================================================================
+  // PROSPECTIVE MEMORY
+  // ============================================================================
+
+  async createProspectiveIntent(data: {
+    user_id: string;
+    intent_text: string;
+    trigger_type?: string;
+    action_description?: string;
+    context_keywords?: string[];
+    context_pattern?: string;
+    similarity_threshold?: number;
+    recurrence?: string;
+    priority?: number;
+    expires_at?: string;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  }): Promise<ProspectiveIntent> {
+    const response = await this.v1Client.post<ProspectiveIntent>(
+      '/v1/prospective/intents',
+      data
+    );
+    return response.data;
+  }
+
+  async parseProspectiveIntent(userId: string, text: string): Promise<ProspectiveIntent> {
+    const response = await this.v1Client.post<ProspectiveIntent>(
+      '/v1/prospective/intents:parse',
+      { user_id: userId, text }
+    );
+    return response.data;
+  }
+
+  async listProspectiveIntents(userId: string, status?: string): Promise<ProspectiveIntent[]> {
+    const response = await this.v1Client.get<ProspectiveIntent[]>(
+      '/v1/prospective/intents',
+      { params: { user_id: userId, ...(status ? { status } : {}) } }
+    );
+    return response.data;
+  }
+
+  async getProspectiveIntent(intentId: string): Promise<ProspectiveIntent> {
+    const response = await this.v1Client.get<ProspectiveIntent>(
+      `/v1/prospective/intents/${intentId}`
+    );
+    return response.data;
+  }
+
+  async cancelProspectiveIntent(intentId: string, userId: string): Promise<ProspectiveIntent> {
+    const response = await this.v1Client.put<ProspectiveIntent>(
+      `/v1/prospective/intents/${intentId}/cancel`,
+      null,
+      { params: { user_id: userId } }
+    );
+    return response.data;
+  }
+
+  async completeProspectiveIntent(intentId: string, userId: string): Promise<ProspectiveIntent> {
+    const response = await this.v1Client.put<ProspectiveIntent>(
+      `/v1/prospective/intents/${intentId}/complete`,
+      null,
+      { params: { user_id: userId } }
+    );
+    return response.data;
+  }
+
+  async evaluateProspectiveContext(
+    userId: string,
+    contextText: string,
+    contextEmbedding?: number[]
+  ): Promise<ProspectiveIntent[]> {
+    const response = await this.v1Client.post<ProspectiveIntent[]>(
+      '/v1/prospective/evaluate',
+      {
+        user_id: userId,
+        context_text: contextText,
+        ...(contextEmbedding ? { context_embedding: contextEmbedding } : {}),
+      }
+    );
+    return response.data;
+  }
+
+  async consolidateProspectiveIntents(
+    userId: string
+  ): Promise<{ user_id: string; consolidated_count: number }> {
+    const response = await this.v1Client.post<{
+      user_id: string;
+      consolidated_count: number;
+    }>('/v1/prospective/consolidate', { user_id: userId });
+    return response.data;
+  }
+
+  async expireProspectiveIntents(
+    userId?: string
+  ): Promise<{ expired_count: number }> {
+    const response = await this.v1Client.post<{ expired_count: number }>(
+      '/v1/prospective/expire',
+      { user_id: userId || null }
     );
     return response.data;
   }

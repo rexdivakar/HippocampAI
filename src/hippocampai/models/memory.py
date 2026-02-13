@@ -17,6 +17,7 @@ class MemoryType(str, Enum):
     CONTEXT = "context"
     SUMMARY = "summary"  # Compacted/consolidated memories
     PROCEDURAL = "procedural"  # Behavioral rules / prompt self-optimization
+    PROSPECTIVE = "prospective"  # Remembering to remember (future intentions)
 
 
 class Memory(BaseModel):
@@ -61,7 +62,8 @@ class Memory(BaseModel):
     def collection_name(self, facts_col: str, prefs_col: str) -> str:
         """Route to appropriate collection."""
         if self.type in {
-            MemoryType.PREFERENCE, MemoryType.GOAL, MemoryType.HABIT, MemoryType.PROCEDURAL,
+            MemoryType.PREFERENCE, MemoryType.GOAL, MemoryType.HABIT,
+            MemoryType.PROCEDURAL, MemoryType.PROSPECTIVE,
         }:
             return prefs_col
         return facts_col

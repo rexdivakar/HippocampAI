@@ -205,6 +205,20 @@ class Config(BaseSettings):
         default=180, validation_alias="HALF_LIFE_PROCEDURAL"
     )
 
+    # Feature 7: Prospective Memory
+    enable_prospective_memory: bool = Field(
+        default=False, validation_alias="ENABLE_PROSPECTIVE_MEMORY"
+    )
+    prospective_max_intents_per_user: int = Field(
+        default=100, validation_alias="PROSPECTIVE_MAX_INTENTS_PER_USER"
+    )
+    prospective_eval_interval_seconds: int = Field(
+        default=60, validation_alias="PROSPECTIVE_EVAL_INTERVAL_SECONDS"
+    )
+    half_life_prospective: int = Field(
+        default=30, validation_alias="HALF_LIFE_PROSPECTIVE"
+    )
+
     # Feature 6: Embedding Model Migration
     embed_model_version: str = Field(default="1", validation_alias="EMBED_MODEL_VERSION")
 
@@ -227,6 +241,7 @@ class Config(BaseSettings):
             "context": self.half_life_facts,
             "habit": self.half_life_prefs,
             "procedural": self.half_life_procedural,
+            "prospective": self.half_life_prospective,
         }
 
 

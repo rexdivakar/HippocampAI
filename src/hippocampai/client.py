@@ -290,6 +290,15 @@ class MemoryClient:
             llm=self.llm if self.config.enable_procedural_memory else None,
         )
 
+        # Feature 7: Prospective Memory
+        from hippocampai.prospective.prospective_memory import ProspectiveMemoryManager
+
+        self.prospective = ProspectiveMemoryManager(
+            max_intents_per_user=self.config.prospective_max_intents_per_user,
+            eval_interval_seconds=self.config.prospective_eval_interval_seconds,
+            llm=self.llm if self.config.enable_prospective_memory else None,
+        )
+
         # Feature 6: Embedding Model Migration
         from hippocampai.embed.migration import EmbeddingMigrationManager
 
@@ -1069,6 +1078,37 @@ class MemoryClient:
                 search_results_count.observe(len(results))
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
+
+            # Evaluate prospective memory intents against this recall query
+            if self.config.enable_prospective_memory:
+                try:
+                    triggered_intents = self.prospective.evaluate_context(
+                        user_id=user_id,
+                        context_text=query,
+                    )
+                    for intent in triggered_intents:
+                        prospective_memory = Memory(
+                            text=f"[Prospective] {intent.intent_text}: {intent.action_description}",
+                            user_id=user_id,
+                            type=MemoryType.PROSPECTIVE,
+                            importance=float(intent.priority),
+                            tags=intent.tags,
+                            metadata={"prospective_intent_id": intent.id},
+                        )
+                        results.append(
+                            RetrievalResult(
+                                memory=prospective_memory,
+                                score=intent.priority / 10.0,
+                                breakdown={"source": "prospective"},
+                            )
+                        )
+                    if triggered_intents:
+                        logger.info(
+                            f"Prospective memory: {len(triggered_intents)} intent(s) "
+                            f"triggered for user {user_id}"
+                        )
+                except Exception as prosp_err:
+                    logger.warning(f"Prospective memory evaluation failed: {prosp_err}")
 
             return results
         except Exception as e:

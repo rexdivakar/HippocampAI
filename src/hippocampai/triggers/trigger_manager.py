@@ -21,6 +21,7 @@ class TriggerEvent(str, Enum):
     ON_DELETE = "on_delete"
     ON_CONFLICT = "on_conflict"
     ON_EXPIRE = "on_expire"
+    ON_PROSPECTIVE_TRIGGER = "on_prospective_trigger"
 
 
 class TriggerAction(str, Enum):

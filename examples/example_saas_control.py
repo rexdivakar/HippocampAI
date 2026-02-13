@@ -41,14 +41,14 @@ def main():
         sys.exit(1)
 
     llm = GroqLLM(api_key=api_key, model="llama-3.1-8b-instant")
-    client = MemoryClient(llm_provider=llm)
+    client = MemoryClient(llm_provider="groq", llm_model="llama-3.1-8b-instant")
     embedder = Embedder(model_name="BAAI/bge-small-en-v1.5")
 
     print("✅ Memory client initialized")
 
     # Initialize automation controller
     automation = AutomationController(
-        memory_service=client.memory_service, llm=llm, embedder=embedder
+        memory_service=client, llm=llm, embedder=embedder
     )
 
     print("✅ Automation controller initialized")
@@ -121,7 +121,7 @@ def main():
     ]
 
     for i, text in enumerate(memories_to_add, 1):
-        client.add_memory(text=text, user_id="demo_user", memory_type="preference")
+        client.remember(text=text, user_id="demo_user", type="preference")
         print(f"  {i}. Added: {text}")
 
     # 4. Check if optimization should run
@@ -217,6 +217,10 @@ def main():
 
     # Get current policy
     current_policy = automation.get_policy("demo_user")
+
+    if current_policy is None:
+        print("❌ No policy found for user")
+        return
 
     # Modify settings
     current_policy.auto_compression = True  # Enable compression

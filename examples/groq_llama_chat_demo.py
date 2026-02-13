@@ -686,7 +686,7 @@ class GroqHippocampAIChat:
 
             # Consolidate
             _consolidated = self.memory_client.consolidate_memories(
-                user_id=self.user_id, lookback_hours=24
+                user_id=self.user_id
             )
 
             test_results.append(("Memory Consolidation", "✅ PASS"))

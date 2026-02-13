@@ -582,5 +582,6 @@ def clear_agentic_cache() -> None:
         DeprecationWarning,
         stacklevel=2,
     )
+    _agentic_cache.clear()
     from hippocampai.utils.classifier_service import clear_classification_cache
     clear_classification_cache()

@@ -128,7 +128,11 @@ class EnhancedMemoryClient:
                 f"Set {provider.upper()}_API_KEY environment variable or pass api_key parameter."
             )
 
-    # Delegate all methods to base client
+    def __getattr__(self, name: str) -> Any:
+        """Delegate attribute access to the underlying MemoryClient."""
+        return getattr(self.client, name)
+
+    # Delegate common methods to base client
     def remember(
         self,
         text: str,
@@ -138,6 +142,9 @@ class EnhancedMemoryClient:
         importance: Optional[float] = None,
         tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        visibility: Optional[str] = None,
     ) -> Memory:
         """Store a memory."""
         return self.client.remember(
@@ -148,6 +155,9 @@ class EnhancedMemoryClient:
             importance=importance,
             tags=tags,
             ttl_days=ttl_days,
+            agent_id=agent_id,
+            run_id=run_id,
+            visibility=visibility,
         )
 
     def recall(

@@ -60,7 +60,7 @@ from hippocampai.pipeline.insights import (
 from hippocampai.pipeline.insights import ChangeType as InsightChangeType
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
-__version__ = "0.4.0"
+__version__ = "0.5.1"
 
 __all__ = [
     # Version
@@ -132,6 +132,12 @@ __all__ = [
     "HabitScore",
     "Trend",
     "InsightChangeType",
+    # Prospective memory
+    "ProspectiveIntent",
+    "ProspectiveMemoryManager",
+    "ProspectiveStatus",
+    "ProspectiveTriggerType",
+    "RecurrencePattern",
     # SaaS automation (platform features)
     "AutomationController",
     "AutomationPolicy",
@@ -161,6 +167,15 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai.graph import RelationType as RelationType
     from hippocampai.multiagent import MultiAgentManager as MultiAgentManager
     from hippocampai.optimized_client import OptimizedMemoryClient as OptimizedMemoryClient
+    from hippocampai.prospective.prospective_memory import ProspectiveIntent as ProspectiveIntent
+    from hippocampai.prospective.prospective_memory import (
+        ProspectiveMemoryManager as ProspectiveMemoryManager,
+    )
+    from hippocampai.prospective.prospective_memory import ProspectiveStatus as ProspectiveStatus
+    from hippocampai.prospective.prospective_memory import (
+        ProspectiveTriggerType as ProspectiveTriggerType,
+    )
+    from hippocampai.prospective.prospective_memory import RecurrencePattern as RecurrencePattern
     from hippocampai.saas.automation import AutomationController as AutomationController
     from hippocampai.saas.automation import AutomationPolicy as AutomationPolicy
     from hippocampai.saas.automation import AutomationSchedule as AutomationSchedule
@@ -222,6 +237,12 @@ _IMPORT_MAP: dict[str, tuple[str, str]] = {
     "inject_context": ("hippocampai.utils.context_injection", "inject_context"),
     # Multi-agent
     "MultiAgentManager": ("hippocampai.multiagent", "MultiAgentManager"),
+    # Prospective memory
+    "ProspectiveIntent": ("hippocampai.prospective.prospective_memory", "ProspectiveIntent"),
+    "ProspectiveMemoryManager": ("hippocampai.prospective.prospective_memory", "ProspectiveMemoryManager"),
+    "ProspectiveStatus": ("hippocampai.prospective.prospective_memory", "ProspectiveStatus"),
+    "ProspectiveTriggerType": ("hippocampai.prospective.prospective_memory", "ProspectiveTriggerType"),
+    "RecurrencePattern": ("hippocampai.prospective.prospective_memory", "RecurrencePattern"),
     # SaaS automation
     "AutomationController": ("hippocampai.saas.automation", "AutomationController"),
     "AutomationPolicy": ("hippocampai.saas.automation", "AutomationPolicy"),

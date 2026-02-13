@@ -7,7 +7,7 @@ through structured JSON logging with request ID tracking.
 
 import logging
 
-from hippocampai.memory.client import MemoryClient
+from hippocampai import MemoryClient
 
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.utils.structured_logging import (
@@ -40,22 +40,24 @@ def example_retry_logic():
 
     # Initialize client - all operations are automatically retryable
     client = MemoryClient(
-        qdrant_url="http://localhost:6333", llm=OllamaLLM(model="qwen2.5:7b-instruct")
+        qdrant_url="http://localhost:6333",
+        llm_provider="ollama",
+        llm_model="qwen2.5:7b-instruct",
     )
 
     # These operations will automatically retry on transient failures:
     # 1. Store a memory (Qdrant upsert with retry)
-    client.store(
+    client.remember(
+        text="Python is my favorite programming language",
         user_id="user123",
-        content="Python is my favorite programming language",
-        memory_type="prefs",
+        type="preference",
         tags=["programming", "languages"],
     )
     logger.info("Memory stored successfully (with automatic retry support)")
 
     # 2. Search memories (Qdrant search with retry)
-    results = client.search(
-        user_id="user123", query="What programming languages does the user like?", limit=5
+    results = client.recall(
+        query="What programming languages does the user like?", user_id="user123", k=5
     )
     logger.info(f"Search completed (with automatic retry support): {len(results)} results")
 
@@ -88,11 +90,13 @@ def example_structured_logging():
         )
 
         client = MemoryClient(
-            qdrant_url="http://localhost:6333", llm=OllamaLLM(model="qwen2.5:7b-instruct")
+            qdrant_url="http://localhost:6333",
+            llm_provider="ollama",
+            llm_model="qwen2.5:7b-instruct",
         )
 
         # All logs within this context will have the same request_id
-        results = client.search(user_id="user123", query="What languages do I know?", limit=5)
+        results = client.recall(query="What languages do I know?", user_id="user123", k=5)
 
         logger.info(
             "Query processing completed",
@@ -121,22 +125,24 @@ def example_combined():
         logger.info("Starting memory management operation", extra={"operation_type": "batch_store"})
 
         client = MemoryClient(
-            qdrant_url="http://localhost:6333", llm=OllamaLLM(model="qwen2.5:7b-instruct")
+            qdrant_url="http://localhost:6333",
+            llm_provider="ollama",
+            llm_model="qwen2.5:7b-instruct",
         )
 
         # Store multiple memories - each with automatic retry
         memories = [
-            {"content": "I live in San Francisco", "type": "facts", "tags": ["location"]},
-            {"content": "I prefer dark mode interfaces", "type": "prefs", "tags": ["ui"]},
-            {"content": "I speak English and Spanish", "type": "facts", "tags": ["languages"]},
+            {"content": "I live in San Francisco", "type": "fact", "tags": ["location"]},
+            {"content": "I prefer dark mode interfaces", "type": "preference", "tags": ["ui"]},
+            {"content": "I speak English and Spanish", "type": "fact", "tags": ["languages"]},
         ]
 
         for i, memory in enumerate(memories):
             try:
-                client.store(
+                client.remember(
+                    text=memory["content"],
                     user_id="user123",
-                    content=memory["content"],
-                    memory_type=memory["type"],
+                    type=memory["type"],
                     tags=memory["tags"],
                 )
                 logger.info(
