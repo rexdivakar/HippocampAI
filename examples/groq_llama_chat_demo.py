@@ -468,8 +468,8 @@ class GroqHippocampAIChat:
             if results and hasattr(results[0], "__dict__"):
                 memories = [
                     {
-                        "text": r.text if hasattr(r, "text") else str(r),
-                        "metadata": r.metadata if hasattr(r, "metadata") else {},
+                        "text": r.memory.text if hasattr(r, "memory") and r.memory else str(r),
+                        "metadata": r.memory.metadata if hasattr(r, "memory") and r.memory else {},
                         "score": r.score if hasattr(r, "score") else 0,
                     }
                     for r in results
@@ -513,8 +513,8 @@ class GroqHippocampAIChat:
             if results and hasattr(results[0], "__dict__"):
                 memories = [
                     {
-                        "text": r.text if hasattr(r, "text") else str(r),
-                        "metadata": r.metadata if hasattr(r, "metadata") else {},
+                        "text": r.memory.text if hasattr(r, "memory") and r.memory else str(r),
+                        "metadata": r.memory.metadata if hasattr(r, "memory") and r.memory else {},
                         "score": r.score if hasattr(r, "score") else 0,
                     }
                     for r in results
@@ -1158,7 +1158,7 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                     limit=1,
                     with_payload=True,
                 )
-                if results:
+                if results and results[0].payload:
                     user_id = results[0].payload.get("user_id")
                     if user_id:
                         print(
@@ -1183,7 +1183,7 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                     limit=1,
                     with_payload=True,
                 )
-                if results:
+                if results and results[0].payload:
                     user_id = results[0].payload.get("user_id")
                     if user_id:
                         print(f"[yellow]⚠ Using user_id '{user_id}' from session records[/yellow]")

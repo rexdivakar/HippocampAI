@@ -83,6 +83,8 @@ def query_memories_by_session(qdrant_url: str, user_id: str, session_id: str):
 
             for i, point in enumerate(points, 1):
                 payload = point.payload
+                if payload is None:
+                    continue
                 print(f"Memory {i}:")
                 print(f"  ID: {point.id}")
                 print(f"  Text: {payload.get('text', 'N/A')}")

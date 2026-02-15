@@ -25,7 +25,7 @@ def main():
     user_id = "user_healing_demo"
 
     # Initialize healing components
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
     healing_engine = AutoHealingEngine(health_monitor, embedder)
 
@@ -122,7 +122,7 @@ def main():
     print("=" * 80)
 
     config = AutoHealingConfig(
-        user_id=client.user_id,
+        user_id=user_id,
         enabled=True,
         auto_cleanup_enabled=True,
         auto_dedup_enabled=True,
@@ -150,7 +150,7 @@ def main():
     print("=" * 80)
 
     cleanup_report = healing_engine.auto_cleanup(
-        user_id=client.user_id, memories=memories, config=config, dry_run=True
+        user_id=user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Cleanup analysis completed:")
@@ -172,7 +172,7 @@ def main():
     print("=" * 80)
 
     dedup_report = healing_engine.auto_consolidate(
-        user_id=client.user_id,
+        user_id=user_id,
         memories=memories,
         config=config,
         strategy=ConsolidationStrategy.SEMANTIC_MERGE,
@@ -235,7 +235,7 @@ def main():
     print("=" * 80)
 
     full_report = healing_engine.run_full_health_check(
-        user_id=client.user_id, memories=memories, config=config, dry_run=True
+        user_id=user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Full health check completed:")
@@ -261,7 +261,7 @@ def main():
 
     if len(duplicate_memories) >= 2:
         consolidation = healing_engine.create_consolidation(
-            user_id=client.user_id,
+            user_id=user_id,
             memories=duplicate_memories,
             strategy=ConsolidationStrategy.SEMANTIC_MERGE,
         )

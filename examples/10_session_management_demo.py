@@ -57,13 +57,15 @@ messages = [
 
 for i, message in enumerate(messages, 1):
     print(f"\nMessage {i}: {message[:50]}...")
-    session = client.track_session_message(
+    tracked = client.track_session_message(
         session_id=session.id,
         text=message,
         user_id=user_id,
         type="fact",
         auto_boundary_detect=False,  # Disable for this demo
     )
+    if tracked:
+        session = tracked
     print(f"✓ Tracked. Session has {session.message_count} messages")
 
 # ============================================
@@ -125,7 +127,7 @@ else:
     print("  ℹ Using fallback entity extraction")
     # Session should still have some entities from auto-extraction
     session_updated = client.get_session(session.id)
-    if session_updated.entities:
+    if session_updated and session_updated.entities:
         print(f"  Found {len(session_updated.entities)} entities:")
         for name, entity in list(session_updated.entities.items())[:5]:
             print(f"    - {name} ({entity.type})")
@@ -207,7 +209,7 @@ result = client.track_session_message(
     auto_boundary_detect=True,  # Enable boundary detection
 )
 
-if result.id != boundary_session.id:
+if result and result.id != boundary_session.id:
     print(f"✓ Boundary detected! New session created: {result.id[:8]}...")
     print("  Previous session completed")
 else:

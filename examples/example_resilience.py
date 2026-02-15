@@ -63,12 +63,13 @@ def example_retry_logic():
 
     # 3. LLM generation (with retry)
     # Note: If Ollama is temporarily unavailable, it will retry automatically
-    response = client.llm.generate(
-        prompt="List 3 benefits of Python",
-        system="You are a helpful programming assistant",
-        max_tokens=256,
-    )
-    logger.info(f"LLM generation completed (with automatic retry support): {response[:50]}...")
+    if client.llm:
+        response = client.llm.generate(
+            prompt="List 3 benefits of Python",
+            system="You are a helpful programming assistant",
+            max_tokens=256,
+        )
+        logger.info(f"LLM generation completed (with automatic retry support): {response[:50]}...")
 
 
 def example_structured_logging():

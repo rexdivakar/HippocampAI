@@ -274,7 +274,8 @@ def main():
 
     client.kv_store.set_memory("kv-test-1", memory_data)
     retrieved = client.kv_store.get_memory("kv-test-1")
-    print(f"✓ Stored and retrieved: {retrieved['text']}")
+    if retrieved:
+        print(f"✓ Stored and retrieved: {retrieved['text']}")
 
     # Get by user
     user_mem_ids = client.kv_store.get_user_memories(user_id)

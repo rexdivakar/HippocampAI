@@ -118,6 +118,7 @@ def test_custom_schema():
 
     from hippocampai.schema.models import (
         AttributeDefinition,
+        AttributeType,
         EntityTypeDefinition,
         SchemaDefinition,
     )
@@ -129,8 +130,8 @@ def test_custom_schema():
         name="Person",
         description="A person",
         attributes=[
-            AttributeDefinition(name="name", type="string", required=True),
-            AttributeDefinition(name="age", type="integer", required=False),
+            AttributeDefinition(name="name", type=AttributeType.STRING, required=True),
+            AttributeDefinition(name="age", type=AttributeType.INTEGER, required=False),
         ],
     )
 

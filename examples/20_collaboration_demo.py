@@ -1,7 +1,7 @@
 """Demo: Multi-agent collaboration with shared memory spaces."""
 
 from hippocampai.client import MemoryClient
-from hippocampai.models.agent import PermissionType
+from hippocampai.models.agent import AgentRole, PermissionType
 from hippocampai.multiagent.collaboration import CollaborationManager
 
 
@@ -17,10 +17,12 @@ def main():
     print("=" * 80)
 
     # Agent 1: Research assistant
-    research_client = MemoryClient(user_id="user_collaborative_demo")
+    user_id = "user_collaborative_demo"
+    research_client = MemoryClient()
     research_agent = research_client.create_agent(
         name="Research Assistant",
-        role="assistant",
+        user_id=user_id,
+        role=AgentRole.ASSISTANT,
         description="Handles research and information gathering",
     )
     print(f"✓ Created Research Agent: {research_agent.id}")
@@ -28,7 +30,8 @@ def main():
     # Agent 2: Writing assistant
     writing_agent = research_client.create_agent(
         name="Writing Assistant",
-        role="assistant",
+        user_id=user_id,
+        role=AgentRole.ASSISTANT,
         description="Handles writing and content creation",
     )
     print(f"✓ Created Writing Agent: {writing_agent.id}")
@@ -36,7 +39,8 @@ def main():
     # Agent 3: Analytics assistant
     analytics_agent = research_client.create_agent(
         name="Analytics Assistant",
-        role="specialist",
+        user_id=user_id,
+        role=AgentRole.SPECIALIST,
         description="Analyzes patterns and generates insights",
     )
     print(f"✓ Created Analytics Agent: {analytics_agent.id}")
@@ -96,6 +100,7 @@ def main():
     # Research agent adds research findings
     research_memory = research_client.remember(
         "AI bias can emerge from training data that reflects historical inequalities",
+        user_id=user_id,
         type="fact",
         importance=8.0,
         tags=["ai_bias", "ethics"],
@@ -112,6 +117,7 @@ def main():
     # Writing agent adds writing draft
     writing_memory = research_client.remember(
         "Draft outline for AI ethics paper focusing on bias mitigation strategies",
+        user_id=user_id,
         type="context",
         importance=7.0,
         tags=["writing", "outline"],

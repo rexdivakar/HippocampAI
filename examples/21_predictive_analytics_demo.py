@@ -15,7 +15,8 @@ def main():
     """Demonstrate predictive analytics capabilities."""
 
     # Initialize client
-    client = MemoryClient(user_id="user_predictive_demo")
+    client = MemoryClient()
+    user_id = "user_predictive_demo"
 
     # Create temporal and predictive engines
     temporal_analytics = TemporalAnalytics()
@@ -35,10 +36,10 @@ def main():
         date = datetime.now() - timedelta(days=i)
         client.remember(
             f"Morning workout completed on day {15 - i}",
+            user_id=user_id,
             type="habit",
             importance=7.0,
             tags=["fitness", "morning"],
-            metadata={"created_at": date.isoformat()},
         )
     print("✓ Created 15 workout memories (daily pattern)")
 
@@ -47,10 +48,10 @@ def main():
         date = datetime.now() - timedelta(weeks=i)
         client.remember(
             f"Team standup meeting - week {4 - i}",
+            user_id=user_id,
             type="event",
             importance=6.0,
             tags=["work", "meeting"],
-            metadata={"created_at": date.isoformat()},
         )
     print("✓ Created 4 meeting memories (weekly pattern)")
 
@@ -58,6 +59,7 @@ def main():
     for i in range(10):
         client.remember(
             f"Random note about topic {i}",
+            user_id=user_id,
             type="fact",
             importance=5.0 + (i % 5),
             tags=[f"topic_{i % 3}"],
@@ -65,7 +67,7 @@ def main():
     print("✓ Created 10 random memories")
 
     # Get all memories
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     print(f"\n✓ Total memories: {len(memories)}")
 
     # 2. Detect patterns
@@ -92,7 +94,7 @@ def main():
 
     for pattern in patterns[:2]:  # Top 2 patterns
         prediction = predictive_engine.predict_next_occurrence(
-            user_id=client.user_id, pattern=pattern
+            user_id=user_id, pattern=pattern
         )
 
         print(f"\n✓ Prediction: {prediction.prediction_type.value}")
@@ -113,14 +115,15 @@ def main():
     for i in range(20):  # Sudden spike
         client.remember(
             f"Sudden burst of activity - item {i}",
+            user_id=user_id,
             type="fact",
             importance=8.0,
             tags=["anomaly_test"],
         )
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     anomalies = predictive_engine.detect_anomalies(
-        user_id=client.user_id, memories=memories, lookback_days=30
+        user_id=user_id, memories=memories, lookback_days=30
     )
 
     print(f"✓ Detected {len(anomalies)} anomal(ies):")
@@ -141,7 +144,7 @@ def main():
     print("=" * 80)
 
     recommendations = predictive_engine.generate_recommendations(
-        user_id=client.user_id, memories=memories, max_recommendations=5
+        user_id=user_id, memories=memories, max_recommendations=5
     )
 
     print(f"✓ Generated {len(recommendations)} recommendation(s):")
@@ -160,7 +163,7 @@ def main():
 
     # Forecast activity for next week
     activity_forecast = predictive_engine.forecast_metric(
-        user_id=client.user_id,
+        user_id=user_id,
         memories=memories,
         metric=ForecastMetric.ACTIVITY_LEVEL,
         horizon=ForecastHorizon.NEXT_WEEK,
@@ -176,7 +179,7 @@ def main():
 
     # Forecast importance
     importance_forecast = predictive_engine.forecast_metric(
-        user_id=client.user_id,
+        user_id=user_id,
         memories=memories,
         metric=ForecastMetric.IMPORTANCE_AVERAGE,
         horizon=ForecastHorizon.NEXT_MONTH,
@@ -194,7 +197,7 @@ def main():
     print("=" * 80)
 
     insights = predictive_engine.generate_predictive_insights(
-        user_id=client.user_id, memories=memories
+        user_id=user_id, memories=memories
     )
 
     print(f"✓ Generated {len(insights)} insight(s):")

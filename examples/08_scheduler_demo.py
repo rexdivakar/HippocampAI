@@ -83,7 +83,8 @@ def main():
     initial_count = len(client.get_memories(user_id=user_id))
     print(f"Initial memory count: {initial_count}")
 
-    client.scheduler.trigger_consolidation_now()
+    if client.scheduler:
+        client.scheduler.trigger_consolidation_now()
 
     # Wait a bit for consolidation to complete
     time.sleep(1)
@@ -118,7 +119,8 @@ def main():
     print_section("6. Snapshot Creation")
 
     print("Manually triggering snapshot creation...")
-    client.scheduler.trigger_snapshot_now()
+    if client.scheduler:
+        client.scheduler.trigger_snapshot_now()
     print("✓ Snapshots created for both collections")
 
     # === 7. SCHEDULER STATUS ===

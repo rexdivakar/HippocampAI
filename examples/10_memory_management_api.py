@@ -88,7 +88,8 @@ async def main():
 
     # Read memory
     retrieved = await service.get_memory(memory.id)
-    logger.info(f"✓ Retrieved memory: {retrieved.id}")
+    if retrieved:
+        logger.info(f"✓ Retrieved memory: {retrieved.id}")
 
     # Update memory
     updated = await service.update_memory(
@@ -96,7 +97,8 @@ async def main():
         importance=9.0,
         tags=["geography", "europe", "france", "capitals"],
     )
-    logger.info(f"✓ Updated memory importance: {updated.importance}")
+    if updated:
+        logger.info(f"✓ Updated memory importance: {updated.importance}")
 
     # Query memories
     memories = await service.get_memories(user_id="demo_user", limit=10)

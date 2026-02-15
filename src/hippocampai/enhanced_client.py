@@ -10,10 +10,16 @@ This wrapper provides:
 
 import logging
 import os
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union
 
+from hippocampai.adapters.provider_anthropic import AnthropicLLM
+from hippocampai.adapters.provider_groq import GroqLLM
+from hippocampai.adapters.provider_ollama import OllamaLLM
+from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
+from hippocampai.pipeline.semantic_clustering import MemoryCluster
+from hippocampai.telemetry import MemoryTrace
 
 logger = logging.getLogger(__name__)
 
@@ -169,28 +175,22 @@ class EnhancedMemoryClient:
         filters: Optional[dict[str, Any]] = None,
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories."""
-        return cast(
-            list[Any],
-            self.client.recall(
-                query=query,
-                user_id=user_id,
-                session_id=session_id,
-                k=k,
-                filters=filters,
-            ),
+        return self.client.recall(
+            query=query,
+            user_id=user_id,
+            session_id=session_id,
+            k=k,
+            filters=filters,
         )
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> list[Memory]:
         """Extract and store memories from conversation."""
-        return cast(
-            list[Any],
-            self.client.extract_from_conversation(
-                conversation=conversation,
-                user_id=user_id,
-                session_id=session_id,
-            ),
+        return self.client.extract_from_conversation(
+            conversation=conversation,
+            user_id=user_id,
+            session_id=session_id,
         )
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
@@ -299,17 +299,16 @@ class EnhancedMemoryClient:
         metrics: dict[str, Any] = self.client.get_telemetry_metrics()
         return metrics
 
-    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[str]:
+    def get_recent_operations(
+        self, limit: int = 10, operation: Optional[str] = None
+    ) -> list[MemoryTrace]:
         """Get recent operations."""
-        operations: list[str] = cast(
-            list[str], self.client.get_recent_operations(limit=limit, operation=operation)
-        )
-        return operations
+        return self.client.get_recent_operations(limit=limit, operation=operation)
 
     @property
-    def llm(self) -> Optional[str]:
+    def llm(self) -> Optional[Union[OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM]]:
         """Access underlying LLM."""
-        return cast(Optional[str], self.client.llm)
+        return self.client.llm
 
     # Smart memory updates and clustering
     def reconcile_user_memories(self, user_id: str) -> list[Memory]:
@@ -317,13 +316,9 @@ class EnhancedMemoryClient:
         memories: list[Memory] = self.client.reconcile_user_memories(user_id=user_id)
         return memories
 
-    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> dict[str, Any]:
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> list[MemoryCluster]:
         """Cluster user's memories by topics."""
-        clusters: dict[str, Any] = cast(
-            dict[str, Any],
-            self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters),
-        )
-        return clusters
+        return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
 
     def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory."""
@@ -366,7 +361,8 @@ class EnhancedMemoryClient:
 
     def list_agents(self, user_id: Optional[str] = None) -> list[Any]:
         """List all agents."""
-        return cast(list[Any], self.client.list_agents(user_id))
+        agents: list[Any] = self.client.list_agents(user_id)
+        return agents
 
     def create_run(
         self,

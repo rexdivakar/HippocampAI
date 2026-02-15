@@ -10,7 +10,7 @@ Usage:
 import os
 
 from hippocampai import MemoryClient
-from hippocampai.adapters import GroqLLM
+from hippocampai.adapters.provider_groq import GroqLLM
 
 print("=" * 60)
 print("  Simple Chatbot with Memory Example")
@@ -19,7 +19,7 @@ print("=" * 60)
 # 1. Initialize components
 api_key = os.getenv("GROQ_API_KEY", "demo-key")
 llm = GroqLLM(api_key=api_key, model="llama-3.1-8b-instant")
-client = MemoryClient(llm_provider=llm)
+client = MemoryClient(llm_provider="groq", llm_model="llama-3.1-8b-instant")
 
 user_id = "demo_user"
 conversation_history = []

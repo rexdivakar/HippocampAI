@@ -214,7 +214,7 @@ def demo_trend_analysis(client: MemoryClient, user_id: str):
             print(f"   Confidence: {trend.confidence:.2f}")
             print(f"   Description: {trend.description}")
             print(f"   Data points: {len(trend.data_points)}")
-            print(f"   Detected: {trend.detected_at.strftime('%Y-%m-%d %H:%M')}")
+            print(f"   Detected: {trend.start_time.strftime('%Y-%m-%d %H:%M')}")
 
             # Show visual representation
             if trend.direction == "up":
