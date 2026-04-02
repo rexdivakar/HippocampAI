@@ -260,6 +260,7 @@ class ClassifyMemoryResponse(BaseModel):
 
 # Routes
 @app.get("/healthz")
+@app.get("/health")
 def health_check() -> dict[str, str]:
     """Health check."""
     return {"status": "ok"}

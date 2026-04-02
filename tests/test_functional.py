@@ -35,7 +35,7 @@ def print_header(text: str):
     print(f"{'=' * 60}")
 
 
-def test_memory_creation():
+def run_memory_creation():
     """Test creating Memory objects."""
     from hippocampai.models.memory import Memory, MemoryType
 
@@ -79,7 +79,7 @@ def test_memory_creation():
     return True
 
 
-def test_config_loading():
+def run_config_loading():
     """Test configuration loading."""
     print("\n⚙️  Testing Configuration...")
 
@@ -96,7 +96,7 @@ def test_config_loading():
         return True
 
 
-def test_memory_type_routing():
+def run_memory_type_routing():
     """Test memory type routing logic."""
     print("\n🔀 Testing Memory Type Routing...")
 
@@ -122,7 +122,7 @@ def test_memory_type_routing():
         return True
 
 
-def test_bm25_scoring():
+def run_bm25_scoring():
     """Test BM25 text scoring."""
     if not HAS_RANK_BM25:
         print("  ⚠️  BM25 test skipped (requires rank_bm25 package)")
@@ -158,7 +158,7 @@ def test_bm25_scoring():
         return True
 
 
-def test_rrf_fusion():
+def run_rrf_fusion():
     """Test Reciprocal Rank Fusion."""
     if not HAS_RANK_BM25:
         print("  ⚠️  RRF test skipped (requires rank_bm25 package)")
@@ -189,7 +189,7 @@ def test_rrf_fusion():
         return True
 
 
-def test_importance_decay():
+def run_importance_decay():
     """Test importance decay calculation."""
     from datetime import timedelta
 
@@ -219,7 +219,7 @@ def test_importance_decay():
         return True
 
 
-def test_scoring_combination():
+def run_scoring_combination():
     """Test score combination."""
     print("\n🎯 Testing Score Combination...")
 
@@ -265,7 +265,7 @@ def test_scoring_combination():
         return True
 
 
-def test_cache_functionality():
+def run_cache_functionality():
     """Test caching utility."""
     print("\n💾 Testing Score Cache...")
 
@@ -293,7 +293,7 @@ def test_cache_functionality():
         return True
 
 
-def test_pydantic_validation():
+def run_pydantic_validation():
     """Test Pydantic model validation."""
     from pydantic import ValidationError
 
@@ -341,14 +341,14 @@ def main():
     print("\nTesting library functionality with mock dependencies...")
 
     tests = [
-        ("Memory Creation", test_memory_creation),
-        ("Configuration Loading", test_config_loading),
-        ("BM25 Scoring", test_bm25_scoring),
-        ("RRF Fusion", test_rrf_fusion),
-        ("Importance Decay", test_importance_decay),
-        ("Score Combination", test_scoring_combination),
-        ("Cache Functionality", test_cache_functionality),
-        ("Pydantic Validation", test_pydantic_validation),
+        ("Memory Creation", run_memory_creation),
+        ("Configuration Loading", run_config_loading),
+        ("BM25 Scoring", run_bm25_scoring),
+        ("RRF Fusion", run_rrf_fusion),
+        ("Importance Decay", run_importance_decay),
+        ("Score Combination", run_scoring_combination),
+        ("Cache Functionality", run_cache_functionality),
+        ("Pydantic Validation", run_pydantic_validation),
     ]
 
     passed = 0

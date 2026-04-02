@@ -1,7 +1,5 @@
 """Demo: Predictive analytics and proactive recommendations."""
 
-from datetime import datetime, timedelta
-
 from hippocampai.client import MemoryClient
 from hippocampai.models.prediction import (
     ForecastHorizon,
@@ -33,7 +31,6 @@ def main():
 
     # Simulate daily workout pattern
     for i in range(15):
-        date = datetime.now() - timedelta(days=i)
         client.remember(
             f"Morning workout completed on day {15 - i}",
             user_id=user_id,
@@ -45,7 +42,6 @@ def main():
 
     # Simulate weekly meeting pattern
     for i in range(4):
-        date = datetime.now() - timedelta(weeks=i)
         client.remember(
             f"Team standup meeting - week {4 - i}",
             user_id=user_id,

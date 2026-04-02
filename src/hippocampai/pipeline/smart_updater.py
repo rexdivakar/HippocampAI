@@ -13,6 +13,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
+import numpy as np
+
 from hippocampai.models.memory import Memory
 
 logger = logging.getLogger(__name__)
@@ -37,15 +39,24 @@ class UpdateDecision:
 class SmartMemoryUpdater:
     """Handles intelligent memory updates and conflict resolution."""
 
-    def __init__(self, llm: Any = None, similarity_threshold: float = 0.85) -> None:
+    def __init__(
+        self,
+        llm: Any = None,
+        similarity_threshold: float = 0.85,
+        embedder: Any = None,
+    ) -> None:
         """Initialize smart updater.
 
         Args:
             llm: Language model for conflict resolution (optional)
             similarity_threshold: Threshold for considering memories similar
+            embedder: Embedder instance for cosine similarity (optional).
+                      When provided, uses embedding cosine similarity instead of
+                      token Jaccard, which is more semantically accurate.
         """
         self.llm = llm
         self.similarity_threshold = similarity_threshold
+        self.embedder = embedder
 
     def should_update_memory(
         self, existing: Memory, new_text: str, new_metadata: Optional[dict] = None
@@ -99,27 +110,36 @@ class SmartMemoryUpdater:
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate similarity between two text strings.
 
-        Uses token-based Jaccard similarity with some normalization.
+        Uses embedding cosine similarity when an embedder is available (more
+        semantically accurate). Falls back to token Jaccard similarity when
+        no embedder is configured.
         """
-        # Normalize
-        t1 = text1.lower().strip()
-        t2 = text2.lower().strip()
-
-        # Exact match
-        if t1 == t2:
+        # Fast exact-match short-circuit
+        if text1.strip().lower() == text2.strip().lower():
             return 1.0
 
-        # Tokenize
+        # Embedding cosine similarity (preferred)
+        if self.embedder is not None:
+            try:
+                v1: np.ndarray = self.embedder.encode_single(text1)
+                v2: np.ndarray = self.embedder.encode_single(text2)
+                norm1 = float(np.linalg.norm(v1))
+                norm2 = float(np.linalg.norm(v2))
+                if norm1 == 0.0 or norm2 == 0.0:
+                    return 0.0
+                return float(np.dot(v1, v2) / (norm1 * norm2))
+            except Exception:
+                pass  # fall through to Jaccard on error
+
+        # Fallback: token Jaccard similarity
+        t1 = text1.lower().strip()
+        t2 = text2.lower().strip()
         tokens1 = set(re.findall(r"\w+", t1))
         tokens2 = set(re.findall(r"\w+", t2))
-
         if not tokens1 or not tokens2:
             return 0.0
-
-        # Jaccard similarity
         intersection = tokens1.intersection(tokens2)
         union = tokens1.union(tokens2)
-
         return len(intersection) / len(union)
 
     def _detect_conflict(self, text1: str, text2: str) -> bool:

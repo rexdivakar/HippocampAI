@@ -1,7 +1,5 @@
 """Demo: Auto-healing and automatic memory maintenance."""
 
-from datetime import datetime, timedelta
-
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.healing import (
@@ -47,7 +45,6 @@ def main():
 
     # Stale memories (old with no access)
     for i in range(8):
-        old_date = datetime.now() - timedelta(days=120 + i * 5)
         client.remember(
             f"Old memory from 4 months ago #{i + 1}",
             user_id=user_id,

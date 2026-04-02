@@ -55,7 +55,7 @@ USER_ID = "test_validation_user"
 
 
 @test("1. Core Memory Operations")
-def test_core_operations():
+def run_core_operations():
     """Test basic memory operations."""
     client = MemoryClient()
 
@@ -84,7 +84,7 @@ def test_core_operations():
 
 
 @test("2. Session Management")
-def test_sessions():
+def run_sessions():
     """Test session creation and tracking."""
     client = MemoryClient()
 
@@ -113,7 +113,7 @@ def test_sessions():
 
 
 @test("3. Collaboration - Shared Spaces")
-def test_collaboration():
+def run_collaboration():
     """Test collaboration features."""
     client = MemoryClient()
     collab = CollaborationManager()
@@ -153,7 +153,7 @@ def test_collaboration():
 
 
 @test("4. Predictive Analytics - Patterns")
-def test_predictions():
+def run_predictions():
     """Test predictive analytics."""
     client = MemoryClient()
     temporal = TemporalAnalytics()
@@ -188,7 +188,7 @@ def test_predictions():
 
 
 @test("5. Auto-Healing - Health Monitoring")
-def test_autohealing():
+def run_autohealing():
     """Test auto-healing features."""
     client = MemoryClient()
     embedder = Embedder(model_name="all-MiniLM-L6-v2")
@@ -233,7 +233,7 @@ def test_autohealing():
 
 
 @test("6. Multi-User Isolation")
-def test_multiuser():
+def run_multiuser():
     """Test multi-user isolation."""
     client = MemoryClient()
 
@@ -266,7 +266,7 @@ def test_multiuser():
 
 
 @test("7. Performance - Basic Benchmarks")
-def test_performance():
+def run_performance():
     """Test basic performance."""
     client = MemoryClient()
     perf_user = "test_perf_user"
@@ -306,13 +306,13 @@ def run_all_tests():
     print(f"Start: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     tests = [
-        test_core_operations,
-        test_sessions,
-        test_collaboration,
-        test_predictions,
-        test_autohealing,
-        test_multiuser,
-        test_performance,
+        run_core_operations,
+        run_sessions,
+        run_collaboration,
+        run_predictions,
+        run_autohealing,
+        run_multiuser,
+        run_performance,
     ]
 
     results = []

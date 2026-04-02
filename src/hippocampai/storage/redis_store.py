@@ -75,7 +75,8 @@ class AsyncRedisKVStore:
     async def close(self) -> None:
         """Close Redis connection and pool."""
         if self._client:
-            await self._client.close()
+            _aclose = getattr(self._client, "aclose", self._client.close)
+            await _aclose()
             self._client = None
         if self._pool:
             await self._pool.disconnect()

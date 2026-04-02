@@ -74,18 +74,16 @@ def _test_wrapper(test_name: str):
             print("=" * 80)
             start_time = time.time()
             try:
-                result = func(*args, **kwargs)
+                func(*args, **kwargs)
                 duration = time.time() - start_time
                 print(f"✅ PASSED ({duration:.2f}s)")
                 results.add_pass(test_name, duration)
-                return result
             except Exception as e:
                 duration = time.time() - start_time
                 print(f"❌ FAILED ({duration:.2f}s)")
                 print(f"Error: {str(e)}")
                 print(f"Traceback: {traceback.format_exc()}")
                 results.add_fail(test_name, str(e))
-                return None
 
         return wrapper
 
@@ -535,7 +533,7 @@ def test_auto_tagging():
 
     # Create untagged memories
     memories = []
-    for i in range(5):
+    for _ in range(5):
         mem = client.remember(
             "This is about work and meetings at the office",
             user_id=user_id,

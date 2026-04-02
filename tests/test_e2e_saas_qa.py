@@ -157,7 +157,7 @@ def print_actual(message: str):
 # ============================================================================
 
 
-def test_1_initialization_and_health():
+def run_1_initialization_and_health():
     """
     Test 1: Initialization & Health
 
@@ -260,7 +260,7 @@ def test_1_initialization_and_health():
 # ============================================================================
 
 
-def test_2_spaces_users_isolation(client):
+def run_2_spaces_users_isolation(client):
     """
     Test 2: Spaces, Users & Isolation
 
@@ -328,7 +328,7 @@ def test_2_spaces_users_isolation(client):
     print_test("2.2: Verify space isolation (no data leakage)")
     isolation_passed = True
 
-    for space_id, space_data in spaces.items():
+    for space_id in spaces:
         try:
             # Query this space
             results = client.recall(
@@ -364,7 +364,7 @@ def test_2_spaces_users_isolation(client):
 # ============================================================================
 
 
-def test_3_basic_memory_writes(client, spaces):
+def run_3_basic_memory_writes(client, spaces):
     """
     Test 3: Basic Memory Writes
 
@@ -511,7 +511,7 @@ Key Features:
 # ============================================================================
 
 
-def test_4_retrieval_quality(client, spaces):
+def run_4_retrieval_quality(client, spaces):
     """
     Test 4: Retrieval Quality
 
@@ -651,7 +651,7 @@ def test_4_retrieval_quality(client, spaces):
 # ============================================================================
 
 
-def test_5_entity_extraction(client, spaces):
+def run_5_entity_extraction(client, spaces):
     """
     Test 5: Entity Extraction & Entity-Based Retrieval
 
@@ -766,7 +766,7 @@ def test_5_entity_extraction(client, spaces):
 # ============================================================================
 
 
-def test_6_summarization_consolidation(client, spaces):
+def run_6_summarization_consolidation(client, spaces):
     """
     Test 6: Summarization & Consolidation
 
@@ -904,7 +904,7 @@ def test_6_summarization_consolidation(client, spaces):
 # ============================================================================
 
 
-def test_7_temporal_reasoning(client, spaces):
+def run_7_temporal_reasoning(client, spaces):
     """
     Test 7: Temporal Reasoning & Recency
 
@@ -949,7 +949,7 @@ def test_7_temporal_reasoning(client, spaces):
         try:
             # Note: HippocampAI may not support custom timestamps in remember()
             # This tests if the feature exists
-            _memory = client.remember(
+            client.remember(
                 text=memory_data["text"],
                 user_id=space_id,
                 tags=memory_data["tags"],
@@ -1026,7 +1026,7 @@ def test_7_temporal_reasoning(client, spaces):
 # ============================================================================
 
 
-def test_8_cross_interface_consistency(client, spaces):
+def run_8_cross_interface_consistency(client, spaces):
     """
     Test 8: Cross-Interface Consistency
 
@@ -1089,7 +1089,7 @@ def test_8_cross_interface_consistency(client, spaces):
 # ============================================================================
 
 
-def test_9_updates_deletes_export(client, spaces):
+def run_9_updates_deletes_export(client, spaces):
     """
     Test 9: Updates, Deletes & Export
 
@@ -1115,7 +1115,6 @@ def test_9_updates_deletes_export(client, spaces):
         )
 
         print_actual(f"Created test memory: {test_memory.id}")
-        _original_text = test_memory.text
         qa_report.record_pass("Test memory creation")
 
     except Exception as e:
@@ -1253,7 +1252,7 @@ def test_9_updates_deletes_export(client, spaces):
 # ============================================================================
 
 
-def test_10_error_handling(client):
+def run_10_error_handling(client):
     """
     Test 10: Error Handling & Limits
 
@@ -1329,7 +1328,7 @@ def test_10_error_handling(client):
         try:
             huge_text = "A" * 1_000_000  # 1MB of text
 
-            _memory = client.remember(text=huge_text, user_id="qa_test_limits")
+            client.remember(text=huge_text, user_id="qa_test_limits")
 
             print_actual("Large memory accepted (no size limit)")
             qa_report.add_suggestion("Consider adding memory size limits with clear error messages")
@@ -1374,16 +1373,16 @@ def main():
     print(f"Started: {datetime.now().isoformat()}")
 
     # Run all tests
-    client = test_1_initialization_and_health()
-    spaces = test_2_spaces_users_isolation(client)
-    test_3_basic_memory_writes(client, spaces)
-    test_4_retrieval_quality(client, spaces)
-    test_5_entity_extraction(client, spaces)
-    test_6_summarization_consolidation(client, spaces)
-    test_7_temporal_reasoning(client, spaces)
-    test_8_cross_interface_consistency(client, spaces)
-    test_9_updates_deletes_export(client, spaces)
-    test_10_error_handling(client)
+    client = run_1_initialization_and_health()
+    spaces = run_2_spaces_users_isolation(client)
+    run_3_basic_memory_writes(client, spaces)
+    run_4_retrieval_quality(client, spaces)
+    run_5_entity_extraction(client, spaces)
+    run_6_summarization_consolidation(client, spaces)
+    run_7_temporal_reasoning(client, spaces)
+    run_8_cross_interface_consistency(client, spaces)
+    run_9_updates_deletes_export(client, spaces)
+    run_10_error_handling(client)
 
     # Generate final report
     print(qa_report.generate_report())

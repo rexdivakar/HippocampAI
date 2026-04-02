@@ -408,3 +408,145 @@ class EnhancedMemoryClient:
         return self.client.transfer_memory(
             memory_id, source_agent_id, target_agent_id, transfer_type
         )
+
+    # ------------------------------------------------------------------
+    # Prospective Memory
+    # ------------------------------------------------------------------
+
+    def create_prospective_intent(
+        self,
+        user_id: str,
+        intent_text: str,
+        trigger_type: str = "event_based",
+        action_description: str = "",
+        **kwargs: Any,
+    ) -> Any:
+        """Create a prospective memory intent."""
+        return self.client.create_prospective_intent(
+            user_id=user_id,
+            intent_text=intent_text,
+            trigger_type=trigger_type,
+            action_description=action_description,
+            **kwargs,
+        )
+
+    def parse_prospective_intent(self, user_id: str, text: str) -> Any:
+        """Parse natural language into a prospective intent."""
+        return self.client.parse_prospective_intent(user_id=user_id, text=text)
+
+    def list_prospective_intents(
+        self, user_id: str, status: Optional[str] = None
+    ) -> list[Any]:
+        """List prospective intents for a user."""
+        intents: list[Any] = self.client.list_prospective_intents(
+            user_id=user_id, status=status
+        )
+        return intents
+
+    def get_prospective_intent(self, intent_id: str) -> Optional[Any]:
+        """Get a prospective intent by ID."""
+        return self.client.get_prospective_intent(intent_id=intent_id)
+
+    def cancel_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Cancel a prospective intent."""
+        return self.client.cancel_prospective_intent(
+            intent_id=intent_id, user_id=user_id
+        )
+
+    def complete_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Mark a prospective intent as completed."""
+        return self.client.complete_prospective_intent(
+            intent_id=intent_id, user_id=user_id
+        )
+
+    def evaluate_prospective_context(
+        self,
+        user_id: str,
+        context_text: str,
+        context_embedding: Optional[list[float]] = None,
+    ) -> list[Any]:
+        """Evaluate context against pending prospective intents."""
+        intents: list[Any] = self.client.evaluate_prospective_context(
+            user_id=user_id,
+            context_text=context_text,
+            context_embedding=context_embedding,
+        )
+        return intents
+
+    # ------------------------------------------------------------------
+    # Truth Maintenance System
+    # ------------------------------------------------------------------
+
+    def evaluate_belief(
+        self,
+        memory_id: str,
+        text: str,
+        user_id: str,
+        confidence: float = 1.0,
+        justification_type: str = "direct_observation",
+        source_memory_ids: Optional[list[str]] = None,
+    ) -> Any:
+        """Evaluate and register a belief in the TMS."""
+        return self.client.evaluate_belief(
+            memory_id=memory_id,
+            text=text,
+            user_id=user_id,
+            confidence=confidence,
+            justification_type=justification_type,
+            source_memory_ids=source_memory_ids,
+        )
+
+    def get_belief_state(self, memory_id: str) -> Optional[Any]:
+        """Get the belief state for a memory."""
+        return self.client.get_belief_state(memory_id=memory_id)
+
+    def revise_belief(
+        self,
+        belief_id: str,
+        new_state: str,
+        reason: str = "",
+        triggered_by: Optional[str] = None,
+    ) -> Any:
+        """Revise a belief's state in the TMS."""
+        return self.client.revise_belief(
+            belief_id=belief_id,
+            new_state=new_state,
+            reason=reason,
+            triggered_by=triggered_by,
+        )
+
+    def get_contradictions(
+        self, user_id: str, include_resolved: bool = False
+    ) -> list[Any]:
+        """Get contradictions for a user's beliefs."""
+        links: list[Any] = self.client.get_contradictions(
+            user_id=user_id, include_resolved=include_resolved
+        )
+        return links
+
+    def get_belief_history(self, belief_id: str) -> list[Any]:
+        """Get revision history for a belief."""
+        history: list[Any] = self.client.get_belief_history(belief_id=belief_id)
+        return history
+
+    def resolve_contradiction(
+        self,
+        link_id: str,
+        winning_belief_id: str,
+        strategy: str = "manual",
+    ) -> Any:
+        """Resolve a contradiction by choosing a winning belief.
+
+        Args:
+            link_id: ID of the ContradictionLink.
+            winning_belief_id: ID of the belief that wins.
+            strategy: Resolution strategy description.
+
+        Returns:
+            Updated ContradictionLink object.
+        """
+        return self.client.resolve_contradiction(
+            link_id=link_id,
+            winning_belief_id=winning_belief_id,
+            strategy=strategy,
+        )

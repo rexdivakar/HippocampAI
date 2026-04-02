@@ -163,6 +163,17 @@ class Config(BaseSettings):
         default=24, validation_alias="CONFLICT_RESOLUTION_INTERVAL_HOURS"
     )
 
+    # Truth Maintenance System
+    enable_truth_maintenance: bool = Field(
+        default=False, validation_alias="HIPPOCAMPAI_ENABLE_TMS"
+    )
+    tms_retraction_confidence_threshold: float = Field(
+        default=0.3, validation_alias="HIPPOCAMPAI_TMS_RETRACTION_THRESHOLD"
+    )
+    tms_contradiction_penalty: float = Field(
+        default=0.5, validation_alias="HIPPOCAMPAI_TMS_CONTRADICTION_PENALTY"
+    )
+
     # Feature 5: Real-Time Incremental Knowledge Graph
     enable_realtime_graph: bool = Field(default=True, validation_alias="ENABLE_REALTIME_GRAPH")
     graph_extraction_mode: str = Field(
@@ -174,15 +185,21 @@ class Config(BaseSettings):
     graph_auto_save_interval: int = Field(
         default=300, validation_alias="GRAPH_AUTO_SAVE_INTERVAL"
     )  # seconds
+    graph_sync_check_enabled: bool = Field(
+        default=False, validation_alias="GRAPH_SYNC_CHECK_ENABLED"
+    )
+    graph_sync_check_limit: int = Field(
+        default=1000, validation_alias="GRAPH_SYNC_CHECK_LIMIT"
+    )
 
     # Feature 3: Graph-Aware Retrieval
     enable_graph_retrieval: bool = Field(
-        default=False, validation_alias="ENABLE_GRAPH_RETRIEVAL"
+        default=True, validation_alias="ENABLE_GRAPH_RETRIEVAL"
     )
     graph_retrieval_max_depth: int = Field(
         default=2, validation_alias="GRAPH_RETRIEVAL_MAX_DEPTH"
     )
-    weight_graph: float = Field(default=0.0, validation_alias="WEIGHT_GRAPH")
+    weight_graph: float = Field(default=0.15, validation_alias="WEIGHT_GRAPH")
 
     # Feature 1: Memory Relevance Feedback Loop
     weight_feedback: float = Field(default=0.1, validation_alias="WEIGHT_FEEDBACK")

@@ -2,7 +2,9 @@
 
 import logging
 
-from hippocampai.graph.knowledge_graph import KnowledgeGraph
+import networkx as nx
+
+from hippocampai.graph.knowledge_graph import KnowledgeGraph, NodeType
 from hippocampai.pipeline.entity_recognition import EntityRecognizer
 
 logger = logging.getLogger(__name__)
@@ -14,8 +16,8 @@ class GraphRetriever:
     Flow:
     1. Extract entities from query text
     2. Look up entity nodes in the knowledge graph
-    3. Find memories linked to those entities (direct + expansion)
-    4. Score memories by entity confidence, edge weight, and hop distance
+    3. BFS from each entity node up to max_depth hops
+    4. Score memory nodes by entity confidence, edge weight, and actual hop distance
     5. Filter to user, normalize, and return top_k
     """
 
@@ -52,24 +54,45 @@ class GraphRetriever:
 
         # Accumulate scores per memory_id
         memory_scores: dict[str, float] = {}
+        g: nx.DiGraph = self.graph.graph
 
         for entity in entities:
-            # 2. Direct links: memories connected to this entity
+            entity_node_id = self.graph._entity_index.get(entity.entity_id, "")
+            if not entity_node_id or entity_node_id not in g:
+                continue
+
+            # 2. Direct links: memories at hop distance 0 from this entity node
             direct_memories = self.graph.get_entity_memories(entity.entity_id)
             for mem_id in direct_memories:
-                score = entity.confidence * 1.0  # hop_distance = 0
+                score = entity.confidence * 1.0  # hop_distance = 0, no decay
                 self._accumulate_score(memory_scores, mem_id, score)
 
-            # 3. Expansion: memories reachable via graph traversal
-            related = self.graph.get_related_memories(
-                self.graph._entity_index.get(entity.entity_id, ""),
-                max_depth=self.max_depth,
+            # 3. BFS expansion: compute actual hop distances from entity_node_id
+            # single_source_shortest_path_length gives {node: hop_distance}
+            hop_distances: dict[str, int] = nx.single_source_shortest_path_length(
+                g, entity_node_id, cutoff=self.max_depth
             )
-            for related_id, _relation, weight in related:
-                # Estimate hop distance from weight decay
-                hop_distance = 1  # conservative default
-                score = entity.confidence * weight / (1 + hop_distance)
-                self._accumulate_score(memory_scores, related_id, score)
+
+            for neighbor_id, hop_distance in hop_distances.items():
+                if hop_distance == 0:
+                    continue  # already handled as direct above
+
+                node_data = g.nodes.get(neighbor_id, {})
+                node_type = node_data.get("node_type")
+
+                # Only score MEMORY nodes found during expansion
+                if node_type != NodeType.MEMORY:
+                    continue
+
+                # Aggregate edge weight along the shortest path
+                path = nx.shortest_path(g, entity_node_id, neighbor_id)
+                path_weight = 1.0
+                for u, v in zip(path[:-1], path[1:]):
+                    edge_data = g.edges.get((u, v), {})
+                    path_weight *= edge_data.get("weight", 1.0)
+
+                score = entity.confidence * path_weight / (1 + hop_distance)
+                self._accumulate_score(memory_scores, neighbor_id, score)
 
         # 4. Filter to user_id memories only
         user_memories = self.graph._user_graphs.get(user_id, set())

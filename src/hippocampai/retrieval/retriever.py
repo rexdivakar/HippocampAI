@@ -25,6 +25,45 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class QueryIntentDetector:
+    """Detect query intent and return per-query scoring weight multipliers.
+
+    Supports three intent signals:
+    - Temporal: query asks about recent/latest state → boost recency weight
+    - Preference: query asks about likes/preferences → boost importance weight
+    - Factual: default; no adjustment
+
+    Multipliers are applied on top of the base weights inside retrieve().
+    The final weights are still normalised by fuse_scores, so the absolute
+    values do not need to sum to 1.
+    """
+
+    TEMPORAL_TOKENS = frozenset({
+        "recently", "recent", "latest", "today", "yesterday", "now",
+        "current", "currently", "last", "just", "new", "newest", "updated",
+    })
+    PREFERENCE_TOKENS = frozenset({
+        "prefer", "preference", "like", "likes", "love", "loves", "favorite",
+        "favourite", "enjoy", "enjoys", "want", "wanted",
+    })
+
+    def detect(self, query: str) -> dict[str, float]:
+        """Return weight multipliers keyed by scoring component.
+
+        Returns an empty dict when no intent is detected (no adjustment).
+        """
+        tokens = set(query.lower().split())
+        adjustments: dict[str, float] = {}
+
+        if tokens & self.TEMPORAL_TOKENS:
+            adjustments["recency"] = 2.0   # double the recency contribution
+
+        if tokens & self.PREFERENCE_TOKENS:
+            adjustments["importance"] = 1.5  # boost importance for pref queries
+
+        return adjustments
+
+
 class HybridRetriever:
     """Hybrid retriever: BM25 + Embeddings → RRF → Qdrant topK → CrossEncoder → Final."""
 
@@ -50,6 +89,7 @@ class HybridRetriever:
         self.rrf_k = rrf_k
         self.graph_retriever = graph_retriever
         self.feedback_manager = feedback_manager
+        self._intent_detector = QueryIntentDetector()
 
         self.weights = weights or {"sim": 0.55, "rerank": 0.20, "recency": 0.15, "importance": 0.10}
 
@@ -62,11 +102,13 @@ class HybridRetriever:
             "context": 30,
         }
 
-        # BM25 indices (in-memory, rebuilt periodically)
+        # BM25 indices: rebuilt from Qdrant on first recall(), then updated
+        # incrementally via add_to_corpus() on every remember().
         self.bm25_facts: Optional[BM25Retriever] = None
         self.bm25_prefs: Optional[BM25Retriever] = None
         self.corpus_facts: list[tuple[str, str]] = []  # [(id, text), ...]
         self.corpus_prefs: list[tuple[str, str]] = []
+        self._bm25_dirty: bool = False  # True when corpus was appended but BM25 not rebuilt
 
     def rebuild_bm25(self, user_id: str) -> None:
         """Rebuild BM25 indices for a user."""
@@ -81,12 +123,45 @@ class HybridRetriever:
         self.corpus_facts = [(d["id"], d["payload"]["text"]) for d in facts_data]
         self.corpus_prefs = [(d["id"], d["payload"]["text"]) for d in prefs_data]
 
+        # Always reset the BM25 index to match the rebuilt corpus.
+        # If corpus is empty, set to None so _perform_bm25_search skips it
+        # rather than returning stale indices that are out of range.
         if self.corpus_facts:
             self.bm25_facts = BM25Retriever([text for _, text in self.corpus_facts])
+        else:
+            self.bm25_facts = None
         if self.corpus_prefs:
             self.bm25_prefs = BM25Retriever([text for _, text in self.corpus_prefs])
+        else:
+            self.bm25_prefs = None
 
         logger.info(f"Rebuilt BM25: facts={len(self.corpus_facts)}, prefs={len(self.corpus_prefs)}")
+        self._bm25_dirty = False
+
+    def add_to_corpus(self, memory_id: str, text: str, collection: str) -> None:
+        """Append a new memory to the BM25 corpus and rebuild the index.
+
+        Called after every successful remember() so that newly stored memories
+        are immediately searchable via keyword lookup without requiring a full
+        Qdrant scroll on the next recall().
+
+        If the BM25 index has not been initialised yet (no recall() has been
+        made), the entry is buffered in the corpus list and the index will be
+        built on the first rebuild_bm25() call.
+        """
+        if collection == self.qdrant.collection_facts:
+            # Avoid duplicate entries (e.g. if the same memory is stored twice)
+            if not any(mid == memory_id for mid, _ in self.corpus_facts):
+                self.corpus_facts.append((memory_id, text))
+            if self.bm25_facts is not None:
+                self.bm25_facts.update([t for _, t in self.corpus_facts])
+        else:
+            if not any(mid == memory_id for mid, _ in self.corpus_prefs):
+                self.corpus_prefs.append((memory_id, text))
+            if self.bm25_prefs is not None:
+                self.bm25_prefs.update([t for _, t in self.corpus_prefs])
+
+        self._bm25_dirty = False  # corpus and index are in sync
 
     def _route_to_collections(self, query: str) -> list[str]:
         """Determine which collections to search based on query routing."""
@@ -150,8 +225,14 @@ class HybridRetriever:
         enable_reranking: bool,
         doc_id: Optional[str] = None,
         graph_score: float = 0.0,
+        effective_weights: Optional[dict[str, float]] = None,
     ) -> tuple[float, float, float, float]:
-        """Compute final score and component scores."""
+        """Compute final score and component scores.
+
+        Args:
+            effective_weights: Per-query weight overrides (from intent detection).
+                               Falls back to self.weights when None.
+        """
         importance_norm = payload.get("importance", 5.0) / 10.0
         created_at = parse_iso_datetime(payload["created_at"])
         mem_type = payload.get("type", "fact")
@@ -166,9 +247,10 @@ class HybridRetriever:
         if self.feedback_manager is not None and doc_id is not None:
             feedback_score = self.feedback_manager.get_memory_feedback_score(doc_id)
 
+        weights = effective_weights if effective_weights is not None else self.weights
         final_score = fuse_scores(
             sim=sim_score, rerank=rerank_norm, recency=recency,
-            importance=importance_norm, weights=self.weights,
+            importance=importance_norm, weights=weights,
             graph=graph_score, feedback=feedback_score,
         )
         return final_score, rerank_norm, recency, importance_norm
@@ -250,6 +332,20 @@ class HybridRetriever:
         """
         collections = self._route_to_collections(query)
 
+        # Detect query intent and build effective weights for this query.
+        # Intent detection multiplies specific weight components (e.g. recency
+        # for temporal queries, importance for preference queries).
+        # fuse_scores auto-normalises so the absolute sum does not need to be 1.
+        intent_adjustments = self._intent_detector.detect(query)
+        if intent_adjustments:
+            effective_weights = {
+                k: v * intent_adjustments.get(k, 1.0)
+                for k, v in self.weights.items()
+            }
+            logger.debug(f"Intent adjustments for query: {intent_adjustments}")
+        else:
+            effective_weights = self.weights
+
         # Embed query (only if needed for vector search)
         query_vector = None
         if search_mode in [SearchMode.HYBRID, SearchMode.VECTOR_ONLY, SearchMode.GRAPH_HYBRID]:
@@ -294,13 +390,18 @@ class HybridRetriever:
             # Skip reranking, use original scores
             reranked = [(doc_id, text, score, 0.0) for doc_id, text, score in rerank_input]
 
-        # Score fusion
+        # Score fusion — uses effective_weights (intent-adjusted) per query
         results = []
+        # Build a fast lookup map to avoid O(n²) scan
+        candidate_map = {c[0]: c[1]["payload"] for c in all_candidates}
         for doc_id, text, sim_score, rerank_score in reranked[:50]:
-            payload = next(c[1]["payload"] for c in all_candidates if c[0] == doc_id)
+            payload = candidate_map.get(doc_id)
+            if payload is None:
+                continue
             final_score, rerank_norm, recency, importance_norm = self._compute_final_score(
                 payload, sim_score, rerank_score, enable_reranking,
                 doc_id=doc_id, graph_score=graph_scores.get(doc_id, 0.0),
+                effective_weights=effective_weights,
             )
 
             mem_type = payload.get("type", "fact")
@@ -322,6 +423,7 @@ class HybridRetriever:
                     "sim": sim_score, "rerank": rerank_norm if enable_reranking else 0.0,
                     "recency": recency, "importance": importance_norm, "final": final_score,
                     "search_mode": search_mode.value, "reranking_enabled": enable_reranking,
+                    "intent_adjustments": intent_adjustments,
                 }
 
             if session_id is None or memory.session_id == session_id:

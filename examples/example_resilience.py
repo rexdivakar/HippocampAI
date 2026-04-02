@@ -8,8 +8,6 @@ through structured JSON logging with request ID tracking.
 import logging
 
 from hippocampai import MemoryClient
-
-from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.utils.structured_logging import (
     RequestContext,
     get_logger,

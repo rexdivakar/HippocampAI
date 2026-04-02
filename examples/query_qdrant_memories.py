@@ -7,7 +7,7 @@ for a specific user or session.
 """
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchValue, VectorParams
 
 # Configuration
 QDRANT_URL = "http://100.113.229.40:6333"
@@ -119,7 +119,12 @@ def list_all_collections(qdrant_url: str):
             info = client.get_collection(collection.name)
             print(f"  • {collection.name}")
             print(f"    Points: {info.points_count}")
-            print(f"    Vector size: {info.config.params.vectors.size}")
+            vectors = info.config.params.vectors
+            if isinstance(vectors, VectorParams):
+                print(f"    Vector size: {vectors.size}")
+            elif isinstance(vectors, dict):
+                for vec_name, vec_params in vectors.items():
+                    print(f"    Vector '{vec_name}' size: {vec_params.size}")
             print()
 
     except Exception as e:

@@ -514,47 +514,236 @@ class KnowledgeGraph(MemoryGraph):
 
         return timeline
 
-    def infer_new_facts(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
+    def infer_new_facts(
+        self, user_id: Optional[str] = None, llm: Optional[Any] = None
+    ) -> list[dict[str, Any]]:
         """Infer new facts from existing knowledge graph patterns.
 
+        Applies pattern-based rules first.  When *llm* is provided, an
+        additional LLM-backed inference pass is run over each entity's
+        local neighbourhood to surface open-domain facts that the rule set
+        cannot capture.
+
         Args:
-            user_id: Optional user ID to limit inference
+            user_id: Optional user ID to limit inference scope.
+            llm: Optional LLM adapter (must expose ``generate(prompt, max_tokens)``).
+                 When ``None`` only pattern rules are applied.
 
         Returns:
-            List of inferred facts with confidence scores
+            Deduplicated list of inferred facts, each a dict with keys:
+            ``entity_id``, ``fact``, ``confidence``, ``rule``, ``supporting_facts``.
         """
-        inferred = []
+        inferred: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()  # (entity_id, fact_text) dedup key
 
-        # Simple inference rules
-        # Rule 1: If A works_at B and B located_in C, then A likely located_in C
-        # Rule 2: If multiple facts about same entity, aggregate patterns
+        def _add(item: dict[str, Any]) -> None:
+            key = (item["entity_id"], item["fact"])
+            if key not in seen:
+                seen.add(key)
+                inferred.append(item)
 
-        # Get all entity relationships
         for entity_id, entity_node_id in self._entity_index.items():
-            # Get entity's relationships
             relationships = list(self.graph.edges(entity_node_id, data=True))
+            _ = self.graph.nodes[entity_node_id].get("text", "")  # reserved for future use
 
             for source, target, edge_data in relationships:
                 relation = edge_data.get("original_relation")
+                source_text = self.graph.nodes[source].get("text", "")
+                target_text = self.graph.nodes[target].get("text", "")
 
-                # Apply inference rules
+                # Rule 1: works_at -> located_in
                 if relation == "works_at":
-                    # Check if organization has location
-                    org_relationships = list(self.graph.edges(target, data=True))
-                    for org_source, org_target, org_edge_data in org_relationships:
-                        if org_edge_data.get("original_relation") == "located_in":
-                            # Infer person is located in same place
-                            target_data = self.graph.nodes[org_target]
-                            if target_data.get("node_type") == NodeType.ENTITY.value:
-                                location = target_data.get("text")
-                                inferred.append(
-                                    {
-                                        "entity_id": entity_id,
-                                        "fact": f"{self.graph.nodes[source].get('text', '')} likely located in {location}",
-                                        "confidence": 0.7,
-                                        "rule": "works_at_location_inference",
-                                        "supporting_facts": [source, target, org_target],
-                                    }
-                                )
+                    for _, loc_target, loc_edge in self.graph.edges(target, data=True):
+                        if loc_edge.get("original_relation") == "located_in":
+                            loc_data = self.graph.nodes[loc_target]
+                            if loc_data.get("node_type") == NodeType.ENTITY.value:
+                                location = loc_data.get("text", "")
+                                _add({
+                                    "entity_id": entity_id,
+                                    "fact": f"{source_text} likely located in {location}",
+                                    "confidence": 0.7,
+                                    "rule": "works_at_location_inference",
+                                    "supporting_facts": [source, target, loc_target],
+                                })
 
+                # Rule 2: studied_at -> located_in
+                elif relation == "studied_at":
+                    for _, loc_target, loc_edge in self.graph.edges(target, data=True):
+                        if loc_edge.get("original_relation") == "located_in":
+                            loc_data = self.graph.nodes[loc_target]
+                            if loc_data.get("node_type") == NodeType.ENTITY.value:
+                                location = loc_data.get("text", "")
+                                _add({
+                                    "entity_id": entity_id,
+                                    "fact": f"{source_text} likely located in {location} during studies",
+                                    "confidence": 0.7,
+                                    "rule": "studied_at_location_inference",
+                                    "supporting_facts": [source, target, loc_target],
+                                })
+
+                # Rule 3: manages B; B works_at C -> A works_at C
+                elif relation == "manages":
+                    for _, org_target, org_edge in self.graph.edges(target, data=True):
+                        if org_edge.get("original_relation") == "works_at":
+                            org_data = self.graph.nodes[org_target]
+                            if org_data.get("node_type") == NodeType.ENTITY.value:
+                                org_name = org_data.get("text", "")
+                                _add({
+                                    "entity_id": entity_id,
+                                    "fact": f"{source_text} likely works at {org_name}",
+                                    "confidence": 0.7,
+                                    "rule": "manages_works_at_inference",
+                                    "supporting_facts": [source, target, org_target],
+                                })
+
+                # Rule 4: knows B; B works_at C -> A has connection to C
+                elif relation == "knows":
+                    for _, org_target, org_edge in self.graph.edges(target, data=True):
+                        if org_edge.get("original_relation") == "works_at":
+                            org_data = self.graph.nodes[org_target]
+                            if org_data.get("node_type") == NodeType.ENTITY.value:
+                                org_name = org_data.get("text", "")
+                                _add({
+                                    "entity_id": entity_id,
+                                    "fact": f"{source_text} has a connection to {org_name} via {target_text}",
+                                    "confidence": 0.5,
+                                    "rule": "knows_organization_inference",
+                                    "supporting_facts": [source, target, org_target],
+                                })
+
+                # Rule 5: founded_by -> B works_at A (founder relationship)
+                elif relation == "founded_by":
+                    founder_data = self.graph.nodes[target]
+                    if founder_data.get("node_type") == NodeType.ENTITY.value:
+                        founder_name = founder_data.get("text", "")
+                        _add({
+                            "entity_id": entity_id,
+                            "fact": f"{founder_name} likely works at {source_text} as a founder",
+                            "confidence": 0.8,
+                            "rule": "founded_by_inverse",
+                            "supporting_facts": [source, target],
+                        })
+
+                # Rule 7: part_of transitive (A part_of B; B part_of C -> A part_of C)
+                elif relation == "part_of":
+                    for _, grand_target, grand_edge in self.graph.edges(target, data=True):
+                        if grand_edge.get("original_relation") == "part_of":
+                            grand_data = self.graph.nodes[grand_target]
+                            if grand_data.get("node_type") == NodeType.ENTITY.value:
+                                grand_name = grand_data.get("text", "")
+                                _add({
+                                    "entity_id": entity_id,
+                                    "fact": f"{source_text} is transitively part of {grand_name}",
+                                    "confidence": 0.65,
+                                    "rule": "part_of_transitive",
+                                    "supporting_facts": [source, target, grand_target],
+                                })
+
+        # Rule 6: co-location — entities that share a located_in target are co-located
+        # Group entities by their location target (cap group size to avoid O(n^2) explosion)
+        _MAX_CO_LOCATION_GROUP = 50
+        location_to_entities: dict[str, list[tuple[str, str]]] = {}
+        for entity_id, entity_node_id in self._entity_index.items():
+            for _, loc_target, edge_data in self.graph.edges(entity_node_id, data=True):
+                if edge_data.get("original_relation") == "located_in":
+                    loc_data = self.graph.nodes.get(loc_target, {})
+                    if loc_data.get("node_type") == NodeType.ENTITY.value:
+                        if loc_target not in location_to_entities:
+                            location_to_entities[loc_target] = []
+                        if len(location_to_entities[loc_target]) < _MAX_CO_LOCATION_GROUP:
+                            location_to_entities[loc_target].append(
+                                (entity_id, entity_node_id)
+                            )
+
+        for loc_node_id, group in location_to_entities.items():
+            loc_name = self.graph.nodes[loc_node_id].get("text", "")
+            for i, (eid_a, nid_a) in enumerate(group):
+                for _, nid_b in group[i + 1:]:
+                    name_a = self.graph.nodes[nid_a].get("text", "")
+                    name_b = self.graph.nodes[nid_b].get("text", "")
+                    _add({
+                        "entity_id": eid_a,
+                        "fact": f"{name_a} and {name_b} are co-located in {loc_name}",
+                        "confidence": 0.4,
+                        "rule": "co_location_inference",
+                        "supporting_facts": [nid_a, nid_b, loc_node_id],
+                    })
+
+        # LLM-backed inference (only when an LLM adapter is provided)
+        if llm is not None:
+            for fact in self._infer_facts_llm(llm):
+                _add(fact)
+
+        logger.info(
+            f"infer_new_facts produced {len(inferred)} facts "
+            f"({'with' if llm else 'without'} LLM pass)"
+        )
         return inferred
+
+    def _infer_facts_llm(self, llm: Any) -> list[dict[str, Any]]:
+        """Use the LLM to infer new facts from each entity's local neighbourhood.
+
+        This method summarises an entity's immediate graph neighbourhood into a
+        short text prompt and asks the LLM to state additional facts that can be
+        confidently inferred.  The entity text is sanitised (newlines stripped,
+        length capped) before being inserted into the prompt to reduce prompt
+        injection risk.
+
+        Args:
+            llm: LLM adapter exposing ``generate(prompt: str, max_tokens: int) -> str``.
+
+        Returns:
+            List of inferred fact dicts (same schema as ``infer_new_facts``).
+        """
+        results: list[dict[str, Any]] = []
+
+        for entity_id, entity_node_id in self._entity_index.items():
+            entity_data = self.graph.nodes.get(entity_node_id, {})
+            raw_text = entity_data.get("text", "")
+            # Sanitise: strip newlines and cap length to bound token usage
+            entity_name = raw_text.replace("\n", " ").replace("\r", " ")[:200]
+
+            # Collect 1-hop neighbourhood summary
+            neighbour_facts: list[str] = []
+            for _, neighbor, edge_data in self.graph.edges(entity_node_id, data=True):
+                neighbor_data = self.graph.nodes.get(neighbor, {})
+                neighbor_text = neighbor_data.get("text", "")[:100].replace("\n", " ")
+                relation = edge_data.get("original_relation", edge_data.get("relation", "related_to"))
+                neighbour_facts.append(f"{entity_name} {relation} {neighbor_text}")
+
+            if not neighbour_facts:
+                continue
+
+            facts_str = "; ".join(neighbour_facts[:10])  # Cap at 10 to keep prompt bounded
+            prompt = (
+                f"Given these known facts about {entity_name}: {facts_str}. "
+                "What additional facts can be confidently inferred? "
+                "Return each fact on its own line in exactly this format: "
+                "FACT: [text] | CONFIDENCE: [0.0-1.0]"
+            )
+
+            try:
+                response = llm.generate(prompt, max_tokens=256)
+                for line in response.splitlines():
+                    line = line.strip()
+                    if not line.startswith("FACT:"):
+                        continue
+                    try:
+                        fact_part, conf_part = line.split("|", 1)
+                        fact_text = fact_part.replace("FACT:", "").strip()
+                        conf_str = conf_part.replace("CONFIDENCE:", "").strip()
+                        confidence = float(conf_str)
+                        confidence = max(0.0, min(1.0, confidence))
+                        results.append({
+                            "entity_id": entity_id,
+                            "fact": fact_text,
+                            "confidence": confidence,
+                            "rule": "llm_inference",
+                            "supporting_facts": [entity_node_id],
+                        })
+                    except (ValueError, AttributeError):
+                        continue
+            except Exception as exc:
+                logger.warning(f"LLM inference failed for entity {entity_id}: {exc}")
+
+        return results
