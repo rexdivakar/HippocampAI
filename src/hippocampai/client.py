@@ -24,6 +24,7 @@ from hippocampai.models.agent import (
     Run,
 )
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.search import SearchMode
 from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 from hippocampai.multiagent import MultiAgentManager
 from hippocampai.pipeline.consolidate import MemoryConsolidator
@@ -51,7 +52,6 @@ from hippocampai.pipeline.semantic_clustering import MemoryCluster, SemanticCate
 from hippocampai.pipeline.smart_updater import SmartMemoryUpdater
 from hippocampai.pipeline.summarization import SessionSummary, Summarizer, SummaryStyle
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalAnalyzer, Timeline, TimeRange
-from hippocampai.models.search import SearchMode
 from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.session import SessionManager
@@ -142,9 +142,13 @@ def _initialize_llm(
 
     provider_map = {
         "ollama": lambda: OllamaLLM(model=config.llm_model, base_url=config.llm_base_url),
-        "openai": lambda: OpenAILLM(api_key=os.getenv("OPENAI_API_KEY", ""), model=config.llm_model),
+        "openai": lambda: OpenAILLM(
+            api_key=os.getenv("OPENAI_API_KEY", ""), model=config.llm_model
+        ),
         "groq": lambda: GroqLLM(api_key=os.getenv("GROQ_API_KEY", ""), model=config.llm_model),
-        "anthropic": lambda: AnthropicLLM(api_key=os.getenv("ANTHROPIC_API_KEY", ""), model=config.llm_model),
+        "anthropic": lambda: AnthropicLLM(
+            api_key=os.getenv("ANTHROPIC_API_KEY", ""), model=config.llm_model
+        ),
     }
 
     if config.llm_provider == "ollama":
@@ -209,9 +213,22 @@ class MemoryClient:
 
         # Override config with params
         _apply_config_overrides(
-            self.config, qdrant_url, collection_facts, collection_prefs,
-            embed_model, embed_quantized, reranker_model, bm25_backend, llm_provider,
-            llm_model, hnsw_M, ef_construction, ef_search, weights, half_lives, allow_cloud,
+            self.config,
+            qdrant_url,
+            collection_facts,
+            collection_prefs,
+            embed_model,
+            embed_quantized,
+            reranker_model,
+            bm25_backend,
+            llm_provider,
+            llm_model,
+            hnsw_M,
+            ef_construction,
+            ef_search,
+            weights,
+            half_lives,
+            allow_cloud,
         )
 
         # Initialize components
@@ -258,7 +275,9 @@ class MemoryClient:
         )
         self.consolidator = MemoryConsolidator(llm=self.llm)
         self.scorer = ImportanceScorer(llm=self.llm)
-        self.smart_updater = SmartMemoryUpdater(llm=self.llm, similarity_threshold=0.85, embedder=self.embedder)
+        self.smart_updater = SmartMemoryUpdater(
+            llm=self.llm, similarity_threshold=0.85, embedder=self.embedder
+        )
         self.categorizer = SemanticCategorizer(llm=self.llm)
         self.temporal_analyzer = TemporalAnalyzer(llm=self.llm)  # Temporal reasoning
         self.insight_analyzer = InsightAnalyzer(llm=self.llm)  # Cross-session insights
@@ -565,9 +584,7 @@ class MemoryClient:
         )
 
         if not similar:
-            self.telemetry.add_event(
-                trace_id, "smart_update_check", status="success", action="new"
-            )
+            self.telemetry.add_event(trace_id, "smart_update_check", status="success", action="new")
             return memory, None
 
         existing_memory = similar[0][0]
@@ -609,9 +626,7 @@ class MemoryClient:
 
         return memory, None
 
-    def _store_memory_in_qdrant(
-        self, memory: Memory, trace_id: str
-    ) -> str:
+    def _store_memory_in_qdrant(self, memory: Memory, trace_id: str) -> str:
         """Store memory in Qdrant and return collection name."""
         collection: str = memory.collection_name(
             self.config.collection_facts, self.config.collection_prefs
@@ -630,9 +645,7 @@ class MemoryClient:
             vector=vector,
             payload=payload,
         )
-        self.telemetry.add_event(
-            trace_id, "vector_store", status="success", collection=collection
-        )
+        self.telemetry.add_event(trace_id, "vector_store", status="success", collection=collection)
 
         logger.info(f"Stored memory: {memory.id}, type={memory.type}")
         return collection
@@ -665,9 +678,7 @@ class MemoryClient:
                 )
 
             # 3. Extract and add relationships between entities
-            relationships = self.entity_recognizer.extract_relationships(
-                memory.text, entities
-            )
+            relationships = self.entity_recognizer.extract_relationships(memory.text, entities)
             for rel in relationships:
                 self.graph.link_entities(rel)
 
@@ -747,7 +758,8 @@ class MemoryClient:
         """Apply merge resolution for conflicting memories."""
         try:
             merged_collection = resolution.updated_memory.collection_name(
-                self.config.collection_facts, self.config.collection_prefs,
+                self.config.collection_facts,
+                self.config.collection_prefs,
             )
             merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
             merged_payload = resolution.updated_memory.model_dump(mode="json")
@@ -768,7 +780,9 @@ class MemoryClient:
             )
 
             self.provenance_tracker.track_merge(
-                memory, [conflict.memory_1, conflict.memory_2], merge_strategy=resolution_strategy,
+                memory,
+                [conflict.memory_1, conflict.memory_2],
+                merge_strategy=resolution_strategy,
             )
         except Exception as merge_err:
             logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
@@ -907,8 +921,16 @@ class MemoryClient:
             # Create and enrich memory
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
             memory = self._create_initial_memory(
-                text, user_id, session_id, type, importance, tags,
-                ttl_days, agent_id, run_id, visibility,
+                text,
+                user_id,
+                session_id,
+                type,
+                importance,
+                tags,
+                ttl_days,
+                agent_id,
+                run_id,
+                visibility,
             )
             logger.info(f"Enrichment completed for text '{memory.text[:50]}'")
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
@@ -927,8 +949,11 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
             dedup_action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
-                trace_id, "deduplication_check", status="success",
-                action=dedup_action, duplicates=len(dup_ids),
+                trace_id,
+                "deduplication_check",
+                status="success",
+                action=dedup_action,
+                duplicates=len(dup_ids),
             )
             if dedup_action == "skip":
                 logger.info(f"Skipping duplicate memory: {memory.id}, type={memory.type}")
@@ -944,7 +969,9 @@ class MemoryClient:
                         metadata=existing.metadata,
                     )
                     logger.info(f"Reinforced existing memory {existing.id} instead of duplicating")
-                    self.telemetry.end_trace(trace_id, status="reinforced", result={"existing_id": existing.id})
+                    self.telemetry.end_trace(
+                        trace_id, status="reinforced", result={"existing_id": existing.id}
+                    )
                     return existing
 
             # Store in Qdrant
@@ -977,8 +1004,13 @@ class MemoryClient:
                     logger.warning(f"TMS belief evaluation failed: {tms_err}")
 
             self.telemetry.end_trace(
-                trace_id, status="success",
-                result={"memory_id": memory.id, "collection": collection, "auto_resolved": auto_resolve_conflicts},
+                trace_id,
+                status="success",
+                result={
+                    "memory_id": memory.id,
+                    "collection": collection,
+                    "auto_resolved": auto_resolve_conflicts,
+                },
             )
 
             # Track events and metrics
@@ -1003,8 +1035,12 @@ class MemoryClient:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             self._track_memory_creation(
                 Memory(text=text, user_id=user_id, type=MemoryType(type)),
-                user_id, session_id, tags, auto_resolve_conflicts,
-                success=False, error=str(e),
+                user_id,
+                session_id,
+                tags,
+                auto_resolve_conflicts,
+                success=False,
+                error=str(e),
             )
             raise
 
@@ -1050,8 +1086,11 @@ class MemoryClient:
                 logger.error(f"Auto-resolve failed for conflict: {e}")
 
         self.telemetry.add_event(
-            trace_id, "auto_conflict_resolution", status="success",
-            conflicts_found=len(conflicts), strategy=resolution_strategy,
+            trace_id,
+            "auto_conflict_resolution",
+            status="success",
+            conflicts_found=len(conflicts),
+            strategy=resolution_strategy,
         )
         return memory
 
@@ -1089,7 +1128,11 @@ class MemoryClient:
             results = cast(
                 list[Any],
                 self.retriever.retrieve(
-                    query=query, user_id=user_id, session_id=session_id, k=k, filters=filters,
+                    query=query,
+                    user_id=user_id,
+                    session_id=session_id,
+                    k=k,
+                    filters=filters,
                     search_mode=search_mode,
                 ),
             )
@@ -1399,8 +1442,13 @@ class MemoryClient:
                 get_tracker,
             )
 
-            field_map = {"text": text, "importance": importance, "tags": tags,
-                         "metadata": metadata, "expires_at": expires_at}
+            field_map = {
+                "text": text,
+                "importance": importance,
+                "tags": tags,
+                "metadata": metadata,
+                "expires_at": expires_at,
+            }
             updated_fields = [name for name, val in field_map.items() if val is not None]
 
             tracker = get_tracker()
@@ -1449,27 +1497,36 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "update_vector_store", status="in_progress")
             if vector is not None:
                 self.qdrant.upsert(
-                    collection_name=collection, id=memory_id,
-                    vector=np.array(vector), payload=memory.model_dump(mode="json"),
+                    collection_name=collection,
+                    id=memory_id,
+                    vector=np.array(vector),
+                    payload=memory.model_dump(mode="json"),
                 )
             else:
                 self.qdrant.update(
-                    collection_name=collection, id=memory_id,
+                    collection_name=collection,
+                    id=memory_id,
                     payload=memory.model_dump(mode="json"),
                 )
             self.telemetry.add_event(trace_id, "update_vector_store", status="success")
 
             logger.info(f"Updated memory: {memory_id}")
-            updated_count = len([x for x in [text, importance, tags, metadata, expires_at] if x is not None])
+            updated_count = len(
+                [x for x in [text, importance, tags, metadata, expires_at] if x is not None]
+            )
             self.telemetry.end_trace(
-                trace_id, status="success",
+                trace_id,
+                status="success",
                 result={"memory_id": memory_id, "updated_fields": updated_count},
             )
 
             # Track events and metrics
-            self._track_memory_update_event(memory_id, memory.user_id, text, importance, tags, metadata, expires_at)
+            self._track_memory_update_event(
+                memory_id, memory.user_id, text, importance, tags, metadata, expires_at
+            )
             try:
                 from hippocampai.monitoring.prometheus_metrics import memory_operations_total
+
                 memory_operations_total.labels(operation="update", status="success").inc()
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus update metrics: {metrics_err}")
@@ -3544,7 +3601,9 @@ class MemoryClient:
             >>> print(f"Topics: {summary.topics}")
             >>> print(f"Action items: {summary.action_items}")
         """
-        summary: SessionSummary = self.summarizer.summarize_session(messages, session_id, style, entities)
+        summary: SessionSummary = self.summarizer.summarize_session(
+            messages, session_id, style, entities
+        )
         return summary
 
     def create_rolling_summary(
@@ -7127,9 +7186,7 @@ class MemoryClient:
             raise RuntimeError("Prospective memory not enabled")
         return self.prospective.create_intent_from_natural_language(user_id=user_id, text=text)
 
-    def list_prospective_intents(
-        self, user_id: str, status: Optional[str] = None
-    ) -> list[Any]:
+    def list_prospective_intents(self, user_id: str, status: Optional[str] = None) -> list[Any]:
         """List prospective intents for a user.
 
         Args:
@@ -7288,9 +7345,7 @@ class MemoryClient:
             triggered_by=triggered_by,
         )
 
-    def get_contradictions(
-        self, user_id: str, include_resolved: bool = False
-    ) -> list[Any]:
+    def get_contradictions(self, user_id: str, include_resolved: bool = False) -> list[Any]:
         """Get contradictions for a user's beliefs.
 
         Args:

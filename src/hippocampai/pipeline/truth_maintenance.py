@@ -113,9 +113,7 @@ class TruthMaintenanceSystem:
         self._retraction_threshold: float = getattr(
             config, "tms_retraction_confidence_threshold", 0.3
         )
-        self._contradiction_penalty: float = getattr(
-            config, "tms_contradiction_penalty", 0.5
-        )
+        self._contradiction_penalty: float = getattr(config, "tms_contradiction_penalty", 0.5)
 
     def evaluate_belief(
         self,
@@ -237,11 +235,7 @@ class TruthMaintenanceSystem:
             # Map conflict back to belief IDs
             # conflict.memory_1 is the existing memory that matched
             matching_idx = next(
-                (
-                    j
-                    for j, em in enumerate(existing_memories)
-                    if em.id == conflict.memory_1.id
-                ),
+                (j for j, em in enumerate(existing_memories) if em.id == conflict.memory_1.id),
                 None,
             )
             if matching_idx is not None and matching_idx < len(existing_beliefs):
@@ -263,9 +257,7 @@ class TruthMaintenanceSystem:
     def _apply_contradiction_penalty(self, belief: BeliefRecord) -> None:
         """Apply a confidence penalty to a contradicted belief."""
         old_confidence = belief.confidence
-        belief.confidence = max(
-            0.0, belief.confidence * (1.0 - self._contradiction_penalty)
-        )
+        belief.confidence = max(0.0, belief.confidence * (1.0 - self._contradiction_penalty))
         if belief.confidence < self._retraction_threshold:
             if belief.state == BeliefState.ACTIVE:
                 belief.state = BeliefState.CONTRADICTED
@@ -380,9 +372,7 @@ class TruthMaintenanceSystem:
         if parsed_state in (BeliefState.RETRACTED, BeliefState.SUSPENDED):
             self.propagate_confidence(belief_id)
 
-        logger.info(
-            f"Revised belief {belief_id}: {old_state.value} -> {parsed_state.value}"
-        )
+        logger.info(f"Revised belief {belief_id}: {old_state.value} -> {parsed_state.value}")
         return revision
 
     def resolve_contradiction(

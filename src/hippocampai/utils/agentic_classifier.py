@@ -510,6 +510,7 @@ def classify_memory_agentic(text: str, default: Optional[MemoryType] = None) -> 
         ClassificationStrategy,
         classify_memory,
     )
+
     return classify_memory(text, default, ClassificationStrategy.AGENTIC)
 
 
@@ -539,6 +540,7 @@ def classify_memory_agentic_with_confidence(
         ClassificationStrategy,
         classify_memory_with_confidence,
     )
+
     result = classify_memory_with_confidence(text, strategy=ClassificationStrategy.AGENTIC)
     return (result[0], result[1])
 
@@ -584,4 +586,5 @@ def clear_agentic_cache() -> None:
     )
     _agentic_cache.clear()
     from hippocampai.utils.classifier_service import clear_classification_cache
+
     clear_classification_cache()

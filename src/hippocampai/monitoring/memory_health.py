@@ -227,7 +227,9 @@ class MemoryHealthMonitor:
         engagement_score = self._calculate_engagement_score(memories)
 
         # Build issues list
-        issues = self._build_issues_list(memories, stale_count, low_quality_count, duplicate_clusters)
+        issues = self._build_issues_list(
+            memories, stale_count, low_quality_count, duplicate_clusters
+        )
 
         # Calculate overall score (weighted average)
         overall_score = (

@@ -62,8 +62,11 @@ class Memory(BaseModel):
     def collection_name(self, facts_col: str, prefs_col: str) -> str:
         """Route to appropriate collection."""
         if self.type in {
-            MemoryType.PREFERENCE, MemoryType.GOAL, MemoryType.HABIT,
-            MemoryType.PROCEDURAL, MemoryType.PROSPECTIVE,
+            MemoryType.PREFERENCE,
+            MemoryType.GOAL,
+            MemoryType.HABIT,
+            MemoryType.PROCEDURAL,
+            MemoryType.PROSPECTIVE,
         }:
             return prefs_col
         return facts_col

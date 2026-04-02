@@ -153,9 +153,7 @@ class TestEvaluateContext:
             similarity_threshold=0.9,
         )
         # Very similar embedding
-        triggered = manager.evaluate_context(
-            "u1", "anything", context_embedding=[0.99, 0.1, 0.0]
-        )
+        triggered = manager.evaluate_context("u1", "anything", context_embedding=[0.99, 0.1, 0.0])
         assert len(triggered) == 1
 
     def test_embedding_no_match(self, manager: ProspectiveMemoryManager) -> None:
@@ -167,9 +165,7 @@ class TestEvaluateContext:
             similarity_threshold=0.9,
         )
         # Orthogonal embedding
-        triggered = manager.evaluate_context(
-            "u1", "anything", context_embedding=[0.0, 1.0, 0.0]
-        )
+        triggered = manager.evaluate_context("u1", "anything", context_embedding=[0.0, 1.0, 0.0])
         assert len(triggered) == 0
 
     def test_priority_ordering(self, manager: ProspectiveMemoryManager) -> None:

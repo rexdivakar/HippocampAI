@@ -20,6 +20,7 @@ def _json_serializer(obj: Any) -> str:
         return obj.isoformat()
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
+
 # Constants for error messages
 _REDIS_NOT_CONNECTED_ERROR = "Redis client not connected"
 

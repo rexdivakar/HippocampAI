@@ -204,7 +204,9 @@ class TestGraphPersistence:
 
             assert "nodes" in data
             assert "links" in data
-            assert len(data["nodes"]) >= 3  # At least 3 memory nodes (may include entity/topic nodes)
+            assert (
+                len(data["nodes"]) >= 3
+            )  # At least 3 memory nodes (may include entity/topic nodes)
             assert len(data["links"]) >= 1  # At least the explicit relationship
 
             # Verify node data
@@ -215,8 +217,7 @@ class TestGraphPersistence:
 
             # Verify the explicit relationship edge exists among all links
             matching_edges = [
-                e for e in data["links"]
-                if e["source"] == m1.id and e["target"] == m2.id
+                e for e in data["links"] if e["source"] == m1.id and e["target"] == m2.id
             ]
             assert len(matching_edges) >= 1
             edge = matching_edges[0]
@@ -437,7 +438,9 @@ class TestGraphPersistence:
 
             # Verify all relationships are preserved
             related = client.get_related_memories(memories[0].id, max_depth=1)
-            assert len(related) >= 2  # At least leads_to m1, similar_to m4 (may include entity/topic links)
+            assert (
+                len(related) >= 2
+            )  # At least leads_to m1, similar_to m4 (may include entity/topic links)
 
             related_deep = client.get_related_memories(memories[0].id, max_depth=3)
             assert len(related_deep) >= 2

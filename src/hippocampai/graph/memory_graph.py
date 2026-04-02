@@ -207,12 +207,20 @@ class MemoryGraph:
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
             degrees = [
-                (node, len(list(self.graph.predecessors(node))) + len(list(self.graph.successors(node))))
+                (
+                    node,
+                    len(list(self.graph.predecessors(node)))
+                    + len(list(self.graph.successors(node))),
+                )
                 for node in user_nodes
             ]
         else:
             degrees = [
-                (node, len(list(self.graph.predecessors(node))) + len(list(self.graph.successors(node))))
+                (
+                    node,
+                    len(list(self.graph.predecessors(node)))
+                    + len(list(self.graph.successors(node))),
+                )
                 for node in self.graph.nodes()
             ]
 
@@ -332,13 +340,22 @@ class MemoryGraph:
 
     def export_to_dict(self, user_id: Optional[str] = None) -> dict:
         """Export graph to dictionary format for serialization."""
+        import numpy as np
+
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
             subgraph = self.graph.subgraph(user_nodes)
         else:
             subgraph = self.graph
 
-        return cast(dict[Any, Any], nx.node_link_data(subgraph, edges="links"))
+        # Convert graph to a mutable copy so we can sanitize ndarray attributes
+        graph_copy = subgraph.copy()
+        for _, attrs in graph_copy.nodes(data=True):
+            for key, val in list(attrs.items()):
+                if isinstance(val, np.ndarray):
+                    attrs[key] = val.tolist()
+
+        return cast(dict[Any, Any], nx.node_link_data(graph_copy, edges="links"))
 
     def import_from_dict(self, data: dict) -> None:
         """Import graph from dictionary format."""

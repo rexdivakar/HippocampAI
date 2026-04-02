@@ -105,9 +105,7 @@ class TestBeliefStateTransitions:
 
     def test_revise_invalid_state(self, tms):
         """Revising with an invalid state raises ValueError."""
-        belief = tms.evaluate_belief(
-            memory_id="m3", text="something", user_id="alice"
-        )
+        belief = tms.evaluate_belief(memory_id="m3", text="something", user_id="alice")
         with pytest.raises(ValueError, match="Invalid belief state"):
             tms.revise_belief(belief.belief_id, new_state="nonexistent")
 
@@ -146,9 +144,7 @@ class TestContradictionDetection:
 
     def test_no_contradiction_for_unrelated(self, tms):
         """Unrelated beliefs should not produce contradictions."""
-        tms.evaluate_belief(
-            memory_id="m1", text="I like hiking", user_id="bob", confidence=0.9
-        )
+        tms.evaluate_belief(memory_id="m1", text="I like hiking", user_id="bob", confidence=0.9)
         tms.evaluate_belief(
             memory_id="m2", text="My favorite color is blue", user_id="bob", confidence=0.8
         )

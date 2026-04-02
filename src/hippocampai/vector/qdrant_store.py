@@ -32,7 +32,7 @@ class QdrantStore:
 
     def __init__(
         self,
-        url: str = "http://localhost:6333",
+        url: Optional[str] = None,
         collection_facts: str = "hippocampai_facts",
         collection_prefs: str = "hippocampai_prefs",
         dimension: int = 384,
@@ -40,7 +40,10 @@ class QdrantStore:
         ef_construction: int = 256,
         ef_search: int = 128,
     ):
-        self.client = QdrantClient(url=url, timeout=60)
+        import os
+
+        resolved_url: str = url or os.getenv("QDRANT_URL", "http://localhost:6333")
+        self.client = QdrantClient(url=resolved_url, timeout=60)
         self.collection_facts = collection_facts
         self.collection_prefs = collection_prefs
         self.dimension = dimension

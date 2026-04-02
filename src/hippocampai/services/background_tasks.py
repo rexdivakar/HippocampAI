@@ -255,7 +255,9 @@ class BackgroundTaskManager:
                                     user_id=intent.user_id,
                                 )
                             except Exception as te:
-                                logger.warning(f"Trigger evaluation failed for intent {intent.id}: {te}")
+                                logger.warning(
+                                    f"Trigger evaluation failed for intent {intent.id}: {te}"
+                                )
 
                 # Also expire stale intents periodically
                 expired = self.prospective_manager.expire_stale_intents()

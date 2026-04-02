@@ -14,7 +14,6 @@ No running Qdrant or Redis required — all external dependencies are mocked/fak
 from __future__ import annotations
 
 import math
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import networkx as nx
@@ -223,9 +222,7 @@ class TestGraphRetrieverHopDistanceScoring:
             g.add_edge(from_node, mem_node_id, weight=1.0)
 
         # All memory nodes belong to this user
-        all_memory_ids: set[str] = set(direct_memory_ids) | {
-            m for _, m, _ in hop_memory_edges
-        }
+        all_memory_ids: set[str] = set(direct_memory_ids) | {m for _, m, _ in hop_memory_edges}
 
         mock_kg = MagicMock()
         mock_kg.graph = g
@@ -418,6 +415,7 @@ class TestQueryIntentDetector:
     @pytest.fixture
     def detector(self):
         from hippocampai.retrieval.retriever import QueryIntentDetector
+
         return QueryIntentDetector()
 
     def test_temporal_query_returns_recency_multiplier(self, detector) -> None:
@@ -511,7 +509,9 @@ class TestHybridRetrieverAddToCorpus:
     def test_text_stored_alongside_id_in_corpus_facts(self) -> None:
         """The stored tuple should be (memory_id, text)."""
         retriever = _make_hybrid_retriever()
-        retriever.add_to_corpus("mem_002", "Machine learning concepts", retriever.qdrant.collection_facts)
+        retriever.add_to_corpus(
+            "mem_002", "Machine learning concepts", retriever.qdrant.collection_facts
+        )
 
         corpus_dict = dict(retriever.corpus_facts)
         assert corpus_dict["mem_002"] == "Machine learning concepts"

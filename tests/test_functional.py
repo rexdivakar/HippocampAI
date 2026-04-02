@@ -239,9 +239,7 @@ def run_scoring_combination():
             "importance": 0.10,
         }
 
-        final_score = fuse_scores(
-            sim_score, rerank_score, recency_val, importance_score, weights
-        )
+        final_score = fuse_scores(sim_score, rerank_score, recency_val, importance_score, weights)
 
         print("  Component scores:")
         print(

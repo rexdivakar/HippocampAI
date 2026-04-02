@@ -53,8 +53,7 @@ def fuse_scores(
         + weights.get("feedback", 0) * feedback
     )
     weight_sum = sum(
-        weights.get(k, 0)
-        for k in ("sim", "rerank", "recency", "importance", "graph", "feedback")
+        weights.get(k, 0) for k in ("sim", "rerank", "recency", "importance", "graph", "feedback")
     )
     if weight_sum <= 0:
         return 0.0

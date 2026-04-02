@@ -17,20 +17,9 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-# ---------------------------------------------------------------------------
-# Path fixup (mirrors conftest pattern already in the suite)
-# ---------------------------------------------------------------------------
-import sys
-from pathlib import Path
-
-_SRC = Path(__file__).resolve().parents[1] / "src"
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
-
+from hippocampai.graph.graph_persistence import load, save
 from hippocampai.graph.knowledge_graph import KnowledgeGraph, NodeType
 from hippocampai.graph.memory_graph import MemoryGraph, RelationType
-from hippocampai.graph.graph_persistence import load, save
-
 
 # ===========================================================================
 # Helpers / shared fixtures
@@ -224,9 +213,7 @@ class TestSuggestRelationships:
         v_cand = np.array([np.cos(angle), np.sin(angle), 0.0], dtype=np.float32)
         mg.graph.nodes["m2"]["embedding"] = v_cand
 
-        suggestions = mg.suggest_relationships(
-            "m1", ["m2"], threshold=0.7, source_embedding=v_src
-        )
+        suggestions = mg.suggest_relationships("m1", ["m2"], threshold=0.7, source_embedding=v_src)
 
         assert len(suggestions) == 1
         _, rel_type, _ = suggestions[0]
@@ -240,9 +227,7 @@ class TestSuggestRelationships:
         # Orthogonal vector: cosine == 0.0
         mg.graph.nodes["m2"]["embedding"] = np.array([0.0, 1.0, 0.0], dtype=np.float32)
 
-        suggestions = mg.suggest_relationships(
-            "m1", ["m2"], threshold=0.7, source_embedding=v_src
-        )
+        suggestions = mg.suggest_relationships("m1", ["m2"], threshold=0.7, source_embedding=v_src)
 
         assert suggestions == []
 
@@ -252,9 +237,7 @@ class TestSuggestRelationships:
         # m2 has no embedding stored
 
         v_src = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        suggestions = mg.suggest_relationships(
-            "m1", ["m2"], threshold=0.0, source_embedding=v_src
-        )
+        suggestions = mg.suggest_relationships("m1", ["m2"], threshold=0.0, source_embedding=v_src)
 
         assert suggestions == []
 
@@ -741,9 +724,7 @@ class TestLLMInferencePath:
         kg = self._make_kg_with_entity_and_neighbour()
 
         mock_llm = MagicMock()
-        mock_llm.generate.return_value = (
-            "FACT: Alice is a professional | CONFIDENCE: 0.8\n"
-        )
+        mock_llm.generate.return_value = "FACT: Alice is a professional | CONFIDENCE: 0.8\n"
 
         kg.infer_new_facts(llm=mock_llm)
 
@@ -820,8 +801,7 @@ class TestLLMInferencePath:
 
         mock_llm = MagicMock()
         mock_llm.generate.return_value = (
-            "FACT: Over confident | CONFIDENCE: 1.5\n"
-            "FACT: Negative conf | CONFIDENCE: -0.3\n"
+            "FACT: Over confident | CONFIDENCE: 1.5\nFACT: Negative conf | CONFIDENCE: -0.3\n"
         )
 
         facts = kg.infer_new_facts(llm=mock_llm)
@@ -861,6 +841,7 @@ class _ClientStub:
 
         # Bind the real method from MemoryClient onto this stub
         from hippocampai.client import MemoryClient
+
         self.check_graph_qdrant_drift = MemoryClient.check_graph_qdrant_drift.__get__(
             self, type(self)
         )
@@ -953,7 +934,14 @@ class TestCheckGraphQdrantDrift:
 
         result = stub.check_graph_qdrant_drift(user_id)
 
-        required_keys = {"user_id", "graph_only", "qdrant_only", "synced", "drift_detected", "checked_at"}
+        required_keys = {
+            "user_id",
+            "graph_only",
+            "qdrant_only",
+            "synced",
+            "drift_detected",
+            "checked_at",
+        }
         assert required_keys.issubset(result.keys())
 
     def test_result_user_id_matches_requested_user(self):

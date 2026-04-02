@@ -310,10 +310,7 @@ class ProspectiveMemoryManager:
         intent.trigger_count += 1
         intent.updated_at = datetime.now(timezone.utc)
 
-        logger.info(
-            f"Fired prospective intent {intent.id} "
-            f"(trigger_count={intent.trigger_count})"
-        )
+        logger.info(f"Fired prospective intent {intent.id} (trigger_count={intent.trigger_count})")
 
         # Handle recurrence: reset to PENDING with next trigger_at
         if intent.recurrence != RecurrencePattern.NONE:
@@ -402,9 +399,7 @@ class ProspectiveMemoryManager:
             return False
 
     @staticmethod
-    def _match_embedding_similarity(
-        intent: ProspectiveIntent, embedding: list[float]
-    ) -> bool:
+    def _match_embedding_similarity(intent: ProspectiveIntent, embedding: list[float]) -> bool:
         """Return True if cosine similarity exceeds threshold."""
         if not intent.context_embedding or not embedding:
             return False
@@ -557,7 +552,9 @@ class ProspectiveMemoryManager:
             recurrence = RecurrencePattern.MONTHLY
 
         # Detect event-based keywords ("when ... mention ...")
-        when_match = re.search(r"when\s+.*?\b(mention|talk|discuss|bring up|ask about)\b\s+(.*)", text_lower)
+        when_match = re.search(
+            r"when\s+.*?\b(mention|talk|discuss|bring up|ask about)\b\s+(.*)", text_lower
+        )
         if when_match:
             trigger_type = ProspectiveTriggerType.EVENT_BASED
             topic = when_match.group(2).strip().rstrip(".,!?")

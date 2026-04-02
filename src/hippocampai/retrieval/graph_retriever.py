@@ -115,9 +115,7 @@ class GraphRetriever:
         return ranked[:top_k]
 
     @staticmethod
-    def _accumulate_score(
-        scores: dict[str, float], memory_id: str, score: float
-    ) -> None:
+    def _accumulate_score(scores: dict[str, float], memory_id: str, score: float) -> None:
         """Accumulate the best score for a memory_id."""
         if memory_id in scores:
             scores[memory_id] = max(scores[memory_id], score)

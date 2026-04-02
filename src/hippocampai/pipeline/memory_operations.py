@@ -430,15 +430,27 @@ class MemoryOperations:
     ) -> bool:
         """Check importance and confidence range filters."""
         importance = memory.get("importance", 0.0)
-        if filter_criteria.importance_min is not None and importance < filter_criteria.importance_min:
+        if (
+            filter_criteria.importance_min is not None
+            and importance < filter_criteria.importance_min
+        ):
             return False
-        if filter_criteria.importance_max is not None and importance > filter_criteria.importance_max:
+        if (
+            filter_criteria.importance_max is not None
+            and importance > filter_criteria.importance_max
+        ):
             return False
 
         confidence = memory.get("confidence", 0.0)
-        if filter_criteria.confidence_min is not None and confidence < filter_criteria.confidence_min:
+        if (
+            filter_criteria.confidence_min is not None
+            and confidence < filter_criteria.confidence_min
+        ):
             return False
-        if filter_criteria.confidence_max is not None and confidence > filter_criteria.confidence_max:
+        if (
+            filter_criteria.confidence_max is not None
+            and confidence > filter_criteria.confidence_max
+        ):
             return False
         return True
 

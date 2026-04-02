@@ -39,6 +39,7 @@ except ImportError:
     _NodeWithScore = _Unavailable
     _TextNode = _Unavailable
 
+
 class HippocampRetriever(_BaseRetriever):  # type: ignore[misc]
     """LlamaIndex retriever backed by HippocampAI.
 

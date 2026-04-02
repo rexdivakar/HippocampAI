@@ -89,9 +89,7 @@ def main():
     print("=" * 80)
 
     for pattern in patterns[:2]:  # Top 2 patterns
-        prediction = predictive_engine.predict_next_occurrence(
-            user_id=user_id, pattern=pattern
-        )
+        prediction = predictive_engine.predict_next_occurrence(user_id=user_id, pattern=pattern)
 
         print(f"\n✓ Prediction: {prediction.prediction_type.value}")
         print(f"  When: {prediction.predicted_datetime.strftime('%Y-%m-%d %H:%M')}")
@@ -192,9 +190,7 @@ def main():
     print("7. Generating Predictive Insights")
     print("=" * 80)
 
-    insights = predictive_engine.generate_predictive_insights(
-        user_id=user_id, memories=memories
-    )
+    insights = predictive_engine.generate_predictive_insights(user_id=user_id, memories=memories)
 
     print(f"✓ Generated {len(insights)} insight(s):")
     for insight in insights:

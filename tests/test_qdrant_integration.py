@@ -105,9 +105,7 @@ class TestRememberAndRecall:
 
         results_b = client.recall(secret_text, user_id=user_b, k=10)
         b_texts = [r.memory.text for r in results_b]
-        assert secret_text not in b_texts, (
-            "user_b should not see user_a's memories"
-        )
+        assert secret_text not in b_texts, "user_b should not see user_a's memories"
 
     def test_recalled_memories_have_scores(self, client, user_id) -> None:
         client.remember("I enjoy hiking on weekends", user_id=user_id)
@@ -215,9 +213,7 @@ class TestCollectionRouting:
             with_payload=True,
         )
         point_ids = [str(p.id) for p in results[0]]
-        assert mem.id in point_ids, (
-            f"PREFERENCE memory {mem.id} should be in {PREFS_COLLECTION}"
-        )
+        assert mem.id in point_ids, f"PREFERENCE memory {mem.id} should be in {PREFS_COLLECTION}"
 
     def test_fact_memory_stored_in_facts_collection(self, client, user_id) -> None:
         mem = client.remember(
@@ -235,9 +231,7 @@ class TestCollectionRouting:
             with_payload=True,
         )
         point_ids = [str(p.id) for p in results[0]]
-        assert mem.id in point_ids, (
-            f"FACT memory {mem.id} should be in {FACTS_COLLECTION}"
-        )
+        assert mem.id in point_ids, f"FACT memory {mem.id} should be in {FACTS_COLLECTION}"
 
 
 # ---------------------------------------------------------------------------

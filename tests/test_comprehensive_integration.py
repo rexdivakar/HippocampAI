@@ -103,7 +103,11 @@ def test_basic_memory_operations():
 
     # Create
     memory = client.remember(
-        "Test memory for basic operations", user_id=user_id, type="fact", importance=7.0, tags=["test", "basic"]
+        "Test memory for basic operations",
+        user_id=user_id,
+        type="fact",
+        importance=7.0,
+        tags=["test", "basic"],
     )
     assert memory.id is not None
     assert memory.text == "Test memory for basic operations"
@@ -137,7 +141,9 @@ def test_batch_operations():
 
     # Batch create using a loop (no batch_remember method)
     texts = [f"Batch memory {i}" for i in range(10)]
-    memories = [client.remember(text, user_id=user_id, type="fact", importance=6.0) for text in texts]
+    memories = [
+        client.remember(text, user_id=user_id, type="fact", importance=6.0) for text in texts
+    ]
     assert len(memories) == 10
     print(f"  Batch created {len(memories)} memories")
 
@@ -312,7 +318,9 @@ def test_pattern_detection():
     # Create memories with daily pattern
     for i in range(15):
         client.remember(
-            f"Daily memory {i}", user_id=user_id, type="habit",
+            f"Daily memory {i}",
+            user_id=user_id,
+            type="habit",
         )
 
     memories = client.get_memories(user_id=user_id)
@@ -343,9 +351,7 @@ def test_anomaly_detection():
         client.remember(f"Anomaly memory {i}", user_id=user_id, type="fact", importance=9.0)
 
     memories = client.get_memories(user_id=user_id)
-    anomalies = predictive.detect_anomalies(
-        user_id=user_id, memories=memories, lookback_days=30
-    )
+    anomalies = predictive.detect_anomalies(user_id=user_id, memories=memories, lookback_days=30)
 
     print(f"  Detected {len(anomalies)} anomal(ies)")
     for anomaly in anomalies:
@@ -389,7 +395,9 @@ def test_forecasting():
     # Create memory history
     for i in range(30):
         client.remember(
-            f"Historical memory {i}", user_id=user_id, type="fact",
+            f"Historical memory {i}",
+            user_id=user_id,
+            type="fact",
         )
 
     memories = client.get_memories(user_id=user_id)
@@ -501,7 +509,10 @@ def test_duplicate_detection():
     # Create duplicates
     for i in range(3):
         client.remember(
-            "I prefer coffee over tea in the morning", user_id=user_id, type="preference", importance=6.0
+            "I prefer coffee over tea in the morning",
+            user_id=user_id,
+            type="preference",
+            importance=6.0,
         )
 
     # Create unique memories

@@ -107,8 +107,7 @@ class EmbeddingMigrationManager:
         )
         self._migrations[migration.id] = migration
         logger.info(
-            f"Migration {migration.id} created: "
-            f"'{migration.old_model}' -> '{migration.new_model}'"
+            f"Migration {migration.id} created: '{migration.old_model}' -> '{migration.new_model}'"
         )
         return migration
 
@@ -229,9 +228,7 @@ class EmbeddingMigrationManager:
                     migration.migrated_count += len(texts)
                 except Exception as e:
                     migration.failed_count += len(texts)
-                    logger.error(
-                        f"Batch migration failed for collection {collection}: {e}"
-                    )
+                    logger.error(f"Batch migration failed for collection {collection}: {e}")
 
             if len(results) < batch_size:
                 break

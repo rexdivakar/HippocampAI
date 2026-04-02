@@ -47,9 +47,7 @@ def main():
     print("✅ Memory client initialized")
 
     # Initialize automation controller
-    automation = AutomationController(
-        memory_service=client, llm=llm, embedder=embedder
-    )
+    automation = AutomationController(memory_service=client, llm=llm, embedder=embedder)
 
     print("✅ Automation controller initialized")
 

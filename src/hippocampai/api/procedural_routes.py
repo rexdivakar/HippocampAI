@@ -106,7 +106,7 @@ def inject_rules(
         base_prompt=request.base_prompt,
         max_rules=request.max_rules,
     )
-    rules_count = len(client.procedural.get_active_rules(request.user_id)[:request.max_rules])
+    rules_count = len(client.procedural.get_active_rules(request.user_id)[: request.max_rules])
     return InjectResponse(prompt=result, rules_injected=rules_count)
 
 

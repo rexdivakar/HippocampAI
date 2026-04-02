@@ -558,13 +558,15 @@ class KnowledgeGraph(MemoryGraph):
                             loc_data = self.graph.nodes[loc_target]
                             if loc_data.get("node_type") == NodeType.ENTITY.value:
                                 location = loc_data.get("text", "")
-                                _add({
-                                    "entity_id": entity_id,
-                                    "fact": f"{source_text} likely located in {location}",
-                                    "confidence": 0.7,
-                                    "rule": "works_at_location_inference",
-                                    "supporting_facts": [source, target, loc_target],
-                                })
+                                _add(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{source_text} likely located in {location}",
+                                        "confidence": 0.7,
+                                        "rule": "works_at_location_inference",
+                                        "supporting_facts": [source, target, loc_target],
+                                    }
+                                )
 
                 # Rule 2: studied_at -> located_in
                 elif relation == "studied_at":
@@ -573,13 +575,15 @@ class KnowledgeGraph(MemoryGraph):
                             loc_data = self.graph.nodes[loc_target]
                             if loc_data.get("node_type") == NodeType.ENTITY.value:
                                 location = loc_data.get("text", "")
-                                _add({
-                                    "entity_id": entity_id,
-                                    "fact": f"{source_text} likely located in {location} during studies",
-                                    "confidence": 0.7,
-                                    "rule": "studied_at_location_inference",
-                                    "supporting_facts": [source, target, loc_target],
-                                })
+                                _add(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{source_text} likely located in {location} during studies",
+                                        "confidence": 0.7,
+                                        "rule": "studied_at_location_inference",
+                                        "supporting_facts": [source, target, loc_target],
+                                    }
+                                )
 
                 # Rule 3: manages B; B works_at C -> A works_at C
                 elif relation == "manages":
@@ -588,13 +592,15 @@ class KnowledgeGraph(MemoryGraph):
                             org_data = self.graph.nodes[org_target]
                             if org_data.get("node_type") == NodeType.ENTITY.value:
                                 org_name = org_data.get("text", "")
-                                _add({
-                                    "entity_id": entity_id,
-                                    "fact": f"{source_text} likely works at {org_name}",
-                                    "confidence": 0.7,
-                                    "rule": "manages_works_at_inference",
-                                    "supporting_facts": [source, target, org_target],
-                                })
+                                _add(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{source_text} likely works at {org_name}",
+                                        "confidence": 0.7,
+                                        "rule": "manages_works_at_inference",
+                                        "supporting_facts": [source, target, org_target],
+                                    }
+                                )
 
                 # Rule 4: knows B; B works_at C -> A has connection to C
                 elif relation == "knows":
@@ -603,26 +609,30 @@ class KnowledgeGraph(MemoryGraph):
                             org_data = self.graph.nodes[org_target]
                             if org_data.get("node_type") == NodeType.ENTITY.value:
                                 org_name = org_data.get("text", "")
-                                _add({
-                                    "entity_id": entity_id,
-                                    "fact": f"{source_text} has a connection to {org_name} via {target_text}",
-                                    "confidence": 0.5,
-                                    "rule": "knows_organization_inference",
-                                    "supporting_facts": [source, target, org_target],
-                                })
+                                _add(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{source_text} has a connection to {org_name} via {target_text}",
+                                        "confidence": 0.5,
+                                        "rule": "knows_organization_inference",
+                                        "supporting_facts": [source, target, org_target],
+                                    }
+                                )
 
                 # Rule 5: founded_by -> B works_at A (founder relationship)
                 elif relation == "founded_by":
                     founder_data = self.graph.nodes[target]
                     if founder_data.get("node_type") == NodeType.ENTITY.value:
                         founder_name = founder_data.get("text", "")
-                        _add({
-                            "entity_id": entity_id,
-                            "fact": f"{founder_name} likely works at {source_text} as a founder",
-                            "confidence": 0.8,
-                            "rule": "founded_by_inverse",
-                            "supporting_facts": [source, target],
-                        })
+                        _add(
+                            {
+                                "entity_id": entity_id,
+                                "fact": f"{founder_name} likely works at {source_text} as a founder",
+                                "confidence": 0.8,
+                                "rule": "founded_by_inverse",
+                                "supporting_facts": [source, target],
+                            }
+                        )
 
                 # Rule 7: part_of transitive (A part_of B; B part_of C -> A part_of C)
                 elif relation == "part_of":
@@ -631,13 +641,15 @@ class KnowledgeGraph(MemoryGraph):
                             grand_data = self.graph.nodes[grand_target]
                             if grand_data.get("node_type") == NodeType.ENTITY.value:
                                 grand_name = grand_data.get("text", "")
-                                _add({
-                                    "entity_id": entity_id,
-                                    "fact": f"{source_text} is transitively part of {grand_name}",
-                                    "confidence": 0.65,
-                                    "rule": "part_of_transitive",
-                                    "supporting_facts": [source, target, grand_target],
-                                })
+                                _add(
+                                    {
+                                        "entity_id": entity_id,
+                                        "fact": f"{source_text} is transitively part of {grand_name}",
+                                        "confidence": 0.65,
+                                        "rule": "part_of_transitive",
+                                        "supporting_facts": [source, target, grand_target],
+                                    }
+                                )
 
         # Rule 6: co-location — entities that share a located_in target are co-located
         # Group entities by their location target (cap group size to avoid O(n^2) explosion)
@@ -651,23 +663,23 @@ class KnowledgeGraph(MemoryGraph):
                         if loc_target not in location_to_entities:
                             location_to_entities[loc_target] = []
                         if len(location_to_entities[loc_target]) < _MAX_CO_LOCATION_GROUP:
-                            location_to_entities[loc_target].append(
-                                (entity_id, entity_node_id)
-                            )
+                            location_to_entities[loc_target].append((entity_id, entity_node_id))
 
         for loc_node_id, group in location_to_entities.items():
             loc_name = self.graph.nodes[loc_node_id].get("text", "")
             for i, (eid_a, nid_a) in enumerate(group):
-                for _, nid_b in group[i + 1:]:
+                for _, nid_b in group[i + 1 :]:
                     name_a = self.graph.nodes[nid_a].get("text", "")
                     name_b = self.graph.nodes[nid_b].get("text", "")
-                    _add({
-                        "entity_id": eid_a,
-                        "fact": f"{name_a} and {name_b} are co-located in {loc_name}",
-                        "confidence": 0.4,
-                        "rule": "co_location_inference",
-                        "supporting_facts": [nid_a, nid_b, loc_node_id],
-                    })
+                    _add(
+                        {
+                            "entity_id": eid_a,
+                            "fact": f"{name_a} and {name_b} are co-located in {loc_name}",
+                            "confidence": 0.4,
+                            "rule": "co_location_inference",
+                            "supporting_facts": [nid_a, nid_b, loc_node_id],
+                        }
+                    )
 
         # LLM-backed inference (only when an LLM adapter is provided)
         if llm is not None:
@@ -708,7 +720,9 @@ class KnowledgeGraph(MemoryGraph):
             for _, neighbor, edge_data in self.graph.edges(entity_node_id, data=True):
                 neighbor_data = self.graph.nodes.get(neighbor, {})
                 neighbor_text = neighbor_data.get("text", "")[:100].replace("\n", " ")
-                relation = edge_data.get("original_relation", edge_data.get("relation", "related_to"))
+                relation = edge_data.get(
+                    "original_relation", edge_data.get("relation", "related_to")
+                )
                 neighbour_facts.append(f"{entity_name} {relation} {neighbor_text}")
 
             if not neighbour_facts:
@@ -734,13 +748,15 @@ class KnowledgeGraph(MemoryGraph):
                         conf_str = conf_part.replace("CONFIDENCE:", "").strip()
                         confidence = float(conf_str)
                         confidence = max(0.0, min(1.0, confidence))
-                        results.append({
-                            "entity_id": entity_id,
-                            "fact": fact_text,
-                            "confidence": confidence,
-                            "rule": "llm_inference",
-                            "supporting_facts": [entity_node_id],
-                        })
+                        results.append(
+                            {
+                                "entity_id": entity_id,
+                                "fact": fact_text,
+                                "confidence": confidence,
+                                "rule": "llm_inference",
+                                "supporting_facts": [entity_node_id],
+                            }
+                        )
                     except (ValueError, AttributeError):
                         continue
             except Exception as exc:

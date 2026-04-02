@@ -357,12 +357,18 @@ class AutoHealingEngine:
         # Calculate improvements
         improvements: dict[str, float] = {
             "stale_memories_reduced": 0.0,
-            "duplicates_removed": float(len(
-                [a for a in all_actions_applied if a.action_type == HealingActionType.MERGE]
-            )),
-            "tags_added": float(len(
-                [a for a in all_actions_applied if a.action_type == HealingActionType.UPDATE_TAGS]
-            )),
+            "duplicates_removed": float(
+                len([a for a in all_actions_applied if a.action_type == HealingActionType.MERGE])
+            ),
+            "tags_added": float(
+                len(
+                    [
+                        a
+                        for a in all_actions_applied
+                        if a.action_type == HealingActionType.UPDATE_TAGS
+                    ]
+                )
+            ),
         }
 
         report = HealingReport(

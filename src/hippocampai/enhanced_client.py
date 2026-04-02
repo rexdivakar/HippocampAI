@@ -434,13 +434,9 @@ class EnhancedMemoryClient:
         """Parse natural language into a prospective intent."""
         return self.client.parse_prospective_intent(user_id=user_id, text=text)
 
-    def list_prospective_intents(
-        self, user_id: str, status: Optional[str] = None
-    ) -> list[Any]:
+    def list_prospective_intents(self, user_id: str, status: Optional[str] = None) -> list[Any]:
         """List prospective intents for a user."""
-        intents: list[Any] = self.client.list_prospective_intents(
-            user_id=user_id, status=status
-        )
+        intents: list[Any] = self.client.list_prospective_intents(user_id=user_id, status=status)
         return intents
 
     def get_prospective_intent(self, intent_id: str) -> Optional[Any]:
@@ -449,15 +445,11 @@ class EnhancedMemoryClient:
 
     def cancel_prospective_intent(self, intent_id: str, user_id: str) -> Any:
         """Cancel a prospective intent."""
-        return self.client.cancel_prospective_intent(
-            intent_id=intent_id, user_id=user_id
-        )
+        return self.client.cancel_prospective_intent(intent_id=intent_id, user_id=user_id)
 
     def complete_prospective_intent(self, intent_id: str, user_id: str) -> Any:
         """Mark a prospective intent as completed."""
-        return self.client.complete_prospective_intent(
-            intent_id=intent_id, user_id=user_id
-        )
+        return self.client.complete_prospective_intent(intent_id=intent_id, user_id=user_id)
 
     def evaluate_prospective_context(
         self,
@@ -515,9 +507,7 @@ class EnhancedMemoryClient:
             triggered_by=triggered_by,
         )
 
-    def get_contradictions(
-        self, user_id: str, include_resolved: bool = False
-    ) -> list[Any]:
+    def get_contradictions(self, user_id: str, include_resolved: bool = False) -> list[Any]:
         """Get contradictions for a user's beliefs."""
         links: list[Any] = self.client.get_contradictions(
             user_id=user_id, include_resolved=include_resolved

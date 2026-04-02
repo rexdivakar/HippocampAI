@@ -602,9 +602,7 @@ def expire_prospective_intents(self: Any, user_id: Optional[str] = None) -> dict
         )
         expired_count = manager.expire_stale_intents(user_id=user_id)
 
-        logger.info(
-            f"Task {self.request.id}: Expired {expired_count} prospective intent(s)"
-        )
+        logger.info(f"Task {self.request.id}: Expired {expired_count} prospective intent(s)")
         return {"expired_count": expired_count}
     except Exception as exc:
         logger.error(f"Task {self.request.id} failed: {exc}")

@@ -239,9 +239,15 @@ _IMPORT_MAP: dict[str, tuple[str, str]] = {
     "MultiAgentManager": ("hippocampai.multiagent", "MultiAgentManager"),
     # Prospective memory
     "ProspectiveIntent": ("hippocampai.prospective.prospective_memory", "ProspectiveIntent"),
-    "ProspectiveMemoryManager": ("hippocampai.prospective.prospective_memory", "ProspectiveMemoryManager"),
+    "ProspectiveMemoryManager": (
+        "hippocampai.prospective.prospective_memory",
+        "ProspectiveMemoryManager",
+    ),
     "ProspectiveStatus": ("hippocampai.prospective.prospective_memory", "ProspectiveStatus"),
-    "ProspectiveTriggerType": ("hippocampai.prospective.prospective_memory", "ProspectiveTriggerType"),
+    "ProspectiveTriggerType": (
+        "hippocampai.prospective.prospective_memory",
+        "ProspectiveTriggerType",
+    ),
     "RecurrencePattern": ("hippocampai.prospective.prospective_memory", "RecurrencePattern"),
     # SaaS automation
     "AutomationController": ("hippocampai.saas.automation", "AutomationController"),

@@ -683,7 +683,10 @@ class PredictiveAnalyticsEngine:
             horizon=horizon,
             forecast_date=forecast_date,
             predicted_value=float(avg_importance),
-            confidence_interval=(float(avg_importance - std_importance), float(avg_importance + std_importance)),
+            confidence_interval=(
+                float(avg_importance - std_importance),
+                float(avg_importance + std_importance),
+            ),
             confidence=0.7,
             method="historical_average",
         )

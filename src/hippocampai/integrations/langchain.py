@@ -44,6 +44,7 @@ except ImportError:
     _AIMessage = _Unavailable
     _HumanMessage = _Unavailable
 
+
 class HippocampMemory(_BaseChatMemory):  # type: ignore[misc]
     """LangChain memory backed by HippocampAI.
 
