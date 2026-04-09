@@ -390,7 +390,10 @@ class TestLibraryIntegrations:
 
     def test_qdrant_client(self):
         """Test Qdrant client connection."""
-        client = QdrantClient(url="http://localhost:6333")
+        import os
+
+        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        client = QdrantClient(url=qdrant_url)
         collections = client.get_collections()
         assert collections is not None
 

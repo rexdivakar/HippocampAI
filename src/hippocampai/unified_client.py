@@ -181,6 +181,7 @@ class UnifiedMemoryClient:
         user_id: str,
         session_id: Optional[str] = None,
         limit: int = 10,
+        k: Optional[int] = None,
         filters: Optional[dict[str, Any]] = None,
         min_score: float = 0.0,
     ) -> list[RetrievalResult]:
@@ -192,19 +193,21 @@ class UnifiedMemoryClient:
             user_id: User identifier
             session_id: Optional session filter
             limit: Maximum number of results
+            k: Alias for limit (for consistency with MemoryClient)
             filters: Optional filters (tags, importance, etc.)
             min_score: Minimum relevance score
 
         Returns:
             List of RetrievalResult objects sorted by relevance
         """
+        effective_limit = k if k is not None else limit
         return cast(
             list[RetrievalResult],
             self._backend.recall(
                 query=query,
                 user_id=user_id,
                 session_id=session_id,
-                limit=limit,
+                limit=effective_limit,
                 filters=filters,
                 min_score=min_score,
             ),

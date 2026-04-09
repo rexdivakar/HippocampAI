@@ -154,16 +154,18 @@ async def detect_duplicates(user_id: str, similarity_threshold: float = 0.90):
         client = MemoryClient()
         memories = client.get_memories(user_id=user_id)
 
-        clusters = health_monitor.detect_duplicate_clusters(
-            memories=memories, cluster_type="soft"
-        )
+        clusters = health_monitor.detect_duplicate_clusters(memories=memories, cluster_type="soft")
 
         return {
             "clusters": [
                 {
                     "representative_id": cluster.representative_memory_id,
                     "representative_text": next(
-                        (m.text for m in cluster.memories if m.id == cluster.representative_memory_id),
+                        (
+                            m.text
+                            for m in cluster.memories
+                            if m.id == cluster.representative_memory_id
+                        ),
                         cluster.memories[0].text if cluster.memories else "",
                     ),
                     "duplicate_count": len(cluster.memories),
@@ -192,7 +194,9 @@ async def detect_knowledge_gaps(user_id: str):
 
         coverage = health_monitor.analyze_topic_coverage(memories)
 
-        gaps = [tc for tc in coverage if tc.coverage_level.value in ("missing", "minimal", "sparse")]
+        gaps = [
+            tc for tc in coverage if tc.coverage_level.value in ("missing", "minimal", "sparse")
+        ]
 
         return {
             "gaps": [
@@ -368,8 +372,7 @@ async def auto_tagging(request: TaggingRequest):
                 for action in tag_actions[: request.max_suggestions]
             ],
             "tags_applied": sum(
-                len(action.metadata.get("suggested_tags", []))
-                for action in applied_actions
+                len(action.metadata.get("suggested_tags", [])) for action in applied_actions
             ),
             "summary": f"Generated {len(tag_actions)} tag suggestions, applied {len(applied_actions)}",
         }

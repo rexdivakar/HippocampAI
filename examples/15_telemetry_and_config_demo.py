@@ -127,7 +127,7 @@ print(f"\n   Recall Operations: {len(recall_traces)}")
 for trace in recall_traces:
     print(f"      - Query: {trace.metadata.get('query', 'N/A')[:40]}...")
     print(f"        Duration: {trace.duration_ms:.2f}ms")
-    print(f"        Result count: {trace.result.get('count', 0)}")
+    print(f"        Result count: {(trace.result or {}).get('count', 0)}")
 
 # Test 9: Export Telemetry Data
 print("\n9. Exporting Telemetry Data")

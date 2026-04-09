@@ -17,14 +17,30 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional
 
-from llama_index.core.retrievers import BaseRetriever
-from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
-
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
+LLAMAINDEX_AVAILABLE = False
+try:
+    from llama_index.core.retrievers import BaseRetriever as _BaseRetriever
+    from llama_index.core.schema import NodeWithScore as _NodeWithScore
+    from llama_index.core.schema import TextNode as _TextNode
 
-class HippocampRetriever(BaseRetriever):
+    LLAMAINDEX_AVAILABLE = True
+except ImportError:
+
+    class _Unavailable:
+        """Placeholder for unavailable llama-index classes."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("llama-index is required: pip install llama-index-core")
+
+    _BaseRetriever = object
+    _NodeWithScore = _Unavailable
+    _TextNode = _Unavailable
+
+
+class HippocampRetriever(_BaseRetriever):  # type: ignore[misc]
     """LlamaIndex retriever backed by HippocampAI.
 
     Retrieves relevant memories as LlamaIndex nodes.
@@ -54,7 +70,7 @@ class HippocampRetriever(BaseRetriever):
         self.score_threshold = score_threshold
         self.filter_types = filter_types
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: Any) -> list[Any]:
         """Retrieve nodes for a query."""
         query = query_bundle.query_str
 
@@ -77,7 +93,7 @@ class HippocampRetriever(BaseRetriever):
                 if mem_type not in self.filter_types:
                     continue
 
-            node = TextNode(
+            text_node: Any = _TextNode(
                 text=result.memory.text,
                 id_=result.memory.id,
                 metadata={
@@ -89,11 +105,11 @@ class HippocampRetriever(BaseRetriever):
                     "user_id": result.memory.user_id,
                 },
             )
-            nodes.append(NodeWithScore(node=node, score=result.score))
+            nodes.append(_NodeWithScore(node=text_node, score=result.score))
 
         return nodes
 
-    async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    async def _aretrieve(self, query_bundle: Any) -> list[Any]:
         """Async retrieve (falls back to sync)."""
         return self._retrieve(query_bundle)
 
@@ -148,13 +164,13 @@ class HippocampMemoryStore:
 
         return memory_ids
 
-    def get_all_documents(self, limit: int = 1000) -> List[TextNode]:
+    def get_all_documents(self, limit: int = 1000) -> list[Any]:
         """Get all documents as LlamaIndex nodes."""
         memories = self.client.get_memories(self.user_id, limit=limit)
 
         nodes = []
         for memory in memories:
-            node = TextNode(
+            node = _TextNode(
                 text=memory.text,
                 id_=memory.id,
                 metadata={

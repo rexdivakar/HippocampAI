@@ -64,7 +64,7 @@ class TestResults:
 results = TestResults()
 
 
-def test_wrapper(test_name: str):
+def _test_wrapper(test_name: str):
     """Decorator to wrap tests with timing and error handling."""
 
     def decorator(func):
@@ -74,18 +74,16 @@ def test_wrapper(test_name: str):
             print("=" * 80)
             start_time = time.time()
             try:
-                result = func(*args, **kwargs)
+                func(*args, **kwargs)
                 duration = time.time() - start_time
                 print(f"✅ PASSED ({duration:.2f}s)")
                 results.add_pass(test_name, duration)
-                return result
             except Exception as e:
                 duration = time.time() - start_time
                 print(f"❌ FAILED ({duration:.2f}s)")
                 print(f"Error: {str(e)}")
                 print(f"Traceback: {traceback.format_exc()}")
                 results.add_fail(test_name, str(e))
-                return None
 
         return wrapper
 
@@ -97,7 +95,7 @@ def test_wrapper(test_name: str):
 # ============================================================================
 
 
-@test_wrapper("1.1 Basic Memory Operations")
+@_test_wrapper("1.1 Basic Memory Operations")
 def test_basic_memory_operations():
     """Test basic CRUD operations."""
     user_id = "test_user_basic"
@@ -105,7 +103,11 @@ def test_basic_memory_operations():
 
     # Create
     memory = client.remember(
-        "Test memory for basic operations", user_id=user_id, type="fact", importance=7.0, tags=["test", "basic"]
+        "Test memory for basic operations",
+        user_id=user_id,
+        type="fact",
+        importance=7.0,
+        tags=["test", "basic"],
     )
     assert memory.id is not None
     assert memory.text == "Test memory for basic operations"
@@ -131,7 +133,7 @@ def test_basic_memory_operations():
     return True
 
 
-@test_wrapper("1.2 Batch Operations")
+@_test_wrapper("1.2 Batch Operations")
 def test_batch_operations():
     """Test batch operations."""
     user_id = "test_user_batch"
@@ -139,7 +141,9 @@ def test_batch_operations():
 
     # Batch create using a loop (no batch_remember method)
     texts = [f"Batch memory {i}" for i in range(10)]
-    memories = [client.remember(text, user_id=user_id, type="fact", importance=6.0) for text in texts]
+    memories = [
+        client.remember(text, user_id=user_id, type="fact", importance=6.0) for text in texts
+    ]
     assert len(memories) == 10
     print(f"  Batch created {len(memories)} memories")
 
@@ -153,7 +157,7 @@ def test_batch_operations():
     return True
 
 
-@test_wrapper("1.3 Session Management")
+@_test_wrapper("1.3 Session Management")
 def test_session_management():
     """Test session creation and management."""
     user_id = "test_user_session"
@@ -191,7 +195,7 @@ def test_session_management():
 # ============================================================================
 
 
-@test_wrapper("2.1 Shared Memory Spaces")
+@_test_wrapper("2.1 Shared Memory Spaces")
 def test_shared_spaces():
     """Test shared memory space creation and management."""
     user_id = "test_user_collab"
@@ -242,7 +246,7 @@ def test_shared_spaces():
     return True
 
 
-@test_wrapper("2.2 Collaboration Events")
+@_test_wrapper("2.2 Collaboration Events")
 def test_collaboration_events():
     """Test event tracking in collaboration."""
     user_id = "test_user_events"
@@ -270,7 +274,7 @@ def test_collaboration_events():
     return True
 
 
-@test_wrapper("2.3 Notifications")
+@_test_wrapper("2.3 Notifications")
 def test_notifications():
     """Test notification system."""
     user_id = "test_user_notif"
@@ -304,7 +308,7 @@ def test_notifications():
 # ============================================================================
 
 
-@test_wrapper("3.1 Pattern Detection")
+@_test_wrapper("3.1 Pattern Detection")
 def test_pattern_detection():
     """Test temporal pattern detection."""
     user_id = "test_user_patterns"
@@ -314,7 +318,9 @@ def test_pattern_detection():
     # Create memories with daily pattern
     for i in range(15):
         client.remember(
-            f"Daily memory {i}", user_id=user_id, type="habit",
+            f"Daily memory {i}",
+            user_id=user_id,
+            type="habit",
         )
 
     memories = client.get_memories(user_id=user_id)
@@ -328,7 +334,7 @@ def test_pattern_detection():
     return True
 
 
-@test_wrapper("3.2 Anomaly Detection")
+@_test_wrapper("3.2 Anomaly Detection")
 def test_anomaly_detection():
     """Test anomaly detection."""
     user_id = "test_user_anomaly"
@@ -345,9 +351,7 @@ def test_anomaly_detection():
         client.remember(f"Anomaly memory {i}", user_id=user_id, type="fact", importance=9.0)
 
     memories = client.get_memories(user_id=user_id)
-    anomalies = predictive.detect_anomalies(
-        user_id=user_id, memories=memories, lookback_days=30
-    )
+    anomalies = predictive.detect_anomalies(user_id=user_id, memories=memories, lookback_days=30)
 
     print(f"  Detected {len(anomalies)} anomal(ies)")
     for anomaly in anomalies:
@@ -356,7 +360,7 @@ def test_anomaly_detection():
     return True
 
 
-@test_wrapper("3.3 Recommendations")
+@_test_wrapper("3.3 Recommendations")
 def test_recommendations():
     """Test recommendation generation."""
     user_id = "test_user_recs"
@@ -380,7 +384,7 @@ def test_recommendations():
     return True
 
 
-@test_wrapper("3.4 Forecasting")
+@_test_wrapper("3.4 Forecasting")
 def test_forecasting():
     """Test metric forecasting."""
     user_id = "test_user_forecast"
@@ -391,7 +395,9 @@ def test_forecasting():
     # Create memory history
     for i in range(30):
         client.remember(
-            f"Historical memory {i}", user_id=user_id, type="fact",
+            f"Historical memory {i}",
+            user_id=user_id,
+            type="fact",
         )
 
     memories = client.get_memories(user_id=user_id)
@@ -415,7 +421,7 @@ def test_forecasting():
 # ============================================================================
 
 
-@test_wrapper("4.1 Health Monitoring")
+@_test_wrapper("4.1 Health Monitoring")
 def test_health_monitoring():
     """Test health score calculation."""
     user_id = "test_user_health"
@@ -449,7 +455,7 @@ def test_health_monitoring():
     return True
 
 
-@test_wrapper("4.2 Auto-Cleanup")
+@_test_wrapper("4.2 Auto-Cleanup")
 def test_auto_cleanup():
     """Test automatic cleanup."""
     user_id = "test_user_cleanup"
@@ -492,7 +498,7 @@ def test_auto_cleanup():
     return True
 
 
-@test_wrapper("4.3 Duplicate Detection")
+@_test_wrapper("4.3 Duplicate Detection")
 def test_duplicate_detection():
     """Test duplicate memory detection."""
     user_id = "test_user_dupes"
@@ -503,7 +509,10 @@ def test_duplicate_detection():
     # Create duplicates
     for i in range(3):
         client.remember(
-            "I prefer coffee over tea in the morning", user_id=user_id, type="preference", importance=6.0
+            "I prefer coffee over tea in the morning",
+            user_id=user_id,
+            type="preference",
+            importance=6.0,
         )
 
     # Create unique memories
@@ -524,7 +533,7 @@ def test_duplicate_detection():
     return True
 
 
-@test_wrapper("4.4 Auto-Tagging")
+@_test_wrapper("4.4 Auto-Tagging")
 def test_auto_tagging():
     """Test automatic tagging."""
     user_id = "test_user_tags"
@@ -535,7 +544,7 @@ def test_auto_tagging():
 
     # Create untagged memories
     memories = []
-    for i in range(5):
+    for _ in range(5):
         mem = client.remember(
             "This is about work and meetings at the office",
             user_id=user_id,
@@ -559,7 +568,7 @@ def test_auto_tagging():
 # ============================================================================
 
 
-@test_wrapper("5.1 Simple API Compatibility (mem0)")
+@_test_wrapper("5.1 Simple API Compatibility (mem0)")
 def test_simple_api():
     """Test mem0-compatible SimpleMemory API."""
     try:
@@ -592,7 +601,7 @@ def test_simple_api():
         return False
 
 
-@test_wrapper("5.2 Multi-User Isolation")
+@_test_wrapper("5.2 Multi-User Isolation")
 def test_multi_user_isolation():
     """Test that users are properly isolated."""
     user1_id = "test_user_1"
@@ -628,7 +637,7 @@ def test_multi_user_isolation():
 # ============================================================================
 
 
-@test_wrapper("6.1 Memory Usage Analysis")
+@_test_wrapper("6.1 Memory Usage Analysis")
 def test_memory_usage():
     """Test memory usage under load."""
     tracemalloc.start()
@@ -665,7 +674,7 @@ def test_memory_usage():
     return True
 
 
-@test_wrapper("6.2 Performance Benchmarks")
+@_test_wrapper("6.2 Performance Benchmarks")
 def test_performance():
     """Test performance of key operations."""
     user_id = "test_user_perf"
@@ -701,7 +710,7 @@ def test_performance():
     return True
 
 
-@test_wrapper("6.3 Large Dataset Handling")
+@_test_wrapper("6.3 Large Dataset Handling")
 def test_large_dataset():
     """Test handling of larger datasets."""
     user_id = "test_user_large"
@@ -748,7 +757,7 @@ def test_large_dataset():
 # ============================================================================
 
 
-@test_wrapper("7.1 Error Handling")
+@_test_wrapper("7.1 Error Handling")
 def test_error_handling():
     """Test error handling for invalid operations."""
     user_id = "test_user_errors"
@@ -783,7 +792,7 @@ def test_error_handling():
     return True
 
 
-@test_wrapper("7.2 Concurrent Operations")
+@_test_wrapper("7.2 Concurrent Operations")
 def test_concurrent_operations():
     """Test concurrent memory operations."""
     import threading

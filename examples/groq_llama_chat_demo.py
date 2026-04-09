@@ -62,7 +62,7 @@ import os
 import sys
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Add local source to path if needed
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -100,11 +100,11 @@ class GroqHippocampAIChat:
 
     def __init__(
         self,
-        user_id: str = None,
-        session_id: str = None,
-        base_url: str = None,
-        qdrant_url: str = None,
-        redis_url: str = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        base_url: Optional[str] = None,
+        qdrant_url: Optional[str] = None,
+        redis_url: Optional[str] = None,
     ):
         """Initialize the chat system.
 
@@ -338,24 +338,18 @@ class GroqHippocampAIChat:
             results = self.memory_client.recall(
                 query=query,
                 user_id=self.user_id,
-                session_id=self.session_id,  # Also filter by session_id
+                session_id=self.session_id,
                 limit=limit,
             )
-            # Convert RetrievalResult objects to dicts if needed
-            if results and hasattr(results[0], "__dict__"):
-                return [
-                    {
-                        "text": r.memory.text
-                        if hasattr(r, "memory") and r.memory
-                        else (r.text if hasattr(r, "text") else str(r)),
-                        "score": r.score if hasattr(r, "score") else 1.0,
-                        "metadata": r.memory.metadata
-                        if hasattr(r, "memory") and r.memory
-                        else (r.metadata if hasattr(r, "metadata") else {}),
-                    }
-                    for r in results
-                ]
-            return results
+            # Convert RetrievalResult objects to dicts
+            return [
+                {
+                    "text": r.memory.text if r.memory else str(r),
+                    "score": r.score,
+                    "metadata": r.memory.metadata if r.memory else {},
+                }
+                for r in results
+            ]
         except Exception as e:
             self.console.print(f"[yellow]Warning: Failed to retrieve memories: {e}[/yellow]")
             return []
@@ -436,7 +430,7 @@ class GroqHippocampAIChat:
                 max_tokens=1024,
             )
 
-            assistant_message = response.choices[0].message.content
+            assistant_message = response.choices[0].message.content or ""
 
             # Update conversation history
             self.conversation_history.append({"role": "user", "content": user_message})
@@ -464,18 +458,15 @@ class GroqHippocampAIChat:
                 self.console.print("[yellow]No memories found[/yellow]")
                 return
 
-            # Convert to list of dicts if needed
-            if results and hasattr(results[0], "__dict__"):
-                memories = [
-                    {
-                        "text": r.text if hasattr(r, "text") else str(r),
-                        "metadata": r.metadata if hasattr(r, "metadata") else {},
-                        "score": r.score if hasattr(r, "score") else 0,
-                    }
-                    for r in results
-                ]
-            else:
-                memories = results
+            # Convert RetrievalResult objects to dicts
+            memories: List[Dict[str, Any]] = [
+                {
+                    "text": r.memory.text if r.memory else str(r),
+                    "metadata": r.memory.metadata if r.memory else {},
+                    "score": r.score,
+                }
+                for r in results
+            ]
 
             table = Table(title=f"Stored Memories (User: {self.user_id[:8]}...)")
             table.add_column("Type", style="cyan")
@@ -509,18 +500,15 @@ class GroqHippocampAIChat:
                 self.console.print("[yellow]No matching memories found[/yellow]")
                 return
 
-            # Convert to list of dicts if needed
-            if results and hasattr(results[0], "__dict__"):
-                memories = [
-                    {
-                        "text": r.text if hasattr(r, "text") else str(r),
-                        "metadata": r.metadata if hasattr(r, "metadata") else {},
-                        "score": r.score if hasattr(r, "score") else 0,
-                    }
-                    for r in results
-                ]
-            else:
-                memories = results
+            # Convert RetrievalResult objects to dicts
+            memories: List[Dict[str, Any]] = [
+                {
+                    "text": r.memory.text if r.memory else str(r),
+                    "metadata": r.memory.metadata if r.memory else {},
+                    "score": r.score,
+                }
+                for r in results
+            ]
 
             self.console.print(f"\n[green]Found {len(memories)} matching memories:[/green]\n")
 
@@ -685,9 +673,7 @@ class GroqHippocampAIChat:
                 )
 
             # Consolidate
-            _consolidated = self.memory_client.consolidate_memories(
-                user_id=self.user_id, lookback_hours=24
-            )
+            _consolidated = self.memory_client.consolidate_memories(user_id=self.user_id)
 
             test_results.append(("Memory Consolidation", "✅ PASS"))
             self.console.print("[green]  ✅ PASS: Memory consolidation executed[/green]")
@@ -1120,7 +1106,7 @@ Environment Variables:
     chat.run()
 
 
-def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
+def lookup_user_id_from_session(session_id: str, qdrant_url: Optional[str] = None) -> str:
     """Look up the user_id associated with a session_id from Qdrant.
 
     Args:
@@ -1158,7 +1144,7 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                     limit=1,
                     with_payload=True,
                 )
-                if results:
+                if results and results[0].payload:
                     user_id = results[0].payload.get("user_id")
                     if user_id:
                         print(
@@ -1183,7 +1169,7 @@ def lookup_user_id_from_session(session_id: str, qdrant_url: str = None) -> str:
                     limit=1,
                     with_payload=True,
                 )
-                if results:
+                if results and results[0].payload:
                     user_id = results[0].payload.get("user_id")
                     if user_id:
                         print(f"[yellow]⚠ Using user_id '{user_id}' from session records[/yellow]")

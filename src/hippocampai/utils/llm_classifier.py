@@ -52,6 +52,7 @@ class LLMMemoryClassifier:
                 ClassificationStrategy,
                 get_classifier_service,
             )
+
             self._service = get_classifier_service(
                 strategy=ClassificationStrategy.AUTO,
                 use_cache=self.use_cache,
@@ -138,6 +139,7 @@ def classify_memory_with_llm(text: str, default: Optional[MemoryType] = None) ->
         stacklevel=2,
     )
     from hippocampai.utils.classifier_service import classify_memory
+
     return classify_memory(text, default)
 
 
@@ -161,6 +163,7 @@ def classify_memory_with_llm_and_confidence(text: str) -> Tuple[MemoryType, floa
         stacklevel=2,
     )
     from hippocampai.utils.classifier_service import classify_memory_with_confidence
+
     return classify_memory_with_confidence(text)
 
 
@@ -177,4 +180,5 @@ def clear_classification_cache() -> None:
         stacklevel=2,
     )
     from hippocampai.utils.classifier_service import clear_classification_cache as clear_cache
+
     clear_cache()

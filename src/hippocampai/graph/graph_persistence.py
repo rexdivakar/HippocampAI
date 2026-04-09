@@ -6,10 +6,25 @@ from pathlib import Path
 from typing import Any
 
 import networkx as nx
+import numpy as np
 
 from hippocampai.graph.knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
+
+
+def _prepare_graph_for_serialization(g: nx.DiGraph) -> nx.DiGraph:
+    """Return a copy of *g* with numpy embedding arrays converted to lists.
+
+    ``nx.node_link_data`` will raise ``TypeError`` when node attributes contain
+    numpy arrays because they are not JSON-serializable.  This function operates
+    on a shallow-copy of the graph so the live graph is never mutated.
+    """
+    copy = g.copy()
+    for _, attrs in copy.nodes(data=True):
+        if "embedding" in attrs and isinstance(attrs["embedding"], np.ndarray):
+            attrs["embedding"] = attrs["embedding"].tolist()
+    return copy
 
 
 def save(graph: KnowledgeGraph, file_path: str) -> None:
@@ -25,7 +40,8 @@ def save(graph: KnowledgeGraph, file_path: str) -> None:
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    graph_data: dict[str, Any] = nx.node_link_data(graph.graph, edges="links")
+    serializable_graph = _prepare_graph_for_serialization(graph.graph)
+    graph_data: dict[str, Any] = nx.node_link_data(serializable_graph, edges="links")
 
     # Serialize auxiliary indices
     data: dict[str, Any] = {
@@ -71,6 +87,10 @@ def load(file_path: str) -> KnowledgeGraph:
     graph_data = data.get("graph", {})
     if graph_data:
         kg.graph = nx.node_link_graph(graph_data, edges="links")
+        # Convert serialized list embeddings back to numpy arrays
+        for _, attrs in kg.graph.nodes(data=True):
+            if "embedding" in attrs and isinstance(attrs["embedding"], list):
+                attrs["embedding"] = np.array(attrs["embedding"], dtype=np.float32)
 
     # Restore auxiliary indices
     kg._entity_index = data.get("entity_index", {})

@@ -11,7 +11,7 @@ ENV VITE_API_URL=http://hippocampai:8000
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .

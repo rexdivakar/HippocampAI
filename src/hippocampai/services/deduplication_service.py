@@ -130,6 +130,7 @@ class DeduplicationService:
         if self.embedder is not None:
             try:
                 import numpy as np
+
                 vec1 = self.embedder.encode_single(text1)
                 vec2 = self.embedder.encode_single(text2)
                 # Cosine similarity
@@ -325,7 +326,9 @@ class DeduplicationService:
                 # Find canonical (highest importance)
                 canonical = max(
                     cluster_members,
-                    key=lambda mid: memory_lookup.get(mid, Memory(text="", user_id="", type=MemoryType.CONTEXT)).importance,
+                    key=lambda mid: memory_lookup.get(
+                        mid, Memory(text="", user_id="", type=MemoryType.CONTEXT)
+                    ).importance,
                 )
 
                 canonical_mem = memory_lookup.get(canonical)
@@ -361,7 +364,7 @@ class DeduplicationService:
         pairs: list[NearDuplicatePair] = []
 
         for i, mem1 in enumerate(memories):
-            for mem2 in memories[i + 1:]:
+            for mem2 in memories[i + 1 :]:
                 similarity = self._calculate_text_similarity(mem1.text, mem2.text)
 
                 # Near duplicate but not exact
@@ -398,7 +401,7 @@ class DeduplicationService:
         """
         count = 0
         for i, mem1 in enumerate(memories):
-            for mem2 in memories[i + 1:]:
+            for mem2 in memories[i + 1 :]:
                 if mem1.text.lower().strip() == mem2.text.lower().strip():
                     count += 1
         return count
@@ -421,7 +424,7 @@ class DeduplicationService:
         similarity_matrix: dict[tuple[str, str], float] = {}
 
         for i, mem1 in enumerate(memories):
-            for mem2 in memories[i + 1:]:
+            for mem2 in memories[i + 1 :]:
                 similarity = self._calculate_text_similarity(mem1.text, mem2.text)
                 if similarity >= threshold:
                     similarity_matrix[(mem1.id, mem2.id)] = similarity

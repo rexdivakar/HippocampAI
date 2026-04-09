@@ -80,9 +80,7 @@ class ClassifierStrategy(ABC):
     """Abstract base class for classifier strategies."""
 
     @abstractmethod
-    def classify(
-        self, text: str, default: Optional[MemoryType] = None
-    ) -> ClassificationResult:
+    def classify(self, text: str, default: Optional[MemoryType] = None) -> ClassificationResult:
         """Classify text into a memory type."""
         pass
 
@@ -93,11 +91,10 @@ class PatternClassifierStrategy(ClassifierStrategy):
     def __init__(self) -> None:
         # Import here to avoid circular dependency
         from hippocampai.utils.memory_classifier import MemoryClassifier
+
         self._classifier = MemoryClassifier()
 
-    def classify(
-        self, text: str, default: Optional[MemoryType] = None
-    ) -> ClassificationResult:
+    def classify(self, text: str, default: Optional[MemoryType] = None) -> ClassificationResult:
         """Classify using pattern matching."""
         if not text or not text.strip():
             return ClassificationResult(
@@ -150,18 +147,18 @@ Respond with ONLY the type word (fact, preference, goal, habit, event, or contex
 
             if config.llm_provider == "groq" and config.allow_cloud:
                 from hippocampai.adapters.provider_groq import GroqLLM
+
                 api_key = os.getenv("GROQ_API_KEY")
                 if api_key:
                     self.llm = GroqLLM(api_key=api_key, model=config.llm_model)
             elif config.llm_provider == "ollama":
                 from hippocampai.adapters.provider_ollama import OllamaLLM
+
                 self.llm = OllamaLLM(model=config.llm_model, base_url=config.llm_base_url)
         except Exception as e:
             logger.debug(f"Could not initialize LLM: {e}")
 
-    def classify(
-        self, text: str, default: Optional[MemoryType] = None
-    ) -> ClassificationResult:
+    def classify(self, text: str, default: Optional[MemoryType] = None) -> ClassificationResult:
         """Classify using LLM."""
         if not text or not text.strip():
             return ClassificationResult(
@@ -261,11 +258,13 @@ Respond with ONLY the JSON object."""
 
             if config.llm_provider == "groq" and config.allow_cloud:
                 from hippocampai.adapters.provider_groq import GroqLLM
+
                 api_key = os.getenv("GROQ_API_KEY")
                 if api_key:
                     self.llm = GroqLLM(api_key=api_key, model=config.llm_model)
             elif config.llm_provider == "ollama":
                 from hippocampai.adapters.provider_ollama import OllamaLLM
+
                 self.llm = OllamaLLM(model=config.llm_model, base_url=config.llm_base_url)
         except Exception as e:
             logger.debug(f"Could not initialize LLM: {e}")
@@ -289,7 +288,7 @@ Respond with ONLY the JSON object."""
         brace_start = response.find("{")
         brace_end = response.rfind("}")
         if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
-            response = response[brace_start:brace_end + 1]
+            response = response[brace_start : brace_end + 1]
 
         try:
             parsed = json.loads(response)
@@ -299,9 +298,7 @@ Respond with ONLY the JSON object."""
         except json.JSONDecodeError:
             return None
 
-    def classify(
-        self, text: str, default: Optional[MemoryType] = None
-    ) -> ClassificationResult:
+    def classify(self, text: str, default: Optional[MemoryType] = None) -> ClassificationResult:
         """Classify using multi-step LLM reasoning."""
         if not text or not text.strip():
             return ClassificationResult(

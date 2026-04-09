@@ -10,10 +10,16 @@ This wrapper provides:
 
 import logging
 import os
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union
 
+from hippocampai.adapters.provider_anthropic import AnthropicLLM
+from hippocampai.adapters.provider_groq import GroqLLM
+from hippocampai.adapters.provider_ollama import OllamaLLM
+from hippocampai.adapters.provider_openai import OpenAILLM
 from hippocampai.client import MemoryClient
 from hippocampai.models.memory import Memory, RetrievalResult
+from hippocampai.pipeline.semantic_clustering import MemoryCluster
+from hippocampai.telemetry import MemoryTrace
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +134,11 @@ class EnhancedMemoryClient:
                 f"Set {provider.upper()}_API_KEY environment variable or pass api_key parameter."
             )
 
-    # Delegate all methods to base client
+    def __getattr__(self, name: str) -> Any:
+        """Delegate attribute access to the underlying MemoryClient."""
+        return getattr(self.client, name)
+
+    # Delegate common methods to base client
     def remember(
         self,
         text: str,
@@ -138,6 +148,9 @@ class EnhancedMemoryClient:
         importance: Optional[float] = None,
         tags: Optional[list[str]] = None,
         ttl_days: Optional[int] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        visibility: Optional[str] = None,
     ) -> Memory:
         """Store a memory."""
         return self.client.remember(
@@ -148,6 +161,9 @@ class EnhancedMemoryClient:
             importance=importance,
             tags=tags,
             ttl_days=ttl_days,
+            agent_id=agent_id,
+            run_id=run_id,
+            visibility=visibility,
         )
 
     def recall(
@@ -159,28 +175,22 @@ class EnhancedMemoryClient:
         filters: Optional[dict[str, Any]] = None,
     ) -> list[RetrievalResult]:
         """Retrieve relevant memories."""
-        return cast(
-            list[Any],
-            self.client.recall(
-                query=query,
-                user_id=user_id,
-                session_id=session_id,
-                k=k,
-                filters=filters,
-            ),
+        return self.client.recall(
+            query=query,
+            user_id=user_id,
+            session_id=session_id,
+            k=k,
+            filters=filters,
         )
 
     def extract_from_conversation(
         self, conversation: str, user_id: str, session_id: Optional[str] = None
     ) -> list[Memory]:
         """Extract and store memories from conversation."""
-        return cast(
-            list[Any],
-            self.client.extract_from_conversation(
-                conversation=conversation,
-                user_id=user_id,
-                session_id=session_id,
-            ),
+        return self.client.extract_from_conversation(
+            conversation=conversation,
+            user_id=user_id,
+            session_id=session_id,
         )
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
@@ -289,17 +299,16 @@ class EnhancedMemoryClient:
         metrics: dict[str, Any] = self.client.get_telemetry_metrics()
         return metrics
 
-    def get_recent_operations(self, limit: int = 10, operation: Optional[str] = None) -> list[str]:
+    def get_recent_operations(
+        self, limit: int = 10, operation: Optional[str] = None
+    ) -> list[MemoryTrace]:
         """Get recent operations."""
-        operations: list[str] = cast(
-            list[str], self.client.get_recent_operations(limit=limit, operation=operation)
-        )
-        return operations
+        return self.client.get_recent_operations(limit=limit, operation=operation)
 
     @property
-    def llm(self) -> Optional[str]:
+    def llm(self) -> Optional[Union[OllamaLLM, OpenAILLM, GroqLLM, AnthropicLLM]]:
         """Access underlying LLM."""
-        return cast(Optional[str], self.client.llm)
+        return self.client.llm
 
     # Smart memory updates and clustering
     def reconcile_user_memories(self, user_id: str) -> list[Memory]:
@@ -307,13 +316,9 @@ class EnhancedMemoryClient:
         memories: list[Memory] = self.client.reconcile_user_memories(user_id=user_id)
         return memories
 
-    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> dict[str, Any]:
+    def cluster_user_memories(self, user_id: str, max_clusters: int = 10) -> list[MemoryCluster]:
         """Cluster user's memories by topics."""
-        clusters: dict[str, Any] = cast(
-            dict[str, Any],
-            self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters),
-        )
-        return clusters
+        return self.client.cluster_user_memories(user_id=user_id, max_clusters=max_clusters)
 
     def suggest_memory_tags(self, memory: Memory, max_tags: int = 5) -> list[str]:
         """Suggest tags for a memory."""
@@ -356,7 +361,8 @@ class EnhancedMemoryClient:
 
     def list_agents(self, user_id: Optional[str] = None) -> list[Any]:
         """List all agents."""
-        return cast(list[Any], self.client.list_agents(user_id))
+        agents: list[Any] = self.client.list_agents(user_id)
+        return agents
 
     def create_run(
         self,
@@ -401,4 +407,136 @@ class EnhancedMemoryClient:
         """Transfer a memory from one agent to another."""
         return self.client.transfer_memory(
             memory_id, source_agent_id, target_agent_id, transfer_type
+        )
+
+    # ------------------------------------------------------------------
+    # Prospective Memory
+    # ------------------------------------------------------------------
+
+    def create_prospective_intent(
+        self,
+        user_id: str,
+        intent_text: str,
+        trigger_type: str = "event_based",
+        action_description: str = "",
+        **kwargs: Any,
+    ) -> Any:
+        """Create a prospective memory intent."""
+        return self.client.create_prospective_intent(
+            user_id=user_id,
+            intent_text=intent_text,
+            trigger_type=trigger_type,
+            action_description=action_description,
+            **kwargs,
+        )
+
+    def parse_prospective_intent(self, user_id: str, text: str) -> Any:
+        """Parse natural language into a prospective intent."""
+        return self.client.parse_prospective_intent(user_id=user_id, text=text)
+
+    def list_prospective_intents(self, user_id: str, status: Optional[str] = None) -> list[Any]:
+        """List prospective intents for a user."""
+        intents: list[Any] = self.client.list_prospective_intents(user_id=user_id, status=status)
+        return intents
+
+    def get_prospective_intent(self, intent_id: str) -> Optional[Any]:
+        """Get a prospective intent by ID."""
+        return self.client.get_prospective_intent(intent_id=intent_id)
+
+    def cancel_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Cancel a prospective intent."""
+        return self.client.cancel_prospective_intent(intent_id=intent_id, user_id=user_id)
+
+    def complete_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Mark a prospective intent as completed."""
+        return self.client.complete_prospective_intent(intent_id=intent_id, user_id=user_id)
+
+    def evaluate_prospective_context(
+        self,
+        user_id: str,
+        context_text: str,
+        context_embedding: Optional[list[float]] = None,
+    ) -> list[Any]:
+        """Evaluate context against pending prospective intents."""
+        intents: list[Any] = self.client.evaluate_prospective_context(
+            user_id=user_id,
+            context_text=context_text,
+            context_embedding=context_embedding,
+        )
+        return intents
+
+    # ------------------------------------------------------------------
+    # Truth Maintenance System
+    # ------------------------------------------------------------------
+
+    def evaluate_belief(
+        self,
+        memory_id: str,
+        text: str,
+        user_id: str,
+        confidence: float = 1.0,
+        justification_type: str = "direct_observation",
+        source_memory_ids: Optional[list[str]] = None,
+    ) -> Any:
+        """Evaluate and register a belief in the TMS."""
+        return self.client.evaluate_belief(
+            memory_id=memory_id,
+            text=text,
+            user_id=user_id,
+            confidence=confidence,
+            justification_type=justification_type,
+            source_memory_ids=source_memory_ids,
+        )
+
+    def get_belief_state(self, memory_id: str) -> Optional[Any]:
+        """Get the belief state for a memory."""
+        return self.client.get_belief_state(memory_id=memory_id)
+
+    def revise_belief(
+        self,
+        belief_id: str,
+        new_state: str,
+        reason: str = "",
+        triggered_by: Optional[str] = None,
+    ) -> Any:
+        """Revise a belief's state in the TMS."""
+        return self.client.revise_belief(
+            belief_id=belief_id,
+            new_state=new_state,
+            reason=reason,
+            triggered_by=triggered_by,
+        )
+
+    def get_contradictions(self, user_id: str, include_resolved: bool = False) -> list[Any]:
+        """Get contradictions for a user's beliefs."""
+        links: list[Any] = self.client.get_contradictions(
+            user_id=user_id, include_resolved=include_resolved
+        )
+        return links
+
+    def get_belief_history(self, belief_id: str) -> list[Any]:
+        """Get revision history for a belief."""
+        history: list[Any] = self.client.get_belief_history(belief_id=belief_id)
+        return history
+
+    def resolve_contradiction(
+        self,
+        link_id: str,
+        winning_belief_id: str,
+        strategy: str = "manual",
+    ) -> Any:
+        """Resolve a contradiction by choosing a winning belief.
+
+        Args:
+            link_id: ID of the ContradictionLink.
+            winning_belief_id: ID of the belief that wins.
+            strategy: Resolution strategy description.
+
+        Returns:
+            Updated ContradictionLink object.
+        """
+        return self.client.resolve_contradiction(
+            link_id=link_id,
+            winning_belief_id=winning_belief_id,
+            strategy=strategy,
         )

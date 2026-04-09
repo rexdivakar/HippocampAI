@@ -246,7 +246,9 @@ class HippocampBenchmarks:
                     timeout=30,
                 )
             except Exception as e:
-                raise RuntimeError(f"Failed to initialize HippocampAI client (url={self.api_url}): {e}")
+                raise RuntimeError(
+                    f"Failed to initialize HippocampAI client (url={self.api_url}): {e}"
+                )
         return self._client
 
     def run_all(

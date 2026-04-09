@@ -268,7 +268,7 @@ def demo_retrieval_explainability(client: MemoryClient, user_id: str):
     print(f"\n🔍 Query: '{query}'")
 
     # Search
-    results = client.search_memories(user_id, query, top_k=5)
+    results = client.recall(query=query, user_id=user_id, k=5)
 
     if not results:
         print("\n⚠️  No results found")
@@ -321,7 +321,7 @@ def demo_performance_profiling(client: MemoryClient, user_id: str):
 
     for query in queries:
         start = time.time()
-        results = client.search_memories(user_id, query, top_k=5)
+        results = client.recall(query=query, user_id=user_id, k=5)
         elapsed_ms = (time.time() - start) * 1000
         print(f"  '{query}': {elapsed_ms:.2f}ms ({len(results)} results)")
 
@@ -440,7 +440,7 @@ def main():
 
     for text, mem_type, tags in sample_memories:
         try:
-            client.add_memory(user_id=user_id, text=text, type=mem_type, tags=tags)
+            client.remember(text=text, user_id=user_id, type=mem_type.value, tags=tags)
         except Exception:
             pass  # Memory might already exist
 

@@ -21,6 +21,7 @@ class TriggerEvent(str, Enum):
     ON_DELETE = "on_delete"
     ON_CONFLICT = "on_conflict"
     ON_EXPIRE = "on_expire"
+    ON_PROSPECTIVE_TRIGGER = "on_prospective_trigger"
 
 
 class TriggerAction(str, Enum):
@@ -104,8 +105,7 @@ class TriggerManager:
             return False
         if trigger.user_id != user_id:
             logger.warning(
-                f"User {user_id} tried to remove trigger {trigger_id} "
-                f"owned by {trigger.user_id}"
+                f"User {user_id} tried to remove trigger {trigger_id} owned by {trigger.user_id}"
             )
             return False
         del self._triggers[trigger_id]
@@ -127,9 +127,7 @@ class TriggerManager:
         """Get a trigger by ID."""
         return self._triggers.get(trigger_id)
 
-    def get_fire_history(
-        self, trigger_id: str, limit: int = 50
-    ) -> list[TriggerFire]:
+    def get_fire_history(self, trigger_id: str, limit: int = 50) -> list[TriggerFire]:
         """Get fire history for a trigger."""
         history = [f for f in self._fire_history if f.trigger_id == trigger_id]
         history.sort(key=lambda f: f.fired_at, reverse=True)
@@ -153,7 +151,8 @@ class TriggerManager:
         """
         fires: list[TriggerFire] = []
         user_triggers = [
-            t for t in self._triggers.values()
+            t
+            for t in self._triggers.values()
             if t.user_id == user_id and t.enabled and t.event == event
         ]
 

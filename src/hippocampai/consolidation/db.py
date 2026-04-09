@@ -56,7 +56,99 @@ class ConsolidationDatabase:
                     conn.executescript(f.read())
                 logger.info(f"SQLite database initialized at {self.db_path}")
             else:
-                logger.warning(f"Schema file not found: {schema_path}")
+                logger.warning(
+                    f"Schema file not found: {schema_path}, creating tables inline"
+                )
+                self._create_tables_inline(conn)
+
+    def _create_tables_inline(self, conn: sqlite3.Connection) -> None:
+        """Create consolidation tables inline when schema SQL file is unavailable."""
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS consolidation_runs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                agent_id TEXT,
+                status TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'live',
+                started_at TEXT NOT NULL DEFAULT (datetime('now')),
+                completed_at TEXT,
+                duration_seconds REAL,
+                lookback_hours INTEGER NOT NULL DEFAULT 24,
+                min_importance REAL DEFAULT 3.0,
+                dry_run INTEGER DEFAULT 0,
+                memories_reviewed INTEGER DEFAULT 0,
+                memories_deleted INTEGER DEFAULT 0,
+                memories_archived INTEGER DEFAULT 0,
+                memories_promoted INTEGER DEFAULT 0,
+                memories_updated INTEGER DEFAULT 0,
+                memories_synthesized INTEGER DEFAULT 0,
+                clusters_created INTEGER DEFAULT 0,
+                llm_calls_made INTEGER DEFAULT 0,
+                dream_report TEXT,
+                error_message TEXT,
+                error_stacktrace TEXT,
+                celery_task_id TEXT,
+                triggered_by TEXT DEFAULT 'scheduled',
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_consolidation_runs_user_id
+                ON consolidation_runs(user_id);
+            CREATE INDEX IF NOT EXISTS idx_consolidation_runs_status
+                ON consolidation_runs(status);
+            CREATE INDEX IF NOT EXISTS idx_consolidation_runs_started_at
+                ON consolidation_runs(started_at DESC);
+
+            CREATE TABLE IF NOT EXISTS consolidation_run_details (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL REFERENCES consolidation_runs(id) ON DELETE CASCADE,
+                memory_id TEXT NOT NULL,
+                cluster_id TEXT,
+                action TEXT NOT NULL,
+                reason TEXT,
+                old_importance REAL,
+                new_importance REAL,
+                old_text TEXT,
+                new_text TEXT,
+                source_memory_ids TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_consolidation_run_details_run_id
+                ON consolidation_run_details(run_id);
+
+            CREATE TABLE IF NOT EXISTS consolidation_clusters (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL REFERENCES consolidation_runs(id) ON DELETE CASCADE,
+                cluster_id TEXT NOT NULL,
+                theme TEXT,
+                memory_ids TEXT NOT NULL,
+                time_window_start TEXT,
+                time_window_end TEXT,
+                avg_importance REAL,
+                llm_reasoning TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(run_id, cluster_id)
+            );
+
+            CREATE VIEW IF NOT EXISTS consolidation_statistics AS
+            SELECT
+                user_id,
+                COUNT(*) as total_runs,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_runs,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_runs,
+                SUM(memories_reviewed) as total_memories_reviewed,
+                SUM(memories_promoted) as total_memories_promoted,
+                SUM(memories_archived) as total_memories_archived,
+                SUM(memories_deleted) as total_memories_deleted,
+                SUM(memories_synthesized) as total_memories_synthesized,
+                SUM(memories_updated) as total_memories_updated,
+                AVG(duration_seconds) as avg_duration_seconds,
+                MAX(started_at) as last_run_at,
+                MIN(started_at) as first_run_at
+            FROM consolidation_runs
+            WHERE status IN ('completed', 'failed')
+            GROUP BY user_id;
+        """)
+        logger.info(f"SQLite tables created inline at {self.db_path}")
 
     def _init_postgres(self) -> None:
         """Initialize PostgreSQL connection and create tables."""

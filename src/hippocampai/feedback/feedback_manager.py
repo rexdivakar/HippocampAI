@@ -89,8 +89,7 @@ class FeedbackManager:
         self._feedback[memory_id].append(event)
 
         logger.debug(
-            f"Recorded feedback for memory {memory_id}: "
-            f"{feedback_type.value} (score={score:.2f})"
+            f"Recorded feedback for memory {memory_id}: {feedback_type.value} (score={score:.2f})"
         )
         return event
 
@@ -182,9 +181,7 @@ class FeedbackManager:
         score = self.get_memory_feedback_score(memory_id)
         breakdown: dict[str, int] = {}
         for ft in FeedbackType:
-            breakdown[ft.value] = sum(
-                1 for e in events if e.feedback_type == ft
-            )
+            breakdown[ft.value] = sum(1 for e in events if e.feedback_type == ft)
 
         return {
             "score": score,

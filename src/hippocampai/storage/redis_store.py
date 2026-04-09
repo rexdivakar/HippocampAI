@@ -20,6 +20,7 @@ def _json_serializer(obj: Any) -> str:
         return obj.isoformat()
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
+
 # Constants for error messages
 _REDIS_NOT_CONNECTED_ERROR = "Redis client not connected"
 
@@ -75,7 +76,8 @@ class AsyncRedisKVStore:
     async def close(self) -> None:
         """Close Redis connection and pool."""
         if self._client:
-            await self._client.close()
+            _aclose = getattr(self._client, "aclose", self._client.close)
+            await _aclose()
             self._client = None
         if self._pool:
             await self._pool.disconnect()

@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -85,7 +86,7 @@ def sample_memories():
 
 
 def test_fetch_memories_filters(sample_memories):
-    client = FakeClient(sample_memories)
+    client: Any = FakeClient(sample_memories)
     exporter = MemoryExporter(client)
 
     options = ExportOptions(
@@ -103,7 +104,7 @@ def test_fetch_memories_filters(sample_memories):
 
 
 def test_memory_to_record_anonymize_and_metadata(sample_memories):
-    client = FakeClient(sample_memories)
+    client: Any = FakeClient(sample_memories)
     exporter = MemoryExporter(client)
 
     mem = sample_memories[0]  # contains an email
@@ -124,7 +125,7 @@ def test_memory_to_record_anonymize_and_metadata(sample_memories):
 
 
 def test_memory_to_record_includes_vectors(sample_memories):
-    client = FakeClient(sample_memories)
+    client: Any = FakeClient(sample_memories)
     exporter = MemoryExporter(client)
 
     mem = sample_memories[1]
@@ -137,7 +138,7 @@ def test_memory_to_record_includes_vectors(sample_memories):
 
 
 def test_export_json_writes_gzip_and_plain(sample_memories):
-    client = FakeClient(sample_memories)
+    client: Any = FakeClient(sample_memories)
     exporter = MemoryExporter(client)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -170,7 +171,7 @@ def test_export_json_writes_gzip_and_plain(sample_memories):
 
 
 def test_export_jsonl_header_and_records(sample_memories):
-    client = FakeClient(sample_memories)
+    client: Any = FakeClient(sample_memories)
     exporter = MemoryExporter(client)
 
     with tempfile.TemporaryDirectory() as tmp:

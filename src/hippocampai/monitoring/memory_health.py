@@ -227,7 +227,9 @@ class MemoryHealthMonitor:
         engagement_score = self._calculate_engagement_score(memories)
 
         # Build issues list
-        issues = self._build_issues_list(memories, stale_count, low_quality_count, duplicate_clusters)
+        issues = self._build_issues_list(
+            memories, stale_count, low_quality_count, duplicate_clusters
+        )
 
         # Calculate overall score (weighted average)
         overall_score = (
@@ -325,6 +327,7 @@ class MemoryHealthMonitor:
             # Find similar memories
             similar_indices = []
             similar_scores = []
+            detected_type: DuplicateClusterType = DuplicateClusterType.SOFT
 
             for j in range(i + 1, len(memories)):
                 if j in processed:
@@ -334,7 +337,6 @@ class MemoryHealthMonitor:
 
                 # Determine if duplicate based on cluster type
                 is_duplicate = False
-                detected_type = None
 
                 if similarity >= self.exact_duplicate_threshold:
                     is_duplicate = True
@@ -370,7 +372,7 @@ class MemoryHealthMonitor:
                 all_scores: list[float] = [1.0] + [float(s) for s in similar_scores]
                 cluster = DuplicateCluster(
                     cluster_id=f"cluster_{i}_{len(clusters)}",
-                    cluster_type=detected_type or DuplicateClusterType.SOFT,
+                    cluster_type=detected_type,
                     memories=cluster_memories,
                     similarity_scores=all_scores,
                     representative_memory_id=representative.id,

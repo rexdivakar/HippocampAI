@@ -78,10 +78,7 @@ class ProceduralMemoryManager:
 
         for rule in rules:
             # Avoid duplicates by checking text similarity
-            if not any(
-                r.rule_text.lower() == rule.rule_text.lower()
-                for r in self._rules[user_id]
-            ):
+            if not any(r.rule_text.lower() == rule.rule_text.lower() for r in self._rules[user_id]):
                 self._rules[user_id].append(rule)
 
         # Enforce max rules
@@ -93,9 +90,7 @@ class ProceduralMemoryManager:
         )
         return rules
 
-    def _extract_rules_llm(
-        self, user_id: str, interactions: list[str]
-    ) -> list[ProceduralRule]:
+    def _extract_rules_llm(self, user_id: str, interactions: list[str]) -> list[ProceduralRule]:
         """Extract rules using LLM."""
         combined = "\n---\n".join(interactions[-10:])
         prompt = (
@@ -130,9 +125,7 @@ class ProceduralMemoryManager:
             return []
 
     @staticmethod
-    def _extract_rules_heuristic(
-        user_id: str, interactions: list[str]
-    ) -> list[ProceduralRule]:
+    def _extract_rules_heuristic(user_id: str, interactions: list[str]) -> list[ProceduralRule]:
         """Extract simple rules using heuristics."""
         rules: list[ProceduralRule] = []
 
@@ -143,9 +136,7 @@ class ProceduralMemoryManager:
                 if len(word) > 4:
                     word_freq[word] = word_freq.get(word, 0) + 1
 
-        frequent_topics = [
-            w for w, c in word_freq.items() if c >= 3
-        ]
+        frequent_topics = [w for w, c in word_freq.items() if c >= 3]
 
         if frequent_topics:
             topics_str = ", ".join(frequent_topics[:5])
@@ -161,9 +152,7 @@ class ProceduralMemoryManager:
 
         return rules
 
-    def get_active_rules(
-        self, user_id: str, context: Optional[str] = None
-    ) -> list[ProceduralRule]:
+    def get_active_rules(self, user_id: str, context: Optional[str] = None) -> list[ProceduralRule]:
         """Get active rules sorted by confidence * success_rate.
 
         Args:
@@ -178,9 +167,7 @@ class ProceduralMemoryManager:
         active.sort(key=lambda r: r.confidence * r.success_rate, reverse=True)
         return active
 
-    def inject_rules_into_prompt(
-        self, user_id: str, base_prompt: str, max_rules: int = 5
-    ) -> str:
+    def inject_rules_into_prompt(self, user_id: str, base_prompt: str, max_rules: int = 5) -> str:
         """Prepend top rules to a base prompt.
 
         Args:
@@ -195,9 +182,7 @@ class ProceduralMemoryManager:
         if not active:
             return base_prompt
 
-        rules_text = "\n".join(
-            f"- {rule.rule_text}" for rule in active
-        )
+        rules_text = "\n".join(f"- {rule.rule_text}" for rule in active)
         return (
             f"## User behavioral rules (learned from past interactions):\n"
             f"{rules_text}\n\n{base_prompt}"
@@ -223,9 +208,7 @@ class ProceduralMemoryManager:
                     new_val = 1.0 if was_successful else 0.0
                     rule.success_rate = 0.9 * rule.success_rate + 0.1 * new_val
                     rule.updated_at = datetime.now(timezone.utc)
-                    logger.debug(
-                        f"Updated rule {rule_id} success_rate={rule.success_rate:.3f}"
-                    )
+                    logger.debug(f"Updated rule {rule_id} success_rate={rule.success_rate:.3f}")
                     return rule
         return None
 
@@ -250,10 +233,7 @@ class ProceduralMemoryManager:
             consolidated = self._consolidate_rules_simple(rules)
 
         self._rules[user_id] = consolidated
-        logger.info(
-            f"Consolidated rules for user {user_id}: "
-            f"{len(rules)} -> {len(consolidated)}"
-        )
+        logger.info(f"Consolidated rules for user {user_id}: {len(rules)} -> {len(consolidated)}")
         return consolidated
 
     def _consolidate_rules_llm(
@@ -261,7 +241,7 @@ class ProceduralMemoryManager:
     ) -> list[ProceduralRule]:
         """Consolidate rules using LLM."""
         rules_text = "\n".join(
-            f"{i+1}. {r.rule_text} (confidence={r.confidence:.2f}, success={r.success_rate:.2f})"
+            f"{i + 1}. {r.rule_text} (confidence={r.confidence:.2f}, success={r.success_rate:.2f})"
             for i, r in enumerate(rules)
         )
         prompt = (

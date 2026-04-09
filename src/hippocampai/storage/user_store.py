@@ -398,17 +398,11 @@ class UserStore:
 
     def get_stats(self) -> dict:
         """Get storage statistics."""
-        row = self.conn.execute(
-            "SELECT COUNT(*) FROM users WHERE is_deleted = FALSE"
-        ).fetchone()
+        row = self.conn.execute("SELECT COUNT(*) FROM users WHERE is_deleted = FALSE").fetchone()
         total_users = row[0] if row else 0
-        row = self.conn.execute(
-            "SELECT COUNT(*) FROM sessions WHERE is_deleted = FALSE"
-        ).fetchone()
+        row = self.conn.execute("SELECT COUNT(*) FROM sessions WHERE is_deleted = FALSE").fetchone()
         total_sessions = row[0] if row else 0
-        row = self.conn.execute(
-            "SELECT COUNT(*) FROM sessions WHERE is_deleted = TRUE"
-        ).fetchone()
+        row = self.conn.execute("SELECT COUNT(*) FROM sessions WHERE is_deleted = TRUE").fetchone()
         deleted_sessions = row[0] if row else 0
         row = self.conn.execute(
             "SELECT SUM(memory_count) FROM sessions WHERE is_deleted = FALSE"

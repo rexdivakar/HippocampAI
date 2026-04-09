@@ -5,9 +5,10 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import networkx as nx
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +34,49 @@ class MemoryGraph:
         self.graph: nx.DiGraph = nx.DiGraph()  # Directed graph for relationships
         self._memory_index: dict[str, dict] = {}  # memory_id -> memory_data
         self._user_graphs: dict[str, set[str]] = defaultdict(set)  # user_id -> memory_ids
+        self._dirty_callback: Optional[Callable[[], None]] = None
 
-    def add_memory(self, memory_id: str, user_id: str, metadata: Optional[dict] = None) -> None:
-        """Add a memory node to the graph."""
-        self.graph.add_node(memory_id, user_id=user_id, **(metadata or {}))
+    def register_dirty_callback(self, callback: Callable[[], None]) -> None:
+        """Register a callback to invoke whenever the graph is mutated.
+
+        The callback is invoked after every successful add_memory, add_relationship,
+        or remove_memory call. The implementation of the callback (e.g. rate-limiting
+        via a timestamp guard) is the caller's responsibility.
+
+        Args:
+            callback: Zero-argument callable to invoke on mutation.
+        """
+        self._dirty_callback = callback
+
+    def _on_dirty(self) -> None:
+        """Fire the dirty callback if one is registered."""
+        if self._dirty_callback is not None:
+            self._dirty_callback()
+
+    def add_memory(
+        self,
+        memory_id: str,
+        user_id: str,
+        metadata: Optional[dict] = None,
+        embedding: Optional[np.ndarray] = None,
+    ) -> None:
+        """Add a memory node to the graph.
+
+        Args:
+            memory_id: Unique memory identifier.
+            user_id: Owner user identifier.
+            metadata: Optional extra node attributes.
+            embedding: Optional pre-computed embedding vector stored on the node
+                for use by embedding-based relationship suggestion.
+        """
+        node_attrs: dict[str, Any] = {"user_id": user_id, **(metadata or {})}
+        if embedding is not None:
+            node_attrs["embedding"] = embedding
+        self.graph.add_node(memory_id, **node_attrs)
         self._memory_index[memory_id] = {"user_id": user_id, "metadata": metadata or {}}
         self._user_graphs[user_id].add(memory_id)
         logger.debug(f"Added memory {memory_id} to graph for user {user_id}")
+        self._on_dirty()
 
     def add_relationship(
         self,
@@ -58,6 +95,7 @@ class MemoryGraph:
             source_id, target_id, relation=relation_type.value, weight=weight, **(metadata or {})
         )
         logger.debug(f"Added {relation_type.value} relationship: {source_id} -> {target_id}")
+        self._on_dirty()
         return True
 
     def get_related_memories(
@@ -169,12 +207,20 @@ class MemoryGraph:
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
             degrees = [
-                (node, len(list(self.graph.predecessors(node))) + len(list(self.graph.successors(node))))
+                (
+                    node,
+                    len(list(self.graph.predecessors(node)))
+                    + len(list(self.graph.successors(node))),
+                )
                 for node in user_nodes
             ]
         else:
             degrees = [
-                (node, len(list(self.graph.predecessors(node))) + len(list(self.graph.successors(node))))
+                (
+                    node,
+                    len(list(self.graph.predecessors(node)))
+                    + len(list(self.graph.successors(node))),
+                )
                 for node in self.graph.nodes()
             ]
 
@@ -190,6 +236,7 @@ class MemoryGraph:
             del self._memory_index[memory_id]
             self._user_graphs[user_id].discard(memory_id)
             logger.debug(f"Removed memory {memory_id} from graph")
+            self._on_dirty()
 
     def get_graph_stats(self, user_id: Optional[str] = None) -> dict:
         """Get statistics about the graph."""
@@ -212,56 +259,103 @@ class MemoryGraph:
         }
 
     def suggest_relationships(
-        self, memory_id: str, candidates: list[str], threshold: float = 0.7
+        self,
+        memory_id: str,
+        candidates: list[str],
+        threshold: float = 0.7,
+        source_embedding: Optional[np.ndarray] = None,
     ) -> list[tuple[str, RelationType, float]]:
-        """
-        Suggest potential relationships based on existing patterns.
+        """Suggest potential relationships between memories.
 
-        This is a placeholder for ML-based relationship suggestion.
-        In a full implementation, this would use embeddings or graph features.
+        Uses cosine similarity over stored embeddings when ``source_embedding``
+        is provided and candidate nodes carry an ``embedding`` attribute.
+        Falls back to Jaccard similarity over common graph neighbours when
+        embeddings are unavailable.
 
         Args:
-            memory_id: Source memory
-            candidates: Candidate memory IDs to evaluate
-            threshold: Minimum confidence threshold
+            memory_id: Source memory whose relationships to suggest.
+            candidates: Candidate memory IDs to evaluate.
+            threshold: Minimum similarity score to include a suggestion.
+            source_embedding: Optional embedding vector for ``memory_id``.
+                When supplied, embedding-based cosine similarity is preferred
+                over the neighbour-set heuristic.
 
         Returns:
-            List of (candidate_id, suggested_relation, confidence) tuples
+            List of (candidate_id, RelationType, confidence) tuples sorted by
+            confidence descending.
         """
         suggestions: list[tuple[str, RelationType, float]] = []
 
-        # Simple heuristic: suggest based on common neighbors
-        if memory_id not in self.graph:
+        if memory_id not in self.graph or not candidates:
             return suggestions
 
-        memory_neighbors = set(self.graph.neighbors(memory_id))
+        # --- Embedding-based path ---
+        if source_embedding is not None:
+            src_norm = float(np.linalg.norm(source_embedding))
+            if src_norm == 0.0:
+                # Zero-norm vector: fall through to Jaccard
+                source_embedding = None
+            else:
+                for candidate in candidates:
+                    if candidate not in self.graph or candidate == memory_id:
+                        continue
 
+                    cand_embedding = self.graph.nodes[candidate].get("embedding")
+                    if cand_embedding is None:
+                        continue
+
+                    cand_arr = np.asarray(cand_embedding, dtype=np.float32)
+                    cand_norm = float(np.linalg.norm(cand_arr))
+                    if cand_norm == 0.0:
+                        continue
+
+                    cosine = float(np.dot(source_embedding, cand_arr) / (src_norm * cand_norm))
+                    if cosine >= threshold:
+                        relation = (
+                            RelationType.SIMILAR_TO if cosine >= 0.85 else RelationType.RELATED_TO
+                        )
+                        suggestions.append((candidate, relation, cosine))
+
+                suggestions.sort(key=lambda x: x[2], reverse=True)
+                return suggestions
+
+        # --- Jaccard fallback (neighbour-set heuristic) ---
+        memory_neighbors = set(self.graph.neighbors(memory_id))
         for candidate in candidates:
             if candidate not in self.graph or candidate == memory_id:
                 continue
 
             candidate_neighbors = set(self.graph.neighbors(candidate))
             common_neighbors = memory_neighbors & candidate_neighbors
+            if not common_neighbors:
+                continue
 
-            if common_neighbors:
-                # Calculate Jaccard similarity
-                all_neighbors = memory_neighbors | candidate_neighbors
-                similarity = len(common_neighbors) / len(all_neighbors)
+            all_neighbors = memory_neighbors | candidate_neighbors
+            similarity = len(common_neighbors) / len(all_neighbors)
+            if similarity >= threshold:
+                suggestions.append((candidate, RelationType.RELATED_TO, similarity))
 
-                if similarity >= threshold:
-                    suggestions.append((candidate, RelationType.RELATED_TO, similarity))
-
+        suggestions.sort(key=lambda x: x[2], reverse=True)
         return suggestions
 
     def export_to_dict(self, user_id: Optional[str] = None) -> dict:
         """Export graph to dictionary format for serialization."""
+        import numpy as np
+
         if user_id:
             user_nodes = self._user_graphs.get(user_id, set())
             subgraph = self.graph.subgraph(user_nodes)
         else:
             subgraph = self.graph
 
-        return cast(dict[Any, Any], nx.node_link_data(subgraph, edges="links"))
+        # Convert graph to a mutable copy so we can sanitize ndarray attributes
+        graph_copy = subgraph.copy()
+        for _, attrs in graph_copy.nodes(data=True):
+            for key, val in list(attrs.items()):
+                if isinstance(val, np.ndarray):
+                    attrs[key] = val.tolist()
+
+        return cast(dict[Any, Any], nx.node_link_data(graph_copy, edges="links"))
 
     def import_from_dict(self, data: dict) -> None:
         """Import graph from dictionary format."""

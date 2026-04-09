@@ -80,15 +80,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not authorization:
             return None, JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"error": "Authentication required",
-                         "message": "Missing Authorization header. Provide 'Authorization: Bearer <api_key>'"},
+                content={
+                    "error": "Authentication required",
+                    "message": "Missing Authorization header. Provide 'Authorization: Bearer <api_key>'",
+                },
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if not authorization.startswith("Bearer "):
             return None, JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"error": "Invalid authorization format",
-                         "message": "Authorization header must be 'Bearer <api_key>'"},
+                content={
+                    "error": "Invalid authorization format",
+                    "message": "Authorization header must be 'Bearer <api_key>'",
+                },
             )
         return authorization.replace("Bearer ", "").strip(), None
 
@@ -105,8 +109,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not user or not user.is_admin:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"error": "Admin access required",
-                         "message": "This endpoint requires administrator privileges"},
+                content={
+                    "error": "Admin access required",
+                    "message": "This endpoint requires administrator privileges",
+                },
             )
         return None
 
@@ -116,7 +122,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """Check rate limits. Returns error response if exceeded."""
         if key_data["tier"] == "admin" or not rate_limiter:
             return None
-        allowed, rate_info = await rate_limiter.check_rate_limit(key_data["api_key_id"], key_data["tier"])
+        allowed, rate_info = await rate_limiter.check_rate_limit(
+            key_data["api_key_id"], key_data["tier"]
+        )
         if allowed:
             request.state.rate_limit_info = rate_info
             return None
@@ -125,8 +133,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             content={
                 "error": "Rate limit exceeded",
                 "message": f"Rate limit of {rate_info.limit} requests per {rate_info.window} exceeded",
-                "limit": rate_info.limit, "remaining": rate_info.remaining,
-                "reset_at": rate_info.reset_at, "window": rate_info.window,
+                "limit": rate_info.limit,
+                "remaining": rate_info.remaining,
+                "reset_at": rate_info.reset_at,
+                "window": rate_info.window,
             },
             headers={
                 "X-RateLimit-Limit": str(rate_info.limit),
@@ -137,8 +147,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         )
 
     async def _log_api_usage(
-        self, request: Request, auth_service: Optional[AuthService],
-        status_code: int, start_time: float, response: Optional[Response] = None
+        self,
+        request: Request,
+        auth_service: Optional[AuthService],
+        status_code: int,
+        start_time: float,
+        response: Optional[Response] = None,
     ) -> None:
         """Log API usage."""
         if not hasattr(request.state, "api_key_id") or not auth_service:
@@ -150,9 +164,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
             except (ValueError, TypeError):
                 pass
         await auth_service.log_api_usage(
-            api_key_id=request.state.api_key_id, endpoint=request.url.path,
-            method=request.method, status_code=status_code,
-            tokens_used=tokens_used, response_time_ms=(time.time() - start_time) * 1000,
+            api_key_id=request.state.api_key_id,
+            endpoint=request.url.path,
+            method=request.method,
+            status_code=status_code,
+            tokens_used=tokens_used,
+            response_time_ms=(time.time() - start_time) * 1000,
         )
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -185,16 +202,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if error_response or api_key is None:
             return error_response or JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"error": "Authentication required",
-                         "message": "API key is required"},
+                content={"error": "Authentication required", "message": "API key is required"},
             )
 
         key_data = await auth_service.validate_api_key(api_key)
         if not key_data:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"error": "Invalid API key",
-                         "message": "The provided API key is invalid, expired, or has been revoked"},
+                content={
+                    "error": "Invalid API key",
+                    "message": "The provided API key is invalid, expired, or has been revoked",
+                },
             )
 
         # Inject authentication context
@@ -225,7 +243,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 response.headers["X-RateLimit-Remaining"] = str(rate_info.remaining)
                 response.headers["X-RateLimit-Reset"] = str(rate_info.reset_at)
 
-            await self._log_api_usage(request, auth_service, response.status_code, start_time, response)
+            await self._log_api_usage(
+                request, auth_service, response.status_code, start_time, response
+            )
             return cast(Response, response)
 
         except HTTPException as e:

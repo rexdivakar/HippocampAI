@@ -36,7 +36,6 @@ def demo_basic_conflict_resolution():
         user_id=user_id,
         type="preference",
         importance=7,
-        confidence=0.9,
     )
     print(f"✓ Memory 1: {mem1.text}")
 
@@ -47,7 +46,6 @@ def demo_basic_conflict_resolution():
         user_id=user_id,
         type="preference",
         importance=8,
-        confidence=0.95,
     )
     print(f"✓ Memory 2: {mem2.text}")
 
@@ -105,7 +103,6 @@ def demo_resolution_strategies():
             user_id=user_id,
             type="fact",
             importance=8,
-            confidence=0.95,
         )
 
         time.sleep(0.1)
@@ -115,7 +112,6 @@ def demo_resolution_strategies():
             user_id=user_id,
             type="fact",
             importance=8,
-            confidence=0.80,
         )
 
         # Resolve
@@ -183,6 +179,9 @@ def demo_provenance_tracking():
 
     # Get updated lineage
     lineage = client.get_memory_lineage(memory.id)
+    if lineage is None:
+        print("✗ Could not retrieve lineage")
+        return
     print(f"✓ Total citations: {len(lineage['citations'])}")
 
     for i, citation in enumerate(lineage["citations"], 1):
@@ -225,13 +224,16 @@ def demo_quality_assessment():
 
         print(f"Memory: {text}")
         print(f"Description: {description}")
-        print("\nQuality Scores:")
-        print(f"  Specificity:   {quality['specificity']:.2f}")
-        print(f"  Verifiability: {quality['verifiability']:.2f}")
-        print(f"  Completeness:  {quality['completeness']:.2f}")
-        print(f"  Clarity:       {quality['clarity']:.2f}")
-        print(f"  Relevance:     {quality['relevance']:.2f}")
-        print(f"  Overall:       {quality['overall_score']:.2f}")
+        if quality is None:
+            print("  Quality: Could not assess")
+        else:
+            print("\nQuality Scores:")
+            print(f"  Specificity:   {quality['specificity']:.2f}")
+            print(f"  Verifiability: {quality['verifiability']:.2f}")
+            print(f"  Completeness:  {quality['completeness']:.2f}")
+            print(f"  Clarity:       {quality['clarity']:.2f}")
+            print(f"  Relevance:     {quality['relevance']:.2f}")
+            print(f"  Overall:       {quality['overall_score']:.2f}")
         print()
 
 
@@ -312,7 +314,6 @@ def demo_complete_workflow():
         user_id=user_id,
         type="preference",
         importance=7,
-        confidence=0.9,
     )
 
     client.track_memory_provenance(
@@ -327,7 +328,10 @@ def demo_complete_workflow():
     )
 
     quality1 = client.assess_memory_quality(mem1.id, use_llm=False)
-    print(f"✓ Memory stored (quality: {quality1['overall_score']:.2f})")
+    if quality1 is not None:
+        print(f"✓ Memory stored (quality: {quality1['overall_score']:.2f})")
+    else:
+        print("✓ Memory stored (quality: N/A)")
 
     time.sleep(0.2)
 
@@ -338,7 +342,6 @@ def demo_complete_workflow():
         user_id=user_id,
         type="preference",
         importance=8,
-        confidence=0.95,
     )
 
     client.track_memory_provenance(
@@ -396,7 +399,10 @@ def demo_complete_workflow():
 
         # Quality
         quality = client.assess_memory_quality(merged.id, use_llm=False)
-        print(f"\n   Quality score: {quality['overall_score']:.2f}")
+        if quality is not None:
+            print(f"\n   Quality score: {quality['overall_score']:.2f}")
+        else:
+            print("\n   Quality score: N/A")
 
 
 def main():

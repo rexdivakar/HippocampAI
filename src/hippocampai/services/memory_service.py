@@ -66,9 +66,7 @@ class MemoryLockManager:
         Args:
             max_locks: Maximum number of locks to hold (prevents unbounded growth)
         """
-        self._locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
-            weakref.WeakValueDictionary()
-        )
+        self._locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._strong_refs: dict[str, asyncio.Lock] = {}
         self._ref_counts: dict[str, int] = {}
         self._manager_lock = asyncio.Lock()
@@ -128,9 +126,7 @@ class MemoryLockManager:
 
     def _cleanup_unused_locks(self) -> None:
         """Remove locks with zero references (called under _manager_lock)."""
-        to_remove = [
-            mid for mid, count in self._ref_counts.items() if count <= 0
-        ]
+        to_remove = [mid for mid, count in self._ref_counts.items() if count <= 0]
         for memory_id in to_remove:
             self._strong_refs.pop(memory_id, None)
             self._ref_counts.pop(memory_id, None)
@@ -288,7 +284,9 @@ class MemoryManagementService:
             try:
                 existing_memory = await self.get_memory(existing_id)
                 if existing_memory is None:
-                    logger.warning(f"Detected duplicate {existing_id} no longer exists, creating new memory")
+                    logger.warning(
+                        f"Detected duplicate {existing_id} no longer exists, creating new memory"
+                    )
                     return None, True
                 return existing_memory, False
             except Exception as e:
@@ -305,7 +303,9 @@ class MemoryManagementService:
                 tags=memory.tags,
             )
             if updated_memory is None:
-                raise MemoryNotFoundError(f"Failed to update memory {existing_id} - memory not found")
+                raise MemoryNotFoundError(
+                    f"Failed to update memory {existing_id} - memory not found"
+                )
             return updated_memory, False
 
         return None, True
@@ -368,8 +368,10 @@ class MemoryManagementService:
         )
         vector = self.embedder.encode_single(text)
         self.qdrant.upsert(
-            collection_name=collection, id=memory.id,
-            vector=vector, payload=memory.model_dump(mode="json"),
+            collection_name=collection,
+            id=memory.id,
+            vector=vector,
+            payload=memory.model_dump(mode="json"),
         )
         await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
 
@@ -379,9 +381,12 @@ class MemoryManagementService:
                 memory_operations_total,
                 memory_size_bytes,
             )
+
             memory_operations_total.labels(operation="create", status="success").inc()
             memories_created_total.labels(memory_type=memory.type.value).inc()
-            memory_size_bytes.labels(memory_type=memory.type.value).observe(len(text.encode("utf-8")))
+            memory_size_bytes.labels(memory_type=memory.type.value).observe(
+                len(text.encode("utf-8"))
+            )
         except Exception as metrics_err:
             logger.warning(f"Failed to track Prometheus metrics: {metrics_err}")
 
@@ -420,9 +425,13 @@ class MemoryManagementService:
         """
         # Create memory object
         memory = Memory(
-            text=text, user_id=user_id, session_id=session_id,
-            type=MemoryType(memory_type), importance=importance or 5.0,
-            tags=tags or [], metadata=metadata or {},
+            text=text,
+            user_id=user_id,
+            session_id=session_id,
+            type=MemoryType(memory_type),
+            importance=importance or 5.0,
+            tags=tags or [],
+            metadata=metadata or {},
         )
         if ttl_days:
             memory.expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
@@ -430,22 +439,30 @@ class MemoryManagementService:
 
         # Check duplicates
         if check_duplicate:
-            existing, should_continue = await self._handle_duplicate_check(memory, user_id, metadata)
+            existing, should_continue = await self._handle_duplicate_check(
+                memory, user_id, metadata
+            )
             if not should_continue:
                 return cast(Memory, existing)
 
         # Check for conflicts
         if check_conflicts and self.enable_conflict_resolution:
             existing_memories = await self.get_memories(
-                user_id=user_id, memory_type=memory_type, limit=100,
+                user_id=user_id,
+                memory_type=memory_type,
+                limit=100,
             )
             if existing_memories:
                 conflicts = self.conflict_resolver.detect_conflicts(
                     memory, existing_memories, check_llm=bool(self.llm)
                 )
                 if conflicts:
-                    logger.info(f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'")
-                    result = await self._apply_conflict_resolutions(memory, conflicts, auto_resolve_conflicts)
+                    logger.info(
+                        f"Detected {len(conflicts)} conflict(s) for new memory: '{text[:50]}...'"
+                    )
+                    result = await self._apply_conflict_resolutions(
+                        memory, conflicts, auto_resolve_conflicts
+                    )
                     # If we got back an existing memory (keep_first), return it
                     if result.id != memory.id and result.id in [c.memory_1.id for c in conflicts]:
                         return result
@@ -897,6 +914,7 @@ class MemoryManagementService:
         logger.debug(f"Query cache miss for key {cache_key}")
 
         # Update weights if provided
+        original_weights: dict[str, Any] | None = None
         if custom_weights:
             original_weights = self.retriever.weights.copy()
             self.retriever.weights.update(custom_weights)
@@ -931,7 +949,7 @@ class MemoryManagementService:
             return cast(list[Any], results)
         finally:
             # Restore original weights
-            if custom_weights:
+            if custom_weights and original_weights is not None:
                 self.retriever.weights = original_weights
 
     async def deduplicate_user_memories(

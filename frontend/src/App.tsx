@@ -27,6 +27,7 @@ import { FeedbackPage } from './pages/FeedbackPage';
 import { TriggersPage } from './pages/TriggersPage';
 import { ProceduralMemoryPage } from './pages/ProceduralMemoryPage';
 import { EmbeddingMigrationPage } from './pages/EmbeddingMigrationPage';
+import { ProspectiveMemoryPage } from './pages/ProspectiveMemoryPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 function App() {
@@ -105,6 +106,7 @@ function App() {
           <Route path="/feedback" element={<FeedbackPage userId={userId!} />} />
           <Route path="/triggers" element={<TriggersPage userId={userId!} />} />
           <Route path="/procedural" element={<ProceduralMemoryPage userId={userId!} />} />
+          <Route path="/prospective" element={<ProspectiveMemoryPage userId={userId!} />} />
           <Route path="/migrations" element={<EmbeddingMigrationPage userId={userId!} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

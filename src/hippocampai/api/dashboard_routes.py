@@ -111,9 +111,7 @@ def _get_cluster_stats(client: MemoryClient, user_id: str) -> list[dict[str, Any
                 "size": len(cluster),
                 "memory_ids": list(cluster)[:5],
             }
-            for idx, cluster in enumerate(
-                sorted(clusters, key=lambda x: len(x), reverse=True)[:5]
-            )
+            for idx, cluster in enumerate(sorted(clusters, key=lambda x: len(x), reverse=True)[:5])
         ]
     except Exception as e:
         logger.warning(f"Could not get clusters: {e}")
@@ -135,7 +133,7 @@ def _count_duplicates(memories: list[Any]) -> int:
     try:
         count = 0
         for i, m1 in enumerate(memories):
-            for m2 in memories[i + 1:]:
+            for m2 in memories[i + 1 :]:
                 if m1.text.lower().strip() == m2.text.lower().strip():
                     count += 1
         return count
@@ -178,9 +176,7 @@ def _get_sleep_runs_count(user_id: str) -> int:
 
 def _count_uncategorized(memories: list[Any]) -> int:
     """Count uncategorized memories (no tags and type is context)."""
-    return sum(
-        1 for m in memories if (not m.tags or len(m.tags) == 0) and m.type == "context"
-    )
+    return sum(1 for m in memories if (not m.tags or len(m.tags) == 0) and m.type == "context")
 
 
 def _count_archived(memories: list[Any]) -> int:

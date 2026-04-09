@@ -24,6 +24,7 @@ from hippocampai.models.agent import (
     Run,
 )
 from hippocampai.models.memory import Memory, MemoryType, RetrievalResult
+from hippocampai.models.search import SearchMode
 from hippocampai.models.session import Session, SessionSearchResult, SessionStatus
 from hippocampai.multiagent import MultiAgentManager
 from hippocampai.pipeline.consolidate import MemoryConsolidator
@@ -81,12 +82,14 @@ def _apply_config_overrides(
     embed_model: Optional[str],
     embed_quantized: Optional[bool],
     reranker_model: Optional[str],
+    bm25_backend: Optional[str],
     llm_provider: Optional[str],
     llm_model: Optional[str],
     hnsw_M: Optional[int],
     ef_construction: Optional[int],
     ef_search: Optional[int],
     weights: Optional[dict[str, float]],
+    half_lives: Optional[dict[str, int]],
     allow_cloud: Optional[bool],
 ) -> None:
     """Apply parameter overrides to config."""
@@ -96,6 +99,7 @@ def _apply_config_overrides(
         "collection_prefs": collection_prefs,
         "embed_model": embed_model,
         "reranker_model": reranker_model,
+        "bm25_backend": bm25_backend,
         "llm_provider": llm_provider,
         "llm_model": llm_model,
         "hnsw_m": hnsw_M,
@@ -115,6 +119,19 @@ def _apply_config_overrides(
         config.weight_rerank = weights.get("rerank", config.weight_rerank)
         config.weight_recency = weights.get("recency", config.weight_recency)
         config.weight_importance = weights.get("importance", config.weight_importance)
+    if half_lives:
+        _hl_prefs = half_lives.get("preference", half_lives.get("goal", half_lives.get("habit")))
+        if _hl_prefs is not None:
+            config.half_life_prefs = _hl_prefs
+        _hl_facts = half_lives.get("fact", half_lives.get("context"))
+        if _hl_facts is not None:
+            config.half_life_facts = _hl_facts
+        if "event" in half_lives:
+            config.half_life_events = half_lives["event"]
+        if "procedural" in half_lives:
+            config.half_life_procedural = half_lives["procedural"]
+        if "prospective" in half_lives:
+            config.half_life_prospective = half_lives["prospective"]
 
 
 def _initialize_llm(
@@ -125,9 +142,13 @@ def _initialize_llm(
 
     provider_map = {
         "ollama": lambda: OllamaLLM(model=config.llm_model, base_url=config.llm_base_url),
-        "openai": lambda: OpenAILLM(api_key=os.getenv("OPENAI_API_KEY", ""), model=config.llm_model),
+        "openai": lambda: OpenAILLM(
+            api_key=os.getenv("OPENAI_API_KEY", ""), model=config.llm_model
+        ),
         "groq": lambda: GroqLLM(api_key=os.getenv("GROQ_API_KEY", ""), model=config.llm_model),
-        "anthropic": lambda: AnthropicLLM(api_key=os.getenv("ANTHROPIC_API_KEY", ""), model=config.llm_model),
+        "anthropic": lambda: AnthropicLLM(
+            api_key=os.getenv("ANTHROPIC_API_KEY", ""), model=config.llm_model
+        ),
     }
 
     if config.llm_provider == "ollama":
@@ -192,9 +213,22 @@ class MemoryClient:
 
         # Override config with params
         _apply_config_overrides(
-            self.config, qdrant_url, collection_facts, collection_prefs,
-            embed_model, embed_quantized, reranker_model, llm_provider,
-            llm_model, hnsw_M, ef_construction, ef_search, weights, allow_cloud,
+            self.config,
+            qdrant_url,
+            collection_facts,
+            collection_prefs,
+            embed_model,
+            embed_quantized,
+            reranker_model,
+            bm25_backend,
+            llm_provider,
+            llm_model,
+            hnsw_M,
+            ef_construction,
+            ef_search,
+            weights,
+            half_lives,
+            allow_cloud,
         )
 
         # Initialize components
@@ -241,7 +275,9 @@ class MemoryClient:
         )
         self.consolidator = MemoryConsolidator(llm=self.llm)
         self.scorer = ImportanceScorer(llm=self.llm)
-        self.smart_updater = SmartMemoryUpdater(llm=self.llm, similarity_threshold=0.85)
+        self.smart_updater = SmartMemoryUpdater(
+            llm=self.llm, similarity_threshold=0.85, embedder=self.embedder
+        )
         self.categorizer = SemanticCategorizer(llm=self.llm)
         self.temporal_analyzer = TemporalAnalyzer(llm=self.llm)  # Temporal reasoning
         self.insight_analyzer = InsightAnalyzer(llm=self.llm)  # Cross-session insights
@@ -253,6 +289,7 @@ class MemoryClient:
 
         # Advanced Features
         self.graph = KnowledgeGraph()  # Enhanced with entity and fact support
+        self.graph.register_dirty_callback(self._maybe_persist_graph)
 
         # Feature 3: Graph-Aware Retrieval
         if self.config.enable_graph_retrieval:
@@ -290,6 +327,15 @@ class MemoryClient:
             llm=self.llm if self.config.enable_procedural_memory else None,
         )
 
+        # Feature 7: Prospective Memory
+        from hippocampai.prospective.prospective_memory import ProspectiveMemoryManager
+
+        self.prospective = ProspectiveMemoryManager(
+            max_intents_per_user=self.config.prospective_max_intents_per_user,
+            eval_interval_seconds=self.config.prospective_eval_interval_seconds,
+            llm=self.llm if self.config.enable_prospective_memory else None,
+        )
+
         # Feature 6: Embedding Model Migration
         from hippocampai.embed.migration import EmbeddingMigrationManager
 
@@ -319,6 +365,16 @@ class MemoryClient:
             contradiction_threshold=0.85,
         )
         self.provenance_tracker = ProvenanceTracker(llm=self.llm)
+
+        # Truth Maintenance System
+        self.truth_maintenance: Optional["TruthMaintenanceSystem"] = None
+        if self.config.enable_truth_maintenance and self.conflict_resolver:
+            from hippocampai.pipeline.truth_maintenance import TruthMaintenanceSystem
+
+            self.truth_maintenance = TruthMaintenanceSystem(
+                conflict_resolver=self.conflict_resolver,
+                config=self.config,
+            )
 
         # NEW: Memory Lifecycle Management
         from hippocampai.pipeline.memory_lifecycle import LifecycleConfig, MemoryLifecycleManager
@@ -452,7 +508,7 @@ class MemoryClient:
                 weight_recency=0.10,
                 weight_importance=0.10,
             )
-        elif preset == "development":
+        else:  # "development"
             config = Config(
                 qdrant_url="http://localhost:6333",
                 hnsw_m=16,  # Faster
@@ -462,8 +518,6 @@ class MemoryClient:
                 top_k_final=10,
                 embed_quantized=True,  # Faster embeddings
             )
-        else:
-            raise ValueError(f"Unknown preset: {preset}")
 
         # Apply overrides
         for key, value in dict.items(overrides):
@@ -530,9 +584,7 @@ class MemoryClient:
         )
 
         if not similar:
-            self.telemetry.add_event(
-                trace_id, "smart_update_check", status="success", action="new"
-            )
+            self.telemetry.add_event(trace_id, "smart_update_check", status="success", action="new")
             return memory, None
 
         existing_memory = similar[0][0]
@@ -574,9 +626,7 @@ class MemoryClient:
 
         return memory, None
 
-    def _store_memory_in_qdrant(
-        self, memory: Memory, trace_id: str
-    ) -> str:
+    def _store_memory_in_qdrant(self, memory: Memory, trace_id: str) -> str:
         """Store memory in Qdrant and return collection name."""
         collection: str = memory.collection_name(
             self.config.collection_facts, self.config.collection_prefs
@@ -595,9 +645,7 @@ class MemoryClient:
             vector=vector,
             payload=payload,
         )
-        self.telemetry.add_event(
-            trace_id, "vector_store", status="success", collection=collection
-        )
+        self.telemetry.add_event(trace_id, "vector_store", status="success", collection=collection)
 
         logger.info(f"Stored memory: {memory.id}, type={memory.type}")
         return collection
@@ -609,13 +657,17 @@ class MemoryClient:
         must not break the remember() flow.
         """
         try:
-            # 1. Add memory node
+            # 1. Add memory node (with embedding for similarity-based relationship suggestion)
             metadata = {
                 "node_type": "memory",
                 "type": memory.type.value,
                 "created_at": memory.created_at.isoformat(),
             }
-            self.graph.add_memory(memory.id, memory.user_id, metadata)
+            try:
+                memory_embedding: Optional[np.ndarray] = self.embedder.encode_single(memory.text)
+            except Exception:
+                memory_embedding = None
+            self.graph.add_memory(memory.id, memory.user_id, metadata, embedding=memory_embedding)
 
             # 2. Extract and add entities
             entities = self.entity_recognizer.extract_entities(memory.text)
@@ -626,9 +678,7 @@ class MemoryClient:
                 )
 
             # 3. Extract and add relationships between entities
-            relationships = self.entity_recognizer.extract_relationships(
-                memory.text, entities
-            )
+            relationships = self.entity_recognizer.extract_relationships(memory.text, entities)
             for rel in relationships:
                 self.graph.link_entities(rel)
 
@@ -708,7 +758,8 @@ class MemoryClient:
         """Apply merge resolution for conflicting memories."""
         try:
             merged_collection = resolution.updated_memory.collection_name(
-                self.config.collection_facts, self.config.collection_prefs,
+                self.config.collection_facts,
+                self.config.collection_prefs,
             )
             merged_vector = self.embedder.encode_single(resolution.updated_memory.text)
             merged_payload = resolution.updated_memory.model_dump(mode="json")
@@ -729,7 +780,9 @@ class MemoryClient:
             )
 
             self.provenance_tracker.track_merge(
-                memory, [conflict.memory_1, conflict.memory_2], merge_strategy=resolution_strategy,
+                memory,
+                [conflict.memory_1, conflict.memory_2],
+                merge_strategy=resolution_strategy,
             )
         except Exception as merge_err:
             logger.error(f"Auto-resolve merge failed, originals preserved: {merge_err}")
@@ -868,8 +921,16 @@ class MemoryClient:
             # Create and enrich memory
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="in_progress")
             memory = self._create_initial_memory(
-                text, user_id, session_id, type, importance, tags,
-                ttl_days, agent_id, run_id, visibility,
+                text,
+                user_id,
+                session_id,
+                type,
+                importance,
+                tags,
+                ttl_days,
+                agent_id,
+                run_id,
+                visibility,
             )
             logger.info(f"Enrichment completed for text '{memory.text[:50]}'")
             self.telemetry.add_event(trace_id, "semantic_enrichment", status="success")
@@ -888,16 +949,36 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "deduplication_check", status="in_progress")
             dedup_action, dup_ids = self.deduplicator.check_duplicate(memory, user_id)
             self.telemetry.add_event(
-                trace_id, "deduplication_check", status="success",
-                action=dedup_action, duplicates=len(dup_ids),
+                trace_id,
+                "deduplication_check",
+                status="success",
+                action=dedup_action,
+                duplicates=len(dup_ids),
             )
             if dedup_action == "skip":
                 logger.info(f"Skipping duplicate memory: {memory.id}, type={memory.type}")
                 self.telemetry.end_trace(trace_id, status="skipped", result={"duplicate": True})
                 return memory
+            elif dedup_action == "update" and dup_ids:
+                # Reinforce the existing memory instead of creating a duplicate
+                existing = self.get_memory(dup_ids[0])
+                if existing is not None:
+                    self.update_memory(
+                        existing.id,
+                        importance=min(1.0, existing.importance + 0.05),
+                        metadata=existing.metadata,
+                    )
+                    logger.info(f"Reinforced existing memory {existing.id} instead of duplicating")
+                    self.telemetry.end_trace(
+                        trace_id, status="reinforced", result={"existing_id": existing.id}
+                    )
+                    return existing
 
             # Store in Qdrant
             collection = self._store_memory_in_qdrant(memory, trace_id)
+
+            # Incrementally update BM25 so new memory is immediately searchable
+            self.retriever.add_to_corpus(memory.id, memory.text, collection)
 
             # Update knowledge graph (real-time incremental)
             if self.config.enable_realtime_graph:
@@ -909,9 +990,27 @@ class MemoryClient:
                     memory, trace_id, user_id, resolution_strategy
                 )
 
+            # Evaluate belief in Truth Maintenance System
+            if self.truth_maintenance:
+                try:
+                    self.truth_maintenance.evaluate_belief(
+                        memory_id=memory.id,
+                        text=text,
+                        user_id=user_id,
+                        confidence=importance if importance is not None else 0.5,
+                        justification_type="direct_observation",
+                    )
+                except Exception as tms_err:
+                    logger.warning(f"TMS belief evaluation failed: {tms_err}")
+
             self.telemetry.end_trace(
-                trace_id, status="success",
-                result={"memory_id": memory.id, "collection": collection, "auto_resolved": auto_resolve_conflicts},
+                trace_id,
+                status="success",
+                result={
+                    "memory_id": memory.id,
+                    "collection": collection,
+                    "auto_resolved": auto_resolve_conflicts,
+                },
             )
 
             # Track events and metrics
@@ -936,8 +1035,12 @@ class MemoryClient:
             self.telemetry.end_trace(trace_id, status="error", result={"error": str(e)})
             self._track_memory_creation(
                 Memory(text=text, user_id=user_id, type=MemoryType(type)),
-                user_id, session_id, tags, auto_resolve_conflicts,
-                success=False, error=str(e),
+                user_id,
+                session_id,
+                tags,
+                auto_resolve_conflicts,
+                success=False,
+                error=str(e),
             )
             raise
 
@@ -983,8 +1086,11 @@ class MemoryClient:
                 logger.error(f"Auto-resolve failed for conflict: {e}")
 
         self.telemetry.add_event(
-            trace_id, "auto_conflict_resolution", status="success",
-            conflicts_found=len(conflicts), strategy=resolution_strategy,
+            trace_id,
+            "auto_conflict_resolution",
+            status="success",
+            conflicts_found=len(conflicts),
+            strategy=resolution_strategy,
         )
         return memory
 
@@ -1014,10 +1120,20 @@ class MemoryClient:
                 self.telemetry.add_event(trace_id, "bm25_rebuild", status="success")
 
             self.telemetry.add_event(trace_id, "hybrid_retrieval", status="in_progress")
+            search_mode = (
+                SearchMode.GRAPH_HYBRID
+                if self.config.enable_graph_retrieval and self.graph_retriever is not None
+                else SearchMode.HYBRID
+            )
             results = cast(
                 list[Any],
                 self.retriever.retrieve(
-                    query=query, user_id=user_id, session_id=session_id, k=k, filters=filters
+                    query=query,
+                    user_id=user_id,
+                    session_id=session_id,
+                    k=k,
+                    filters=filters,
+                    search_mode=search_mode,
                 ),
             )
             self.telemetry.add_event(
@@ -1069,6 +1185,37 @@ class MemoryClient:
                 search_results_count.observe(len(results))
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus search metrics: {metrics_err}")
+
+            # Evaluate prospective memory intents against this recall query
+            if self.config.enable_prospective_memory:
+                try:
+                    triggered_intents = self.prospective.evaluate_context(
+                        user_id=user_id,
+                        context_text=query,
+                    )
+                    for intent in triggered_intents:
+                        prospective_memory = Memory(
+                            text=f"[Prospective] {intent.intent_text}: {intent.action_description}",
+                            user_id=user_id,
+                            type=MemoryType.PROSPECTIVE,
+                            importance=float(intent.priority),
+                            tags=intent.tags,
+                            metadata={"prospective_intent_id": intent.id},
+                        )
+                        results.append(
+                            RetrievalResult(
+                                memory=prospective_memory,
+                                score=intent.priority / 10.0,
+                                breakdown={"source": "prospective"},
+                            )
+                        )
+                    if triggered_intents:
+                        logger.info(
+                            f"Prospective memory: {len(triggered_intents)} intent(s) "
+                            f"triggered for user {user_id}"
+                        )
+                except Exception as prosp_err:
+                    logger.warning(f"Prospective memory evaluation failed: {prosp_err}")
 
             return results
         except Exception as e:
@@ -1295,8 +1442,13 @@ class MemoryClient:
                 get_tracker,
             )
 
-            field_map = {"text": text, "importance": importance, "tags": tags,
-                         "metadata": metadata, "expires_at": expires_at}
+            field_map = {
+                "text": text,
+                "importance": importance,
+                "tags": tags,
+                "metadata": metadata,
+                "expires_at": expires_at,
+            }
             updated_fields = [name for name, val in field_map.items() if val is not None]
 
             tracker = get_tracker()
@@ -1345,27 +1497,36 @@ class MemoryClient:
             self.telemetry.add_event(trace_id, "update_vector_store", status="in_progress")
             if vector is not None:
                 self.qdrant.upsert(
-                    collection_name=collection, id=memory_id,
-                    vector=np.array(vector), payload=memory.model_dump(mode="json"),
+                    collection_name=collection,
+                    id=memory_id,
+                    vector=np.array(vector),
+                    payload=memory.model_dump(mode="json"),
                 )
             else:
                 self.qdrant.update(
-                    collection_name=collection, id=memory_id,
+                    collection_name=collection,
+                    id=memory_id,
                     payload=memory.model_dump(mode="json"),
                 )
             self.telemetry.add_event(trace_id, "update_vector_store", status="success")
 
             logger.info(f"Updated memory: {memory_id}")
-            updated_count = len([x for x in [text, importance, tags, metadata, expires_at] if x is not None])
+            updated_count = len(
+                [x for x in [text, importance, tags, metadata, expires_at] if x is not None]
+            )
             self.telemetry.end_trace(
-                trace_id, status="success",
+                trace_id,
+                status="success",
                 result={"memory_id": memory_id, "updated_fields": updated_count},
             )
 
             # Track events and metrics
-            self._track_memory_update_event(memory_id, memory.user_id, text, importance, tags, metadata, expires_at)
+            self._track_memory_update_event(
+                memory_id, memory.user_id, text, importance, tags, metadata, expires_at
+            )
             try:
                 from hippocampai.monitoring.prometheus_metrics import memory_operations_total
+
                 memory_operations_total.labels(operation="update", status="success").inc()
             except Exception as metrics_err:
                 logger.warning(f"Failed to track Prometheus update metrics: {metrics_err}")
@@ -3440,7 +3601,9 @@ class MemoryClient:
             >>> print(f"Topics: {summary.topics}")
             >>> print(f"Action items: {summary.action_items}")
         """
-        summary: SessionSummary = self.summarizer.summarize_session(messages, session_id, style, entities)
+        summary: SessionSummary = self.summarizer.summarize_session(
+            messages, session_id, style, entities
+        )
         return summary
 
     def create_rolling_summary(
@@ -3704,8 +3867,75 @@ class MemoryClient:
             ...     print(f"{fact['fact']} (confidence: {fact['confidence']:.2f})")
             ...     print(f"  Rule: {fact['rule']}")
         """
-        inferred_facts: list[dict[str, Any]] = self.graph.infer_new_facts(user_id)
+        llm = self.llm if self.config.graph_extraction_mode == "llm" else None
+        inferred_facts: list[dict[str, Any]] = self.graph.infer_new_facts(user_id, llm=llm)
         return inferred_facts
+
+    def check_graph_qdrant_drift(
+        self,
+        user_id: str,
+        collection_name: Optional[str] = None,
+        limit: int = 1000,
+    ) -> dict[str, Any]:
+        """Compare memory IDs in the knowledge graph against Qdrant for a user.
+
+        Reports which IDs exist in one store but not the other without making
+        any writes.  Useful as a health-check to detect silent divergence
+        between the in-memory graph and vector storage.
+
+        Args:
+            user_id: The user whose memories to compare.
+            collection_name: Qdrant collection to query. Defaults to
+                ``config.collection_facts``.
+            limit: Maximum number of Qdrant points to fetch per scroll call.
+
+        Returns:
+            Dict with keys:
+            - ``user_id`` – the queried user.
+            - ``graph_only`` – sorted list of IDs in the graph but not Qdrant.
+            - ``qdrant_only`` – sorted list of IDs in Qdrant but not the graph.
+            - ``synced`` – count of IDs present in both stores.
+            - ``drift_detected`` – True when the two stores have diverged.
+            - ``checked_at`` – ISO-8601 timestamp of when the check ran.
+        """
+        from datetime import timezone
+
+        collection = collection_name or self.config.collection_facts
+
+        # Graph memory IDs for this user (memory-typed nodes only)
+        graph_memory_ids: set[str] = set()
+        for nid in self.graph._user_graphs.get(user_id, set()):
+            node_data = self.graph.graph.nodes.get(nid, {})
+            if node_data.get("node_type") == "memory":
+                graph_memory_ids.add(nid)
+
+        # Qdrant point IDs for this user (point ID == memory.id)
+        qdrant_points = self.qdrant.scroll(
+            collection_name=collection,
+            filters={"user_id": user_id},
+            limit=limit,
+        )
+        qdrant_ids: set[str] = {p["id"] for p in qdrant_points}
+
+        graph_only = sorted(graph_memory_ids - qdrant_ids)
+        qdrant_only = sorted(qdrant_ids - graph_memory_ids)
+        synced = len(graph_memory_ids & qdrant_ids)
+        drift = bool(graph_only or qdrant_only)
+
+        if drift:
+            logger.warning(
+                f"Graph/Qdrant drift detected for user {user_id}: "
+                f"{len(graph_only)} graph-only, {len(qdrant_only)} qdrant-only"
+            )
+
+        return {
+            "user_id": user_id,
+            "graph_only": graph_only,
+            "qdrant_only": qdrant_only,
+            "synced": synced,
+            "drift_detected": drift,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     def enrich_memory_with_intelligence(
         self,
@@ -6904,3 +7134,272 @@ class MemoryClient:
         )
 
         return pack
+
+    # ------------------------------------------------------------------
+    # Prospective Memory convenience methods
+    # ------------------------------------------------------------------
+
+    def create_prospective_intent(
+        self,
+        user_id: str,
+        intent_text: str,
+        trigger_type: str = "event_based",
+        action_description: str = "",
+        **kwargs: Any,
+    ) -> Any:
+        """Create a prospective memory intent.
+
+        Args:
+            user_id: User identifier.
+            intent_text: What to remember to do.
+            trigger_type: 'time_based', 'event_based', or 'hybrid'.
+            action_description: Description of the action to perform.
+            **kwargs: Additional fields passed to ProspectiveMemoryManager.create_intent().
+
+        Returns:
+            ProspectiveIntent object.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        from hippocampai.prospective.prospective_memory import ProspectiveTriggerType
+
+        tt = ProspectiveTriggerType(trigger_type)
+        return self.prospective.create_intent(
+            user_id=user_id,
+            intent_text=intent_text,
+            trigger_type=tt,
+            action_description=action_description,
+            **kwargs,
+        )
+
+    def parse_prospective_intent(self, user_id: str, text: str) -> Any:
+        """Parse natural language into a prospective intent.
+
+        Args:
+            user_id: User identifier.
+            text: Natural language description of the intent.
+
+        Returns:
+            ProspectiveIntent object.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        return self.prospective.create_intent_from_natural_language(user_id=user_id, text=text)
+
+    def list_prospective_intents(self, user_id: str, status: Optional[str] = None) -> list[Any]:
+        """List prospective intents for a user.
+
+        Args:
+            user_id: User identifier.
+            status: Optional status filter ('pending', 'triggered', 'completed', 'expired', 'cancelled').
+
+        Returns:
+            List of ProspectiveIntent objects.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        from hippocampai.prospective.prospective_memory import ProspectiveStatus
+
+        s = ProspectiveStatus(status) if status else None
+        return self.prospective.list_intents(user_id=user_id, status=s)
+
+    def get_prospective_intent(self, intent_id: str) -> Optional[Any]:
+        """Get a prospective intent by ID.
+
+        Args:
+            intent_id: Intent identifier.
+
+        Returns:
+            ProspectiveIntent or None.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        return self.prospective.get_intent(intent_id=intent_id)
+
+    def cancel_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Cancel a prospective intent.
+
+        Args:
+            intent_id: Intent identifier.
+            user_id: User identifier (must match intent owner).
+
+        Returns:
+            Updated ProspectiveIntent or None.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        return self.prospective.cancel_intent(intent_id=intent_id, user_id=user_id)
+
+    def complete_prospective_intent(self, intent_id: str, user_id: str) -> Any:
+        """Mark a prospective intent as completed.
+
+        Args:
+            intent_id: Intent identifier.
+            user_id: User identifier (must match intent owner).
+
+        Returns:
+            Updated ProspectiveIntent or None.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        return self.prospective.complete_intent(intent_id=intent_id, user_id=user_id)
+
+    def evaluate_prospective_context(
+        self,
+        user_id: str,
+        context_text: str,
+        context_embedding: Optional[list[float]] = None,
+    ) -> list[Any]:
+        """Evaluate context against pending prospective intents.
+
+        Args:
+            user_id: User identifier.
+            context_text: Text of the current context/query.
+            context_embedding: Optional embedding vector for similarity matching.
+
+        Returns:
+            List of triggered ProspectiveIntent objects.
+        """
+        if not self.prospective:
+            raise RuntimeError("Prospective memory not enabled")
+        return self.prospective.evaluate_context(
+            user_id=user_id,
+            context_text=context_text,
+            context_embedding=context_embedding,
+        )
+
+    # ------------------------------------------------------------------
+    # Truth Maintenance System methods
+    # ------------------------------------------------------------------
+
+    def evaluate_belief(
+        self,
+        memory_id: str,
+        text: str,
+        user_id: str,
+        confidence: float = 1.0,
+        justification_type: str = "direct_observation",
+        source_memory_ids: Optional[list[str]] = None,
+    ) -> Any:
+        """Evaluate and register a belief from a memory in the TMS.
+
+        Args:
+            memory_id: Memory identifier.
+            text: Text content of the belief.
+            user_id: User identifier.
+            confidence: Confidence score (0-1).
+            justification_type: How the belief was justified.
+            source_memory_ids: IDs of memories that support this belief.
+
+        Returns:
+            BeliefRecord object.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.evaluate_belief(
+            memory_id=memory_id,
+            text=text,
+            user_id=user_id,
+            confidence=confidence,
+            justification_type=justification_type,
+            source_memory_ids=source_memory_ids,
+        )
+
+    def get_belief_state(self, memory_id: str) -> Optional[Any]:
+        """Get the belief state for a memory.
+
+        Args:
+            memory_id: Memory identifier.
+
+        Returns:
+            BeliefRecord or None.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.get_belief_by_memory(memory_id=memory_id)
+
+    def revise_belief(
+        self,
+        belief_id: str,
+        new_state: str,
+        reason: str = "",
+        triggered_by: Optional[str] = None,
+    ) -> Any:
+        """Revise a belief's state in the TMS.
+
+        Args:
+            belief_id: Belief identifier.
+            new_state: New state ('active', 'retracted', 'suspended', 'contradicted').
+            reason: Reason for the revision.
+            triggered_by: ID of the belief that triggered this revision.
+
+        Returns:
+            BeliefRevision object.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.revise_belief(
+            belief_id=belief_id,
+            new_state=new_state,
+            reason=reason,
+            triggered_by=triggered_by,
+        )
+
+    def get_contradictions(self, user_id: str, include_resolved: bool = False) -> list[Any]:
+        """Get contradictions for a user's beliefs.
+
+        Args:
+            user_id: User identifier.
+            include_resolved: Whether to include resolved contradictions.
+
+        Returns:
+            List of ContradictionLink objects.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.get_contradictions(
+            user_id=user_id, include_resolved=include_resolved
+        )
+
+    def get_belief_history(self, belief_id: str) -> list[Any]:
+        """Get revision history for a belief.
+
+        Args:
+            belief_id: Belief identifier.
+
+        Returns:
+            List of BeliefRevision objects.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.get_belief_history(belief_id=belief_id)
+
+    def resolve_contradiction(
+        self,
+        link_id: str,
+        winning_belief_id: str,
+        strategy: str = "manual",
+    ) -> Any:
+        """Resolve a contradiction by choosing a winning belief.
+
+        The losing belief is retracted.
+
+        Args:
+            link_id: ID of the ContradictionLink to resolve.
+            winning_belief_id: ID of the belief that should remain ACTIVE.
+            strategy: Description of the resolution strategy used.
+
+        Returns:
+            Updated ContradictionLink object.
+
+        Raises:
+            RuntimeError: If truth maintenance system is not enabled.
+            ValueError: If link_id or winning_belief_id is not found.
+        """
+        if not self.truth_maintenance:
+            raise RuntimeError("Truth maintenance system not enabled")
+        return self.truth_maintenance.resolve_contradiction(
+            link_id=link_id,
+            winning_belief_id=winning_belief_id,
+            strategy=strategy,
+        )

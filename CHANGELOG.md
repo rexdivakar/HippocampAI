@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+---
+
+## [0.5.1] - 2026-04-09
+
+### Added
+
+- **Batch memory endpoints** — three new REST endpoints for bulk operations:
+  - `POST /v1/memories/batch` — store N memories in a single request; individual failures logged but do not abort the batch
+  - `POST /v1/memories/batch/get` — fetch up to N memories by explicit ID list; silently skips not-found IDs
+  - `POST /v1/memories/batch/delete` — delete N memories by ID; returns `{"deleted": N, "failed": M}` counts
+- **Deduplication endpoint** — `POST /v1/memories/deduplicate` exposes the existing `Deduplicator` via API; supports `dry_run=true` (default) to inspect without removing
+- **Single-memory GET** — `GET /v1/memories/{memory_id}` retrieves one memory by ID; returns 404 if not found
+- **Prometheus scrape endpoint in main app** — `GET /metrics` was previously only present in `async_app.py`; now registered in `app.py` with 501 fallback when `prometheus-client` is not installed
+- **Frontend `package.json`** — created missing file that caused `npm ci` to fail during container build
+- **SQL fallback in consolidation DB** — `consolidation/db.py` now creates the consolidation tables inline when the `*.sql` file is absent, preventing 500 errors on `/api/consolidation/status`
+- **Test suite for remote backend** — `tests/test_remote_backend_endpoints.py` adds 9 unit tests covering URL construction correctness and consolidation DB table-creation fallback
+
+### Changed
+
+- **`RemoteBackend` URL patterns corrected** — all 6 methods had `:verb` path-style URLs (`/recall` → `:recall`); corrected to match the actual FastAPI routes
+- **`RemoteBackend` default timeout** raised from 30 s to 90 s to accommodate LLM-backed operations under load
+- **`RemoteBackend` filter merging** — `session_id`, `min_importance`, `after`, and `before` parameters are now merged into the `filters` dict before being sent; `min_score` is now applied client-side after results return
+- **`QueryRouter` matching** in `retrieval/router.py` switched from exact word matching to stem-prefix matching; fixes zero-result recalls for plurals and conjugations (e.g., "habits" now matches routes keyed on "habit")
+- **Groq retry config** in `adapters/provider_groq.py` reduced from 5 attempts × 60 s max to 3 attempts × 20 s max with an explicit 30 s HTTP client timeout, capping worst-case hang from ~5 min to ~90 s
+- **`pyproject.toml` package data** — added `**/*.sql` glob so SQL files are included in the installed package
+- **Version aligned to 0.5.1** across `pyproject.toml` and `api/app.py`
+- **Frontend `Dockerfile`** — changed `npm ci` to `npm install` to allow builds when a lockfile is absent
+
+### Fixed
+
+- `/api/consolidation/status` returning HTTP 500 due to missing SQL file at install time
+- `RemoteBackend.recall()` silently returning empty results when the server URL used colon-style verb paths
+- `recall()` returning 0 results for plural or conjugated queries against `QueryRouter`-routed endpoints
+- Groq LLM calls hanging for up to 5 minutes during transient API errors
+- `npm ci` failing during Docker frontend build due to missing `package.json`
+
+---
+
+## [0.5.1] - 2026-02-13
+
+### Added
+
+- **Prospective Memory / Remembering to Remember** — a new cognitive memory capability for AI agents
+  - `PROSPECTIVE` memory type added to MemoryType enum (routed to prefs collection)
+  - Two trigger modes: **time-based** (fire at datetime/cron) and **event-based** (fire when recall query matches keywords, regex, or embedding similarity)
+  - `ProspectiveIntent` model with full lifecycle: pending, triggered, completed, expired, cancelled
+  - `ProspectiveMemoryManager` with CRUD, context evaluation, time trigger evaluation, NL parsing (LLM + heuristic fallback), recurrence handling, expiry, and consolidation
+  - Recurrence support: none, daily, weekly, monthly, custom_cron (via croniter)
+  - Priority-based ordering (0-10) for triggered intents
+  - Cosine similarity matching for embedding-based event triggers
+  - Recall pipeline integration: triggered intents automatically surface as `RetrievalResult` objects during `recall()`
+  - `ON_PROSPECTIVE_TRIGGER` event added to trigger system for webhook/websocket/log notifications
+  - Background evaluation loop in `BackgroundTaskManager` for periodic time-based intent evaluation
+  - 2 new Celery tasks: `evaluate_prospective_triggers`, `expire_prospective_intents`
+  - 9 new REST API endpoints under `/v1/prospective/` (intents CRUD, parse, evaluate, consolidate, expire)
+  - 4 new configuration fields: `enable_prospective_memory`, `prospective_max_intents_per_user`, `prospective_eval_interval_seconds`, `half_life_prospective`
+  - Frontend: `ProspectiveMemoryPage` with create/parse/evaluate/cancel/complete/consolidate/expire UI
+  - Frontend: API client methods, TypeScript types, navigation integration
+  - Library exports: `ProspectiveIntent`, `ProspectiveMemoryManager`, `ProspectiveStatus`, `ProspectiveTriggerType`, `RecurrencePattern`
+  - 33 unit tests covering CRUD, keyword/regex/embedding matching, time triggers, recurrence, lifecycle, NL parsing, and model integration
+
+---
+
 ## [0.5.0] - 2026-02-11
 
 ### Major Release — Intelligent Memory Features

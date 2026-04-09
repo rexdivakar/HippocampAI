@@ -16,17 +16,36 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from langchain_classic.memory.chat_memory import BaseChatMemory
-from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
-from langchain_core.documents import Document
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.retrievers import BaseRetriever
-
 if TYPE_CHECKING:
     from hippocampai.client import MemoryClient
 
+LANGCHAIN_AVAILABLE = False
+try:
+    from langchain_classic.memory.chat_memory import (
+        BaseChatMemory as _BaseChatMemory,
+    )
+    from langchain_core.documents import Document as _Document
+    from langchain_core.messages import AIMessage as _AIMessage
+    from langchain_core.messages import HumanMessage as _HumanMessage
+    from langchain_core.retrievers import BaseRetriever as _BaseRetriever
 
-class HippocampMemory(BaseChatMemory):
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+
+    class _Unavailable:
+        """Placeholder for unavailable langchain classes."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("langchain is required: pip install langchain-core langchain-classic")
+
+    _BaseChatMemory = object
+    _BaseRetriever = object
+    _Document = _Unavailable
+    _AIMessage = _Unavailable
+    _HumanMessage = _Unavailable
+
+
+class HippocampMemory(_BaseChatMemory):  # type: ignore[misc]
     """LangChain memory backed by HippocampAI.
 
     Stores conversation history as memories and retrieves relevant
@@ -89,9 +108,9 @@ class HippocampMemory(BaseChatMemory):
             for result in results:
                 msg_type = result.memory.metadata.get("message_type", "human")
                 if msg_type == "ai":
-                    messages.append(AIMessage(content=result.memory.text))
+                    messages.append(_AIMessage(content=result.memory.text))
                 else:
-                    messages.append(HumanMessage(content=result.memory.text))
+                    messages.append(_HumanMessage(content=result.memory.text))
             return {self.memory_key: messages}
         else:
             history = "\n".join([r.memory.text for r in results])
@@ -122,7 +141,7 @@ class HippocampMemory(BaseChatMemory):
         """Clear memory (not implemented - memories are persistent)."""
 
 
-class HippocampRetriever(BaseRetriever):
+class HippocampRetriever(_BaseRetriever):  # type: ignore[misc]
     """LangChain retriever backed by HippocampAI.
 
     Retrieves relevant memories as LangChain Documents.
@@ -161,8 +180,8 @@ class HippocampRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-    ) -> List[Document]:
+        run_manager: Optional[Any] = None,
+    ) -> list[Any]:
         """Retrieve relevant documents."""
         results = self.client.recall(
             query=query,
@@ -183,7 +202,7 @@ class HippocampRetriever(BaseRetriever):
                 if mem_type not in self.filter_types:
                     continue
 
-            doc = Document(
+            doc = _Document(
                 page_content=result.memory.text,
                 metadata={
                     "memory_id": result.memory.id,
@@ -202,7 +221,7 @@ class HippocampRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-    ) -> List[Document]:
+        run_manager: Optional[Any] = None,
+    ) -> list[Any]:
         """Async retrieve (falls back to sync)."""
         return self._get_relevant_documents(query, run_manager=run_manager)

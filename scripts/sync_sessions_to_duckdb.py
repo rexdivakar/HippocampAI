@@ -45,6 +45,8 @@ def sync_sessions():
 
                 for point in results:
                     payload = point.payload
+                    if payload is None:
+                        continue
                     user_id = payload.get("user_id")
                     session_id = payload.get("session_id")
 

@@ -12,7 +12,13 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional, cast
 
-from pythonjsonlogger.json import JsonFormatter as _BaseJsonFormatter
+try:
+    from pythonjsonlogger.json import JsonFormatter as _BaseJsonFormatter
+except ImportError as _exc:
+    raise ImportError(
+        "Structured logging requires python-json-logger. "
+        "Install with: pip install python-json-logger"
+    ) from _exc
 
 # Context variable for request/trace ID
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")

@@ -1,7 +1,5 @@
 """Demo: Auto-healing and automatic memory maintenance."""
 
-from datetime import datetime, timedelta
-
 from hippocampai.client import MemoryClient
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.healing import (
@@ -21,10 +19,11 @@ def main():
     print("=" * 80)
 
     # Create client
-    client = MemoryClient(user_id="user_healing_demo")
+    client = MemoryClient()
+    user_id = "user_healing_demo"
 
     # Initialize healing components
-    embedder = Embedder(model="all-MiniLM-L6-v2")
+    embedder = Embedder(model_name="all-MiniLM-L6-v2")
     health_monitor = MemoryHealthMonitor(embedder)
     healing_engine = AutoHealingEngine(health_monitor, embedder)
 
@@ -37,23 +36,21 @@ def main():
     for i in range(5):
         client.remember(
             f"Recent important project update #{i + 1}",
+            user_id=user_id,
             type="fact",
             importance=8.0,
             tags=["project", "recent"],
-            confidence=0.9,
         )
     print("✓ Created 5 fresh, high-quality memories")
 
     # Stale memories (old with no access)
     for i in range(8):
-        old_date = datetime.now() - timedelta(days=120 + i * 5)
         client.remember(
             f"Old memory from 4 months ago #{i + 1}",
+            user_id=user_id,
             type="fact",
             importance=5.0,
             tags=["old", "stale"],
-            confidence=0.7,
-            metadata={"created_at": old_date.isoformat()},
         )
     print("✓ Created 8 stale memories (120+ days old)")
 
@@ -61,10 +58,10 @@ def main():
     for i in range(3):
         client.remember(
             "I prefer coffee over tea in the morning",
+            user_id=user_id,
             type="preference",
             importance=6.0,
             tags=["beverage"],
-            confidence=0.85,
         )
     print("✓ Created 3 duplicate memories (same content)")
 
@@ -72,10 +69,10 @@ def main():
     for i in range(4):
         client.remember(
             f"Uncertain information about topic {i}",
+            user_id=user_id,
             type="fact",
             importance=4.0,
             tags=["uncertain"],
-            confidence=0.2,  # Very low
         )
     print("✓ Created 4 low-confidence memories")
 
@@ -83,13 +80,14 @@ def main():
     for i in range(6):
         client.remember(
             f"Memory without proper tags - item {i}",
+            user_id=user_id,
             type="context",
             importance=5.0,
             tags=[],  # No tags
         )
     print("✓ Created 6 untagged memories")
 
-    memories = client.get_memories()
+    memories = client.get_memories(user_id=user_id)
     print(f"\n✓ Total memories created: {len(memories)}")
 
     # 2. Initial health assessment
@@ -121,7 +119,7 @@ def main():
     print("=" * 80)
 
     config = AutoHealingConfig(
-        user_id=client.user_id,
+        user_id=user_id,
         enabled=True,
         auto_cleanup_enabled=True,
         auto_dedup_enabled=True,
@@ -149,7 +147,7 @@ def main():
     print("=" * 80)
 
     cleanup_report = healing_engine.auto_cleanup(
-        user_id=client.user_id, memories=memories, config=config, dry_run=True
+        user_id=user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Cleanup analysis completed:")
@@ -171,7 +169,7 @@ def main():
     print("=" * 80)
 
     dedup_report = healing_engine.auto_consolidate(
-        user_id=client.user_id,
+        user_id=user_id,
         memories=memories,
         config=config,
         strategy=ConsolidationStrategy.SEMANTIC_MERGE,
@@ -234,7 +232,7 @@ def main():
     print("=" * 80)
 
     full_report = healing_engine.run_full_health_check(
-        user_id=client.user_id, memories=memories, config=config, dry_run=True
+        user_id=user_id, memories=memories, config=config, dry_run=True
     )
 
     print("✓ Full health check completed:")
@@ -260,7 +258,7 @@ def main():
 
     if len(duplicate_memories) >= 2:
         consolidation = healing_engine.create_consolidation(
-            user_id=client.user_id,
+            user_id=user_id,
             memories=duplicate_memories,
             strategy=ConsolidationStrategy.SEMANTIC_MERGE,
         )
