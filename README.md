@@ -10,7 +10,7 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.5.0 — Intelligent memory features: knowledge graph, graph-aware retrieval, feedback loops, triggers, procedural memory, and embedding migration.
+**Current Release:** v0.5.1 — Bug-fix and API expansion release: batch endpoints, deduplication endpoint, single-memory GET, Prometheus scrape in main app, remote backend URL fixes, QueryRouter stem matching, Groq retry tuning, and SQL packaging fix.
 
 ---
 
@@ -37,6 +37,38 @@ from hippocampai import MemoryClient
 ---
 
 ## Quick Start
+
+### Docker Compose (full stack, recommended)
+
+```bash
+git clone https://github.com/rexdivakar/HippocampAI.git
+cd HippocampAI
+
+# Copy and edit environment file
+cp .env.example .env
+# Required: set GROQ_API_KEY (or switch LLM_PROVIDER=ollama and point LLM_BASE_URL to your instance)
+# Required for production: set USER_AUTH_ENABLED=true and JWT_SECRET
+
+docker compose up -d
+```
+
+Services started:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| API | http://localhost:8000 | FastAPI + Socket.IO |
+| Frontend | http://localhost:81 | React dashboard |
+| Flower | http://localhost:5555 | Celery task monitor |
+| Prometheus | http://localhost:9090 | Metrics collection |
+| Grafana | http://localhost:3002 | Dashboards |
+| Qdrant | http://localhost:6333 | Vector store |
+
+Verify the API is up:
+
+```bash
+curl http://localhost:8000/healthz
+# {"status":"ok"}
+```
 
 ### Installation
 
@@ -186,13 +218,104 @@ print(f"Found: {results[0].memory.text}")
 
 ## Configuration
 
-### Local Development
+### Key environment variables
+
+All variables are read from `.env` (or shell environment). Complete list is in `.env.example`.
+
+**Infrastructure**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint. Use `http://qdrant:6333` inside Docker compose. |
+| `REDIS_URL` | `redis://localhost:6379` | Redis for caching and Celery broker |
+| `POSTGRES_HOST` | `localhost` | PostgreSQL host (used for auth) |
+
+**LLM**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | `ollama`, `openai`, `anthropic`, or `groq` |
+| `LLM_MODEL` | `qwen2.5:7b-instruct` | Model name for the selected provider |
+| `LLM_BASE_URL` | `http://localhost:11434` | Base URL for Ollama |
+| `ALLOW_CLOUD` | `false` | Must be `true` when using cloud providers |
+| `GROQ_API_KEY` | — | Required when `LLM_PROVIDER=groq` |
+
+**Retrieval and scoring**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | HuggingFace embedding model |
+| `EMBED_DIMENSION` | `384` | Must match the chosen embedding model |
+| `TOP_K_QDRANT` | `200` | Candidates pulled from vector search |
+| `TOP_K_FINAL` | `20` | Results returned after reranking |
+| `WEIGHT_SIM` | `0.55` | Vector similarity weight in fusion |
+| `WEIGHT_RERANK` | `0.20` | Cross-encoder reranker weight |
+| `WEIGHT_RECENCY` | `0.15` | Recency decay weight |
+| `WEIGHT_IMPORTANCE` | `0.10` | Importance score weight |
+| `WEIGHT_GRAPH` | `0.15` | Knowledge graph score weight (when enabled) |
+| `WEIGHT_FEEDBACK` | `0.10` | Relevance feedback weight |
+| `DEDUP_THRESHOLD` | `0.88` | Cosine similarity threshold for deduplication |
+
+**Feature flags**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `USER_AUTH_ENABLED` | `false` | Enable JWT auth on all `/v1/*` endpoints. **Set `true` in production.** |
+| `ENABLE_REALTIME_GRAPH` | `true` | Build knowledge graph on every `remember()` |
+| `GRAPH_EXTRACTION_MODE` | `pattern` | `pattern` (fast, regex-based) or `llm` (accurate, slower) |
+| `ENABLE_GRAPH_RETRIEVAL` | `true` | Include graph scores in retrieval fusion |
+| `ENABLE_TRIGGERS` | `true` | Enable event-driven webhook/websocket/log triggers |
+| `AUTO_DEDUP_ENABLED` | `true` | Background deduplication every 24 h |
+| `AUTO_CONSOLIDATION_ENABLED` | `false` | Nightly sleep-phase memory consolidation |
+| `ENABLE_PROCEDURAL_MEMORY` | `false` | Procedural memory and prompt self-optimization (beta) |
+| `ENABLE_PROSPECTIVE_MEMORY` | `false` | Time/event-triggered intent system (beta) |
+| `HIPPOCAMPAI_ENABLE_TMS` | `false` | Truth maintenance system — retraction and contradiction detection (beta) |
+| `IMPORTANCE_DECAY_ENABLED` | `true` | Apply exponential decay to importance scores |
+| `AUTO_PRUNING_ENABLED` | `false` | Automatically prune low-quality memories |
+
+**Half-lives (days)**
+
+| Variable | Default | Memory type |
+|----------|---------|-------------|
+| `HALF_LIFE_PREFS` | `90` | preferences, goals, habits |
+| `HALF_LIFE_FACTS` | `30` | facts, context |
+| `HALF_LIFE_EVENTS` | `14` | events |
+| `HALF_LIFE_PROCEDURAL` | `180` | procedural rules |
+| `HALF_LIFE_PROSPECTIVE` | `30` | prospective intents |
+
+### Local Development (library mode)
 
 ```bash
 # .env file
-QDRANT_URL=http://localhost:6333
+QDRANT_URL=http://localhost:6333      # local Qdrant; use http://qdrant:6333 inside Docker
 LLM_PROVIDER=ollama
 LLM_MODEL=qwen2.5:7b-instruct
+```
+
+```python
+# Library usage — no running server required
+from hippocampai import MemoryClient
+
+client = MemoryClient()  # reads .env automatically
+
+memory = client.remember("I prefer dark mode", user_id="alice", type="preference")
+results = client.recall("UI settings", user_id="alice", k=3)
+```
+
+### Remote mode (library pointing at running API)
+
+```python
+from hippocampai.backends.remote import RemoteBackend
+from hippocampai import MemoryClient
+
+client = MemoryClient(backend=RemoteBackend(
+    api_url="http://localhost:8000",
+    api_key="your-api-key",   # omit if USER_AUTH_ENABLED=false
+    timeout=90,
+))
+
+memory = client.remember("Alice joined in January", user_id="alice")
+results = client.recall("when did Alice join", user_id="alice", k=5)
 ```
 
 ### Cloud/Production
@@ -212,6 +335,54 @@ client = MemoryClient(
 
 ---
 
+## REST API Reference
+
+All endpoints are served by the FastAPI application on port 8000. Interactive docs available at `http://localhost:8000/docs`.
+
+### Core memory operations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/healthz` | Health check — returns `{"status":"ok"}` |
+| `GET` | `/metrics` | Prometheus text-format scrape endpoint (501 if `prometheus-client` not installed) |
+| `POST` | `/v1/memories:remember` | Store one memory; auto-classifies type if not provided |
+| `POST` | `/v1/memories:recall` | Retrieve memories by semantic query |
+| `POST` | `/v1/memories:extract` | Extract memories from raw conversation text |
+| `PATCH` | `/v1/memories:update` | Update text, importance, tags, or TTL of an existing memory |
+| `DELETE` | `/v1/memories:delete` | Delete one memory by ID |
+| `POST` | `/v1/memories:get` | List memories for a user with optional filters |
+| `POST` | `/v1/memories:expire` | Delete all expired memories for a user |
+| `GET` | `/v1/memories/{memory_id}` | Fetch a single memory by ID; 404 if not found |
+| `POST` | `/v1/classify` | Classify text into a memory type using agentic LLM classifier |
+
+### Batch operations (new in 0.5.1)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/memories/batch` | Store N memories; partial failures are logged, not raised |
+| `POST` | `/v1/memories/batch/get` | Fetch N memories by ID list; silently skips not-found IDs |
+| `POST` | `/v1/memories/batch/delete` | Delete N memories; returns `{"deleted": N, "failed": M}` |
+| `POST` | `/v1/memories/deduplicate` | Find/remove duplicates for a user; `dry_run=true` by default |
+
+### Other route groups
+
+| Prefix | Description |
+|--------|-------------|
+| `/v1/sessions/` | Conversation session CRUD and summaries |
+| `/v1/feedback/` | Memory relevance feedback submission and statistics |
+| `/v1/triggers/` | Event-driven trigger CRUD and fire history |
+| `/v1/procedural/` | Procedural memory rule CRUD, extraction, injection |
+| `/v1/prospective/` | Prospective intent CRUD, parse, evaluate, expire |
+| `/v1/graph/` | Knowledge graph query and sync |
+| `/v1/consolidation/` | Sleep-phase consolidation status and control |
+| `/v1/namespaces/` | Memory namespace management |
+| `/v1/bitemporal/` | Bi-temporal fact storage and time-travel queries |
+| `/v1/context/` | Context assembly with token budgeting |
+| `/v1/migration/` | Embedding model migration management |
+| `/admin/` | Admin-only operations |
+
+---
+
 ## Deployment Options
 
 ### Local Development
@@ -220,22 +391,24 @@ docker run -d -p 6333:6333 qdrant/qdrant
 pip install hippocampai
 ```
 
-### Production Stack
+### Full Stack (Docker Compose)
 ```bash
 git clone https://github.com/rexdivakar/HippocampAI.git
 cd HippocampAI
-docker-compose up -d  # Includes Qdrant, Redis, API, Celery, Monitoring
+cp .env.example .env
+# Edit .env: set GROQ_API_KEY, optionally set USER_AUTH_ENABLED=true
+docker compose up -d
 ```
 
 **Includes:**
 - FastAPI server (port 8000)
-- React Dashboard (port 3001)
+- React Dashboard (port 81)
 - Celery workers with Beat scheduler
 - Flower monitoring (port 5555)
 - Prometheus metrics (port 9090)
-- Grafana dashboards (port 3000)
+- Grafana dashboards (port 3002)
 
-### React Dashboard (New in v0.4.0)
+### React Dashboard
 ```bash
 cd frontend
 npm install
@@ -243,6 +416,45 @@ npm run dev  # Development server on port 5173
 ```
 
 [Production deployment guide →](docs/USER_GUIDE.md)
+
+---
+
+## Production Deployment
+
+### Blockers — must resolve before exposing to the internet
+
+1. **Authentication is disabled by default.** `USER_AUTH_ENABLED=false` in docker-compose defaults. All `/v1/*` endpoints are open with no auth check. Set `USER_AUTH_ENABLED=true` and configure `JWT_SECRET` in `.env`.
+
+2. **Default credentials in `.env.example`** — replace before deploying:
+   - `HIPPOCAMPAI_API_KEY=example_key_do_not_use`
+   - `FLOWER_PASSWORD=changeme_in_production`
+   - `GRAFANA_ADMIN_PASSWORD=changeme_in_production`
+
+3. **`GROQ_API_KEY` in plain-text `.env`** — for production, inject via Docker secrets, AWS Secrets Manager, or HashiCorp Vault. Never commit `.env` to git. (`.env` is in `.gitignore`.)
+
+4. **Single uvicorn worker** — `--workers 1` in the docker-compose `command`. Under concurrent LLM-backed requests the single worker threadpool will saturate. Run multiple workers (`--workers 4`) or place a process manager (gunicorn) in front.
+
+5. **No TLS** — all services communicate over plain HTTP. Add nginx or Caddy as a TLS-terminating reverse proxy in front of port 8000.
+
+### Warnings — should resolve before production load
+
+6. **Groq free-tier rate limits** — 30 RPM. High-throughput writes to `/v1/memories:remember` and `/v1/memories:extract` (which call the LLM for type classification and extraction) will hit this limit and retry. Options: upgrade to Groq Dev Tier, switch to a self-hosted LLM (`LLM_PROVIDER=ollama`), or pass `type` explicitly in remember requests to skip LLM classification.
+
+7. **`admin_ui/` directory is empty** — the `hippocampai-admin` container (nginx on port 3001) serves 403 because the directory has no files. Either populate it or remove the service from docker-compose.
+
+8. **Frontend Docker healthcheck reports unhealthy** — Vite dev server responds on `/` but the healthcheck hits a different path. Change the healthcheck to `curl -f http://localhost:81/` or switch to the production build.
+
+9. **`QDRANT_URL` in `.env`** — the default is `http://localhost:6333` which works for local library use. When running inside Docker compose, the API container needs `QDRANT_URL=http://qdrant:6333` (already set in docker-compose.yml via the service DNS name).
+
+10. **Celery worker healthcheck disabled** — `healthcheck: disable: true` in docker-compose. Production should enable Flower-based or custom health monitoring for Celery workers.
+
+11. **`AUTO_CONSOLIDATION_ENABLED=false`** — memory consolidation (sleep-phase replay) is off by default. Set to `true` to enable nightly automatic consolidation.
+
+### Not recommended for production yet (disabled by default, needs end-to-end testing)
+
+- `ENABLE_PROCEDURAL_MEMORY=false` — procedural memory and prompt self-optimization
+- `ENABLE_PROSPECTIVE_MEMORY=false` — time- and event-triggered intent system
+- `HIPPOCAMPAI_ENABLE_TMS=false` — truth maintenance system (retraction and contradiction detection)
 
 ---
 

@@ -41,6 +41,19 @@ class QueryRouter:
         "sold",
     }
 
+    @staticmethod
+    def _matches_keywords(words: set[str], keywords: set[str]) -> bool:
+        """Check if any query word starts with (or equals) a keyword stem, or vice versa.
+
+        This handles plural/conjugated forms: "habits"→"habit", "preferences"→"prefer",
+        "working"→"work", "lived"→"live", etc.
+        """
+        for word in words:
+            for kw in keywords:
+                if word == kw or word.startswith(kw) or kw.startswith(word):
+                    return True
+        return False
+
     def route(self, query: str) -> Literal["prefs", "facts", "both"]:
         """
         Determine which collection(s) to search.
@@ -51,8 +64,8 @@ class QueryRouter:
         query_lower = query.lower()
         words = set(re.findall(r"\b\w+\b", query_lower))
 
-        has_pref = bool(words & self.PREF_KEYWORDS)
-        has_fact = bool(words & self.FACT_KEYWORDS)
+        has_pref = self._matches_keywords(words, self.PREF_KEYWORDS)
+        has_fact = self._matches_keywords(words, self.FACT_KEYWORDS)
 
         if has_pref and not has_fact:
             return "prefs"

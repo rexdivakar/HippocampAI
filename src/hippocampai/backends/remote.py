@@ -19,7 +19,7 @@ class RemoteBackend(BaseBackend):
         self,
         api_url: str = "http://localhost:8000",
         api_key: Optional[str] = None,
-        timeout: int = 30,
+        timeout: int = 90,
     ):
         """
         Initialize remote backend.
@@ -62,13 +62,16 @@ class RemoteBackend(BaseBackend):
             response.raise_for_status()
             return response.json()
 
-    def _delete(self, endpoint: str) -> bool:
+    def _delete(self, endpoint: str, data: Optional[dict[str, Any]] = None) -> Any:
         """Make DELETE request."""
         url = f"{self.api_url}{endpoint}"
         with httpx.Client(timeout=self.timeout) as client:
-            response = client.delete(url, headers=self.headers)
+            if data:
+                response = client.request("DELETE", url, headers=self.headers, json=data)
+            else:
+                response = client.delete(url, headers=self.headers)
             response.raise_for_status()
-            return response.status_code == 204
+            return response.json()
 
     def _dict_to_memory(self, data: dict[str, Any]) -> Memory:
         """Convert API response dict to Memory object."""
@@ -182,15 +185,17 @@ class RemoteBackend(BaseBackend):
             "query": query,
             "user_id": user_id,
             "session_id": session_id,
-            "limit": limit,
+            "k": limit,
             "filters": filters,
-            "min_score": min_score,
         }
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        data = self._post("/v1/memories/recall", payload)
-        return [self._dict_to_retrieval_result(item) for item in data]
+        data = self._post("/v1/memories:recall", payload)
+        results = [self._dict_to_retrieval_result(item) for item in data]
+        if min_score > 0.0:
+            results = [r for r in results if r.score >= min_score]
+        return results
 
     def get_memory(self, memory_id: str) -> Optional[Memory]:
         """Get a memory by ID via API."""
@@ -213,21 +218,26 @@ class RemoteBackend(BaseBackend):
         before: Optional[datetime] = None,
     ) -> list[Memory]:
         """Get all memories for a user via API using query endpoint."""
-        payload = {
+        # Merge session_id, min_importance, after, before into the filters dict
+        # (same convention as local MemoryClient.get_memories)
+        merged_filters: dict[str, Any] = dict(filters) if filters else {}
+        if session_id is not None:
+            merged_filters["session_id"] = session_id
+        if min_importance is not None:
+            merged_filters["min_importance"] = min_importance
+        if after is not None:
+            merged_filters["after"] = after.isoformat()
+        if before is not None:
+            merged_filters["before"] = before.isoformat()
+
+        payload: dict[str, Any] = {
             "user_id": user_id,
-            "session_id": session_id,
-            "k": limit,  # The query endpoint uses 'k' parameter
-            "filters": filters or {},
-            "min_importance": min_importance,
-            "after": after.isoformat() if after else None,
-            "before": before.isoformat() if before else None,
+            "limit": limit,
         }
+        if merged_filters:
+            payload["filters"] = merged_filters
 
-        # Remove None values
-        payload = {k: v for k, v in payload.items() if v is not None}
-
-        # Use the query endpoint which accepts POST
-        data = self._post("/v1/memories/query", payload)
+        data = self._post("/v1/memories:get", payload)
         return [self._dict_to_memory(item) for item in data]
 
     def update_memory(
@@ -252,17 +262,21 @@ class RemoteBackend(BaseBackend):
         payload = {k: v for k, v in payload.items() if v is not None}
 
         try:
-            data = self._patch(f"/v1/memories/{memory_id}", payload)
+            data = self._patch("/v1/memories:update", payload)
             return self._dict_to_memory(data)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return None
             raise
 
-    def delete_memory(self, memory_id: str) -> bool:
+    def delete_memory(self, memory_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a memory via API."""
         try:
-            return self._delete(f"/v1/memories/{memory_id}")
+            payload: dict[str, Any] = {"memory_id": memory_id}
+            if user_id:
+                payload["user_id"] = user_id
+            result = self._delete("/v1/memories:delete", payload)
+            return bool(result.get("success", False)) if isinstance(result, dict) else False
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return False
@@ -311,7 +325,7 @@ class RemoteBackend(BaseBackend):
             "session_id": session_id,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
-        data = self._post("/v1/memories/extract", payload)
+        data = self._post("/v1/memories:extract", payload)
         return [self._dict_to_memory(item) for item in data]
 
     def deduplicate_memories(self, user_id: str, dry_run: bool = True) -> dict[str, Any]:

@@ -10,6 +10,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from hippocampai.api.deps import get_memory_client
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval",
-    version="0.3.0",
+    version="0.5.1",
 )
 
 # Mount Socket.IO app
@@ -244,6 +245,23 @@ class ExpireMemoriesRequest(BaseModel):
     user_id: Optional[str] = None
 
 
+class BatchRememberRequest(BaseModel):
+    memories: list[dict[str, Any]]
+
+
+class BatchGetRequest(BaseModel):
+    memory_ids: list[str]
+
+
+class BatchDeleteRequest(BaseModel):
+    memory_ids: list[str]
+
+
+class DeduplicateRequest(BaseModel):
+    user_id: str
+    dry_run: bool = True
+
+
 class ClassifyMemoryRequest(BaseModel):
     text: str
     user_id: Optional[str] = None
@@ -258,12 +276,28 @@ class ClassifyMemoryResponse(BaseModel):
     alternative_confidence: Optional[float] = None
 
 
+# Prometheus metrics (optional — enabled when prometheus-client is installed)
+_get_metrics = None
+try:
+    from hippocampai.monitoring.prometheus_metrics import get_metrics as _get_metrics
+except Exception:
+    pass
+
+
 # Routes
 @app.get("/healthz")
 @app.get("/health")
 def health_check() -> dict[str, str]:
     """Health check."""
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def prometheus_metrics() -> Response:
+    """Prometheus metrics scrape endpoint."""
+    if _get_metrics is None:
+        raise HTTPException(status_code=501, detail="Prometheus metrics not available")
+    return Response(content=_get_metrics(), media_type="text/plain")
 
 
 @app.post("/v1/memories:remember", response_model=Memory)
@@ -388,6 +422,23 @@ def delete_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/v1/memories/{memory_id}", response_model=Memory)
+def get_memory_by_id(
+    memory_id: str, client: MemoryClient = Depends(get_memory_client)
+) -> Memory:
+    """Get a single memory by its ID."""
+    try:
+        memory = client.get_memory(memory_id)
+        if memory is None:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        return memory
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get memory by ID failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/v1/memories:get", response_model=list[Memory])
 def get_memories(
     request: GetMemoriesRequest, client: MemoryClient = Depends(get_memory_client)
@@ -442,6 +493,105 @@ def classify_memory(request: ClassifyMemoryRequest) -> ClassifyMemoryResponse:
         )
     except Exception as e:
         logger.error(f"Classification failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/memories/batch", response_model=list[Memory])
+def batch_remember(
+    request: BatchRememberRequest, client: MemoryClient = Depends(get_memory_client)
+) -> list[Memory]:
+    """Store multiple memories in a single request."""
+    results: list[Memory] = []
+    errors: list[str] = []
+    for mem in request.memories:
+        try:
+            text = mem.get("text", "")
+            if not text:
+                continue
+            memory = client.remember(
+                text=text,
+                user_id=mem.get("user_id", ""),
+                session_id=mem.get("session_id"),
+                type=mem.get("type", "fact"),
+                importance=mem.get("importance"),
+                tags=mem.get("tags"),
+            )
+            results.append(memory)
+        except Exception as e:
+            errors.append(str(e))
+    if errors:
+        logger.warning(f"Batch remember had {len(errors)} errors: {errors[:3]}")
+    return results
+
+
+@app.post("/v1/memories/batch/get", response_model=list[Memory])
+def batch_get_memories(
+    request: BatchGetRequest, client: MemoryClient = Depends(get_memory_client)
+) -> list[Memory]:
+    """Get multiple memories by their IDs."""
+    results: list[Memory] = []
+    for memory_id in request.memory_ids:
+        memory = client.get_memory(memory_id)
+        if memory is not None:
+            results.append(memory)
+    return results
+
+
+@app.post("/v1/memories/batch/delete")
+def batch_delete_memories(
+    request: BatchDeleteRequest, client: MemoryClient = Depends(get_memory_client)
+) -> dict[str, Any]:
+    """Delete multiple memories by their IDs."""
+    deleted: list[str] = []
+    failed: list[str] = []
+    for memory_id in request.memory_ids:
+        try:
+            client.delete_memory(memory_id)
+            deleted.append(memory_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete {memory_id}: {e}")
+            failed.append(memory_id)
+    return {"success": True, "deleted": len(deleted), "failed": len(failed)}
+
+
+@app.post("/v1/memories/deduplicate")
+def deduplicate_memories(
+    request: DeduplicateRequest, client: MemoryClient = Depends(get_memory_client)
+) -> dict[str, Any]:
+    """Find and optionally remove duplicate memories for a user."""
+    try:
+        memories = client.get_memories(user_id=request.user_id, limit=1000)
+        duplicates: list[dict[str, Any]] = []
+        removed = 0
+        seen_ids: set[str] = set()
+
+        for memory in memories:
+            if memory.id in seen_ids:
+                continue
+            # Use the deduplicator to check each memory against the stored set
+            action, dup_ids = client.deduplicator.check_duplicate(memory, request.user_id)
+            if action in ("skip", "update") and dup_ids:
+                dup_entry = {"memory_id": memory.id, "duplicate_ids": dup_ids, "action": action}
+                duplicates.append(dup_entry)
+                seen_ids.update(dup_ids)
+                if not request.dry_run:
+                    for dup_id in dup_ids:
+                        try:
+                            client.delete_memory(dup_id)
+                            removed += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to remove duplicate {dup_id}: {e}")
+
+        return {
+            "success": True,
+            "user_id": request.user_id,
+            "dry_run": request.dry_run,
+            "duplicates_found": len(duplicates),
+            "duplicates_removed": removed,
+            "duplicates": duplicates,
+        }
+    except Exception as e:
+        logger.error(f"Deduplication failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

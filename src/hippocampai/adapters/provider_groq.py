@@ -30,7 +30,7 @@ class GroqLLM(BaseLLM):
         except ImportError:
             raise ImportError("openai package required for Groq: pip install openai")
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
         self.model = model
         logger.info(f"Initialized Groq LLM: {model}")
 
@@ -50,7 +50,7 @@ class GroqLLM(BaseLLM):
         result: str = self.chat(messages, max_tokens, temperature)
         return result
 
-    @get_llm_retry_decorator(max_attempts=5, min_wait=2, max_wait=60)
+    @get_llm_retry_decorator(max_attempts=3, min_wait=2, max_wait=20)
     def chat(
         self, messages: list[dict[str, Any]], max_tokens: int = 512, temperature: float = 0.0
     ) -> str:
