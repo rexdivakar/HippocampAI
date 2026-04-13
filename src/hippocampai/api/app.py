@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from hippocampai.api.deps import get_memory_client
 from hippocampai.api.websocket import sio
 from hippocampai.client import MemoryClient
+from hippocampai.config import get_config
 from hippocampai.models.memory import Memory, RetrievalResult
 
 # Load environment variables from .env file
@@ -33,13 +34,24 @@ app = FastAPI(
 # Mount Socket.IO app
 socket_app = socketio.ASGIApp(sio, app)
 
+_config = get_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_config.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-API-Key"],
 )
+
+# Authentication middleware — uses the same AuthMiddleware as async_app.py so
+# both server entrypoints go through the same auth path.
+try:
+    from hippocampai.api.middleware import AuthMiddleware
+
+    app.add_middleware(AuthMiddleware)
+    logger.info("AuthMiddleware registered")
+except ImportError as e:
+    logger.warning(f"Could not load AuthMiddleware: {e}")
 
 # Include intelligence routes
 try:

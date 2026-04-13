@@ -134,6 +134,10 @@ class HybridRetriever:
         self.corpus_facts: list[tuple[str, str]] = []  # [(id, text), ...]
         self.corpus_prefs: list[tuple[str, str]] = []
         self._bm25_dirty: bool = False  # True when corpus was appended but BM25 not rebuilt
+        # Per-user timestamp of the last rebuild. Used to detect cross-worker
+        # staleness: if a Redis-tracked write timestamp is newer than this value
+        # the index must be rebuilt before the next search.
+        self._bm25_last_rebuild: dict[str, float] = {}
 
     def rebuild_bm25(self, user_id: str) -> None:
         """Rebuild BM25 indices for a user."""
@@ -160,6 +164,9 @@ class HybridRetriever:
         else:
             self.bm25_prefs = None
 
+        import time as _time
+
+        self._bm25_last_rebuild[user_id] = _time.time()
         logger.info(f"Rebuilt BM25: facts={len(self.corpus_facts)}, prefs={len(self.corpus_prefs)}")
         self._bm25_dirty = False
 
@@ -187,6 +194,25 @@ class HybridRetriever:
                 self.bm25_prefs.update([t for _, t in self.corpus_prefs])
 
         self._bm25_dirty = False  # corpus and index are in sync
+
+    def needs_bm25_rebuild(self, user_id: str, last_write_ts: float = 0.0) -> bool:
+        """Return True if the BM25 index for *user_id* must be rebuilt.
+
+        Triggers a rebuild when:
+        - The index has never been built for this user (bm25_facts is None).
+        - A write timestamp newer than our last rebuild was recorded in Redis,
+          meaning another worker ingested a memory that this worker doesn't know
+          about yet.
+
+        Args:
+            user_id: The user whose index is being checked.
+            last_write_ts: Unix timestamp of the most recent write for this user,
+                typically read from ``hippocampai:bm25_write_ts:{user_id}`` in Redis.
+                Pass 0.0 when Redis is unavailable (falls back to None-check only).
+        """
+        if self.bm25_facts is None and self.bm25_prefs is None:
+            return True
+        return last_write_ts > self._bm25_last_rebuild.get(user_id, 0.0)
 
     def _route_to_collections(self, query: str) -> list[str]:
         """Determine which collections to search based on query routing."""

@@ -18,6 +18,26 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.15.1
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "curl -sf http://localhost:6333/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955   # v4.3.0
@@ -36,7 +56,12 @@ jobs:
           key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-python-${{ matrix.python-version }}-
-        
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev,api]'
+
       - name: Ruff lint
         run: pip install ruff && ruff check . --output-format=github
 
@@ -52,6 +77,14 @@ jobs:
           if ! bandit -r src -lll; then
             echo "::warning ::Bandit found potential security issues (review above)"
           fi
+
+      - name: Run unit tests
+        run: pytest tests/ -m "not integration" -x --timeout=60 -q
+        env:
+          QDRANT_URL: http://localhost:6333
+          REDIS_URL: redis://localhost:6379
+          AUTH_ENABLED: "false"
+          USER_AUTH_ENABLED: "false"
 
   build:
     name: Build Package

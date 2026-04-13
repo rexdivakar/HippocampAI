@@ -365,7 +365,7 @@ class TemporalAnalytics:
             # Group intervals within ±20% tolerance
             found_group = False
             for group_interval in interval_groups.keys():
-                if abs(rounded - group_interval) / max(rounded, group_interval) < 0.2:
+                if max(rounded, group_interval) > 0 and abs(rounded - group_interval) / max(rounded, group_interval) < 0.2:
                     interval_groups[group_interval].append(i)
                     found_group = True
                     break

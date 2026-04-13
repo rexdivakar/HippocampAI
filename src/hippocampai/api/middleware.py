@@ -16,7 +16,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """Authentication middleware for FastAPI.
 
     Handles:
-    - Local mode bypass (X-User-Auth: false)
+    - Local mode bypass (controlled by USER_AUTH_ENABLED=false at startup only)
     - API key validation
     - Rate limiting
     - Request context injection
@@ -25,6 +25,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     # Public endpoints that don't require authentication
     PUBLIC_PATHS = {
         "/health",
+        "/healthz",
         "/docs",
         "/redoc",
         "/openapi.json",
@@ -186,14 +187,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return cast(Response, await call_next(request))
 
         start_time = time.time()
-        x_user_auth = request.headers.get("X-User-Auth", "").lower()
-        user_auth_required = user_auth_enabled and x_user_auth != "false"
 
-        # Local mode bypass
-        if not user_auth_required:
+        # Local mode: auth disabled at startup via USER_AUTH_ENABLED=false.
+        # This is the only supported bypass — request headers cannot override it.
+        if not user_auth_enabled:
             request.state.user_id = None
             request.state.api_key_id = None
-            request.state.tier = "admin"
+            request.state.tier = "local"
             request.state.is_local_mode = True
             return cast(Response, await call_next(request))
 
@@ -262,15 +262,7 @@ async def require_admin(request: Request) -> None:
     Raises:
         HTTPException: If user is not admin
     """
-    # Check for X-User-Auth header bypass (when middleware not installed)
-    x_user_auth = request.headers.get("X-User-Auth", "").lower()
-    if x_user_auth == "false":
-        # Set local mode state for consistency
-        request.state.is_local_mode = True
-        request.state.tier = "admin"
-        return
-
-    # Local mode always has admin access (when middleware is installed)
+    # Local mode (USER_AUTH_ENABLED=false at startup) has admin access
     if hasattr(request.state, "is_local_mode") and request.state.is_local_mode:
         return
 
