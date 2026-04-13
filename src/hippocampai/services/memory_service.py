@@ -361,6 +361,20 @@ class MemoryManagementService:
 
         return memory
 
+    async def _mark_bm25_dirty(self, user_id: str) -> None:
+        """Record the current timestamp in Redis so other workers know BM25 is stale.
+
+        Key: ``hippocampai:bm25_write_ts:{user_id}``
+        Value: Unix timestamp as a float string.
+
+        Any worker whose ``retriever._bm25_last_rebuild[user_id]`` predates this
+        value will call ``rebuild_bm25()`` before the next search.
+        """
+        import time as _time
+
+        key = f"hippocampai:bm25_write_ts:{user_id}"
+        await self.redis.store.set(key, str(_time.time()))
+
     async def _store_and_cache_memory(self, memory: Memory, text: str) -> None:
         """Store memory in vector DB and cache."""
         collection = memory.collection_name(
@@ -374,6 +388,7 @@ class MemoryManagementService:
             payload=memory.model_dump(mode="json"),
         )
         await self.redis.set_memory(memory.id, memory.model_dump(mode="json"))
+        await self._mark_bm25_dirty(memory.user_id)
 
         try:
             from hippocampai.monitoring.prometheus_metrics import (
@@ -616,6 +631,9 @@ class MemoryManagementService:
 
             # Delete from Redis cache
             await self.redis.delete_memory(memory_id)
+
+            # Invalidate BM25 corpus for this user across all workers
+            await self._mark_bm25_dirty(memory.user_id)
 
             logger.info(f"Deleted memory {memory_id}")
             return True
@@ -912,6 +930,18 @@ class MemoryManagementService:
 
         # Cache miss - perform search
         logger.debug(f"Query cache miss for key {cache_key}")
+
+        # Rebuild BM25 index if this worker's copy is stale.
+        # last_write_ts is stored in Redis by _mark_bm25_dirty() after every write
+        # or delete, so all workers share a consistent staleness signal.
+        bm25_ts_key = f"hippocampai:bm25_write_ts:{user_id}"
+        last_write_raw = await self.redis.store.get(bm25_ts_key)
+        last_write_ts = float(last_write_raw) if last_write_raw is not None else 0.0
+
+        if self.retriever.needs_bm25_rebuild(user_id, last_write_ts):
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.retriever.rebuild_bm25, user_id)
+            logger.debug(f"BM25 rebuilt for user {user_id} (write_ts={last_write_ts:.3f})")
 
         # Update weights if provided
         original_weights: dict[str, Any] | None = None

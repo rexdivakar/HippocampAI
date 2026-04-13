@@ -204,12 +204,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_config = get_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_config.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id"],
 )
 
 # Add Prometheus middleware if available

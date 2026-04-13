@@ -1113,8 +1113,9 @@ class MemoryClient:
         )
 
         try:
-            # Rebuild BM25 if needed
-            if not self.retriever.bm25_facts:
+            # Rebuild BM25 if needed (sync client is single-process; no Redis
+            # version check required — pass last_write_ts=0.0 so only None-check fires)
+            if self.retriever.needs_bm25_rebuild(user_id):
                 self.telemetry.add_event(trace_id, "bm25_rebuild", status="in_progress")
                 self.retriever.rebuild_bm25(user_id)
                 self.telemetry.add_event(trace_id, "bm25_rebuild", status="success")

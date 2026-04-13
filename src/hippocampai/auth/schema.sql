@@ -60,12 +60,28 @@ CREATE TABLE IF NOT EXISTS api_key_usage (
     PRIMARY KEY (id, date)
 ) PARTITION BY RANGE (date);
 
--- Create partitions for current and next month
-CREATE TABLE IF NOT EXISTS api_key_usage_2024_01 PARTITION OF api_key_usage
-    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+-- Annual partitions — add a new one each year before Jan 1.
+-- A DEFAULT partition catches any date not covered (prevents constraint violations).
+CREATE TABLE IF NOT EXISTS api_key_usage_2024 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
 
-CREATE TABLE IF NOT EXISTS api_key_usage_2024_02 PARTITION OF api_key_usage
-    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+CREATE TABLE IF NOT EXISTS api_key_usage_2025 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+
+CREATE TABLE IF NOT EXISTS api_key_usage_2026 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');
+
+CREATE TABLE IF NOT EXISTS api_key_usage_2027 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2027-01-01') TO ('2028-01-01');
+
+CREATE TABLE IF NOT EXISTS api_key_usage_2028 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2028-01-01') TO ('2029-01-01');
+
+-- Default partition: catches any date not covered by the annual partitions above.
+-- This prevents INSERT failures when a new year starts before the annual partition
+-- is manually created. Records here should be migrated to the correct partition
+-- by running scripts/create_usage_partition.py at the start of each new year.
+CREATE TABLE IF NOT EXISTS api_key_usage_default PARTITION OF api_key_usage DEFAULT;
 
 -- Create indexes on usage table
 CREATE INDEX IF NOT EXISTS idx_api_key_usage_key_id ON api_key_usage(api_key_id);
@@ -146,14 +162,20 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to create default admin user (run once)
-CREATE OR REPLACE FUNCTION create_default_admin()
+-- Function to create the initial admin user.
+-- NEVER call this directly from SQL with a hardcoded password.
+-- Use scripts/init_admin.py which reads ADMIN_PASSWORD from the environment,
+-- generates a bcrypt hash, and calls: SELECT create_default_admin('<hash>');
+CREATE OR REPLACE FUNCTION create_default_admin(p_hashed_password TEXT)
 RETURNS VOID AS $$
 BEGIN
+    IF p_hashed_password IS NULL OR length(trim(p_hashed_password)) = 0 THEN
+        RAISE EXCEPTION 'p_hashed_password must not be empty. Generate a bcrypt hash via scripts/init_admin.py.';
+    END IF;
     INSERT INTO users (email, hashed_password, full_name, tier, is_admin, is_active, email_verified)
     VALUES (
         'admin@hippocampai.com',
-        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7kF0nKuGKu',  -- 'admin123' (CHANGE THIS!)
+        p_hashed_password,
         'System Administrator',
         'admin',
         true,
@@ -164,8 +186,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create default admin (comment out in production after first run)
-SELECT create_default_admin();
+-- Admin is NOT seeded here. Run scripts/init_admin.py with ADMIN_PASSWORD set
+-- in the environment to create the initial admin account.
 
 -- View for user statistics
 CREATE OR REPLACE VIEW user_statistics AS

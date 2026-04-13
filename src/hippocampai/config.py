@@ -45,6 +45,14 @@ class Config(BaseSettings):
     )
     rerank_cache_ttl: int = Field(default=86400, validation_alias="RERANK_CACHE_TTL")  # 24h
 
+    # CORS — set CORS_ORIGINS as a JSON array in .env for production, e.g.:
+    # CORS_ORIGINS='["https://app.yourdomain.com","https://admin.yourdomain.com"]'
+    # The wildcard "*" must NOT be used in production (credentials + wildcard is invalid).
+    cors_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:81", "http://localhost:5173"],
+        validation_alias="CORS_ORIGINS",
+    )
+
     # BM25
     bm25_backend: str = Field(default="rank-bm25", validation_alias="BM25_BACKEND")
 

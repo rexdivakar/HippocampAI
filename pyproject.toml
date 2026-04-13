@@ -63,6 +63,8 @@ saas = [
     "email-validator>=2.0,<3.0",
     "apscheduler>=3.10,<4.0",
     "duckdb>=1.0,<2.0",
+    "alembic>=1.13,<2.0",
+    "sqlalchemy[asyncio]>=2.0,<3.0",
     # LLM providers
     "anthropic>=0.39,<1.0",
     "groq>=0.4,<1.0",
