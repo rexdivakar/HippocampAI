@@ -54,7 +54,7 @@ saas = [
     "uvicorn[standard]>=0.24,<1.0",
     "python-socketio>=5.11,<6.0",
     "flask>=3.0,<4.0",
-    "flask-cors>=4.0,<5.0",
+    "flask-cors>=4.0,<7.0",
     "celery[redis]>=5.3,<6.0",
     "flower>=2.0,<3.0",
     "redis>=5.0,<6.0",
@@ -82,7 +82,7 @@ all = [
     "uvicorn[standard]>=0.24,<1.0",
     "python-socketio>=5.11,<6.0",
     "flask>=3.0,<4.0",
-    "flask-cors>=4.0,<5.0",
+    "flask-cors>=4.0,<7.0",
     "celery[redis]>=5.3,<6.0",
     "flower>=2.0,<3.0",
     "redis>=5.0,<6.0",
@@ -97,7 +97,7 @@ api = [
 ]
 web = [
     "flask>=3.0,<4.0",
-    "flask-cors>=4.0,<5.0",
+    "flask-cors>=4.0,<7.0",
 ]
 ollama = [
     "ollama>=0.3,<1.0",
@@ -112,7 +112,7 @@ groq = [
     "groq>=0.4,<1.0",
 ]
 dev = [
-    "black>=24.4,<25.0",
+    "black>=24.4,<26.0",
     "bandit[toml]>=1.7,<2.0",
     "liccheck>=0.7,<1.0",
     "mypy>=1.8,<2.0",
