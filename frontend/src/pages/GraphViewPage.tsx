@@ -63,7 +63,7 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
       const result = await apiClient.getMemories({
         user_id: userId,
         filters: {
-          session_id: userId, // Pass userId as session_id to match by either field
+          session_id: userId,
         },
         limit: 1000,
       });
@@ -71,7 +71,14 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
     },
   });
 
-  // Build graph data
+  // Fetch relationship network from intelligence API
+  const { data: network } = useQuery({
+    queryKey: ['relationship-network', userId, refreshKey],
+    queryFn: () => apiClient.getRelationshipNetwork(userId),
+    enabled: memories.length > 0,
+  });
+
+  // Build graph data (merge client-side extraction with backend intelligence)
   const graphData = useMemo((): GraphData => {
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
@@ -218,8 +225,42 @@ export function GraphViewPage({ userId }: GraphViewPageProps) {
       }
     }
 
+    // Merge backend intelligence network data if available
+    if (network) {
+      // Add backend entities
+      network.entities.forEach((entity) => {
+        const entityId = `entity-${entity.name}`;
+        if (!nodeMap.has(entityId)) {
+          const entityNode: GraphNode = {
+            id: entityId,
+            name: entity.name,
+            type: 'entity',
+            val: entity.mentions * 3,
+            color: NODE_COLORS.entity,
+            metadata: { count: entity.mentions, entity_type: entity.entity_type },
+          };
+          nodes.push(entityNode);
+          nodeMap.set(entityId, entityNode);
+        }
+      });
+
+      // Add backend relationships as links
+      network.relationships.forEach((rel) => {
+        const sourceId = `entity-${network.entities.find(e => e.id === rel.source_entity_id)?.name || rel.source_entity_id}`;
+        const targetId = `entity-${network.entities.find(e => e.id === rel.target_entity_id)?.name || rel.target_entity_id}`;
+        if (nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+          links.push({
+            source: sourceId,
+            target: targetId,
+            value: rel.confidence * 3,
+            type: rel.relationship_type,
+          });
+        }
+      });
+    }
+
     return { nodes, links };
-  }, [memories]);
+  }, [memories, network]);
 
   // Filter graph data
   const filteredGraphData = useMemo(() => {

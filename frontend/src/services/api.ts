@@ -5,11 +5,14 @@ import type {
   HealthScore,
   CollaborationSpace,
   CollaborationEvent,
+  CollaborationConflict,
   Notification,
   TemporalPattern,
   Anomaly,
   Recommendation,
   Forecast,
+  PredictiveInsight,
+  PeakActivity,
   BiTemporalFact,
   BiTemporalQueryResult,
   ContextPack,
@@ -26,6 +29,25 @@ import type {
   ProceduralInjectionResult,
   ProspectiveIntent,
   EmbeddingMigration,
+  DashboardStats,
+  DashboardActivity,
+  SessionStats,
+  SessionInfo,
+  CompactionResult,
+  CompactionHistoryEntry,
+  ExtractedFact,
+  ExtractedEntity,
+  EntityRelationship,
+  RelationshipNetwork,
+  ClusterAnalysis,
+  OptimalClusters,
+  TemporalAnalysis,
+  HealingConfig,
+  HealingActionResult,
+  StaleMemory,
+  DuplicateCluster,
+  KnowledgeGap,
+  FullHealthCheckResult,
 } from '../types';
 
 // Retry configuration
@@ -245,19 +267,27 @@ class APIClient {
     return response.data;
   }
 
-  async detectStaleMemories(userId: string, thresholdDays: number = 90) {
-    const response = await this.v1Client.post(`/v1/healing/health/stale`, {
+  async detectStaleMemories(userId: string, thresholdDays: number = 90): Promise<{ stale_memories: StaleMemory[]; count: number }> {
+    const response = await this.v1Client.post<{ stale_memories: StaleMemory[]; count: number }>(`/v1/healing/health/stale`, {
       user_id: userId,
       threshold_days: thresholdDays,
     });
     return response.data;
   }
 
-  async detectDuplicates(userId: string, similarityThreshold: number = 0.9) {
-    const response = await this.v1Client.post(`/v1/healing/health/duplicates`, {
+  async detectDuplicates(userId: string, similarityThreshold: number = 0.9): Promise<{ clusters: DuplicateCluster[]; total_duplicates: number }> {
+    const response = await this.v1Client.post<{ clusters: DuplicateCluster[]; total_duplicates: number }>(`/v1/healing/health/duplicates`, {
       user_id: userId,
       similarity_threshold: similarityThreshold,
     });
+    return response.data;
+  }
+
+  async detectKnowledgeGapsDetailed(userId: string): Promise<{ gaps: KnowledgeGap[]; count: number }> {
+    const response = await this.v1Client.post<{ gaps: KnowledgeGap[]; count: number }>(
+      '/v1/healing/health/gaps',
+      { user_id: userId }
+    );
     return response.data;
   }
 
@@ -269,8 +299,8 @@ class APIClient {
     return response.data;
   }
 
-  async runFullHealthCheck(userId: string, dryRun: boolean = true) {
-    const response = await this.v1Client.post('/v1/healing/full-check', {
+  async runFullHealthCheck(userId: string, dryRun: boolean = true): Promise<FullHealthCheckResult> {
+    const response = await this.v1Client.post<FullHealthCheckResult>('/v1/healing/full-check', {
       user_id: userId,
       dry_run: dryRun,
     });
@@ -816,6 +846,361 @@ class APIClient {
 
   async cancelMigration(migrationId: string): Promise<void> {
     await this.v1Client.post(`/v1/admin/embeddings/migration/${migrationId}/cancel`);
+  }
+
+  // ============================================================================
+  // DASHBOARD
+  // ============================================================================
+
+  async getDashboardStats(userId: string): Promise<DashboardStats> {
+    const response = await this.client.get<DashboardStats>('/dashboard/stats', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getRecentActivity(userId: string): Promise<DashboardActivity[]> {
+    const response = await this.client.get<{ activities: DashboardActivity[] }>(
+      '/dashboard/recent-activity',
+      { params: { user_id: userId } }
+    );
+    return response.data.activities || [];
+  }
+
+  // ============================================================================
+  // SESSION MANAGEMENT
+  // ============================================================================
+
+  async listSessions(userId: string): Promise<SessionInfo[]> {
+    const response = await this.client.get<SessionInfo[]>('/sessions/list', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async getSessionStats(): Promise<SessionStats> {
+    const response = await this.client.get<SessionStats>('/sessions/stats');
+    return response.data;
+  }
+
+  async getSession(sessionId: string, userId: string): Promise<SessionInfo> {
+    const response = await this.client.get<SessionInfo>(`/sessions/${sessionId}`, {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async softDeleteSession(sessionId: string, userId: string): Promise<void> {
+    await this.client.post('/sessions/soft-delete', {
+      session_id: sessionId,
+      user_id: userId,
+    });
+  }
+
+  async wipeUserData(data: {
+    user_id: string;
+    admin_user_id: string;
+    reason?: string;
+    confirm: boolean;
+  }): Promise<{ sessions_deleted: number }> {
+    const response = await this.client.post<{ sessions_deleted: number }>(
+      '/sessions/wipe-user-data',
+      data
+    );
+    return response.data;
+  }
+
+  // ============================================================================
+  // COMPACTION
+  // ============================================================================
+
+  async compactConversations(data: {
+    user_id: string;
+    session_id?: string;
+    target_ratio?: number;
+  }): Promise<CompactionResult> {
+    const response = await this.client.post<CompactionResult>('/compaction/compact', data);
+    return response.data;
+  }
+
+  async getCompactionHistory(userId: string): Promise<CompactionHistoryEntry[]> {
+    const response = await this.client.get<CompactionHistoryEntry[]>('/compaction/history', {
+      params: { user_id: userId },
+    });
+    return response.data;
+  }
+
+  async estimateCompaction(data: {
+    user_id: string;
+    session_id?: string;
+  }): Promise<{ estimated_savings_percent: number; original_tokens: number }> {
+    const response = await this.client.post<{
+      estimated_savings_percent: number;
+      original_tokens: number;
+    }>('/compaction/estimate', data);
+    return response.data;
+  }
+
+  // ============================================================================
+  // INTELLIGENCE (Entity, Relationship, Clustering, Temporal)
+  // ============================================================================
+
+  async extractFacts(
+    text: string,
+    userId: string
+  ): Promise<ExtractedFact[]> {
+    const response = await this.v1Client.post<{ facts: ExtractedFact[] }>(
+      '/v1/intelligence/facts:extract',
+      { text, user_id: userId }
+    );
+    return response.data.facts;
+  }
+
+  async extractEntities(
+    text: string,
+    userId: string
+  ): Promise<ExtractedEntity[]> {
+    const response = await this.v1Client.post<{ entities: ExtractedEntity[] }>(
+      '/v1/intelligence/entities:extract',
+      { text, user_id: userId }
+    );
+    return response.data.entities;
+  }
+
+  async searchEntities(
+    query: string,
+    userId: string
+  ): Promise<ExtractedEntity[]> {
+    const response = await this.v1Client.post<{ entities: ExtractedEntity[] }>(
+      '/v1/intelligence/entities:search',
+      { query, user_id: userId }
+    );
+    return response.data.entities;
+  }
+
+  async getEntityProfile(entityId: string): Promise<ExtractedEntity> {
+    const response = await this.v1Client.get<ExtractedEntity>(
+      `/v1/intelligence/entities/${entityId}`
+    );
+    return response.data;
+  }
+
+  async analyzeRelationships(
+    text: string,
+    userId: string
+  ): Promise<EntityRelationship[]> {
+    const response = await this.v1Client.post<{ relationships: EntityRelationship[] }>(
+      '/v1/intelligence/relationships:analyze',
+      { text, user_id: userId }
+    );
+    return response.data.relationships;
+  }
+
+  async getEntityRelationships(entityId: string): Promise<EntityRelationship[]> {
+    const response = await this.v1Client.get<{ relationships: EntityRelationship[] }>(
+      `/v1/intelligence/relationships/${entityId}`
+    );
+    return response.data.relationships;
+  }
+
+  async getRelationshipNetwork(userId: string): Promise<RelationshipNetwork> {
+    const response = await this.v1Client.get<RelationshipNetwork>(
+      '/v1/intelligence/relationships:network',
+      { params: { user_id: userId } }
+    );
+    return response.data;
+  }
+
+  async analyzeClusters(
+    userId: string,
+    numClusters?: number
+  ): Promise<ClusterAnalysis> {
+    const response = await this.v1Client.post<ClusterAnalysis>(
+      '/v1/intelligence/clustering:analyze',
+      { user_id: userId, num_clusters: numClusters }
+    );
+    return response.data;
+  }
+
+  async optimizeClusters(userId: string): Promise<OptimalClusters> {
+    const response = await this.v1Client.post<OptimalClusters>(
+      '/v1/intelligence/clustering:optimize',
+      { user_id: userId }
+    );
+    return response.data;
+  }
+
+  async analyzeTemporalPatterns(userId: string): Promise<TemporalAnalysis> {
+    const response = await this.v1Client.post<TemporalAnalysis>(
+      '/v1/intelligence/temporal:analyze',
+      { user_id: userId }
+    );
+    return response.data;
+  }
+
+  async getTemporalPeakTimes(userId: string): Promise<PeakActivity[]> {
+    const response = await this.v1Client.post<{ peak_times: PeakActivity[] }>(
+      '/v1/intelligence/temporal:peak-times',
+      { user_id: userId }
+    );
+    return response.data.peak_times;
+  }
+
+  // ============================================================================
+  // ADDITIONAL HEALING METHODS
+  // ============================================================================
+
+  async detectKnowledgeGaps(userId: string): Promise<{ gaps: string[] }> {
+    const response = await this.v1Client.post<{ gaps: string[] }>(
+      '/v1/healing/health/gaps',
+      { user_id: userId }
+    );
+    return response.data;
+  }
+
+  async runDeduplication(userId: string, dryRun: boolean = true): Promise<HealingActionResult> {
+    const response = await this.v1Client.post<HealingActionResult>(
+      '/v1/healing/deduplication',
+      { user_id: userId, dry_run: dryRun }
+    );
+    return response.data;
+  }
+
+  async consolidateMemories(userId: string, dryRun: boolean = true): Promise<HealingActionResult> {
+    const response = await this.v1Client.post<HealingActionResult>(
+      '/v1/healing/consolidate',
+      { user_id: userId, dry_run: dryRun }
+    );
+    return response.data;
+  }
+
+  async autoTagMemories(userId: string, dryRun: boolean = true): Promise<HealingActionResult> {
+    const response = await this.v1Client.post<HealingActionResult>(
+      '/v1/healing/tagging',
+      { user_id: userId, dry_run: dryRun }
+    );
+    return response.data;
+  }
+
+  async adjustImportance(userId: string, dryRun: boolean = true): Promise<HealingActionResult> {
+    const response = await this.v1Client.post<HealingActionResult>(
+      '/v1/healing/importance',
+      { user_id: userId, dry_run: dryRun }
+    );
+    return response.data;
+  }
+
+  async getHealingConfig(userId: string): Promise<HealingConfig> {
+    const response = await this.v1Client.get<{ config: HealingConfig }>(
+      `/v1/healing/config/${userId}`
+    );
+    return response.data.config;
+  }
+
+  async updateHealingConfig(userId: string, config: Partial<HealingConfig>): Promise<HealingConfig> {
+    const response = await this.v1Client.post<{ success: boolean; config: HealingConfig }>(
+      '/v1/healing/config',
+      { user_id: userId, ...config }
+    );
+    return response.data.config;
+  }
+
+  // ============================================================================
+  // ADDITIONAL COLLABORATION METHODS
+  // ============================================================================
+
+  async deleteSpace(spaceId: string): Promise<void> {
+    await this.v1Client.delete(`/v1/collaboration/spaces/${spaceId}`);
+  }
+
+  async addCollaborator(
+    spaceId: string,
+    agentId: string,
+    permissions: string[] = ['read']
+  ): Promise<void> {
+    await this.v1Client.post(`/v1/collaboration/spaces/${spaceId}/collaborators`, {
+      agent_id: agentId,
+      permissions,
+    });
+  }
+
+  async removeCollaborator(spaceId: string, agentId: string): Promise<void> {
+    await this.v1Client.delete(
+      `/v1/collaboration/spaces/${spaceId}/collaborators/${agentId}`
+    );
+  }
+
+  async updateCollaboratorPermissions(
+    spaceId: string,
+    agentId: string,
+    permissions: string[]
+  ): Promise<void> {
+    await this.v1Client.put(
+      `/v1/collaboration/spaces/${spaceId}/collaborators/${agentId}/permissions`,
+      { permissions }
+    );
+  }
+
+  async addMemoryToSpace(spaceId: string, memoryId: string): Promise<void> {
+    await this.v1Client.post(`/v1/collaboration/spaces/${spaceId}/memories`, {
+      memory_id: memoryId,
+    });
+  }
+
+  async removeMemoryFromSpace(spaceId: string, memoryId: string): Promise<void> {
+    await this.v1Client.delete(
+      `/v1/collaboration/spaces/${spaceId}/memories/${memoryId}`
+    );
+  }
+
+  async getConflicts(): Promise<CollaborationConflict[]> {
+    const response = await this.v1Client.get<{ conflicts: CollaborationConflict[] }>(
+      '/v1/collaboration/conflicts'
+    );
+    return response.data.conflicts;
+  }
+
+  async resolveConflict(
+    conflictId: string,
+    resolution: string
+  ): Promise<void> {
+    await this.v1Client.post(`/v1/collaboration/conflicts/${conflictId}/resolve`, {
+      resolution,
+    });
+  }
+
+  // ============================================================================
+  // ADDITIONAL PREDICTION METHODS
+  // ============================================================================
+
+  async predictNextOccurrence(
+    userId: string,
+    patternType: string
+  ): Promise<{ next_predicted: string; confidence: number }> {
+    const response = await this.v1Client.post<{
+      next_predicted: string;
+      confidence: number;
+    }>('/v1/predictions/patterns/predict', {
+      user_id: userId,
+      pattern_type: patternType,
+    });
+    return response.data;
+  }
+
+  async getInsights(userId: string): Promise<PredictiveInsight[]> {
+    const response = await this.v1Client.post<{ insights: PredictiveInsight[] }>(
+      '/v1/predictions/insights',
+      { user_id: userId }
+    );
+    return response.data.insights;
+  }
+
+  async getPeakActivityTimes(userId: string): Promise<PeakActivity[]> {
+    const response = await this.v1Client.post<{ peaks: PeakActivity[] }>(
+      '/v1/predictions/activity/peaks',
+      { user_id: userId }
+    );
+    return response.data.peaks;
   }
 }
 

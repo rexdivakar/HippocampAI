@@ -27,7 +27,7 @@ export function ClusterPage({ userId }: ClusterPageProps) {
       const result = await apiClient.getMemories({
         user_id: userId,
         filters: {
-          session_id: userId, // Pass userId as session_id to match by either field
+          session_id: userId,
         },
         limit: 1000,
       });
@@ -35,12 +35,29 @@ export function ClusterPage({ userId }: ClusterPageProps) {
     },
   });
 
-  // Simple clustering based on tags and types (in production, use UMAP/HDBSCAN on embeddings)
-  const clusters = useMemo(() => {
-    const clusterMap = new Map<string, Memory[]>();
+  // Try backend clustering first, fall back to client-side
+  const { data: backendClusters } = useQuery({
+    queryKey: ['clusters', userId, refreshKey],
+    queryFn: () => apiClient.analyzeClusters(userId),
+    enabled: memories.length > 0,
+  });
 
+  // Use backend clusters when available, fall back to tag-based clustering
+  const clusters = useMemo(() => {
+    if (backendClusters && backendClusters.clusters.length > 0) {
+      return backendClusters.clusters.map((c, idx) => ({
+        id: c.id,
+        name: c.label,
+        size: c.size,
+        memories: c.memories,
+        avgImportance: c.avg_importance,
+        color: `hsl(${idx * 137.5}, 70%, 60%)`,
+      }));
+    }
+
+    // Fallback: simple tag-based clustering
+    const clusterMap = new Map<string, Memory[]>();
     memories.forEach((memory: Memory) => {
-      // Cluster by primary tag or type
       const key = memory.tags[0] || memory.type;
       if (!clusterMap.has(key)) {
         clusterMap.set(key, []);
@@ -56,12 +73,15 @@ export function ClusterPage({ userId }: ClusterPageProps) {
       avgImportance: items.reduce((sum: number, m: Memory) => sum + m.importance, 0) / items.length,
       color: `hsl(${idx * 137.5}, 70%, 60%)`,
     }));
-  }, [memories]);
+  }, [memories, backendClusters]);
 
-  // Find outliers (memories with unique characteristics)
+  // Find outliers - use backend data when available, fall back to client-side
   const outliers = useMemo(() => {
+    if (backendClusters && backendClusters.outliers.length > 0) {
+      return backendClusters.outliers;
+    }
     return memories.filter((m: Memory) => m.tags.length === 0 || m.importance < 2);
-  }, [memories]);
+  }, [memories, backendClusters]);
 
   // Find potential duplicates (simple text similarity)
   const duplicates = useMemo(() => {

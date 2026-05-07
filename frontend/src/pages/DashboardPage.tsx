@@ -16,6 +16,8 @@ import {
   Clock,
   RefreshCw,
 } from 'lucide-react';
+import { apiClient } from '../services/api';
+import type { DashboardStats, DashboardActivity, ConsolidationStatus } from '../types';
 import clsx from 'clsx';
 
 interface DashboardPageProps {
@@ -34,11 +36,7 @@ export function DashboardPage({ userId }: DashboardPageProps) {
     refetch: refetchStats,
   } = useQuery({
     queryKey: ['dashboard-stats', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/dashboard/stats?user_id=${userId}`);
-      if (!res.ok) throw new Error('Stats API not available');
-      return res.json();
-    },
+    queryFn: () => apiClient.getDashboardStats(userId),
     retry: 2,
     staleTime: 30000, // 30 seconds
   });
@@ -50,11 +48,7 @@ export function DashboardPage({ userId }: DashboardPageProps) {
     error: sleepError,
   } = useQuery({
     queryKey: ['consolidation-status', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/consolidation/status?user_id=${userId}`);
-      if (!res.ok) throw new Error('Status API not available');
-      return res.json();
-    },
+    queryFn: () => apiClient.getConsolidationStatus(userId),
     retry: 2,
   });
 
@@ -65,26 +59,13 @@ export function DashboardPage({ userId }: DashboardPageProps) {
     error: activityError,
   } = useQuery({
     queryKey: ['recent-activity', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/dashboard/recent-activity?user_id=${userId}`);
-      if (!res.ok) throw new Error('Activity API not available');
-      const data = await res.json();
-      return data?.activities || [];
-    },
+    queryFn: () => apiClient.getRecentActivity(userId),
     retry: 2,
   });
 
   // Trigger manual consolidation
   const triggerMutation = useMutation({
-    mutationFn: async (dryRun: boolean) => {
-      const res = await fetch(`/api/consolidation/trigger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: dryRun, lookback_hours: 24 }),
-      });
-      if (!res.ok) throw new Error('Failed to trigger consolidation');
-      return res.json();
-    },
+    mutationFn: (dryRun: boolean) => apiClient.triggerConsolidation(userId, dryRun, 24),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', userId] });
       queryClient.invalidateQueries({ queryKey: ['consolidation-status', userId] });
@@ -95,7 +76,7 @@ export function DashboardPage({ userId }: DashboardPageProps) {
   const hasError = statsError || sleepError || activityError;
 
   // Safe defaults
-  const safeStats = stats || {
+  const safeStats: DashboardStats = stats || {
     total_memories: 0,
     total_entities: 0,
     total_concepts: 0,
@@ -111,13 +92,13 @@ export function DashboardPage({ userId }: DashboardPageProps) {
     archived_memories: 0,
   };
 
-  const safeSleepStatus = sleepStatus || {
+  const safeSleepStatus: ConsolidationStatus = sleepStatus || {
     enabled: false,
     dry_run: false,
     schedule_hour: 3,
   };
 
-  const safeActivity = recentActivity || [];
+  const safeActivity: DashboardActivity[] = recentActivity || [];
 
   return (
     <div className="w-full min-h-screen">
@@ -251,10 +232,10 @@ export function DashboardPage({ userId }: DashboardPageProps) {
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Most Active Topics</h4>
                     <div className="space-y-2">
                       {safeStats.top_tags && safeStats.top_tags.length > 0 ? (
-                        safeStats.top_tags.slice(0, 5).map((tag: any) => (
-                          <div key={tag?.name || Math.random()} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">#{tag?.name || 'Unknown'}</span>
-                            <span className="text-gray-500 font-medium">{tag?.count || 0}</span>
+                        safeStats.top_tags.slice(0, 5).map((tag) => (
+                          <div key={tag.name} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-700">#{tag.name}</span>
+                            <span className="text-gray-500 font-medium">{tag.count}</span>
                           </div>
                         ))
                       ) : (
@@ -267,10 +248,10 @@ export function DashboardPage({ userId }: DashboardPageProps) {
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Recently Added</h4>
                     <div className="space-y-2">
                       {safeStats.recent_memories && safeStats.recent_memories.length > 0 ? (
-                        safeStats.recent_memories.slice(0, 3).map((memory: any) => (
-                          <div key={memory?.id || Math.random()} className="text-sm">
-                            <p className="text-gray-700 truncate">{memory?.text || 'No content'}</p>
-                            <p className="text-gray-500 text-xs capitalize">{memory?.type || 'unknown'}</p>
+                        safeStats.recent_memories.slice(0, 3).map((memory) => (
+                          <div key={memory.id} className="text-sm">
+                            <p className="text-gray-700 truncate">{memory.text}</p>
+                            <p className="text-gray-500 text-xs capitalize">{memory.type}</p>
                           </div>
                         ))
                       ) : (
@@ -351,18 +332,18 @@ export function DashboardPage({ userId }: DashboardPageProps) {
 
                 <div className="space-y-3 mb-4">
                   {safeStats.top_clusters && safeStats.top_clusters.length > 0 ? (
-                    safeStats.top_clusters.slice(0, 3).map((cluster: any, idx: number) => (
+                    safeStats.top_clusters.slice(0, 3).map((cluster, idx) => (
                       <div
-                        key={cluster?.id || idx}
+                        key={cluster.id || idx}
                         className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg"
                       >
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{cluster?.label || `Cluster ${idx + 1}`}</p>
-                          <p className="text-xs text-gray-600">{cluster?.size || 0} memories</p>
+                          <p className="text-sm font-medium text-gray-900">{cluster.label || `Cluster ${idx + 1}`}</p>
+                          <p className="text-xs text-gray-600">{cluster.size} memories</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-purple-700">
-                            {cluster?.coherence?.toFixed(1) || 'N/A'}
+                            {cluster.coherence.toFixed(1)}
                           </p>
                           <p className="text-xs text-gray-500">coherence</p>
                         </div>
@@ -462,23 +443,23 @@ export function DashboardPage({ userId }: DashboardPageProps) {
                 {safeActivity.length === 0 ? (
                   <p className="text-sm text-gray-500">No recent activity</p>
                 ) : (
-                  safeActivity.slice(0, 10).map((activity: any, idx: number) => (
+                  safeActivity.slice(0, 10).map((activity, idx) => (
                     <div
-                      key={activity?.id || idx}
+                      key={activity.id || idx}
                       className="flex items-start space-x-3 py-2 border-b border-gray-100 last:border-0"
                     >
                       <div className="flex-shrink-0 mt-0.5">
-                        {activity?.type === 'memory_created' && <Brain className="w-4 h-4 text-indigo-600" />}
-                        {activity?.type === 'sleep_cycle' && <Moon className="w-4 h-4 text-purple-600" />}
-                        {activity?.type === 'archived' && <AlertCircle className="w-4 h-4 text-orange-600" />}
-                        {!['memory_created', 'sleep_cycle', 'archived'].includes(activity?.type) && (
+                        {activity.type === 'memory_created' && <Brain className="w-4 h-4 text-indigo-600" />}
+                        {activity.type === 'sleep_cycle' && <Moon className="w-4 h-4 text-purple-600" />}
+                        {activity.type === 'archived' && <AlertCircle className="w-4 h-4 text-orange-600" />}
+                        {!['memory_created', 'sleep_cycle', 'archived'].includes(activity.type) && (
                           <Activity className="w-4 h-4 text-gray-600" />
                         )}
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm text-gray-900">{activity?.description || 'Activity'}</p>
+                        <p className="text-sm text-gray-900">{activity.description}</p>
                         <p className="text-xs text-gray-500">
-                          {activity?.timestamp ? new Date(activity.timestamp).toLocaleString() : 'Unknown time'}
+                          {activity.timestamp ? new Date(activity.timestamp).toLocaleString() : 'Unknown time'}
                         </p>
                       </div>
                     </div>

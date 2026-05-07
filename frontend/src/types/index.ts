@@ -477,3 +477,271 @@ export interface EmbeddingMigration {
   migrated_count: number;
   failed_count: number;
 }
+
+// ============================================================================
+// DASHBOARD TYPES
+// ============================================================================
+
+export interface DashboardStats {
+  total_memories: number;
+  total_entities: number;
+  total_concepts: number;
+  total_tags: number;
+  total_sleep_runs: number;
+  health_score: number;
+  top_tags: Array<{ name: string; count: number }>;
+  recent_memories: Array<{ id: string; text: string; type: string }>;
+  top_clusters: Array<{ id: string; label: string; size: number; coherence: number }>;
+  total_connections: number;
+  potential_duplicates: number;
+  uncategorized_memories: number;
+  archived_memories: number;
+  last_sleep_run?: string;
+  last_sleep_reviewed?: number;
+  last_sleep_promoted?: number;
+  last_sleep_archived?: number;
+  last_sleep_synthesized?: number;
+}
+
+export interface DashboardActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+  metadata?: Record<string, any>;
+}
+
+// ============================================================================
+// SESSION TYPES
+// ============================================================================
+
+export interface SessionStats {
+  total_users: number;
+  total_sessions: number;
+  total_memories: number;
+  deleted_sessions: number;
+}
+
+export interface SessionInfo {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  memory_count: number;
+  is_deleted: boolean;
+}
+
+// ============================================================================
+// COMPACTION TYPES
+// ============================================================================
+
+export interface CompactionResult {
+  original_tokens: number;
+  compacted_tokens: number;
+  savings_percent: number;
+  compacted_text: string;
+}
+
+export interface CompactionHistoryEntry {
+  id: string;
+  user_id: string;
+  original_tokens: number;
+  compacted_tokens: number;
+  savings_percent: number;
+  created_at: string;
+}
+
+// ============================================================================
+// INTELLIGENCE TYPES
+// ============================================================================
+
+export interface ExtractedFact {
+  text: string;
+  entity_id?: string;
+  property_name?: string;
+  confidence: number;
+  source_text: string;
+}
+
+export interface ExtractedEntity {
+  id: string;
+  name: string;
+  entity_type: string;
+  mentions: number;
+  confidence: number;
+  attributes: Record<string, any>;
+}
+
+export interface EntityRelationship {
+  source_entity_id: string;
+  target_entity_id: string;
+  relationship_type: string;
+  confidence: number;
+  evidence: string[];
+}
+
+export interface RelationshipNetwork {
+  entities: ExtractedEntity[];
+  relationships: EntityRelationship[];
+  clusters: Array<{ id: string; entities: string[]; label: string }>;
+}
+
+export interface MemoryCluster {
+  id: number;
+  label: string;
+  size: number;
+  memories: Memory[];
+  centroid_text?: string;
+  coherence: number;
+  avg_importance: number;
+}
+
+export interface ClusterAnalysis {
+  clusters: MemoryCluster[];
+  outliers: Memory[];
+  silhouette_score: number;
+}
+
+export interface OptimalClusters {
+  optimal_k: number;
+  scores: Array<{ k: number; score: number }>;
+}
+
+export interface TemporalAnalysis {
+  time_series: Array<{ date: string; count: number; avg_importance: number }>;
+  peak_hours: number[];
+  peak_days: string[];
+  trend: 'increasing' | 'decreasing' | 'stable';
+}
+
+// ============================================================================
+// HEALING CONFIG TYPES
+// ============================================================================
+
+export interface HealingConfig {
+  user_id: string;
+  enabled: boolean;
+  auto_cleanup_enabled: boolean;
+  auto_dedup_enabled: boolean;
+  cleanup_threshold_days: number;
+  dedup_similarity_threshold: number;
+  require_user_approval: boolean;
+  max_actions_per_run: number;
+}
+
+export interface HealingActionResult {
+  action: string;
+  affected_count: number;
+  details: Record<string, any>;
+  dry_run: boolean;
+}
+
+export interface StaleMemory {
+  id: string;
+  text: string;
+  staleness_score: number;
+  days_since_access: number;
+  should_archive: boolean;
+  should_delete: boolean;
+}
+
+export interface DuplicateCluster {
+  representative_id: string;
+  representative_text: string;
+  duplicate_count: number;
+  duplicate_ids: string[];
+  average_similarity: number;
+  suggested_action: string;
+}
+
+export interface KnowledgeGap {
+  topic: string;
+  coverage_level: string;
+  memory_count: number;
+  quality_score: number;
+  gaps: string[];
+}
+
+export interface FullHealthCheckResult {
+  success: boolean;
+  dry_run: boolean;
+  health_before: number;
+  health_after: number;
+  health_improvement: number;
+  total_actions_recommended: number;
+  total_actions_applied: number;
+  actions_by_type: Record<string, number>;
+  summary: string;
+  timestamp: string;
+}
+
+// ============================================================================
+// COLLABORATION CONFLICT TYPES
+// ============================================================================
+
+export interface CollaborationConflict {
+  id: string;
+  space_id: string;
+  memory_id: string;
+  agent_ids: string[];
+  conflict_type: string;
+  description: string;
+  status: 'open' | 'resolved';
+  created_at: string;
+  resolved_at?: string;
+}
+
+// ============================================================================
+// PREDICTION INSIGHT TYPES
+// ============================================================================
+
+export interface PredictiveInsight {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  confidence: number;
+  action_items: string[];
+  created_at: string;
+}
+
+export interface PeakActivity {
+  hour: number;
+  day_of_week: string;
+  activity_count: number;
+  avg_importance: number;
+}
+
+// ============================================================================
+// CONSOLIDATION TYPES
+// ============================================================================
+
+export interface ConsolidationStatus {
+  enabled: boolean;
+  dry_run: boolean;
+  schedule_hour: number;
+}
+
+export interface ConsolidationStats {
+  total_runs: number;
+  total_memories_promoted: number;
+  total_memories_synthesized: number;
+  total_memories_deleted: number;
+}
+
+export interface ConsolidationRun {
+  id: string;
+  user_id: string;
+  status: string;
+  started_at: string;
+  completed_at: string;
+  duration_seconds: number;
+  memories_reviewed: number;
+  memories_deleted: number;
+  memories_archived: number;
+  memories_promoted: number;
+  memories_updated: number;
+  memories_synthesized: number;
+  dream_report: string | null;
+  dry_run?: boolean;
+}

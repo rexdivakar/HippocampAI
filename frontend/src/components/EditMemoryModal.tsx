@@ -8,18 +8,18 @@ interface EditMemoryModalProps {
   onClose: () => void;
   onSubmit: (memoryId: string, data: {
     text?: string;
-    type?: 'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context';
+    type?: Memory['type'];
     importance?: number;
     tags?: string[];
     metadata?: Record<string, any>;
   }) => Promise<void>;
 }
 
-const memoryTypes = ['fact', 'preference', 'goal', 'habit', 'event', 'context'];
+const memoryTypes = ['fact', 'preference', 'goal', 'habit', 'event', 'context', 'summary', 'procedural', 'prospective'];
 
 export function EditMemoryModal({ memory, isOpen, onClose, onSubmit }: EditMemoryModalProps) {
   const [text, setText] = useState('');
-  const [type, setType] = useState<'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context'>('fact');
+  const [type, setType] = useState<Memory['type']>('fact');
   const [importance, setImportance] = useState(5);
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);

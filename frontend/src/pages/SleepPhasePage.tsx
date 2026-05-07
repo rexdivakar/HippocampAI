@@ -17,33 +17,18 @@ import {
   Sparkles,
   Clock,
 } from 'lucide-react';
+import { apiClient } from '../services/api';
+import type { ConsolidationRun } from '../types';
 import clsx from 'clsx';
 
 interface SleepPhasePageProps {
   userId: string;
 }
 
-interface ConsolidationResult {
-  id: string;
-  user_id: string;
-  status: string;
-  started_at: string;
-  completed_at: string;
-  duration_seconds: number;
-  memories_reviewed: number;
-  memories_deleted: number;
-  memories_archived: number;
-  memories_promoted: number;
-  memories_updated: number;
-  memories_synthesized: number;
-  dream_report: string | null;
-  dry_run?: boolean;
-}
-
 export function SleepPhasePage({ userId }: SleepPhasePageProps) {
   const [activeTab, setActiveTab] = useState<'run' | 'history' | 'settings' | 'danger'>('run');
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
-  const [lastResult, setLastResult] = useState<ConsolidationResult | null>(null);
+  const [lastResult, setLastResult] = useState<ConsolidationRun | null>(null);
   const [showWipeConfirm, setShowWipeConfirm] = useState(false);
   const [wipeReason, setWipeReason] = useState('');
   const queryClient = useQueryClient();
@@ -56,43 +41,25 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
   // Fetch consolidation stats
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['consolidation-stats', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/consolidation/stats?user_id=${userId}`);
-      return res.json();
-    },
+    queryFn: () => apiClient.getConsolidationStats(userId),
   });
 
   // Fetch consolidation runs
   const { data: runs = [], isLoading: runsLoading } = useQuery({
     queryKey: ['consolidation-runs', userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/consolidation/runs?user_id=${userId}`);
-      return res.json();
-    },
+    queryFn: () => apiClient.getConsolidationRuns(userId),
   });
 
   // Fetch session stats
   const { data: sessionStats } = useQuery({
     queryKey: ['session-stats'],
-    queryFn: async () => {
-      const res = await fetch('/api/sessions/stats');
-      return res.json();
-    },
+    queryFn: () => apiClient.getSessionStats(),
   });
 
   // Trigger consolidation mutation
   const triggerMutation = useMutation({
     mutationFn: async (dryRun: boolean) => {
-      const res = await fetch('/api/consolidation/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: dryRun, lookback_hours: 24, user_id: userId }),
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || 'Failed to trigger consolidation');
-      }
-      const result = await res.json();
+      const result = await apiClient.triggerConsolidation(userId, dryRun, 24);
       return { ...result, dry_run: dryRun };
     },
     onSuccess: (data) => {
@@ -112,21 +79,12 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
   // Wipe user data mutation
   const wipeMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/sessions/wipe-user-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          admin_user_id: userId,
-          reason: wipeReason || 'User requested data wipe',
-          confirm: true,
-        }),
+      return apiClient.wipeUserData({
+        user_id: userId,
+        admin_user_id: userId,
+        reason: wipeReason || 'User requested data wipe',
+        confirm: true,
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || 'Failed to wipe data');
-      }
-      return res.json();
     },
     onSuccess: (data) => {
       setShowWipeConfirm(false);
@@ -244,7 +202,7 @@ export function SleepPhasePage({ userId }: SleepPhasePageProps) {
 function RunTab({ stats, statsLoading, lastResult, isRunning, onTrigger }: {
   stats: any;
   statsLoading: boolean;
-  lastResult: ConsolidationResult | null;
+  lastResult: ConsolidationRun | null;
   isRunning: boolean;
   onTrigger: (dryRun: boolean) => void;
 }) {
@@ -361,8 +319,8 @@ function RunTab({ stats, statsLoading, lastResult, isRunning, onTrigger }: {
 // HISTORY TAB
 // ============================================
 
-function HistoryTab({ runs, isLoading }: { runs: ConsolidationResult[]; isLoading: boolean }) {
-  const [selectedRun, setSelectedRun] = useState<ConsolidationResult | null>(null);
+function HistoryTab({ runs, isLoading }: { runs: ConsolidationRun[]; isLoading: boolean }) {
+  const [selectedRun, setSelectedRun] = useState<ConsolidationRun | null>(null);
 
   if (isLoading) {
     return (
@@ -652,7 +610,7 @@ function StatCard({ icon, label, value, color }: {
   );
 }
 
-function ResultCard({ result }: { result: ConsolidationResult; expanded?: boolean }) {
+function ResultCard({ result }: { result: ConsolidationRun; expanded?: boolean }) {
   const isDryRun = result.dry_run;
 
   return (

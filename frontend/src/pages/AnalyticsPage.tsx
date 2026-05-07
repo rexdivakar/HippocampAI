@@ -29,7 +29,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { apiClient } from '../services/api';
-import type { Memory } from '../types';
+import type { Memory, TemporalPattern, Anomaly, Recommendation } from '../types';
 import clsx from 'clsx';
 import { format, subDays, differenceInDays } from 'date-fns';
 
@@ -50,12 +50,37 @@ export function AnalyticsPage({ userId }: AnalyticsPageProps) {
       const result = await apiClient.getMemories({
         user_id: userId,
         filters: {
-          session_id: userId, // Pass userId as session_id to match by either field
+          session_id: userId,
         },
         limit: 1000,
       });
       return result;
     },
+  });
+
+  // Fetch backend predictions
+  const { data: patterns = [] } = useQuery({
+    queryKey: ['patterns', userId],
+    queryFn: () => apiClient.detectPatterns(userId),
+    enabled: memories.length > 0,
+  });
+
+  const { data: anomalies = [] } = useQuery({
+    queryKey: ['anomalies', userId],
+    queryFn: () => apiClient.detectAnomalies(userId, timeRange),
+    enabled: memories.length > 0,
+  });
+
+  const { data: recommendations = [] } = useQuery({
+    queryKey: ['recommendations', userId],
+    queryFn: () => apiClient.getRecommendations(userId),
+    enabled: memories.length > 0,
+  });
+
+  const { data: _trendData } = useQuery({
+    queryKey: ['trends', userId, timeRange],
+    queryFn: () => apiClient.analyzeTrends(userId, timeRange, 'activity'),
+    enabled: memories.length > 0,
   });
 
   // Calculate analytics
@@ -519,6 +544,100 @@ export function AnalyticsPage({ userId }: AnalyticsPageProps) {
               </div>
             </div>
           </div>
+
+          {/* Detected Patterns (from backend) */}
+          {patterns.length > 0 && (
+            <div className="card">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+                <Target className="w-6 h-6 text-blue-600" />
+                <span>Detected Patterns</span>
+              </h2>
+              <div className="space-y-3">
+                {patterns.map((pattern: TemporalPattern, idx: number) => (
+                  <div key={idx} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-blue-900 capitalize">{pattern.pattern_type} Pattern</span>
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                        {(pattern.confidence * 100).toFixed(0)}% confidence
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{pattern.description}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                      <span>{pattern.occurrences_count} occurrences</span>
+                      <span>Regularity: {(pattern.regularity_score * 100).toFixed(0)}%</span>
+                      {pattern.next_predicted && (
+                        <span className="text-blue-600">Next: {new Date(pattern.next_predicted).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Anomalies (from backend) */}
+          {anomalies.length > 0 && (
+            <div className="card">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <span>Detected Anomalies</span>
+              </h2>
+              <div className="space-y-3">
+                {anomalies.map((anomaly: Anomaly) => (
+                  <div key={anomaly.id} className={clsx(
+                    'border rounded-lg p-4',
+                    anomaly.severity === 'critical' ? 'bg-red-50 border-red-200' :
+                    anomaly.severity === 'high' ? 'bg-orange-50 border-orange-200' :
+                    anomaly.severity === 'medium' ? 'bg-yellow-50 border-yellow-200' :
+                    'bg-gray-50 border-gray-200'
+                  )}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-900">{anomaly.title}</span>
+                      <span className={clsx(
+                        'text-xs px-2 py-1 rounded-full font-medium',
+                        anomaly.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                        anomaly.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                        anomaly.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-700'
+                      )}>
+                        {anomaly.severity}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{anomaly.description}</p>
+                    {anomaly.suggestions.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {anomaly.suggestions.map((s, i) => (
+                          <p key={i} className="text-xs text-gray-600">→ {s}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations (from backend) */}
+          {recommendations.length > 0 && (
+            <div className="card">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+                <Lightbulb className="w-6 h-6 text-yellow-600" />
+                <span>Recommendations</span>
+              </h2>
+              <div className="space-y-3">
+                {recommendations.map((rec: Recommendation) => (
+                  <div key={rec.id} className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-900">{rec.title}</span>
+                      <span className="text-xs text-gray-500">Priority: {rec.priority}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-1">{rec.reason}</p>
+                    <p className="text-sm text-blue-700 font-medium">Action: {rec.action}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
