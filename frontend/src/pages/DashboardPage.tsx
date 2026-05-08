@@ -16,6 +16,7 @@ import {
   Clock,
   RefreshCw,
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiClient } from '../services/api';
 import type { DashboardStats, DashboardActivity, ConsolidationStatus } from '../types';
 import clsx from 'clsx';
@@ -99,6 +100,21 @@ export function DashboardPage({ userId }: DashboardPageProps) {
   };
 
   const safeActivity: DashboardActivity[] = recentActivity || [];
+
+  const getChartData = () => {
+    const days = 7;
+    const data = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = safeActivity.filter(a =>
+        a.timestamp && a.timestamp.startsWith(dateStr)
+      ).length;
+      data.push({ date: date.toLocaleDateString('en-US', { weekday: 'short' }), count });
+    }
+    return data;
+  };
 
   return (
     <div className="w-full min-h-screen">
@@ -221,8 +237,15 @@ export function DashboardPage({ userId }: DashboardPageProps) {
                 {/* Chart Placeholder */}
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Memories Created (Last 7 Days)</h4>
-                  <div className="h-48 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
-                    <span className="text-sm text-gray-500">Chart visualization coming soon</span>
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={getChartData()}>
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="count" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
@@ -385,8 +408,15 @@ export function DashboardPage({ userId }: DashboardPageProps) {
                   </div>
                 </div>
 
-                <div className="h-32 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-center mb-4">
-                  <span className="text-sm text-blue-600">Graph visualization coming soon</span>
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <span className="text-sm text-gray-700">Total Memories</span>
+                    <span className="text-sm font-bold text-blue-700">{safeStats.total_memories}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <span className="text-sm text-gray-700">Health Score</span>
+                    <span className="text-sm font-bold text-blue-700">{safeStats.health_score}/100</span>
+                  </div>
                 </div>
 
                 <button

@@ -1,5 +1,6 @@
 """Async FastAPI application with comprehensive memory management APIs."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -274,6 +275,162 @@ except ImportError as e:
     logger.warning(f"Could not load admin routes: {e}")
 
 
+# ----------------------------------------------------------------------------
+# Auth routes
+# ----------------------------------------------------------------------------
+
+try:
+    from hippocampai.api.auth_routes import router as auth_router
+
+    app.include_router(auth_router)
+    logger.info("Auth routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load auth routes: {e}")
+
+
+# ----------------------------------------------------------------------------
+# Core feature routes
+# ----------------------------------------------------------------------------
+
+try:
+    from hippocampai.api.healing_routes import router as healing_router
+
+    app.include_router(healing_router)
+    logger.info("Healing routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load healing routes: {e}")
+
+try:
+    from hippocampai.api.collaboration_routes import router as collaboration_router
+
+    app.include_router(collaboration_router)
+    logger.info("Collaboration routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load collaboration routes: {e}")
+
+try:
+    from hippocampai.api.feedback_routes import router as feedback_router
+
+    app.include_router(feedback_router)
+    logger.info("Feedback routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load feedback routes: {e}")
+
+try:
+    from hippocampai.api.trigger_routes import router as trigger_router
+
+    app.include_router(trigger_router)
+    logger.info("Trigger routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load trigger routes: {e}")
+
+
+# ----------------------------------------------------------------------------
+# Analytics / Intelligence routes
+# ----------------------------------------------------------------------------
+
+try:
+    from hippocampai.api.prediction_routes import router as prediction_router
+
+    app.include_router(prediction_router)
+    logger.info("Prediction routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load prediction routes: {e}")
+
+try:
+    from hippocampai.api.bitemporal_routes import router as bitemporal_router
+
+    app.include_router(bitemporal_router)
+    logger.info("Bitemporal routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load bitemporal routes: {e}")
+
+try:
+    from hippocampai.api.context_routes import router as context_router
+
+    app.include_router(context_router)
+    logger.info("Context routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load context routes: {e}")
+
+try:
+    from hippocampai.api.procedural_routes import router as procedural_router
+
+    app.include_router(procedural_router)
+    logger.info("Procedural routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load procedural routes: {e}")
+
+try:
+    from hippocampai.api.prospective_routes import router as prospective_router
+
+    app.include_router(prospective_router)
+    logger.info("Prospective routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load prospective routes: {e}")
+
+
+# ----------------------------------------------------------------------------
+# Admin / Ops routes
+# ----------------------------------------------------------------------------
+
+try:
+    from hippocampai.api.consolidation_routes import router as consolidation_router
+
+    app.include_router(consolidation_router)
+    logger.info("Consolidation routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load consolidation routes: {e}")
+
+try:
+    from hippocampai.api.dashboard_routes import router as dashboard_router
+
+    app.include_router(dashboard_router)
+    logger.info("Dashboard routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load dashboard routes: {e}")
+
+try:
+    from hippocampai.api.session_routes import router as session_router
+
+    app.include_router(session_router)
+    logger.info("Session routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load session routes: {e}")
+
+try:
+    from hippocampai.api.compaction_routes import router as compaction_router
+
+    app.include_router(compaction_router)
+    logger.info("Compaction routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load compaction routes: {e}")
+
+try:
+    from hippocampai.api.migration_routes import router as migration_router
+
+    app.include_router(migration_router)
+    logger.info("Migration routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load migration routes: {e}")
+
+try:
+    from hippocampai.api.audit_routes import router as audit_router
+
+    app.include_router(audit_router)
+    logger.info("Audit routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load audit routes: {e}")
+
+try:
+    from hippocampai.api.usage_routes import router as usage_router
+
+    app.include_router(usage_router)
+    logger.info("Usage routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not load usage routes: {e}")
+
+
 # Dependency to get service
 def get_service() -> MemoryManagementService:
     """Get memory management service."""
@@ -389,6 +546,20 @@ class ConsolidateRequest(BaseModel):
 
 class ExpireRequest(BaseModel):
     user_id: Optional[str] = None
+
+
+class ClassifyMemoryRequest(BaseModel):
+    text: str
+    user_id: Optional[str] = None
+
+
+class ClassifyMemoryResponse(BaseModel):
+    memory_type: str
+    confidence: float
+    confidence_level: str
+    reasoning: str
+    alternative_type: Optional[str] = None
+    alternative_confidence: Optional[float] = None
 
 
 # ============================================================================
@@ -586,6 +757,36 @@ async def query_memories(
         return result
     except Exception as e:
         logger.error(f"Query memories failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/classify", response_model=ClassifyMemoryResponse)
+async def classify_memory(request: ClassifyMemoryRequest) -> ClassifyMemoryResponse:
+    """Classify a memory text using the agentic LLM-based classifier.
+
+    Returns the memory type, confidence score, reasoning, and alternative
+    classification. Uses multi-step LLM reasoning for accurate classification
+    with fallback to pattern matching.
+
+    The underlying classifier is CPU-bound; it is offloaded to a thread pool
+    via asyncio.to_thread to avoid blocking the event loop.
+    """
+    try:
+        from hippocampai.utils.agentic_classifier import get_agentic_classifier
+
+        classifier = get_agentic_classifier(use_cache=True)
+        result = await asyncio.to_thread(classifier.classify_with_details, request.text)
+
+        return ClassifyMemoryResponse(
+            memory_type=result.memory_type.value,
+            confidence=result.confidence,
+            confidence_level=result.confidence_level.value.upper(),
+            reasoning=result.reasoning,
+            alternative_type=result.alternative_type.value if result.alternative_type else None,
+            alternative_confidence=result.alternative_confidence,
+        )
+    except Exception as e:
+        logger.error(f"Classification failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

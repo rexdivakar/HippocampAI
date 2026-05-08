@@ -210,7 +210,7 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
   };
 
   return (
-    <div className="flex h-screen bg-gray-50" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className="flex h-[calc(100vh-8rem)] bg-gray-50" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Sidebar Filters */}
       {showFilters && (
         <MemoryFilterSidebar

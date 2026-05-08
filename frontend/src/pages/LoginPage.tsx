@@ -207,7 +207,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             Autonomous memory engine with hybrid retrieval
           </p>
           <p className="text-primary-200 text-xs mt-2">
-            Version 0.3.0
+            Version 0.5.1
           </p>
         </div>
       </div>

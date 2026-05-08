@@ -237,21 +237,18 @@ class APIClient {
     filters?: Record<string, any>;
     limit?: number;
   }): Promise<Memory[]> {
-    const response = await this.v1Client.post<Memory[]>('/v1/memories:get', data);
+    const response = await this.v1Client.post<Memory[]>('/v1/memories/query', data);
     return response.data;
   }
 
   async updateMemory(memoryId: string, data: Partial<Memory>): Promise<Memory> {
-    const response = await this.v1Client.patch<Memory>('/v1/memories:update', {
-      memory_id: memoryId,
-      ...data,
-    });
+    const response = await this.v1Client.patch<Memory>(`/v1/memories/${memoryId}`, data);
     return response.data;
   }
 
   async deleteMemory(memoryId: string, userId?: string): Promise<void> {
-    await this.v1Client.delete('/v1/memories:delete', {
-      data: { memory_id: memoryId, user_id: userId },
+    await this.v1Client.delete(`/v1/memories/${memoryId}`, {
+      params: { user_id: userId },
     });
   }
 
@@ -934,10 +931,10 @@ class APIClient {
     user_id: string;
     session_id?: string;
   }): Promise<{ estimated_savings_percent: number; original_tokens: number }> {
-    const response = await this.client.post<{
+    const response = await this.client.get<{
       estimated_savings_percent: number;
       original_tokens: number;
-    }>('/compaction/estimate', data);
+    }>('/compaction/preview', { params: data });
     return response.data;
   }
 
