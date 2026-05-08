@@ -59,6 +59,7 @@ saas = [
     "flower>=2.0,<3.0",
     "redis>=5.0,<6.0",
     "asyncpg>=0.29,<1.0",
+    "aiosqlite>=0.19,<1.0",
     "bcrypt>=4.0,<5.0",
     "email-validator>=2.0,<3.0",
     "apscheduler>=3.10,<4.0",
@@ -226,6 +227,7 @@ module = [
     "kombu.*",
     "flower.*",
     "asyncpg.*",
+    "aiosqlite.*",
 ]
 ignore_missing_imports = true
 

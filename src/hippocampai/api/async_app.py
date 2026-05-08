@@ -146,9 +146,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         import os
 
-        import asyncpg
-
         from hippocampai.auth.auth_service import AuthService
+        from hippocampai.auth.db import create_db_pool
         from hippocampai.auth.rate_limiter import RateLimiter
 
         # Check if user auth is enabled
@@ -160,21 +159,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             if _redis_store.store._client is None:
                 raise RuntimeError("Redis client not initialized")
 
-        db_pool = await asyncpg.create_pool(
-            host=config.postgres_host,
-            port=config.postgres_port,
-            database=config.postgres_db,
-            user=config.postgres_user,
-            password=config.postgres_password,
-            min_size=2,
-            max_size=10,
+        db_pool = await create_db_pool(
+            db_type=config.db_type,
+            pg_host=config.postgres_host,
+            pg_port=config.postgres_port,
+            pg_database=config.postgres_db,
+            pg_user=config.postgres_user,
+            pg_password=config.postgres_password,
+            sqlite_path=config.sqlite_path,
         )
         app.state.db_pool = db_pool  # Store pool for direct access
         app.state.auth_service = AuthService(db_pool)
         app.state.rate_limiter = RateLimiter(_redis_store.store._client)  # Use existing Redis
         app.state.user_auth_enabled = user_auth_enabled
 
-        logger.info(f"AuthService initialized (user_auth_enabled={user_auth_enabled})")
+        logger.info(
+            f"AuthService initialized (db_type={config.db_type}, "
+            f"user_auth_enabled={user_auth_enabled})"
+        )
         logger.info("RateLimiter initialized successfully")
 
     except Exception as e:

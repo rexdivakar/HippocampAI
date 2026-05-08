@@ -19,7 +19,11 @@ class Config(BaseSettings):
     redis_max_connections: int = Field(default=100, validation_alias="REDIS_MAX_CONNECTIONS")
     redis_min_idle: int = Field(default=10, validation_alias="REDIS_MIN_IDLE")
 
-    # PostgreSQL (for authentication)
+    # Database backend: "sqlite" or "postgres"
+    db_type: str = Field(default="sqlite", validation_alias="DB_TYPE")
+    sqlite_path: str = Field(default="data/hippocampai_auth.db", validation_alias="SQLITE_PATH")
+
+    # PostgreSQL (used when DB_TYPE=postgres)
     postgres_host: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
     postgres_port: int = Field(default=5432, validation_alias="POSTGRES_PORT")
     postgres_db: str = Field(default="hippocampai", validation_alias="POSTGRES_DB")

@@ -11,7 +11,11 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
-      # PostgreSQL (for authentication)
+      # Database backend: "sqlite" or "postgres"
+      DB_TYPE: ${DB_TYPE:-postgres}
+      SQLITE_PATH: ${SQLITE_PATH:-/app/data/hippocampai_auth.db}
+
+      # PostgreSQL (used when DB_TYPE=postgres)
       POSTGRES_URL: postgresql://${POSTGRES_USER:-hippocampai}:${POSTGRES_PASSWORD:-hippocampai_secret}@postgres:5432/${POSTGRES_DB:-hippocampai}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
