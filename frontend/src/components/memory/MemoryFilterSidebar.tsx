@@ -107,7 +107,14 @@ export function MemoryFilterSidebar({
     (localFilters.startDate !== undefined ? 1 : 0);
 
   return (
-    <div className="w-full lg:w-56 xl:w-64 2xl:w-72 min-w-[224px] max-w-[288px] bg-white border-r border-gray-200 flex flex-col">
+    <>
+      {/* Mobile overlay backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+    <div className="fixed inset-y-0 left-0 z-40 w-72 lg:relative lg:inset-auto lg:z-auto lg:w-56 xl:w-64 2xl:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg lg:shadow-none">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
@@ -292,5 +299,6 @@ export function MemoryFilterSidebar({
         )}
       </div>
     </div>
+    </>
   );
 }

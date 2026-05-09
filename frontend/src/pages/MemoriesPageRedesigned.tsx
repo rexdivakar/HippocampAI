@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Layers,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -38,8 +39,10 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
-  const [showFilters, setShowFilters] = useState(true);
+  // Default closed on mobile (overlay) — desktop shows it inline at first open
+  const [showFilters, setShowFilters] = useState(false);
   const [showCompactionModal, setShowCompactionModal] = useState(false);
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
 
   // Fetch memories
   const { data: memories = [], isLoading, refetch } = useQuery({
@@ -191,6 +194,11 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
 
   const handleSelectMemory = (memory: Memory) => {
     setSelectedMemory(memory);
+    setShowMobileDetail(true);
+  };
+
+  const handleBackToList = () => {
+    setShowMobileDetail(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -224,112 +232,109 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Title & Search */}
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="flex items-center space-x-2">
-                <Brain className="w-6 h-6 text-primary-600" />
-                <h1 className="text-xl font-semibold text-gray-900">Memories</h1>
-                <span className="text-sm text-gray-500">({filteredMemories.length})</span>
-              </div>
-
-              {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search memories..."
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 space-y-3">
+          {/* Row 1: Title + Search (always visible) */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center space-x-2 shrink-0">
+              <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Memories</h1>
+              <span className="text-sm text-gray-500">({filteredMemories.length})</span>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center space-x-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search memories..."
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Action buttons — shared controls, adapt to viewport */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={clsx(
+                'p-2 rounded-lg transition-colors',
+                showFilters ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-100'
+              )}
+              title="Toggle filters"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+
+            {/* Density selector hidden on mobile to save space */}
+            <select
+              value={density}
+              onChange={(e) => setDensity(e.target.value as ViewDensity)}
+              className="hidden sm:block px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+              <option value="ultra">Ultra</option>
+            </select>
+
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
-                onClick={() => setShowFilters(!showFilters)}
+                onClick={() => setViewMode('list')}
                 className={clsx(
-                  'px-3 py-2 text-sm font-medium rounded-lg transition-colors',
-                  showFilters
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'text-gray-600 hover:bg-gray-100'
+                  'p-1.5 rounded transition-colors',
+                  viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
                 )}
               >
-                <SlidersHorizontal className="w-4 h-4" />
+                <List className="w-4 h-4" />
               </button>
-
-              {/* Density */}
-              <select
-                value={density}
-                onChange={(e) => setDensity(e.target.value as ViewDensity)}
-                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="comfortable">Comfortable</option>
-                <option value="compact">Compact</option>
-                <option value="ultra">Ultra</option>
-              </select>
-
-              {/* View Mode */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={clsx(
-                    'p-1.5 rounded transition-colors',
-                    viewMode === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  )}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={clsx(
-                    'p-1.5 rounded transition-colors',
-                    viewMode === 'grid'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  )}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-              </div>
-
               <button
-                onClick={() => refetch()}
-                disabled={isLoading}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setViewMode('grid')}
+                className={clsx(
+                  'p-1.5 rounded transition-colors',
+                  viewMode === 'grid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                )}
               >
-                <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-              </button>
-
-              <button
-                onClick={() => setShowCompactionModal(true)}
-                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
-                title="Compact memories to save tokens"
-              >
-                <Layers className="w-4 h-4" />
-                <span>Compact</span>
-              </button>
-
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New</span>
+                <LayoutGrid className="w-4 h-4" />
               </button>
             </div>
+
+            <button
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+            </button>
+
+            <button
+              onClick={() => setShowCompactionModal(true)}
+              className="px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+              title="Compact memories to save tokens"
+            >
+              <Layers className="w-4 h-4" />
+              <span className="hidden sm:inline">Compact</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-3 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New</span>
+            </button>
           </div>
         </div>
 
         {/* Master-Detail Layout */}
         <div className="flex-1 flex min-h-0">
-          {/* Memory List */}
-          <div className="w-full lg:w-1/4 xl:w-1/5 2xl:w-1/6 min-w-[320px] max-w-[480px] bg-white border-r border-gray-200 flex flex-col">
+          {/* Memory List — hidden on mobile when detail is shown */}
+          <div
+            className={clsx(
+              'bg-white border-r border-gray-200 flex flex-col',
+              showMobileDetail ? 'hidden lg:flex' : 'flex',
+              'w-full lg:w-1/3 xl:w-1/4'
+            )}
+          >
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <RefreshCw className="w-8 h-8 text-primary-600 animate-spin" />
@@ -357,8 +362,22 @@ export function MemoriesPageRedesigned({ userId }: MemoriesPageRedesignedProps) 
             )}
           </div>
 
-          {/* Detail Panel */}
-          <div className="flex-1 bg-white overflow-y-auto">
+          {/* Detail Panel — hidden on mobile when list is shown */}
+          <div
+            className={clsx(
+              'flex-1 bg-white flex-col overflow-y-auto',
+              !showMobileDetail ? 'hidden lg:flex' : 'flex'
+            )}
+          >
+            {/* Back button — mobile only */}
+            <button
+              onClick={handleBackToList}
+              className="flex lg:hidden items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b border-gray-200 bg-white sticky top-0 z-10"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to list
+            </button>
+
             {selectedMemory ? (
               <MemoryDetailPanel
                 memory={selectedMemory}

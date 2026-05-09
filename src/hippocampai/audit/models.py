@@ -34,6 +34,9 @@ class AuditAction(str, Enum):
     MEMORY_UPDATE = "memory_update"
     MEMORY_DELETE = "memory_delete"
     MEMORY_BULK_DELETE = "memory_bulk_delete"
+    MEMORY_BATCH_CREATE = "memory_batch_create"
+    MEMORY_BATCH_DELETE = "memory_batch_delete"
+    MEMORY_RECALL = "memory_recall"
     MEMORY_EXPORT = "memory_export"
     MEMORY_IMPORT = "memory_import"
 

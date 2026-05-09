@@ -50,6 +50,16 @@ from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
 
+# Optional graph + entity extraction (gracefully degrade if unavailable)
+try:
+    from hippocampai.graph.knowledge_graph import KnowledgeGraph
+    from hippocampai.pipeline.entity_recognition import EntityRecognizer
+    from hippocampai.pipeline.fact_extraction import FactExtractionPipeline
+
+    _GRAPH_AVAILABLE = True
+except ImportError:
+    _GRAPH_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -244,6 +254,19 @@ class MemoryManagementService:
             auto_merge_threshold=0.9,
         )
 
+        # Knowledge graph and entity extraction (auto-extract on create)
+        self.knowledge_graph: Any = None
+        self.entity_recognizer: Any = None
+        self.fact_extractor: Any = None
+        if _GRAPH_AVAILABLE:
+            try:
+                self.knowledge_graph = KnowledgeGraph()
+                self.entity_recognizer = EntityRecognizer(llm=llm)
+                self.fact_extractor = FactExtractionPipeline(llm=llm)
+                logger.info("Knowledge graph + entity extraction enabled on memory service")
+            except Exception as init_err:
+                logger.warning(f"Failed to initialize graph/entity extraction: {init_err}")
+
         # Query cache TTL (60 seconds)
         self.query_cache_ttl = 60
 
@@ -268,6 +291,63 @@ class MemoryManagementService:
         cache_str = json.dumps(cache_data, sort_keys=True)
         cache_hash = hashlib.md5(cache_str.encode(), usedforsecurity=False).hexdigest()
         return f"query_cache:{cache_hash}"
+
+    async def _extract_and_link_entities(self, memory: Memory) -> None:
+        """Extract entities, facts, and relationships from a memory and link to knowledge graph.
+
+        Runs synchronous extraction in a thread pool to avoid blocking the event loop.
+        Failures are logged but never propagated to the caller.
+        """
+        loop = asyncio.get_event_loop()
+
+        def _do_extraction() -> None:
+            graph = self.knowledge_graph
+            recognizer = self.entity_recognizer
+
+            # Add memory node
+            metadata = {
+                "node_type": "memory",
+                "type": memory.type.value,
+                "created_at": memory.created_at.isoformat(),
+            }
+            embedding = None
+            try:
+                embedding = self.embedder.encode_single(memory.text)
+            except Exception:
+                pass
+            graph.add_memory(memory.id, memory.user_id, metadata, embedding=embedding)
+
+            # Extract and link entities
+            entities = recognizer.extract_entities(memory.text)
+            for entity in entities:
+                graph.add_entity(entity)
+                graph.link_memory_to_entity(
+                    memory.id, entity.entity_id, confidence=entity.confidence
+                )
+
+            # Extract and link relationships
+            relationships = recognizer.extract_relationships(memory.text, entities)
+            for rel in relationships:
+                graph.link_entities(rel)
+
+            # Extract and link facts
+            if self.fact_extractor:
+                facts = self.fact_extractor.extract_facts(memory.text, memory.id)
+                for fact in facts:
+                    fact_id = f"fact_{hash(fact.fact) % 10**10}"
+                    graph.add_fact(fact, fact_id=fact_id)
+                    graph.link_memory_to_fact(memory.id, fact_id, confidence=fact.confidence)
+
+            # Link tags as topics
+            for tag in memory.tags:
+                graph.add_topic(tag, tag)
+                graph.link_memory_to_topic(memory.id, tag)
+
+            logger.debug(
+                f"Extracted {len(entities)} entities from memory {memory.id}"
+            )
+
+        await loop.run_in_executor(None, _do_extraction)
 
     async def _handle_duplicate_check(
         self, memory: Memory, user_id: str, metadata: Optional[dict[str, Any]]
@@ -486,6 +566,14 @@ class MemoryManagementService:
         # Store and cache
         await self._store_and_cache_memory(memory, text)
         logger.info(f"Created memory {memory.id} for user {user_id}")
+
+        # Auto-extract entities and update knowledge graph (fire-and-forget)
+        if self.knowledge_graph and self.entity_recognizer:
+            try:
+                await self._extract_and_link_entities(memory)
+            except Exception as graph_err:
+                logger.warning(f"Entity extraction failed for memory {memory.id}: {graph_err}")
+
         return memory
 
     async def get_memory(self, memory_id: str, track_access: bool = True) -> Optional[Memory]:
@@ -950,13 +1038,27 @@ class MemoryManagementService:
             self.retriever.weights.update(custom_weights)
 
         try:
+            # Fetch extra candidates to account for expired memories being filtered out
+            include_expired = (filters or {}).get("include_expired", False)
+            fetch_k = k if include_expired else k + 10
+
             results = self.retriever.retrieve(
                 query=query,
                 user_id=user_id,
                 session_id=session_id,
-                k=k,
+                k=fetch_k,
                 filters=filters,
             )
+
+            # Filter out expired memories unless explicitly requested
+            if not include_expired:
+                now = datetime.now(timezone.utc)
+                results = [
+                    r for r in results
+                    if r.memory.expires_at is None or r.memory.expires_at > now
+                ]
+                # Re-trim to requested k after filtering
+                results = results[:k]
 
             # Cache the results
             serialized_results = [result.model_dump(mode="json") for result in results]

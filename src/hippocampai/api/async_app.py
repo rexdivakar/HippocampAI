@@ -1,6 +1,7 @@
 """Async FastAPI application with comprehensive memory management APIs."""
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -9,13 +10,15 @@ from typing import Any, AsyncIterator, Optional, cast
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from hippocampai.adapters.llm_base import BaseLLM
 from hippocampai.adapters.provider_anthropic import AnthropicLLM
 from hippocampai.adapters.provider_groq import GroqLLM
 from hippocampai.adapters.provider_ollama import OllamaLLM
 from hippocampai.adapters.provider_openai import OpenAILLM
+from hippocampai.audit.logger import AuditLogger
+from hippocampai.audit.models import AuditAction
 from hippocampai.config import get_config
 from hippocampai.embed.embedder import Embedder
 from hippocampai.models.memory import Memory, RetrievalResult
@@ -48,12 +51,13 @@ except ImportError:
 _service: Optional[MemoryManagementService] = None
 _redis_store: Optional[AsyncMemoryKVStore] = None
 _background_tasks: Optional[BackgroundTaskManager] = None
+_audit_logger: Optional[AuditLogger] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown."""
-    global _service, _redis_store, _background_tasks
+    global _service, _redis_store, _background_tasks, _audit_logger
 
     # Startup
     config = get_config()
@@ -185,6 +189,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.auth_service = None
         app.state.rate_limiter = None
         app.state.user_auth_enabled = False
+
+    # Initialize AuditLogger — uses the db_pool if auth init succeeded, else falls back to in-memory.
+    _audit_logger = AuditLogger(
+        db_pool=getattr(app.state, "db_pool", None),
+    )
+    app.state.audit_logger = _audit_logger
+    logger.info("AuditLogger initialized")
 
     logger.info("HippocampAI services initialized successfully")
     yield
@@ -439,40 +450,145 @@ def get_service() -> MemoryManagementService:
     return _service
 
 
+def _get_audit_logger() -> Optional[AuditLogger]:
+    """Return the module-level audit logger, or None if not yet initialized."""
+    return _audit_logger
+
+
+async def _fire_audit(
+    action: AuditAction,
+    description: str,
+    user_id: Optional[str],
+    resource_id: Optional[str],
+    endpoint: str,
+    method: str,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    """
+    Fire an audit log entry without blocking the main request path.
+
+    user_id is stored as a string in metadata because API user_ids are opaque
+    strings and not guaranteed to be UUIDs.  The AuditLogger.log() UUID param
+    is left as None; callers should query by metadata['user_id'] if needed.
+    """
+    audit = _get_audit_logger()
+    if audit is None:
+        return
+    combined_metadata: dict[str, Any] = {"user_id": user_id}
+    if metadata:
+        combined_metadata.update(metadata)
+    try:
+        await audit.log(
+            action=action,
+            description=description,
+            resource_type="memory",
+            resource_id=resource_id,
+            endpoint=endpoint,
+            method=method,
+            metadata=combined_metadata,
+        )
+    except Exception as exc:
+        # Audit failures must never surface to the caller.
+        logger.warning("Audit log write failed: %s", exc)
+
+
 # ============================================================================
 # Request/Response Models
 # ============================================================================
 
 
 class MemoryCreate(BaseModel):
-    text: str
+    text: str = Field(max_length=50000)
     user_id: str
     session_id: Optional[str] = None
     type: str = "fact"
     importance: Optional[float] = Field(default=5.0, ge=0.0, le=10.0)
-    tags: Optional[list[str]] = None
+    tags: Optional[list[str]] = Field(default=None, max_length=50)
     ttl_days: Optional[int] = None
     metadata: Optional[dict[str, Any]] = None
     check_duplicate: bool = True
 
+    @field_validator("tags")
+    @classmethod
+    def validate_tag_lengths(cls, tags: Optional[list[str]]) -> Optional[list[str]]:
+        """Ensure each tag does not exceed 100 characters."""
+        if tags is None:
+            return tags
+        for tag in tags:
+            if len(tag) > 100:
+                raise ValueError(f"Each tag must be at most 100 characters; got tag of length {len(tag)}")
+        return tags
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata_size(cls, metadata: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Ensure metadata JSON does not exceed 64KB."""
+        if metadata is None:
+            return metadata
+        if len(json.dumps(metadata)) > 65536:
+            raise ValueError("metadata must not exceed 64KB when serialized as JSON")
+        return metadata
+
 
 class MemoryUpdate(BaseModel):
-    text: Optional[str] = None
+    text: Optional[str] = Field(default=None, max_length=50000)
     importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
-    tags: Optional[list[str]] = None
+    tags: Optional[list[str]] = Field(default=None, max_length=50)
     metadata: Optional[dict[str, Any]] = None
     expires_at: Optional[datetime] = None
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tag_lengths(cls, tags: Optional[list[str]]) -> Optional[list[str]]:
+        """Ensure each tag does not exceed 100 characters."""
+        if tags is None:
+            return tags
+        for tag in tags:
+            if len(tag) > 100:
+                raise ValueError(f"Each tag must be at most 100 characters; got tag of length {len(tag)}")
+        return tags
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata_size(cls, metadata: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Ensure metadata JSON does not exceed 64KB."""
+        if metadata is None:
+            return metadata
+        if len(json.dumps(metadata)) > 65536:
+            raise ValueError("metadata must not exceed 64KB when serialized as JSON")
+        return metadata
 
 
 class BatchMemoryUpdate(BaseModel):
     """Model for batch memory updates (includes memory_id)."""
 
     memory_id: str
-    text: Optional[str] = None
+    text: Optional[str] = Field(default=None, max_length=50000)
     importance: Optional[float] = Field(default=None, ge=0.0, le=10.0)
-    tags: Optional[list[str]] = None
+    tags: Optional[list[str]] = Field(default=None, max_length=50)
     metadata: Optional[dict[str, Any]] = None
     expires_at: Optional[datetime] = None
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tag_lengths(cls, tags: Optional[list[str]]) -> Optional[list[str]]:
+        """Ensure each tag does not exceed 100 characters."""
+        if tags is None:
+            return tags
+        for tag in tags:
+            if len(tag) > 100:
+                raise ValueError(f"Each tag must be at most 100 characters; got tag of length {len(tag)}")
+        return tags
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata_size(cls, metadata: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Ensure metadata JSON does not exceed 64KB."""
+        if metadata is None:
+            return metadata
+        if len(json.dumps(metadata)) > 65536:
+            raise ValueError("metadata must not exceed 64KB when serialized as JSON")
+        return metadata
 
 
 class MemoryDelete(BaseModel):
@@ -497,7 +613,7 @@ class MemoryQuery(BaseModel):
 
 
 class RecallRequest(BaseModel):
-    query: str
+    query: str = Field(max_length=10000)
     user_id: str
     session_id: Optional[str] = None
     k: int = Field(default=5, ge=1, le=100)
@@ -506,7 +622,7 @@ class RecallRequest(BaseModel):
 
 
 class BatchCreateRequest(BaseModel):
-    memories: list[MemoryCreate]
+    memories: list[MemoryCreate] = Field(max_length=100)
     check_duplicates: bool = True
 
 
@@ -515,12 +631,12 @@ class BatchUpdateRequest(BaseModel):
 
 
 class BatchDeleteRequest(BaseModel):
-    memory_ids: list[str]
+    memory_ids: list[str] = Field(max_length=500)
     user_id: Optional[str] = None
 
 
 class BatchGetRequest(BaseModel):
-    memory_ids: list[str]
+    memory_ids: list[str] = Field(max_length=500)
 
 
 class AnalyticsRequest(BaseModel):
@@ -528,7 +644,7 @@ class AnalyticsRequest(BaseModel):
 
 
 class ExtractRequest(BaseModel):
-    conversation: str
+    conversation: str = Field(max_length=100000)
     user_id: str
     session_id: Optional[str] = None
 
@@ -637,6 +753,16 @@ async def create_memory(
                 check_conflicts=True,
                 auto_resolve_conflicts=auto_resolve,
             )
+            asyncio.create_task(
+                _fire_audit(
+                    action=AuditAction.MEMORY_CREATE,
+                    description=f"Memory created for user {request.user_id}",
+                    user_id=request.user_id,
+                    resource_id=memory.id,
+                    endpoint="/v1/memories",
+                    method="POST",
+                )
+            )
             return memory
         except ConflictResolutionError as e:
             # Handle conflict resolution errors specifically
@@ -707,6 +833,16 @@ async def update_memory(
         )
         if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
+        asyncio.create_task(
+            _fire_audit(
+                action=AuditAction.MEMORY_UPDATE,
+                description=f"Memory {memory_id} updated",
+                user_id=memory.user_id,
+                resource_id=memory_id,
+                endpoint=f"/v1/memories/{memory_id}",
+                method="PATCH",
+            )
+        )
         return memory
     except HTTPException:
         raise
@@ -726,6 +862,16 @@ async def delete_memory(
         deleted = await service.delete_memory(memory_id, user_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Memory not found or unauthorized")
+        asyncio.create_task(
+            _fire_audit(
+                action=AuditAction.MEMORY_DELETE,
+                description=f"Memory {memory_id} deleted",
+                user_id=user_id,
+                resource_id=memory_id,
+                endpoint=f"/v1/memories/{memory_id}",
+                method="DELETE",
+            )
+        )
         return {"success": True, "memory_id": memory_id}
     except HTTPException:
         raise
@@ -805,6 +951,19 @@ async def batch_create_memories(
         result: list[Memory] = await service.batch_create_memories(
             memories_data, check_duplicates=request.check_duplicates
         )
+        # Derive a representative user_id from the first memory in the batch (all should share one).
+        batch_user_id = request.memories[0].user_id if request.memories else None
+        asyncio.create_task(
+            _fire_audit(
+                action=AuditAction.MEMORY_BATCH_CREATE,
+                description=f"Batch create: {len(result)} memories",
+                user_id=batch_user_id,
+                resource_id=None,
+                endpoint="/v1/memories/batch",
+                method="POST",
+                metadata={"count": len(result)},
+            )
+        )
         return result
     except Exception as e:
         logger.error(f"Batch create failed: {e}", exc_info=True)
@@ -832,9 +991,21 @@ async def batch_delete_memories(
     """Batch delete multiple memories."""
     try:
         results = await service.batch_delete_memories(request.memory_ids, request.user_id)
+        deleted_count = sum(results.values())
+        asyncio.create_task(
+            _fire_audit(
+                action=AuditAction.MEMORY_BATCH_DELETE,
+                description=f"Batch delete: {deleted_count} of {len(request.memory_ids)} memories deleted",
+                user_id=request.user_id,
+                resource_id=None,
+                endpoint="/v1/memories/batch",
+                method="DELETE",
+                metadata={"requested": len(request.memory_ids), "deleted": deleted_count},
+            )
+        )
         return {
             "success": True,
-            "deleted_count": sum(results.values()),
+            "deleted_count": deleted_count,
             "total": len(request.memory_ids),
             "results": results,
         }
@@ -878,6 +1049,17 @@ async def recall_memories(
             k=request.k,
             filters=request.filters,
             custom_weights=request.custom_weights,
+        )
+        asyncio.create_task(
+            _fire_audit(
+                action=AuditAction.MEMORY_RECALL,
+                description=f"Memory recall for user {request.user_id}: {len(result)} results",
+                user_id=request.user_id,
+                resource_id=None,
+                endpoint="/v1/memories/recall",
+                method="POST",
+                metadata={"results_returned": len(result), "k": request.k},
+            )
         )
         return result
     except Exception as e:
