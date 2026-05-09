@@ -65,53 +65,28 @@ __version__ = "0.5.1"
 __all__ = [
     # Version
     "__version__",
-    # Submodules
-    "core",
-    "platform",
-    "plugins",
-    "namespaces",
-    "portability",
-    "offline",
-    "tiered",
-    "integrations",
     # Main clients
     "MemoryClient",
+    "AsyncMemoryClient",
     "UnifiedMemoryClient",
     "EnhancedMemoryClient",
     "OptimizedMemoryClient",
-    "AsyncMemoryClient",
+    # Backends
+    "LocalBackend",
+    "RemoteBackend",
+    # Configuration
+    "Config",
+    "get_config",
     # Core models
     "Memory",
     "MemoryType",
     "RetrievalResult",
-    # Simplified API (mem0/zep compatible)
-    "SimpleMemory",
-    "SimpleSession",
-    "MemoryStore",
-    "MemoryManager",
-    # Configuration
-    "get_config",
-    "Config",
-    # Telemetry
-    "get_telemetry",
-    "OperationType",
     # Session management
     "Session",
     "SessionStatus",
     "SessionSearchResult",
     "SessionFact",
     "Entity",
-    "SessionManager",
-    # Advanced features
-    "MemoryGraph",
-    "RelationType",
-    "MemoryKVStore",
-    "MemoryVersionControl",
-    "MemoryVersion",
-    "AuditEntry",
-    "ChangeType",
-    "ContextInjector",
-    "inject_context",
     # Multi-agent support
     "Agent",
     "AgentRole",
@@ -119,7 +94,6 @@ __all__ = [
     "AgentPermission",
     "PermissionType",
     "MemoryVisibility",
-    "MultiAgentManager",
     # Temporal reasoning
     "TimeRange",
     "ScheduledMemory",
@@ -132,21 +106,6 @@ __all__ = [
     "HabitScore",
     "Trend",
     "InsightChangeType",
-    # Prospective memory
-    "ProspectiveIntent",
-    "ProspectiveMemoryManager",
-    "ProspectiveStatus",
-    "ProspectiveTriggerType",
-    "RecurrencePattern",
-    # SaaS automation (platform features)
-    "AutomationController",
-    "AutomationPolicy",
-    "AutomationSchedule",
-    "PolicyType",
-    "TaskManager",
-    "TaskPriority",
-    "TaskStatus",
-    "BackgroundTask",
 ]
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
@@ -159,6 +118,8 @@ if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from hippocampai import portability as portability
     from hippocampai import tiered as tiered
     from hippocampai.async_client import AsyncMemoryClient as AsyncMemoryClient
+    from hippocampai.backends.local import LocalBackend as LocalBackend
+    from hippocampai.backends.remote import RemoteBackend as RemoteBackend
     from hippocampai.client import MemoryClient as MemoryClient
     from hippocampai.config import Config as Config
     from hippocampai.config import get_config as get_config
@@ -214,6 +175,9 @@ _SUBMODULE_MAP: dict[str, str] = {
 }
 
 _IMPORT_MAP: dict[str, tuple[str, str]] = {
+    # Backends
+    "LocalBackend": ("hippocampai.backends.local", "LocalBackend"),
+    "RemoteBackend": ("hippocampai.backends.remote", "RemoteBackend"),
     # Configuration
     "Config": ("hippocampai.config", "Config"),
     "get_config": ("hippocampai.config", "get_config"),

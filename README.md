@@ -110,6 +110,30 @@ print(f"Found: {results[0].memory.text}")
 
 **That's it!** You now have intelligent memory for your AI application.
 
+### Async Usage
+
+```python
+import asyncio
+from hippocampai import AsyncMemoryClient
+
+async def main():
+    # Initialize async client (same constructor as MemoryClient)
+    client = AsyncMemoryClient()
+
+    # Store a memory asynchronously
+    memory = await client.remember_async(
+        "I prefer oat milk in my coffee and work remotely on Tuesdays",
+        user_id="alice",
+        type="preference"
+    )
+
+    # Recall memories asynchronously
+    results = await client.recall_async("work preferences", user_id="alice")
+    print(f"Found: {results[0].memory.text}")
+
+asyncio.run(main())
+```
+
 ---
 
 ## Key Features

@@ -1,7 +1,12 @@
 """Configuration with env var overrides."""
 
-from pydantic import Field
+import logging
+import warnings
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_config_logger = logging.getLogger(__name__)
 
 
 class Config(BaseSettings):
@@ -31,6 +36,18 @@ class Config(BaseSettings):
     postgres_password: str = Field(
         default="hippocampai_secret", validation_alias="POSTGRES_PASSWORD"
     )
+
+    @model_validator(mode="after")
+    def _warn_default_postgres_password(self) -> "Config":
+        """Emit a loud warning if Postgres is used with the default password."""
+        if self.db_type == "postgres" and self.postgres_password == "hippocampai_secret":
+            msg = (
+                "SECURITY WARNING: Using default Postgres password 'hippocampai_secret'. "
+                "Set POSTGRES_PASSWORD to a strong secret before deploying to production."
+            )
+            _config_logger.warning(msg)
+            warnings.warn(msg, stacklevel=2)
+        return self
 
     # HNSW tuning
     hnsw_m: int = Field(default=48, validation_alias="HNSW_M")

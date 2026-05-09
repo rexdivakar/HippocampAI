@@ -12,6 +12,7 @@ import {
   CheckCircle,
   Edit2,
   Save,
+  Tag,
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import type { Memory } from '../types';
@@ -42,9 +43,8 @@ const DEFAULT_POLICIES: StoragePolicy[] = [
     enabled: true,
     priority: 1,
     conditions: [
+      'Memory type is "fact"',
       'Importance score >= 7',
-      'Contains factual statements',
-      'Not temporary information',
     ],
   },
   {
@@ -55,7 +55,7 @@ const DEFAULT_POLICIES: StoragePolicy[] = [
     color: 'blue',
     enabled: true,
     priority: 2,
-    conditions: ['Contains "I prefer", "I like", "I want"', 'User explicitly states preference'],
+    conditions: ['Memory type is "preference"'],
   },
   {
     id: 'event',
@@ -65,7 +65,7 @@ const DEFAULT_POLICIES: StoragePolicy[] = [
     color: 'green',
     enabled: true,
     priority: 3,
-    conditions: ['Contains date/time information', 'Describes an event or milestone'],
+    conditions: ['Memory type is "event"'],
   },
   {
     id: 'knowledge-extract',
@@ -76,9 +76,7 @@ const DEFAULT_POLICIES: StoragePolicy[] = [
     enabled: true,
     priority: 4,
     conditions: [
-      'Contains definitions or explanations',
-      'Teaches new concept',
-      'Provides how-to information',
+      'Memory type is "fact" (importance < 7), "context", "goal", "habit", or "procedural"',
     ],
   },
   {
@@ -90,12 +88,42 @@ const DEFAULT_POLICIES: StoragePolicy[] = [
     enabled: false,
     priority: 5,
     conditions: [
-      'Multiple similar memories detected',
+      'Memory type is "summary" or "prospective"',
       'Can be combined into meta-memory',
       'Reduces redundancy',
     ],
   },
 ];
+
+/**
+ * Assign a memory to a policy bucket based on its actual type and importance fields.
+ * This replaces text-heuristic matching with direct use of the structured memory model.
+ */
+function resolvePolicy(memory: Memory, policies: StoragePolicy[]): StoragePolicy {
+  const policyById = (id: string) => policies.find(p => p.id === id) ?? policies[policies.length - 1];
+
+  switch (memory.type) {
+    case 'preference':
+      return policyById('user-preference');
+    case 'event':
+      return policyById('event');
+    case 'summary':
+    case 'prospective':
+      return policyById('auto-synthesis');
+    case 'fact':
+      // High-importance facts go to the "important-fact" bucket; lower-importance facts
+      // are general knowledge extractions.
+      return memory.importance >= 7
+        ? policyById('important-fact')
+        : policyById('knowledge-extract');
+    case 'context':
+    case 'goal':
+    case 'habit':
+    case 'procedural':
+    default:
+      return policyById('knowledge-extract');
+  }
+}
 
 export function PoliciesPage({ userId }: PoliciesPageProps) {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -113,7 +141,7 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
     },
   });
 
-  // Categorize memories by policy (mock - would come from backend metadata)
+  // Categorize memories by policy using the memory's actual type and importance fields.
   const memoriesByPolicy = useMemo(() => {
     const categorized = new Map<string, Memory[]>();
 
@@ -121,21 +149,24 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
       categorized.set(policy.id, []);
     });
 
-    // Simple heuristic categorization (in production, this would be backend metadata)
     memories.forEach((memory: Memory) => {
-      if (memory.importance >= 7) {
-        categorized.get('important-fact')!.push(memory);
-      } else if (memory.text.toLowerCase().includes('prefer') || memory.text.toLowerCase().includes('like')) {
-        categorized.get('user-preference')!.push(memory);
-      } else if (memory.tags.some((tag: string) => tag.toLowerCase().includes('event'))) {
-        categorized.get('event')!.push(memory);
-      } else {
-        categorized.get('knowledge-extract')!.push(memory);
-      }
+      const policy = resolvePolicy(memory, policies);
+      categorized.get(policy.id)?.push(memory);
     });
 
     return categorized;
   }, [memories, policies]);
+
+  // Derive real session-based stats from memory fields.
+  const sessionMemoriesCount = useMemo(
+    () => memories.filter((m: Memory) => Boolean(m.session_id)).length,
+    [memories]
+  );
+
+  const taggedMemoriesCount = useMemo(
+    () => memories.filter((m: Memory) => m.tags && m.tags.length > 0).length,
+    [memories]
+  );
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
@@ -260,10 +291,8 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
         <div className="card bg-purple-50 border border-purple-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-purple-600 mb-1">Auto-Stored</p>
-              <p className="text-2xl font-bold text-purple-900">
-                {Math.floor(memories.length * 0.73)}
-              </p>
+              <p className="text-sm text-purple-600 mb-1">Session-Linked</p>
+              <p className="text-2xl font-bold text-purple-900">{sessionMemoriesCount}</p>
             </div>
             <Settings className="w-10 h-10 text-purple-500 opacity-20" />
           </div>
@@ -272,10 +301,8 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
         <div className="card bg-orange-50 border border-orange-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-orange-600 mb-1">Manual Overrides</p>
-              <p className="text-2xl font-bold text-orange-900">
-                {Math.floor(memories.length * 0.27)}
-              </p>
+              <p className="text-sm text-orange-600 mb-1">Tagged</p>
+              <p className="text-2xl font-bold text-orange-900">{taggedMemoriesCount}</p>
             </div>
             <Edit2 className="w-10 h-10 text-orange-500 opacity-20" />
           </div>
@@ -385,14 +412,7 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
 
         <div className="space-y-3">
           {memories.slice(0, 5).map((memory: Memory) => {
-            // Determine which policy was applied (mock logic)
-            let appliedPolicy = policies[0];
-            if (memory.importance >= 7) appliedPolicy = policies[0];
-            else if (memory.text.toLowerCase().includes('prefer')) appliedPolicy = policies[1];
-            else if (memory.tags.some((tag: string) => tag.toLowerCase().includes('event')))
-              appliedPolicy = policies[2];
-            else appliedPolicy = policies[3];
-
+            const appliedPolicy = resolvePolicy(memory, policies);
             const colors = getColorClasses(appliedPolicy.color);
             const Icon = appliedPolicy.icon;
 
@@ -416,17 +436,31 @@ export function PoliciesPage({ userId }: PoliciesPageProps) {
                           <span className={clsx('px-2 py-0.5 rounded-full', colors.bg, colors.text)}>
                             {appliedPolicy.name}
                           </span>
-                          <span>⭐ {memory.importance.toFixed(1)}</span>
-                          <span>💯 {(memory.confidence * 100).toFixed(0)}%</span>
+                          <span>type: {memory.type}</span>
+                          <span>importance: {memory.importance.toFixed(1)}</span>
+                          <span>confidence: {(memory.confidence * 100).toFixed(0)}%</span>
+                          {memory.tags && memory.tags.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Tag className="w-3 h-3" />
+                              {memory.tags.slice(0, 3).join(', ')}
+                              {memory.tags.length > 3 && ` +${memory.tags.length - 3}`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     <div className="bg-white rounded p-2 text-xs">
                       <p className="text-gray-600">
-                        <span className="font-semibold">Rationale:</span> Matched policy "
-                        {appliedPolicy.name}" with importance {memory.importance.toFixed(1)} and
-                        confidence {(memory.confidence * 100).toFixed(0)}%
+                        <span className="font-semibold">Rationale:</span> Memory type "{memory.type}"
+                        {memory.type === 'fact' && memory.importance >= 7
+                          ? ' with high importance'
+                          : ''
+                        } matched policy "{appliedPolicy.name}"
+                        {memory.expires_at
+                          ? ` — expires ${new Date(memory.expires_at).toLocaleDateString()}`
+                          : ''
+                        }
                       </p>
                     </div>
                   </div>

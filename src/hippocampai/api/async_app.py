@@ -209,12 +209,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if hasattr(app.state, "db_pool") and app.state.db_pool:
         await app.state.db_pool.close()
         logger.info("PostgreSQL connection pool closed")
+    # Close Qdrant vector store connections
+    if _service and hasattr(_service, "qdrant"):
+        try:
+            _service.qdrant.client.close()
+            logger.info("Qdrant client closed")
+        except Exception as qdrant_err:
+            logger.warning(f"Error closing Qdrant client: {qdrant_err}")
 
 
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval, batch operations, deduplication, and consolidation",
-    version="0.3.0",
+    version="0.5.1",
     lifespan=lifespan,
 )
 
@@ -687,7 +694,7 @@ class ClassifyMemoryResponse(BaseModel):
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "ok", "service": "hippocampai", "version": "0.3.0"}
+    return {"status": "ok", "service": "hippocampai", "version": "0.5.1"}
 
 
 @app.get("/metrics")
