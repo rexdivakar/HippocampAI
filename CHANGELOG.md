@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+### Added
+
+- **MCP server** — a [Model Context Protocol](https://modelcontextprotocol.io) server (`src/hippocampai/mcp/`) exposing the memory engine to MCP-compatible agents (Claude Code, Cursor, Claude Desktop) over stdio with zero glue code. Five tools: `remember`, `recall`, `assemble_context`, `get_memory`, `delete_memory`. Run via the new `hippocampai-mcp` console script or `python -m hippocampai.mcp`. The client connects to Qdrant lazily so startup is instant. Installed via the new `[mcp]` extra (also in `[all]`). See [docs/MCP_SERVER.md](docs/MCP_SERVER.md).
+- **Retrieval-quality evaluation harness** — `bench/eval/` measures *answer quality* (not just latency): retrieval metrics (recall@k, precision@k, MRR, nDCG) plus end-to-end QA accuracy via LLM-as-judge, on LOCOMO / LongMemEval-style data. Pluggable dataset loaders (`LocomoDataset`, `LongMemEvalDataset`) read official benchmark JSON from a local path; a bundled `SyntheticDataset` runs offline. CLI: `python -m bench.eval.run_eval`. JSON + Markdown reports via `--output`. Uses the same LLM-as-judge methodology as published LOCOMO/LongMemEval results for direct comparability. See [docs/EVALUATION.md](docs/EVALUATION.md).
+
+### Dependencies
+
+- Added optional `mcp` extra: `mcp>=1.0,<2.0` (for the MCP server).
+
 ---
 
 ## [0.5.1] - 2026-04-09

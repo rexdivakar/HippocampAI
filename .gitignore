@@ -132,6 +132,8 @@ dmypy.json
 *.csv
 *.json
 *.jsonl
+# MCP server config ships with the repo for zero-config agent integration
+!.mcp.json
 *.parquet
 *.pkl
 *.pickle

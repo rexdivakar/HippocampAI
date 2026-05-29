@@ -98,6 +98,8 @@ all = [
     "alembic>=1.13,<2.0",
     "sqlalchemy[asyncio]>=2.0,<3.0",
     "psycopg2-binary>=2.9,<3.0",
+    # MCP server
+    "mcp>=1.0,<2.0",
 ]
 api = [
     "fastapi>=0.110,<1.0",
@@ -118,6 +120,10 @@ anthropic = [
 ]
 groq = [
     "groq>=0.4,<1.0",
+]
+# Model Context Protocol server (stdio) for Claude Code / Cursor / agents
+mcp = [
+    "mcp>=1.0,<2.0",
 ]
 dev = [
     "black>=24.4,<25.0",
@@ -148,6 +154,7 @@ docs = [
 [project.scripts]
 hippocampai = "hippocampai.cli.main:app"
 hippocampai-api = "hippocampai.api.app:run_server"
+hippocampai-mcp = "hippocampai.mcp.server:main"
 
 [project.urls]
 Homepage = "https://github.com/rexdivakar/HippocampAI"
@@ -166,6 +173,11 @@ hippocampai = ["py.typed", "**/*.typed", "**/*.sql"]
 [tool.black]
 line-length = 100
 target-version = ['py39']
+
+[tool.pyright]
+# `bench` is a repo-root package run via `python -m bench.eval.run_eval`, not an
+# installed dist. Put repo root on the path so its imports resolve for type checks.
+extraPaths = ["."]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "hippocampai": {
+      "command": "hippocampai-mcp",
+      "args": [],
+      "env": {
+        "QDRANT_URL": "http://localhost:6333"
+      }
+    }
+  }
+}

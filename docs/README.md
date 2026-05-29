@@ -47,6 +47,8 @@ Welcome to the comprehensive documentation for HippocampAI - the enterprise-grad
 - **[Celery Guide](CELERY_GUIDE.md)** - Background task processing with Celery
 - **[Configuration](CONFIGURATION.md)** - All configuration options
 - **[Providers](PROVIDERS.md)** - LLM provider setup (Ollama, OpenAI, Anthropic, Groq)
+- **[MCP Server](MCP_SERVER.md)** ⭐ NEW - Zero-config memory for Claude Code, Cursor, and MCP agents
+- **[Quality Evaluation](EVALUATION.md)** ⭐ NEW - LOCOMO/LongMemEval harness: recall@k, MRR, nDCG, LLM-judge QA accuracy
 
 ### v0.5.0 Features
 

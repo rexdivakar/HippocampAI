@@ -3091,6 +3091,45 @@ python examples/07_advanced_features_demo.py
 
 ---
 
+## MCP Server (Agent Integration)
+
+HippocampAI ships a [Model Context Protocol](https://modelcontextprotocol.io) server
+so MCP-compatible agents (Claude Code, Cursor, Claude Desktop) gain persistent memory
+with zero glue code. It runs over stdio and exposes five tools: `remember`, `recall`,
+`assemble_context`, `get_memory`, `delete_memory`.
+
+```bash
+pip install "hippocampai[mcp]"
+hippocampai-mcp          # or: python -m hippocampai.mcp
+```
+
+**How it helps:** MCP is how agents plug into capabilities in 2026. Instead of writing
+custom integration code per host, you register one command and the agent can store and
+retrieve long-term memory directly. See the [MCP Server guide](MCP_SERVER.md).
+
+---
+
+## Quality Evaluation (Retrieval Accuracy)
+
+The harness in `bench/eval/` measures *answer quality*, not just speed: retrieval
+metrics (recall@k, precision@k, MRR, nDCG) plus end-to-end QA accuracy via LLM-as-judge,
+on LOCOMO / LongMemEval-style data.
+
+```bash
+# Offline smoke test (no LLM key)
+python -m bench.eval.run_eval --dataset synthetic --no-qa
+
+# LOCOMO with end-to-end QA accuracy
+python -m bench.eval.run_eval --dataset locomo --path ./locomo.json --k 10
+```
+
+**How it helps:** latency numbers say nothing about whether the *right* memories come
+back. This harness produces accuracy numbers using the same methodology LOCOMO /
+LongMemEval report, making HippocampAI's quality directly comparable to other memory
+engines instead of unverifiable. See the [Evaluation guide](EVALUATION.md).
+
+---
+
 ## Migration Guide
 
 ### From v0.1.5 to V0.2.5

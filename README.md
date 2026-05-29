@@ -169,6 +169,8 @@ asyncio.run(main())
 | **Bi-Temporal Facts** | Track facts with validity periods and time-travel queries | [Bi-Temporal Guide](docs/bi_temporal.md) |
 | **Context Assembly** | Automated context pack generation with token budgeting | [Context Assembly](docs/context_assembly.md) |
 | **Custom Schemas** | Define entity/relationship types without code changes | [Schema Guide](docs/custom_schema.md) |
+| **MCP Server** ⭐ NEW | Model Context Protocol server (stdio) — zero-config memory for Claude Code, Cursor, and agents | [MCP Server](docs/MCP_SERVER.md) |
+| **Quality Evaluation** ⭐ NEW | LOCOMO/LongMemEval harness: recall@k, MRR, nDCG + LLM-judge QA accuracy | [Evaluation](docs/EVALUATION.md) |
 | **Benchmarks** | Reproducible performance benchmarks | [Benchmarks](docs/benchmarks.md) |
 
 ---
@@ -513,6 +515,71 @@ npm run dev  # Development server on port 5173
 | **Availability** | 99.9% uptime |
 
 [See benchmarks →](docs/ARCHITECTURE.md#performance-benchmarks)
+
+> **Note:** The numbers above are latency/throughput, not retrieval *quality*. For
+> accuracy on LOCOMO / LongMemEval-style tasks, run the quality eval harness below.
+
+---
+
+## MCP Server (universal agent integration)
+
+HippocampAI ships a standard [Model Context Protocol](https://modelcontextprotocol.io)
+server so **any** MCP-compatible client can use the memory engine with zero glue code —
+Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Continue, custom agents, and
+remote/web clients over HTTP. It's vendor-neutral: it implements the protocol, not any
+single product's API. It exposes five tools: `remember`, `recall`, `assemble_context`,
+`get_memory`, and `delete_memory`.
+
+```bash
+pip install "hippocampai[mcp]"
+
+hippocampai-mcp                                          # stdio (default; local hosts)
+hippocampai-mcp --transport streamable-http --port 8765  # remote / web clients over HTTP
+```
+
+**This repo includes a ready-to-use `.mcp.json`**, so opening it in Claude Code
+auto-detects the server. For any other project or host, use:
+
+```jsonc
+// .mcp.json (Claude Code / Claude Desktop / Cursor / …)
+{
+  "mcpServers": {
+    "hippocampai": {
+      "command": "hippocampai-mcp",
+      "env": { "QDRANT_URL": "http://localhost:6333" }
+    }
+  }
+}
+```
+
+The server lazily connects to Qdrant on first tool call, so it starts instantly. See
+the [MCP Server guide](docs/MCP_SERVER.md) for per-host configs (including remote HTTP).
+
+---
+
+## Quality Evaluation (retrieval accuracy)
+
+Beyond latency, measure *answer quality* with the eval harness in `bench/eval/`. It
+reports retrieval metrics (recall@k, precision@k, MRR, nDCG) plus end-to-end QA
+accuracy via LLM-as-judge — the same methodology LOCOMO / LongMemEval report on, so
+results are directly comparable to other memory engines.
+
+```bash
+# Offline smoke test (bundled data, no LLM key, retrieval metrics only)
+python -m bench.eval.run_eval --dataset synthetic --no-qa
+
+# LOCOMO with end-to-end QA accuracy (needs an LLM provider configured)
+python -m bench.eval.run_eval --dataset locomo --path ./locomo.json --k 10 \
+    --output reports/locomo
+
+# LongMemEval, retrieval metrics only, first 50 samples
+python -m bench.eval.run_eval --dataset longmemeval --path ./longmemeval.json \
+    --no-qa --max-samples 50
+```
+
+Download the official benchmark JSON yourself and pass its path via `--path`
+(loaders read the on-disk format; no auto-download). `--output PREFIX` writes a
+JSON + Markdown report.
 
 ---
 
