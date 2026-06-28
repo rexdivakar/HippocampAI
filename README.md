@@ -1,4 +1,4 @@
-# HippocampAI — Enterprise Memory Engine for Intelligent AI Systems
+# HippocampAI  Enterprise Memory Engine for Intelligent AI Systems
 
 [![PyPI version](https://badge.fury.io/py/hippocampai.svg)](https://pypi.org/project/hippocampai/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/hippocampai.svg)](https://pypi.org/project/hippocampai/)
