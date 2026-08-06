@@ -360,7 +360,12 @@ class MemoryTelemetry:
         dimension (``workflow_id``, ``workflow_step_id``, ``agent_id``,
         ``tool_name``, ``provider``, ``user_id``, ``workspace_id``,
         ``tenant_id``, ...). Answers questions like "which workflow used the
-        most tokens" or "which agent generated the most retries"."""
+        most tokens" or "which agent generated the most retries".
+
+        ``estimated_cost`` sums known costs and remains ``None`` when none
+        are known. ``unknown_cost_invocations`` reports how many invocations
+        were excluded from that sum because their cost was unknown.
+        """
         summary: dict[str, dict[str, Any]] = {}
         for invocation in self.llm_invocations.values():
             if invocation.status == "in_progress":
@@ -374,7 +379,8 @@ class MemoryTelemetry:
                     "input_tokens": 0,
                     "output_tokens": 0,
                     "total_tokens": 0,
-                    "estimated_cost": 0.0,
+                    "estimated_cost": None,
+                    "unknown_cost_invocations": 0,
                     "total_attempts": 0,
                     "total_retries": 0,
                     "total_fallbacks": 0,
@@ -386,7 +392,15 @@ class MemoryTelemetry:
             bucket["input_tokens"] += invocation.input_tokens
             bucket["output_tokens"] += invocation.output_tokens
             bucket["total_tokens"] += invocation.total_tokens
-            bucket["estimated_cost"] += invocation.estimated_cost or 0.0
+            if invocation.estimated_cost is None:
+                bucket["unknown_cost_invocations"] += 1
+            else:
+                known_cost = bucket["estimated_cost"]
+                bucket["estimated_cost"] = (
+                    invocation.estimated_cost
+                    if known_cost is None
+                    else known_cost + invocation.estimated_cost
+                )
             bucket["total_attempts"] += invocation.total_attempts
             bucket["total_retries"] += invocation.total_retries
             bucket["total_fallbacks"] += invocation.total_fallbacks
@@ -667,22 +681,32 @@ def llm_trace_context(**overrides: Any) -> Iterator[LLMTraceContext]:
 
 
 def _cap_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    """Truncate custom metadata if it exceeds the configured byte budget."""
+    """Return metadata whose JSON representation fits the configured budget."""
     if not metadata:
         return metadata
     try:
         from hippocampai.config import get_config
 
-        max_bytes = get_config().llm_telemetry_max_metadata_bytes
+        max_bytes: int = get_config().llm_telemetry_max_metadata_bytes
     except Exception:  # noqa: BLE001 - telemetry must never break the caller
         max_bytes = 8192
+
+    def fits(candidate: dict[str, Any]) -> bool:
+        return len(json.dumps(candidate, default=str).encode("utf-8")) <= max_bytes
+
     try:
         encoded = json.dumps(metadata, default=str).encode("utf-8")
     except Exception:  # noqa: BLE001
-        return {"_unserializable": True}
+        replacements: tuple[dict[str, Any], ...] = ({"_unserializable": True}, {})
+        return next(candidate for candidate in replacements if fits(candidate))
     if len(encoded) <= max_bytes:
         return metadata
-    return {"_truncated": True, "_original_keys": list(metadata.keys())}
+    replacements = (
+        {"_truncated": True, "_key_count": len(metadata)},
+        {"_truncated": True},
+        {},
+    )
+    return next(candidate for candidate in replacements if fits(candidate))
 
 
 @dataclass
@@ -977,7 +1001,12 @@ class LLMInvocation:
         self.output_tokens = sum(a.output_tokens or 0 for a in self.attempts)
         self.cached_input_tokens = sum(a.cached_input_tokens or 0 for a in self.attempts)
         self.reasoning_tokens = sum(a.reasoning_tokens or 0 for a in self.attempts)
-        self.total_tokens = self.input_tokens + self.output_tokens
+        self.total_tokens = sum(
+            (attempt.input_tokens or 0) + (attempt.output_tokens or 0)
+            if attempt.input_tokens is not None or attempt.output_tokens is not None
+            else (attempt.total_tokens or 0)
+            for attempt in self.attempts
+        )
 
         costs = [a.estimated_cost for a in self.attempts if a.estimated_cost is not None]
         self.estimated_cost = sum(costs) if costs else None

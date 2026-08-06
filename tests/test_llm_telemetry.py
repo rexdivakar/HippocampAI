@@ -22,6 +22,7 @@ from hippocampai.telemetry import (
     LLMTraceContext,
     MemoryTelemetry,
     UpstreamMetadata,
+    _cap_metadata,
     classify_llm_error,
     estimate_cost,
     get_telemetry,
@@ -203,6 +204,53 @@ def test_aggregated_tokens_and_cost_across_attempts(telemetry, openai_llm, monke
     assert invocation.estimated_cost == pytest.approx(2.0)
 
     config_module._config = None
+
+
+def test_total_only_attempt_usage_is_included_in_invocation(telemetry):
+    with llm_invocation(
+        provider="router", requested_model="routed-model", operation="chat"
+    ) as invocation_id:
+        with llm_attempt(provider="router", requested_model="routed-model") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(upstream_token_usage={"total_tokens": 37})
+            )
+
+    invocation = telemetry.get_llm_invocation(invocation_id)
+    assert invocation.input_tokens == 0
+    assert invocation.output_tokens == 0
+    assert invocation.total_tokens == 37
+    assert telemetry.get_llm_usage_summary()["router"]["total_tokens"] == 37
+
+
+def test_invocation_token_total_prefers_breakdown_per_attempt(telemetry):
+    with llm_invocation(
+        provider="router", requested_model="routed-model", operation="chat"
+    ) as invocation_id:
+        with llm_attempt(provider="router", requested_model="routed-model") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(
+                    upstream_token_usage={
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "total_tokens": 999,
+                    }
+                )
+            )
+        with llm_attempt(provider="router", requested_model="routed-model") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(upstream_token_usage={"total_tokens": 20})
+            )
+        with llm_attempt(provider="router", requested_model="routed-model") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(
+                    upstream_token_usage={"input_tokens": 7, "total_tokens": 500}
+                )
+            )
+
+    invocation = telemetry.get_llm_invocation(invocation_id)
+    assert invocation.input_tokens == 17
+    assert invocation.output_tokens == 5
+    assert invocation.total_tokens == 42
 
 
 # ---------------------------------------------------------------------
@@ -737,6 +785,45 @@ def test_get_llm_usage_summary_groups_by_dimension(telemetry, openai_llm):
     assert summary["wf-2"]["invocation_count"] == 1
 
 
+def test_llm_usage_summary_preserves_all_unknown_costs(telemetry, monkeypatch):
+    monkeypatch.setattr(telemetry_module, "estimate_cost", lambda **kwargs: None)
+
+    for _ in range(2):
+        with llm_invocation(provider="router", requested_model="model", operation="chat"):
+            with llm_attempt(provider="router", requested_model="model"):
+                pass
+
+    summary = telemetry.get_llm_usage_summary()["router"]
+    assert summary["estimated_cost"] is None
+    assert summary["unknown_cost_invocations"] == 2
+
+
+def test_llm_usage_summary_sums_known_costs_and_counts_unknown(telemetry, monkeypatch):
+    costs = iter([1.25, None, 0.0])
+    monkeypatch.setattr(telemetry_module, "estimate_cost", lambda **kwargs: next(costs))
+
+    for _ in range(3):
+        with llm_invocation(provider="router", requested_model="model", operation="chat"):
+            with llm_attempt(provider="router", requested_model="model"):
+                pass
+
+    summary = telemetry.get_llm_usage_summary()["router"]
+    assert summary["estimated_cost"] == pytest.approx(1.25)
+    assert summary["unknown_cost_invocations"] == 1
+
+
+def test_llm_usage_summary_distinguishes_known_zero_cost(telemetry, monkeypatch):
+    monkeypatch.setattr(telemetry_module, "estimate_cost", lambda **kwargs: 0.0)
+
+    with llm_invocation(provider="local", requested_model="model", operation="chat"):
+        with llm_attempt(provider="local", requested_model="model"):
+            pass
+
+    summary = telemetry.get_llm_usage_summary()["local"]
+    assert summary["estimated_cost"] == 0.0
+    assert summary["unknown_cost_invocations"] == 0
+
+
 def test_get_costliest_and_slowest_attempts(telemetry, openai_llm, monkeypatch):
     from hippocampai import config as config_module
 
@@ -766,6 +853,52 @@ def test_llm_trace_context_default_is_empty():
     ctx = LLMTraceContext()
     assert ctx.workflow_id is None
     assert ctx.metadata == {}
+
+
+def test_metadata_cap_replaces_many_keys_with_bounded_summary(monkeypatch):
+    from hippocampai import config as config_module
+
+    config = MagicMock(llm_telemetry_max_metadata_bytes=64)
+    monkeypatch.setattr(config_module, "get_config", lambda: config)
+    metadata = {f"key-{index}": "value" for index in range(500)}
+
+    capped = _cap_metadata(metadata)
+
+    assert capped == {"_truncated": True, "_key_count": 500}
+    assert len(telemetry_module.json.dumps(capped).encode("utf-8")) <= 64
+
+
+@pytest.mark.parametrize(
+    ("max_bytes", "expected"),
+    [
+        (len('{"_truncated": true}'), {"_truncated": True}),
+        (2, {}),
+    ],
+)
+def test_metadata_cap_uses_fallback_that_fits_tiny_budget(monkeypatch, max_bytes, expected):
+    from hippocampai import config as config_module
+
+    config = MagicMock(llm_telemetry_max_metadata_bytes=max_bytes)
+    monkeypatch.setattr(config_module, "get_config", lambda: config)
+
+    capped = _cap_metadata({"oversized": "x" * 100})
+
+    assert capped == expected
+    assert len(telemetry_module.json.dumps(capped).encode("utf-8")) <= max_bytes
+
+
+def test_metadata_cap_bounds_unserializable_replacement(monkeypatch):
+    from hippocampai import config as config_module
+
+    config = MagicMock(llm_telemetry_max_metadata_bytes=2)
+    monkeypatch.setattr(config_module, "get_config", lambda: config)
+    circular = {}
+    circular["self"] = circular
+
+    capped = _cap_metadata(circular)
+
+    assert capped == {}
+    assert len(telemetry_module.json.dumps(capped).encode("utf-8")) <= 2
 
 
 def test_memory_telemetry_llm_invocations_isolated_per_instance():

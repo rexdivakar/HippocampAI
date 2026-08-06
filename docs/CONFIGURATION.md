@@ -254,7 +254,7 @@ upstream-attempt trace model.
 |----------|------|---------|-------------|
 | `LLM_COST_ESTIMATION_ENABLED` | bool | `true` | Estimate `$` cost per LLM call from `LLM_PRICING` |
 | `LLM_PRICING` | JSON | `{}` | `$/1M tokens` by `"<provider>:<model>"`, e.g. `{"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6}}`. Empty by default; unpriced usage estimates as `null`, never a guessed number. |
-| `LLM_TELEMETRY_MAX_METADATA_BYTES` | int | `8192` | Custom metadata attached via `llm_trace_context(metadata=...)` is truncated beyond this size |
+| `LLM_TELEMETRY_MAX_METADATA_BYTES` | int (>=2) | `8192` | Strict JSON-encoded byte limit for custom metadata attached via `llm_trace_context(metadata=...)`; oversized values become a bounded truncation summary, or `{}` when the budget cannot fit the marker |
 
 ---
 

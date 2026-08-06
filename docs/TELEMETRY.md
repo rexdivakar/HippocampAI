@@ -470,7 +470,8 @@ client.llm.chat([{"role": "user", "content": "Summarize this."}])
 for invocation in client.get_recent_llm_invocations(limit=5):
     print(invocation.provider, invocation.requested_model, invocation.status)
     print(f"  {invocation.total_attempts} attempts, {invocation.total_retries} retries")
-    print(f"  {invocation.total_tokens} tokens, ${invocation.estimated_cost or 0:.6f}")
+    cost = "unknown" if invocation.estimated_cost is None else f"${invocation.estimated_cost:.6f}"
+    print(f"  {invocation.total_tokens} tokens, {cost}")
     for attempt in invocation.attempts:
         print(f"    attempt {attempt.attempt_number}: {attempt.provider}/{attempt.selected_model}"
               f" -> {attempt.status} ({attempt.latency_ms:.0f}ms)")
@@ -494,6 +495,11 @@ the same call answers "which workflow used the most tokens", "which agent
 generated the most retries", "which tenant/workspace/user generated the
 usage", etc.; just group by `workflow_id`, `agent_id`, `tenant_id`,
 `workspace_id`, or `user_id`.
+
+Each summary bucket reports `estimated_cost` as the sum of invocations with
+known pricing and `unknown_cost_invocations` as the number excluded from that
+sum. When every invocation in a bucket has unknown pricing, `estimated_cost`
+is `None`; a known zero-dollar cost remains `0.0`.
 
 ### Attaching attribution: workflow, agent, tool, tenant, ...
 
@@ -600,6 +606,10 @@ LLM_PRICING='{"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6, "cached_input
 LLM_COST_ESTIMATION_ENABLED=true   # default
 LLM_TELEMETRY_MAX_METADATA_BYTES=8192  # custom metadata is truncated beyond this
 ```
+
+The metadata limit is a strict JSON-encoded byte boundary with a minimum of
+two bytes. Oversized metadata is replaced by a bounded truncation summary;
+for a budget too small to hold that marker, the stored metadata is `{}`.
 
 `rates` may also include `"reasoning"` (falls back to the `output` rate if
 omitted). `invocation.estimated_cost` is the sum of every attempt's cost

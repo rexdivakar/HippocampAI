@@ -242,7 +242,7 @@ class Config(BaseSettings):
         default_factory=dict, validation_alias="LLM_PRICING"
     )
     llm_telemetry_max_metadata_bytes: int = Field(
-        default=8192, validation_alias="LLM_TELEMETRY_MAX_METADATA_BYTES"
+        default=8192, ge=2, validation_alias="LLM_TELEMETRY_MAX_METADATA_BYTES"
     )
 
     def get_weights(self) -> dict[str, float]:

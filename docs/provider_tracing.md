@@ -96,7 +96,7 @@ automatically.
 | `tool_name` | `Optional[str]` | Optional | **HippocampAI** | Set when the call originated from a tool invocation. |
 | `feature_name` | `Optional[str]` | Optional | **HippocampAI** | Logical operation/prompt name; also becomes the invocation's `operation` field when set. |
 | `billing_bucket` | `Optional[str]` | Optional | Caller | Arbitrary cost-attribution bucket (e.g. team, project, plan tier). |
-| `metadata` | `dict[str, Any]` | Optional | Caller | Free-form custom metadata, size-capped by `LLM_TELEMETRY_MAX_METADATA_BYTES` (default 8192 bytes; oversized metadata is replaced with a truncation marker, never silently dropped without a trace). |
+| `metadata` | `dict[str, Any]` | Optional | Caller | Free-form custom metadata, strictly size-capped by `LLM_TELEMETRY_MAX_METADATA_BYTES` (default 8192 bytes, minimum 2); oversized metadata is replaced by a bounded summary, degrading to `{}` only when the marker itself cannot fit. |
 
 **Every field is optional.** Nothing in the trace pipeline requires any of
 them to be set. A call made with no `llm_trace_context` at all is still
@@ -273,7 +273,9 @@ recorded:
 - **Token usage**: `input_tokens`, `output_tokens`, `cached_input_tokens`,
   `reasoning_tokens` are each the arithmetic sum of that field across every
   attempt that reported it (an attempt with `None` for a given field
-  contributes `0`). `total_tokens = input_tokens + output_tokens`.
+  contributes `0`). For each attempt, `total_tokens` uses the input/output
+  sum when either breakdown field is present, otherwise it uses the reported
+  attempt total; invocation totals sum those effective attempt totals.
 - **Retries**: `total_retries = total_attempts - 1` (a single successful
   attempt has zero retries).
 - **Fallbacks**: `total_fallbacks = count(attempts where fallback_reason is set)`.
@@ -282,6 +284,10 @@ recorded:
   attempt had a known price (see [Cost Estimation](TELEMETRY.md#cost-estimation)).
   Pricing is opt-in configuration, never a built-in catalog, so "unknown"
   is a real, honest outcome, not an error.
+- **Usage summary cost**: each summary bucket sums known invocation costs in
+  `estimated_cost` and counts excluded unknown values in
+  `unknown_cost_invocations`. If all costs are unknown, `estimated_cost` is
+  `None`; if a known cost is zero, it remains `0.0`.
 - **Final provider/model**: taken from the attempt with `is_final=True` (the
   last attempt appended, whether it succeeded or was the last try before
   giving up).
