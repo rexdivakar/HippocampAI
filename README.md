@@ -10,7 +10,7 @@
 
 > **The name "HippocampAI"** draws inspiration from the hippocampus - the brain region responsible for memory formation and retrieval - reflecting our mission to give AI systems human-like memory capabilities.
 
-**Current Release:** v0.5.1 — Bug-fix and API expansion release: batch endpoints, deduplication endpoint, single-memory GET, Prometheus scrape in main app, remote backend URL fixes, QueryRouter stem matching, Groq retry tuning, and SQL packaging fix.
+**Current Release:** v0.6.0 (2026-08-06) LLM usage tracing release: per-invocation and per-attempt telemetry, retry and fallback visibility, provider-neutral metadata, opt-in cost estimation, sanitized errors, usage reporting APIs, and corrected retry behavior across all supported LLM providers.
 
 ---
 
@@ -238,7 +238,7 @@ All variables are read from `.env` (or shell environment). Complete list is in `
 | `LLM_MODEL` | `qwen2.5:7b-instruct` | Model name for the selected provider |
 | `LLM_BASE_URL` | `http://localhost:11434` | Base URL for Ollama |
 | `ALLOW_CLOUD` | `false` | Must be `true` when using cloud providers |
-| `GROQ_API_KEY` | — | Required when `LLM_PROVIDER=groq` |
+| `GROQ_API_KEY` | | Required when `LLM_PROVIDER=groq` |
 
 **Retrieval and scoring**
 
@@ -269,7 +269,7 @@ All variables are read from `.env` (or shell environment). Complete list is in `
 | `AUTO_CONSOLIDATION_ENABLED` | `false` | Nightly sleep-phase memory consolidation |
 | `ENABLE_PROCEDURAL_MEMORY` | `false` | Procedural memory and prompt self-optimization (beta) |
 | `ENABLE_PROSPECTIVE_MEMORY` | `false` | Time/event-triggered intent system (beta) |
-| `HIPPOCAMPAI_ENABLE_TMS` | `false` | Truth maintenance system — retraction and contradiction detection (beta) |
+| `HIPPOCAMPAI_ENABLE_TMS` | `false` | Truth maintenance system retraction and contradiction detection (beta) |
 | `IMPORTANCE_DECAY_ENABLED` | `true` | Apply exponential decay to importance scores |
 | `AUTO_PRUNING_ENABLED` | `false` | Automatically prune low-quality memories |
 
@@ -293,7 +293,7 @@ LLM_MODEL=qwen2.5:7b-instruct
 ```
 
 ```python
-# Library usage — no running server required
+# Library usage no running server required
 from hippocampai import MemoryClient
 
 client = MemoryClient()  # reads .env automatically
@@ -343,7 +343,7 @@ All endpoints are served by the FastAPI application on port 8000. Interactive do
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/healthz` | Health check — returns `{"status":"ok"}` |
+| `GET` | `/healthz` | Health check returns `{"status":"ok"}` |
 | `GET` | `/metrics` | Prometheus text-format scrape endpoint (501 if `prometheus-client` not installed) |
 | `POST` | `/v1/memories:remember` | Store one memory; auto-classifies type if not provided |
 | `POST` | `/v1/memories:recall` | Retrieve memories by semantic query |
@@ -421,40 +421,40 @@ npm run dev  # Development server on port 5173
 
 ## Production Deployment
 
-### Blockers — must resolve before exposing to the internet
+### Blockers must resolve before exposing to the internet
 
 1. **Authentication is disabled by default.** `USER_AUTH_ENABLED=false` in docker-compose defaults. All `/v1/*` endpoints are open with no auth check. Set `USER_AUTH_ENABLED=true` and configure `JWT_SECRET` in `.env`.
 
-2. **Default credentials in `.env.example`** — replace before deploying:
+2. **Default credentials in `.env.example`** replace before deploying:
    - `HIPPOCAMPAI_API_KEY=example_key_do_not_use`
    - `FLOWER_PASSWORD=changeme_in_production`
    - `GRAFANA_ADMIN_PASSWORD=changeme_in_production`
 
-3. **`GROQ_API_KEY` in plain-text `.env`** — for production, inject via Docker secrets, AWS Secrets Manager, or HashiCorp Vault. Never commit `.env` to git. (`.env` is in `.gitignore`.)
+3. **`GROQ_API_KEY` in plain-text `.env`** for production, inject via Docker secrets, AWS Secrets Manager, or HashiCorp Vault. Never commit `.env` to git. (`.env` is in `.gitignore`.)
 
-4. **Single uvicorn worker** — `--workers 1` in the docker-compose `command`. Under concurrent LLM-backed requests the single worker threadpool will saturate. Run multiple workers (`--workers 4`) or place a process manager (gunicorn) in front.
+4. **Single uvicorn worker** `--workers 1` in the docker-compose `command`. Under concurrent LLM-backed requests the single worker threadpool will saturate. Run multiple workers (`--workers 4`) or place a process manager (gunicorn) in front.
 
-5. **No TLS** — all services communicate over plain HTTP. Add nginx or Caddy as a TLS-terminating reverse proxy in front of port 8000.
+5. **No TLS** all services communicate over plain HTTP. Add nginx or Caddy as a TLS-terminating reverse proxy in front of port 8000.
 
-### Warnings — should resolve before production load
+### Warnings should resolve before production load
 
-6. **Groq free-tier rate limits** — 30 RPM. High-throughput writes to `/v1/memories:remember` and `/v1/memories:extract` (which call the LLM for type classification and extraction) will hit this limit and retry. Options: upgrade to Groq Dev Tier, switch to a self-hosted LLM (`LLM_PROVIDER=ollama`), or pass `type` explicitly in remember requests to skip LLM classification.
+6. **Groq free-tier rate limits** 30 RPM. High-throughput writes to `/v1/memories:remember` and `/v1/memories:extract` (which call the LLM for type classification and extraction) will hit this limit and retry. Options: upgrade to Groq Dev Tier, switch to a self-hosted LLM (`LLM_PROVIDER=ollama`), or pass `type` explicitly in remember requests to skip LLM classification.
 
-7. **`admin_ui/` directory is empty** — the `hippocampai-admin` container (nginx on port 3001) serves 403 because the directory has no files. Either populate it or remove the service from docker-compose.
+7. **`admin_ui/` directory is empty** the `hippocampai-admin` container (nginx on port 3001) serves 403 because the directory has no files. Either populate it or remove the service from docker-compose.
 
-8. **Frontend Docker healthcheck reports unhealthy** — Vite dev server responds on `/` but the healthcheck hits a different path. Change the healthcheck to `curl -f http://localhost:81/` or switch to the production build.
+8. **Frontend Docker healthcheck reports unhealthy** Vite dev server responds on `/` but the healthcheck hits a different path. Change the healthcheck to `curl -f http://localhost:81/` or switch to the production build.
 
-9. **`QDRANT_URL` in `.env`** — the default is `http://localhost:6333` which works for local library use. When running inside Docker compose, the API container needs `QDRANT_URL=http://qdrant:6333` (already set in docker-compose.yml via the service DNS name).
+9. **`QDRANT_URL` in `.env`** the default is `http://localhost:6333` which works for local library use. When running inside Docker compose, the API container needs `QDRANT_URL=http://qdrant:6333` (already set in docker-compose.yml via the service DNS name).
 
-10. **Celery worker healthcheck disabled** — `healthcheck: disable: true` in docker-compose. Production should enable Flower-based or custom health monitoring for Celery workers.
+10. **Celery worker healthcheck disabled** `healthcheck: disable: true` in docker-compose. Production should enable Flower-based or custom health monitoring for Celery workers.
 
-11. **`AUTO_CONSOLIDATION_ENABLED=false`** — memory consolidation (sleep-phase replay) is off by default. Set to `true` to enable nightly automatic consolidation.
+11. **`AUTO_CONSOLIDATION_ENABLED=false`** memory consolidation (sleep-phase replay) is off by default. Set to `true` to enable nightly automatic consolidation.
 
 ### Not recommended for production yet (disabled by default, needs end-to-end testing)
 
-- `ENABLE_PROCEDURAL_MEMORY=false` — procedural memory and prompt self-optimization
-- `ENABLE_PROSPECTIVE_MEMORY=false` — time- and event-triggered intent system
-- `HIPPOCAMPAI_ENABLE_TMS=false` — truth maintenance system (retraction and contradiction detection)
+- `ENABLE_PROCEDURAL_MEMORY=false` procedural memory and prompt self-optimization
+- `ENABLE_PROSPECTIVE_MEMORY=false` time- and event-triggered intent system
+- `HIPPOCAMPAI_ENABLE_TMS=false` truth maintenance system (retraction and contradiction detection)
 
 ---
 

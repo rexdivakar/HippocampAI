@@ -45,13 +45,13 @@ Every conversation started from zero. Every user preference was forgotten. Every
 **What developers told us:**
 
 > "I spent 4 months building a memory system for our chatbot. It still doesn't work reliably."
-> — Senior Engineer, Fortune 500 Company
+> Senior Engineer, Fortune 500 Company
 
 > "Our users keep asking 'why doesn't the AI remember?' We have no good answer."
-> — Product Manager, SaaS Company
+> Product Manager, SaaS Company
 
 > "We need enterprise features like version control and audit trails, but no solution has them."
-> — CTO, Financial Services
+> CTO, Financial Services
 
 ---
 
@@ -345,15 +345,15 @@ With HippocampAI:
 
 > **"From concept to production in hours, not months"**
 > We built a complete AI assistant with persistent memory in a single day. The simple API made it trivial to get started, and when we needed advanced features, they were all there.
-> — Engineering Team, Healthcare AI Startup
+> Engineering Team, Healthcare AI Startup
 
 > **"Finally, version control for memories!"**
 > Our compliance team required audit trails for all AI interactions. HippocampAI was the only solution that had version control and audit trails built-in.
-> — CTO, Financial Services
+> CTO, Financial Services
 
 > **"The cognitive metaphors make code readable"**
 > Our entire team immediately understood what `remember()` and `recall()` do. No documentation needed. Code reviews are faster because the intent is clear.
-> — Solo Developer, AI Tools
+> Solo Developer, AI Tools
 
 ### By The Numbers
 

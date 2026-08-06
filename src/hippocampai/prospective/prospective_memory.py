@@ -93,7 +93,7 @@ class ProspectiveIntent(BaseModel):
 
 
 class ProspectiveMemoryManager:
-    """Manages prospective memory intents — creation, evaluation, lifecycle.
+    """Manages prospective memory intents creation, evaluation, lifecycle.
 
     Intents are stored in-memory (dict keyed by user_id) for fast evaluation.
     Optionally backed by Qdrant via the MemoryClient for persistence/vector search.

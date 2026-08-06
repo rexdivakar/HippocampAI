@@ -56,7 +56,7 @@ from hippocampai.retrieval.rerank import Reranker
 from hippocampai.retrieval.retriever import HybridRetriever
 from hippocampai.session import SessionManager
 from hippocampai.storage import MemoryKVStore
-from hippocampai.telemetry import MemoryTrace, OperationType, get_telemetry
+from hippocampai.telemetry import LLMInvocation, MemoryTrace, OperationType, get_telemetry
 from hippocampai.utils.context_injection import ContextInjector
 from hippocampai.vector.qdrant_store import QdrantStore
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersionControl
@@ -1114,7 +1114,7 @@ class MemoryClient:
 
         try:
             # Rebuild BM25 if needed (sync client is single-process; no Redis
-            # version check required — pass last_write_ts=0.0 so only None-check fires)
+            # version check required pass last_write_ts=0.0 so only None-check fires)
             if self.retriever.needs_bm25_rebuild(user_id):
                 self.telemetry.add_event(trace_id, "bm25_rebuild", status="in_progress")
                 self.retriever.rebuild_bm25(user_id)
@@ -1319,6 +1319,30 @@ class MemoryClient:
         """Export telemetry data for external analysis."""
         traces: list[dict] = self.telemetry.export_traces(trace_ids=trace_ids)
         return traces
+
+    # LLM Usage Tracing Access Methods
+    def get_llm_usage_summary(self, group_by: str = "provider") -> dict[str, dict[str, Any]]:
+        """Aggregate LLM tokens/cost/retries/fallbacks by an attribution
+        dimension, e.g. "workflow_id", "agent_id", "tool_name", "provider"."""
+        summary: dict[str, dict[str, Any]] = self.telemetry.get_llm_usage_summary(group_by=group_by)
+        return summary
+
+    def get_recent_llm_invocations(self, limit: int = 10, **filters: Any) -> list[LLMInvocation]:
+        """Get recent logical LLM invocations (each with its upstream
+        attempts), optionally filtered by attribute (workflow_id, provider,
+        status, ...)."""
+        invocations: list[LLMInvocation] = self.telemetry.get_recent_llm_invocations(
+            limit=limit, **filters
+        )
+        return invocations
+
+    def export_llm_invocations(self, invocation_ids: Optional[list[str]] = None) -> list[dict]:
+        """Export LLM invocations (with nested upstream attempts) for
+        external analysis."""
+        invocations: list[dict] = self.telemetry.export_llm_invocations(
+            invocation_ids=invocation_ids
+        )
+        return invocations
 
     def get_memory_statistics(self, user_id: str) -> dict[str, Any]:
         """Get memory size and usage statistics for a user.

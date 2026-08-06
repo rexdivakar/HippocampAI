@@ -189,7 +189,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
 
         # Local mode: auth disabled at startup via USER_AUTH_ENABLED=false.
-        # This is the only supported bypass — request headers cannot override it.
+        # This is the only supported bypass request headers cannot override it.
         if not user_auth_enabled:
             request.state.user_id = None
             request.state.api_key_id = None

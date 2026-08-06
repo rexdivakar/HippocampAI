@@ -1177,7 +1177,7 @@ trends = client.analyze_trends(
 
 ## Feedback
 
-**NEW in v0.5.0** — Memory relevance feedback endpoints.
+**NEW in v0.5.0** Memory relevance feedback endpoints.
 
 ### POST /v1/memories/{memory_id}/feedback
 
@@ -1232,7 +1232,7 @@ curl "http://localhost:8000/v1/feedback/stats?user_id=alice"
 
 ## Triggers
 
-**NEW in v0.5.0** — Event-driven trigger endpoints.
+**NEW in v0.5.0** Event-driven trigger endpoints.
 
 ### POST /v1/triggers
 
@@ -1303,7 +1303,7 @@ curl "http://localhost:8000/v1/triggers/trg_abc/history"
 
 ## Procedural Memory
 
-**NEW in v0.5.0** — Procedural rule management endpoints. All endpoints require `ENABLE_PROCEDURAL_MEMORY=true`.
+**NEW in v0.5.0** Procedural rule management endpoints. All endpoints require `ENABLE_PROCEDURAL_MEMORY=true`.
 
 ### GET /v1/procedural/rules
 
@@ -1400,7 +1400,7 @@ curl -X POST "http://localhost:8000/v1/procedural/consolidate?user_id=alice"
 
 ## Embedding Migration
 
-**NEW in v0.5.0** — Embedding model migration endpoints.
+**NEW in v0.5.0** Embedding model migration endpoints.
 
 ### POST /v1/admin/embeddings/migrate
 
@@ -1459,7 +1459,7 @@ curl -X POST http://localhost:8000/v1/admin/embeddings/migration/mig_abc/cancel
 
 ## Prospective Memory
 
-**NEW in v0.5.1** — Prospective memory enables AI agents to remember to perform intended actions at the right time or context.
+**NEW in v0.5.1** Prospective memory enables AI agents to remember to perform intended actions at the right time or context.
 
 ### ProspectiveMemoryManager (client.prospective)
 

@@ -95,6 +95,11 @@ __all__ = [
     # Telemetry
     "get_telemetry",
     "OperationType",
+    # LLM usage tracing
+    "llm_trace_context",
+    "LLMInvocation",
+    "UpstreamAttempt",
+    "UpstreamMetadata",
     # Session management
     "Session",
     "SessionStatus",
@@ -220,6 +225,11 @@ _IMPORT_MAP: dict[str, tuple[str, str]] = {
     # Telemetry
     "get_telemetry": ("hippocampai.telemetry", "get_telemetry"),
     "OperationType": ("hippocampai.telemetry", "OperationType"),
+    # LLM usage tracing
+    "llm_trace_context": ("hippocampai.telemetry", "llm_trace_context"),
+    "LLMInvocation": ("hippocampai.telemetry", "LLMInvocation"),
+    "UpstreamAttempt": ("hippocampai.telemetry", "UpstreamAttempt"),
+    "UpstreamMetadata": ("hippocampai.telemetry", "UpstreamMetadata"),
     # Session management
     "SessionManager": ("hippocampai.session", "SessionManager"),
     # Graph

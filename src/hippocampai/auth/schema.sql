@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS api_key_usage (
     PRIMARY KEY (id, date)
 ) PARTITION BY RANGE (date);
 
--- Annual partitions — add a new one each year before Jan 1.
+-- Annual partitions add a new one each year before Jan 1.
 -- A DEFAULT partition catches any date not covered (prevents constraint violations).
 CREATE TABLE IF NOT EXISTS api_key_usage_2024 PARTITION OF api_key_usage
     FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');

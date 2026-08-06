@@ -328,7 +328,7 @@ Re-encodes all stored memories when changing the embedding model. Dispatched by 
 
 - **Queue:** `memory_ops`
 - **soft_time_limit:** 3600 seconds (1 hour)
-- **Accepts:** `migration_id` (str) — the migration record ID
+- **Accepts:** `migration_id` (str) the migration record ID
 - **Progress:** Updates `migrated_count` and `failed_count` on the migration record
 
 ```python

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HippocampAI — End-to-End Test Suite
+HippocampAI End-to-End Test Suite
 ====================================
 Tests every live component one by one, sequentially.
 No existing test scripts reused. No concurrent requests.
@@ -127,7 +127,7 @@ code, body = safe_get(api("/metrics"))
 check("API /metrics (Prometheus scrape) → 200",
       code == 200, f"{len(str(body))} bytes")
 
-# Qdrant — root returns version JSON, /health returns 404 in v1.15
+# Qdrant root returns version JSON, /health returns 404 in v1.15
 code, body = safe_get(f"{QDRANT}/")
 check("Qdrant root reachable",
       code == 200 and "version" in str(body),
@@ -192,7 +192,7 @@ for text, expected in classify_cases:
 # ════════════════════════════════════════════════════════════════════════════
 # 3. Remember (create memories)
 # ════════════════════════════════════════════════════════════════════════════
-section("3. REMEMBER — CREATE MEMORIES")
+section("3. REMEMBER CREATE MEMORIES")
 
 seeds = [
     {"text": "I love hiking in the mountains every weekend with my dog",
@@ -288,9 +288,9 @@ if len(created_ids) >= 2:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 7. Recall — hybrid search
+# 7. Recall hybrid search
 # ════════════════════════════════════════════════════════════════════════════
-section("7. RECALL — HYBRID SEARCH")
+section("7. RECALL HYBRID SEARCH")
 
 recall_cases = [
     ("outdoor weekend activities with dog",   ["hiking", "dog"],        "habit retrieval"),
@@ -324,7 +324,7 @@ for query, keywords, desc in recall_cases:
 # ════════════════════════════════════════════════════════════════════════════
 section("8. DEDUPLICATION")
 
-# Store a near-duplicate — should return the existing memory
+# Store a near-duplicate should return the existing memory
 dup_text = "I love hiking in the mountains every weekend with my dog"
 code, body = safe_post(api("/v1/memories:remember"),
                        {"user_id": USER_ID, "text": dup_text,
@@ -570,7 +570,7 @@ code, body = safe_get(api("/v1/procedural/rules"),
 _proc_disabled = isinstance(body, dict) and _PROC_DISABLED_MSG in str(body)
 check("GET /v1/procedural/rules",
       code == 200 or _proc_disabled,
-      str(body)[:100] if not _proc_disabled else "[SKIP — set ENABLE_PROCEDURAL_MEMORY=true]")
+      str(body)[:100] if not _proc_disabled else "[SKIP set ENABLE_PROCEDURAL_MEMORY=true]")
 
 extract_payload = {
     "user_id": USER_ID,
@@ -585,7 +585,7 @@ extract_payload = {
 code, body = safe_post(api("/v1/procedural/extract"), extract_payload)
 check("POST /v1/procedural/extract (from interactions)",
       code in (200, 201) or _proc_disabled,
-      str(body)[:150] if not _proc_disabled else "[SKIP — procedural memory disabled]")
+      str(body)[:150] if not _proc_disabled else "[SKIP procedural memory disabled]")
 
 inject_payload = {
     "user_id": USER_ID,
@@ -594,7 +594,7 @@ inject_payload = {
 code, body = safe_post(api("/v1/procedural/inject"), inject_payload)
 check("POST /v1/procedural/inject (inject rules into context)",
       code == 200 or _proc_disabled,
-      str(body)[:120] if not _proc_disabled else "[SKIP — procedural memory disabled]")
+      str(body)[:120] if not _proc_disabled else "[SKIP procedural memory disabled]")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -609,7 +609,7 @@ code, body = safe_get(api("/v1/prospective/intents"),
 _prosp_disabled = isinstance(body, dict) and _PROSP_DISABLED_MSG in str(body)
 check("GET /v1/prospective/intents (list)",
       code == 200 or _prosp_disabled,
-      str(body)[:100] if not _prosp_disabled else "[SKIP — set ENABLE_PROSPECTIVE_MEMORY=true]")
+      str(body)[:100] if not _prosp_disabled else "[SKIP set ENABLE_PROSPECTIVE_MEMORY=true]")
 
 parse_payload = {
     "user_id": USER_ID,
@@ -618,7 +618,7 @@ parse_payload = {
 code, body = safe_post(api("/v1/prospective/intents:parse"), parse_payload)
 check("POST /v1/prospective/intents:parse",
       code in (200, 201) or _prosp_disabled,
-      str(body)[:150] if not _prosp_disabled else "[SKIP — prospective memory disabled]")
+      str(body)[:150] if not _prosp_disabled else "[SKIP prospective memory disabled]")
 
 intent_payload = {
     "user_id": USER_ID,
@@ -632,7 +632,7 @@ code, body = safe_post(api("/v1/prospective/intents"), intent_payload)
 intent_id = body.get("id", "") if isinstance(body, dict) else ""
 check("POST /v1/prospective/intents (create intent)",
       code in (200, 201) or _prosp_disabled,
-      f"id={intent_id}  HTTP {code}" if not _prosp_disabled else "[SKIP — prospective memory disabled]")
+      f"id={intent_id}  HTTP {code}" if not _prosp_disabled else "[SKIP prospective memory disabled]")
 
 if intent_id and not _prosp_disabled:
     code, body = safe_get(api(f"/v1/prospective/intents/{intent_id}"))
@@ -648,13 +648,13 @@ code, body = safe_post(api("/v1/prospective/evaluate"),
                        {"user_id": USER_ID, "context_text": "About to attend board meeting"})
 check("POST /v1/prospective/evaluate",
       code == 200 or _prosp_disabled,
-      str(body)[:120] if not _prosp_disabled else "[SKIP — prospective memory disabled]")
+      str(body)[:120] if not _prosp_disabled else "[SKIP prospective memory disabled]")
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 19. Intelligence — entities, relationships, clustering
+# 19. Intelligence entities, relationships, clustering
 # ════════════════════════════════════════════════════════════════════════════
-section("19. INTELLIGENCE — ENTITIES & RELATIONSHIPS")
+section("19. INTELLIGENCE ENTITIES & RELATIONSHIPS")
 
 code, body = safe_post(api("/v1/intelligence/entities:extract"),
                        {"user_id": USER_ID, "text": convo})
@@ -849,7 +849,7 @@ section("26. MEMORY EXPIRY")
 
 code, body = safe_post(api("/v1/memories:remember"),
                        {"user_id": USER_ID,
-                        "text": "Temporary context note — expires immediately",
+                        "text": "Temporary context note expires immediately",
                         "memory_type": "context",
                         "importance": 1.0,
                         "ttl_days": 0})
@@ -917,9 +917,9 @@ for metric in metrics_to_check:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 29. Qdrant — verify test user data persisted
+# 29. Qdrant verify test user data persisted
 # ════════════════════════════════════════════════════════════════════════════
-section("29. QDRANT — DATA PERSISTENCE VERIFICATION")
+section("29. QDRANT DATA PERSISTENCE VERIFICATION")
 
 for coll_name in ["hippocampai_facts", "hippocampai_prefs"]:
     try:
@@ -956,9 +956,9 @@ except Exception as exc:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 30. Redis — BM25 dirty key and cache entries
+# 30. Redis BM25 dirty key and cache entries
 # ════════════════════════════════════════════════════════════════════════════
-section("30. REDIS — CACHE & BM25 STATE")
+section("30. REDIS CACHE & BM25 STATE")
 
 try:
     import redis as redis_lib

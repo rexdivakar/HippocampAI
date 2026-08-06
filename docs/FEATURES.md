@@ -23,6 +23,7 @@ This document provides comprehensive documentation for all memory management fea
 17. [Prospective Memory / Remembering to Remember](#prospective-memory--remembering-to-remember) **NEW v0.5.1**
 18. [Storage & Caching](#storage--caching)
 19. [Monitoring & Telemetry](#monitoring--telemetry)
+    - [LLM Usage Tracing](#llm-usage-tracing) **NEW v0.6.0**
 20. [API Reference](#api-reference)
 
 ---
@@ -418,7 +419,7 @@ HippocampAI uses **NetworkX** (an in-memory directed graph library) rather than 
 - On startup, the graph is loaded from JSON back into memory
 
 **Why not a graph database (yet)?**
-- Zero external dependencies — no Neo4j/ArangoDB to deploy
+- Zero external dependencies no Neo4j/ArangoDB to deploy
 - Sub-millisecond traversal for typical graph sizes (< 100K nodes)
 - JSON persistence is sufficient for single-instance deployments
 - Neo4j integration is on the roadmap for multi-instance and large-scale deployments (see [Roadmap](#roadmap))
@@ -2305,7 +2306,7 @@ report = {
 
 ## Real-Time Incremental Knowledge Graph
 
-**NEW in v0.5.0** — Automatic entity and relationship extraction on every `remember()` call, building a persistent knowledge graph alongside the vector store.
+**NEW in v0.5.0** Automatic entity and relationship extraction on every `remember()` call, building a persistent knowledge graph alongside the vector store.
 
 ### Overview
 
@@ -2397,7 +2398,7 @@ memory = client.remember(
 
 ## Graph-Aware Retrieval
 
-**NEW in v0.5.0** — Augment vector + BM25 retrieval with graph-based scoring for deeper contextual recall.
+**NEW in v0.5.0** Augment vector + BM25 retrieval with graph-based scoring for deeper contextual recall.
 
 ### Overview
 
@@ -2445,7 +2446,7 @@ for r in results:
 
 ## Memory Relevance Feedback Loop
 
-**NEW in v0.5.0** — Collect user feedback on retrieved memories to improve future retrieval quality.
+**NEW in v0.5.0** Collect user feedback on retrieved memories to improve future retrieval quality.
 
 ### Overview
 
@@ -2500,7 +2501,7 @@ client.rate_recall(
 
 ## Memory Triggers / Event-Driven Actions
 
-**NEW in v0.5.0** — Register triggers that fire actions (webhooks, websocket messages, logs) when memory events occur.
+**NEW in v0.5.0** Register triggers that fire actions (webhooks, websocket messages, logs) when memory events occur.
 
 ### Overview
 
@@ -2572,7 +2573,7 @@ print(f"Trigger created: {trigger['id']}")
 
 ## Procedural Memory / Prompt Self-Optimization
 
-**NEW in v0.5.0** — Extract, store, and inject behavioral rules that optimize LLM prompts based on interaction history.
+**NEW in v0.5.0** Extract, store, and inject behavioral rules that optimize LLM prompts based on interaction history.
 
 ### Overview
 
@@ -2637,7 +2638,7 @@ print(result["prompt"])
 
 ## Embedding Model Migration
 
-**NEW in v0.5.0** — Safely migrate all stored embeddings when changing the embedding model.
+**NEW in v0.5.0** Safely migrate all stored embeddings when changing the embedding model.
 
 ### Overview
 
@@ -2698,7 +2699,7 @@ print(f"Failed: {status.json()['failed_count']}")
 
 ## Prospective Memory / Remembering to Remember
 
-**NEW in v0.5.1** — Prospective memory enables AI agents to "remember to remember" — performing intended actions at the right time or context in the future.
+**NEW in v0.5.1** Prospective memory enables AI agents to "remember to remember" performing intended actions at the right time or context in the future.
 
 ### Overview
 
@@ -2890,6 +2891,66 @@ telemetry_data = client.export_telemetry()
 ```
 
 **Location:** `src/hippocampai/telemetry.py`
+
+---
+
+### LLM Usage Tracing
+
+**NEW v0.6.0.** Two-level tracing for every LLM provider call: a
+**logical invocation** (one `client.llm.chat()`/`.generate()` call) that
+aggregates every **upstream attempt** behind it, so retries, rate-limit
+backoff, and provider/model fallback are never collapsed into a single flat
+event. Cost and latency reflect what actually happened upstream, including
+failed attempts, not just the winning one.
+
+**Attach attribution** (workflow, agent, tool, tenant, ...) with a context
+manager. No need to thread arguments through every call:
+
+```python
+from hippocampai import llm_trace_context
+
+with llm_trace_context(
+    workflow_id="research-pipeline",
+    workflow_step_id="draft-outline",
+    agent_id="research-agent",
+    tenant_id="acme-corp",
+    user_id="user-99",
+):
+    client.llm.chat(messages)  # every field above is attached automatically
+```
+
+**Read back usage**, including which retries/fallbacks happened:
+
+```python
+# Aggregate by any dimension: workflow_id, agent_id, tool_name, provider, tenant_id, ...
+usage_by_workflow = client.get_llm_usage_summary(group_by="workflow_id")
+
+# Recent logical calls, each with its full attempt history
+for invocation in client.get_recent_llm_invocations(limit=5):
+    print(invocation.provider, invocation.status, invocation.total_tokens)
+    for attempt in invocation.attempts:
+        print(f"  attempt {attempt.attempt_number}: {attempt.status} ({attempt.latency_ms:.0f}ms)")
+
+# Which attempt caused a latency or cost spike?
+slowest = client.telemetry.get_slowest_llm_attempts(limit=5)
+```
+
+**Supported providers** (all four normalize usage into the same fields):
+OpenAI, Anthropic, Groq, Ollama.
+
+**Cost estimation** is opt-in and configurable, with no built-in price
+catalog, so unpriced usage estimates as `null` rather than a guessed number:
+
+```bash
+LLM_PRICING='{"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6}}'  # $/1M tokens
+```
+
+**Privacy:** operational metadata only by default. Prompts, completions,
+API keys, and auth headers are never captured; provider error messages are
+sanitized (secrets redacted, truncated) before being stored.
+
+**Location:** `src/hippocampai/telemetry.py`, `src/hippocampai/adapters/provider_*.py`
+**Full reference:** [`docs/provider_tracing.md`](provider_tracing.md), [`docs/TELEMETRY.md`](TELEMETRY.md#llm-usage-tracing)
 
 ---
 
@@ -3178,7 +3239,7 @@ client.delete_memories([id1, id2, id3], user_id="alice")
 - [x] Embedding Model Migration (v0.5.0)
 
 ### Future Enhancements 🚀
-- [ ] Persistent graph storage (Neo4j integration) — **WIP** (currently uses NetworkX in-memory + JSON persistence)
+- [ ] Persistent graph storage (Neo4j integration) **WIP** (currently uses NetworkX in-memory + JSON persistence)
 - [ ] Redis backend for KV store
 - [ ] Multi-user permission system
 - [ ] Advanced analytics dashboard
