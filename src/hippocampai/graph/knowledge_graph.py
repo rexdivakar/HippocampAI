@@ -651,7 +651,7 @@ class KnowledgeGraph(MemoryGraph):
                                     }
                                 )
 
-        # Rule 6: co-location — entities that share a located_in target are co-located
+        # Rule 6: co-location entities that share a located_in target are co-located
         # Group entities by their location target (cap group size to avoid O(n^2) explosion)
         _MAX_CO_LOCATION_GROUP = 50
         location_to_entities: dict[str, list[tuple[str, str]]] = {}

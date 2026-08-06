@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-API-Key"],
 )
 
-# Authentication middleware — uses the same AuthMiddleware as async_app.py so
+# Authentication middleware uses the same AuthMiddleware as async_app.py so
 # both server entrypoints go through the same auth path.
 try:
     from hippocampai.api.middleware import AuthMiddleware
@@ -288,7 +288,7 @@ class ClassifyMemoryResponse(BaseModel):
     alternative_confidence: Optional[float] = None
 
 
-# Prometheus metrics (optional — enabled when prometheus-client is installed)
+# Prometheus metrics (optional enabled when prometheus-client is installed)
 _get_metrics = None
 try:
     from hippocampai.monitoring.prometheus_metrics import get_metrics as _get_metrics

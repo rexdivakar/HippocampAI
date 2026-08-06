@@ -107,7 +107,7 @@ class TestDirtyCallback:
         calls: list[int] = []
 
         mg.register_dirty_callback(lambda: calls.append(1))
-        # m2 is not in the graph — relationship must fail
+        # m2 is not in the graph relationship must fail
         mg.add_memory("m1", "user_a")
         calls.clear()
 
@@ -616,7 +616,7 @@ class TestInferNewFacts:
         co_loc_facts = [f for f in facts if f["rule"] == "co_location_inference"]
 
         # With 60 entities but cap at 50, group size is 50, max pairs = 50*49/2 = 1225
-        # With 60 entities uncapped, max pairs = 60*59/2 = 1770 — verify we're below that
+        # With 60 entities uncapped, max pairs = 60*59/2 = 1770 verify we're below that
         assert len(co_loc_facts) <= 1225, (
             f"co_location produced {len(co_loc_facts)} facts; cap should limit to <= 1225"
         )
@@ -735,7 +735,7 @@ class TestLLMInferencePath:
         kg = self._make_kg_with_entity_and_neighbour()
 
         mock_llm = MagicMock()
-        # Passing None explicitly — LLM must not be called
+        # Passing None explicitly LLM must not be called
         kg.infer_new_facts(llm=None)
 
         mock_llm.generate.assert_not_called()
@@ -848,7 +848,7 @@ class _ClientStub:
 
 
 class TestCheckGraphQdrantDrift:
-    """MemoryClient.check_graph_qdrant_drift — mocked Qdrant."""
+    """MemoryClient.check_graph_qdrant_drift mocked Qdrant."""
 
     def _make_client_with_graph_user(self, user_id: str, memory_ids: list[str]) -> _ClientStub:
         """Build a minimal client stub with a pre-populated knowledge graph."""

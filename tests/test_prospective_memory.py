@@ -270,7 +270,7 @@ class TestRecurrence:
         )
         triggered = manager.evaluate_time_triggers()
         assert len(triggered) == 1
-        # Last occurrence — should remain TRIGGERED (not reset)
+        # Last occurrence should remain TRIGGERED (not reset)
         assert intent.status == ProspectiveStatus.TRIGGERED
 
 

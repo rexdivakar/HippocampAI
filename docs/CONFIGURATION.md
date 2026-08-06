@@ -25,7 +25,7 @@ LLM_BASE_URL=http://localhost:11434
 
 All fields are defined in `src/hippocampai/config.py` as a `Config(BaseSettings)` class. Environment variables are case-insensitive.
 
-### Core — Qdrant Vector Database
+### Core Qdrant Vector Database
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -244,6 +244,17 @@ Controls how quickly importance decays per memory type.
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `EMBED_MODEL_VERSION` | str | `1` | Current embedding model version tag |
+
+### LLM Usage Tracing
+
+See [TELEMETRY.md](TELEMETRY.md#llm-usage-tracing) for the full logical-invocation /
+upstream-attempt trace model.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `LLM_COST_ESTIMATION_ENABLED` | bool | `true` | Estimate `$` cost per LLM call from `LLM_PRICING` |
+| `LLM_PRICING` | JSON | `{}` | `$/1M tokens` by `"<provider>:<model>"`, e.g. `{"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6}}`. Empty by default; unpriced usage estimates as `null`, never a guessed number. |
+| `LLM_TELEMETRY_MAX_METADATA_BYTES` | int | `8192` | Custom metadata attached via `llm_trace_context(metadata=...)` is truncated beyond this size |
 
 ---
 

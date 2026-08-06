@@ -7,33 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+## [0.6.0] - 2026-08-06
+
+### Added
+
+- **LLM usage tracing**: two-level trace model recording every LLM provider call. A *logical invocation* (`LLMInvocation`) aggregates every *upstream attempt* (`UpstreamAttempt`) behind it, so provider retries, rate-limit backoff, and model/provider fallback are preserved as separate records rather than collapsed into one flat event
+  - `llm_trace_context(...)`: immutable, `contextvars`-propagated attribution context (workflow/workflow-step/agent/tool/feature/tenant/workspace/user/session/conversation/billing-bucket + custom metadata), safe across threads and asyncio tasks, no global mutable state
+  - Implemented for all four existing LLM providers (OpenAI, Anthropic, Groq, Ollama); each attempt records tokens (input/output/cached/reasoning), latency, provider request ID, finish reason, and status
+  - `UpstreamMetadata`: provider-neutral, fully-optional metadata contract (`from_openai_response`, `from_anthropic_response`, `from_ollama_response` normalizers) that any OpenAI-compatible upstream or future routing layer can populate without HippocampAI depending on it
+  - Configurable, opt-in cost estimation via `LLM_PRICING` (dollars per 1M tokens, keyed by `"<provider>:<model>"`); no built-in price catalog, unpriced usage estimates as `null`, never a guessed number
+  - Error sanitization: API keys, `Authorization`/`Bearer` headers, and common secret patterns are redacted from every stored error message; messages are truncated to 500 characters
+  - New `MemoryClient` methods: `get_llm_usage_summary(group_by=...)`, `get_recent_llm_invocations(...)`, `export_llm_invocations(...)`
+  - New config: `LLM_COST_ESTIMATION_ENABLED`, `LLM_PRICING`, `LLM_TELEMETRY_MAX_METADATA_BYTES`
+  - New public exports: `llm_trace_context`, `LLMInvocation`, `UpstreamAttempt`, `UpstreamMetadata`
+  - New docs: `docs/provider_tracing.md` (full schema reference), `docs/TELEMETRY.md` LLM Usage Tracing section, `docs/CONFIGURATION.md` entries
+  - New runnable, offline validation scenario: `scripts/validate_llm_tracing.py` (proves retry + fallback preservation, no network/API keys required)
+  - New sanitized example fixture: `examples/traces/provider_trace_example.json`
+  - 34 new tests in `tests/test_llm_telemetry.py` covering single success, retry, fallback, aggregation, unknown pricing, missing provider metadata, telemetry disabled, sync/async/thread execution isolation, error sanitization, OpenAI-compatible metadata extraction, and backwards compatibility
+
+### Fixed
+
+- **`OpenAILLM`, `AnthropicLLM`, `OllamaLLM` retry decorators were silently inert**: all three caught upstream exceptions internally and returned `""` before their `@get_llm_retry_decorator` could ever see the failure and retry, so only `GroqLLM` actually retried transient errors in practice. Retries now work correctly for all four providers; each provider's existing public return contract is unchanged (`OpenAILLM`/`AnthropicLLM`/`OllamaLLM` still return `""` on total failure after retries are exhausted, `GroqLLM` still raises)
+
 ---
 
 ## [0.5.1] - 2026-04-09
 
 ### Added
 
-- **Batch memory endpoints** — three new REST endpoints for bulk operations:
-  - `POST /v1/memories/batch` — store N memories in a single request; individual failures logged but do not abort the batch
-  - `POST /v1/memories/batch/get` — fetch up to N memories by explicit ID list; silently skips not-found IDs
-  - `POST /v1/memories/batch/delete` — delete N memories by ID; returns `{"deleted": N, "failed": M}` counts
-- **Deduplication endpoint** — `POST /v1/memories/deduplicate` exposes the existing `Deduplicator` via API; supports `dry_run=true` (default) to inspect without removing
-- **Single-memory GET** — `GET /v1/memories/{memory_id}` retrieves one memory by ID; returns 404 if not found
-- **Prometheus scrape endpoint in main app** — `GET /metrics` was previously only present in `async_app.py`; now registered in `app.py` with 501 fallback when `prometheus-client` is not installed
-- **Frontend `package.json`** — created missing file that caused `npm ci` to fail during container build
-- **SQL fallback in consolidation DB** — `consolidation/db.py` now creates the consolidation tables inline when the `*.sql` file is absent, preventing 500 errors on `/api/consolidation/status`
-- **Test suite for remote backend** — `tests/test_remote_backend_endpoints.py` adds 9 unit tests covering URL construction correctness and consolidation DB table-creation fallback
+- **Batch memory endpoints** three new REST endpoints for bulk operations:
+  - `POST /v1/memories/batch` store N memories in a single request; individual failures logged but do not abort the batch
+  - `POST /v1/memories/batch/get` fetch up to N memories by explicit ID list; silently skips not-found IDs
+  - `POST /v1/memories/batch/delete` delete N memories by ID; returns `{"deleted": N, "failed": M}` counts
+- **Deduplication endpoint** `POST /v1/memories/deduplicate` exposes the existing `Deduplicator` via API; supports `dry_run=true` (default) to inspect without removing
+- **Single-memory GET** `GET /v1/memories/{memory_id}` retrieves one memory by ID; returns 404 if not found
+- **Prometheus scrape endpoint in main app** `GET /metrics` was previously only present in `async_app.py`; now registered in `app.py` with 501 fallback when `prometheus-client` is not installed
+- **Frontend `package.json`** created missing file that caused `npm ci` to fail during container build
+- **SQL fallback in consolidation DB** `consolidation/db.py` now creates the consolidation tables inline when the `*.sql` file is absent, preventing 500 errors on `/api/consolidation/status`
+- **Test suite for remote backend** `tests/test_remote_backend_endpoints.py` adds 9 unit tests covering URL construction correctness and consolidation DB table-creation fallback
 
 ### Changed
 
-- **`RemoteBackend` URL patterns corrected** — all 6 methods had `:verb` path-style URLs (`/recall` → `:recall`); corrected to match the actual FastAPI routes
+- **`RemoteBackend` URL patterns corrected** all 6 methods had `:verb` path-style URLs (`/recall` → `:recall`); corrected to match the actual FastAPI routes
 - **`RemoteBackend` default timeout** raised from 30 s to 90 s to accommodate LLM-backed operations under load
-- **`RemoteBackend` filter merging** — `session_id`, `min_importance`, `after`, and `before` parameters are now merged into the `filters` dict before being sent; `min_score` is now applied client-side after results return
+- **`RemoteBackend` filter merging** `session_id`, `min_importance`, `after`, and `before` parameters are now merged into the `filters` dict before being sent; `min_score` is now applied client-side after results return
 - **`QueryRouter` matching** in `retrieval/router.py` switched from exact word matching to stem-prefix matching; fixes zero-result recalls for plurals and conjugations (e.g., "habits" now matches routes keyed on "habit")
 - **Groq retry config** in `adapters/provider_groq.py` reduced from 5 attempts × 60 s max to 3 attempts × 20 s max with an explicit 30 s HTTP client timeout, capping worst-case hang from ~5 min to ~90 s
-- **`pyproject.toml` package data** — added `**/*.sql` glob so SQL files are included in the installed package
+- **`pyproject.toml` package data** added `**/*.sql` glob so SQL files are included in the installed package
 - **Version aligned to 0.5.1** across `pyproject.toml` and `api/app.py`
-- **Frontend `Dockerfile`** — changed `npm ci` to `npm install` to allow builds when a lockfile is absent
+- **Frontend `Dockerfile`** changed `npm ci` to `npm install` to allow builds when a lockfile is absent
 
 ### Fixed
 
@@ -49,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Prospective Memory / Remembering to Remember** — a new cognitive memory capability for AI agents
+- **Prospective Memory / Remembering to Remember** a new cognitive memory capability for AI agents
   - `PROSPECTIVE` memory type added to MemoryType enum (routed to prefs collection)
   - Two trigger modes: **time-based** (fire at datetime/cron) and **event-based** (fire when recall query matches keywords, regex, or embedding similarity)
   - `ProspectiveIntent` model with full lifecycle: pending, triggered, completed, expired, cancelled
@@ -72,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-02-11
 
-### Major Release — Intelligent Memory Features
+### Major Release Intelligent Memory Features
 
 ### Added
 
@@ -1039,7 +1061,10 @@ Not applicable (initial release)
 
 ---
 
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.5.0...HEAD
+[Latest Version]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.6.0
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.6.0
+[0.5.1]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.5.1
 [0.5.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.3.0

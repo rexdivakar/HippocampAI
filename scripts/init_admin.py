@@ -29,7 +29,7 @@ async def main() -> None:
         import asyncpg
         import bcrypt
     except ImportError as exc:
-        print(f"ERROR: missing dependency — {exc}")
+        print(f"ERROR: missing dependency {exc}")
         print("Install with: pip install asyncpg bcrypt")
         sys.exit(1)
 

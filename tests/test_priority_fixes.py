@@ -1,14 +1,14 @@
 """Priority-fix tests for targeted changes in HippocampAI.
 
 Covers:
-  1. SmartMemoryUpdater._calculate_similarity — cosine path, Jaccard fallback,
+  1. SmartMemoryUpdater._calculate_similarity cosine path, Jaccard fallback,
      embedder-raises fallback
-  2. GraphRetriever.search — real hop-distance scoring via nx.single_source_shortest_path_length
-  3. QueryIntentDetector.detect — temporal, preference, neutral, and combined queries
-  4. HybridRetriever.add_to_corpus — dedup, BM25 rebuild, facts vs prefs routing
-  5. Config defaults — enable_graph_retrieval and weight_graph
+  2. GraphRetriever.search real hop-distance scoring via nx.single_source_shortest_path_length
+  3. QueryIntentDetector.detect temporal, preference, neutral, and combined queries
+  4. HybridRetriever.add_to_corpus dedup, BM25 rebuild, facts vs prefs routing
+  5. Config defaults enable_graph_retrieval and weight_graph
 
-No running Qdrant or Redis required — all external dependencies are mocked/faked.
+No running Qdrant or Redis required all external dependencies are mocked/faked.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class TestSmartMemoryUpdaterSimilarity:
         updater = SmartMemoryUpdater(embedder=mock_embedder)
         result = updater._calculate_similarity("foo", "bar")
 
-        expected = _cosine(v1, v2)  # 0.0 — orthogonal vectors
+        expected = _cosine(v1, v2)  # 0.0 orthogonal vectors
         assert math.isclose(result, expected, abs_tol=1e-6)
 
     def test_cosine_similarity_identical_direction(self) -> None:
@@ -106,7 +106,7 @@ class TestSmartMemoryUpdaterSimilarity:
         assert result == 0.0
 
     # ------------------------------------------------------------------
-    # Jaccard fallback — embedder=None
+    # Jaccard fallback embedder=None
     # ------------------------------------------------------------------
 
     def test_falls_back_to_jaccard_when_embedder_is_none(self) -> None:
@@ -168,7 +168,7 @@ class TestSmartMemoryUpdaterSimilarity:
 
 
 # ---------------------------------------------------------------------------
-# 2. GraphRetriever.search — hop distance scoring
+# 2. GraphRetriever.search hop distance scoring
 # ---------------------------------------------------------------------------
 
 
@@ -548,7 +548,7 @@ class TestHybridRetrieverAddToCorpus:
 
         retriever.add_to_corpus("mem_x", "some text", retriever.qdrant.collection_facts)
 
-        assert retriever.bm25_facts is None  # still None — index not yet built
+        assert retriever.bm25_facts is None  # still None index not yet built
 
     def test_add_to_corpus_prefs_collection_updates_corpus_prefs(self) -> None:
         """Adding with prefs collection should update corpus_prefs, not corpus_facts."""

@@ -13,6 +13,7 @@ The telemetry system provides:
 - **Detailed breakdowns** - See score components, retrieval paths
 - **Export capabilities** - Send traces to external tools (OpenTelemetry, Prometheus, etc.)
 - **Library-based access** - All data accessed through Python API, not HTTP endpoints
+- **LLM usage tracing** - Every model call, including every retry and fallback attempt behind it, with tokens/cost/latency/attribution (see [LLM Usage Tracing](#llm-usage-tracing) below)
 
 ## Basic Usage
 
@@ -420,6 +421,242 @@ with open("telemetry_export.json", "w") as f:
 
 print("\nExported telemetry to telemetry_export.json")
 ```
+
+## LLM Usage Tracing
+
+Every LLM call made through `OpenAILLM`, `AnthropicLLM`, `GroqLLM`, and `OllamaLLM`
+is automatically traced at two levels:
+
+1. **Logical invocation** (`LLMInvocation`): the model call as your code requested
+   it (one `llm.chat(...)` or `llm.generate(...)` call).
+2. **Upstream attempt** (`UpstreamAttempt`): every real request made to the
+   provider behind that one logical call. A logical call can have several
+   attempts: a rate-limit retry, a timeout retry, or a fallback to a
+   different model/provider all produce a new attempt.
+
+This distinction matters because **cost and latency belong to the logical
+call, not the last attempt**. A call that times out twice before succeeding
+still cost you two attempts worth of latency (and, if the failed attempts
+returned partial usage, tokens); the logical invocation aggregates all of
+it.
+
+```
+Workflow
+  → Agent
+    → Workflow step
+      → Logical LLM invocation
+        → Attempt 1: provider timeout       (failed, 8.2s)
+        → Attempt 2: model fallback         (failed, 1.1s)
+        → Attempt 3: success                (312ms)
+
+invocation.total_attempts   == 3
+invocation.total_retries    == 2
+invocation.total_fallbacks  == 1
+invocation.latency_ms       == ~9.6s   (all three attempts, not just the 312ms winner)
+invocation.estimated_cost   == sum of every attempt that reported usage
+invocation.status           == "success"
+invocation.selected_provider / invocation.selected_model  == whichever attempt finished it
+```
+
+### Reading invocations
+
+```python
+from hippocampai import MemoryClient
+
+client = MemoryClient()
+client.llm.chat([{"role": "user", "content": "Summarize this."}])
+
+# Most recent logical LLM calls, each with its full attempt history
+for invocation in client.get_recent_llm_invocations(limit=5):
+    print(invocation.provider, invocation.requested_model, invocation.status)
+    print(f"  {invocation.total_attempts} attempts, {invocation.total_retries} retries")
+    print(f"  {invocation.total_tokens} tokens, ${invocation.estimated_cost or 0:.6f}")
+    for attempt in invocation.attempts:
+        print(f"    attempt {attempt.attempt_number}: {attempt.provider}/{attempt.selected_model}"
+              f" -> {attempt.status} ({attempt.latency_ms:.0f}ms)")
+
+# Aggregate by any attribution dimension
+by_workflow = client.get_llm_usage_summary(group_by="workflow_id")
+by_agent = client.get_llm_usage_summary(group_by="agent_id")
+by_tool = client.get_llm_usage_summary(group_by="tool_name")
+by_provider = client.get_llm_usage_summary(group_by="provider")
+
+# Which attempt caused a latency or cost spike?
+slowest = client.telemetry.get_slowest_llm_attempts(limit=5)
+costliest = client.telemetry.get_costliest_llm_attempts(limit=5)
+
+# Ship it somewhere else
+export = client.export_llm_invocations()
+```
+
+`get_llm_usage_summary` accepts any `LLMInvocation` field as `group_by`, so
+the same call answers "which workflow used the most tokens", "which agent
+generated the most retries", "which tenant/workspace/user generated the
+usage", etc.; just group by `workflow_id`, `agent_id`, `tenant_id`,
+`workspace_id`, or `user_id`.
+
+### Attaching attribution: workflow, agent, tool, tenant, ...
+
+HippocampAI has no built-in workflow/agent orchestration engine. Attribution
+is attached by *your* application code via `llm_trace_context`, an immutable
+context object propagated with `contextvars` (safe across threads and
+asyncio tasks, never leaks between concurrent calls):
+
+```python
+from hippocampai import llm_trace_context
+
+with llm_trace_context(
+    tenant_id="acme-corp",
+    workspace_id="ws-42",
+    user_id="user-99",
+    session_id="sess-1",
+    conversation_id="conv-1",
+    workflow_id="research-pipeline",
+    workflow_name="Research Pipeline",     # optional human-readable label
+    workflow_step_id="draft-outline",
+    workflow_step_name="Draft Outline",    # optional human-readable label
+    agent_id="research-agent",
+    agent_name="Research Agent",           # optional human-readable label
+    tool_name="web_search",       # set when the call originated from a tool
+    feature_name="draft_outline", # becomes the traced operation name
+    billing_bucket="team-growth",
+    metadata={"experiment": "prompt-v3"},
+):
+    client.llm.chat(messages)  # every field above is attached automatically
+
+# Contexts nest and merge: inner blocks add to, not replace, outer fields:
+with llm_trace_context(workflow_id="wf-1", agent_id="agent-1"):
+    with llm_trace_context(workflow_step_id="step-1"):
+        client.llm.chat(messages)  # tagged with workflow_id, agent_id, AND workflow_step_id
+```
+
+Nothing needs to be threaded through function signatures, and calls made
+outside any `llm_trace_context` block simply have `None` for every
+attribution field; existing callers are unaffected.
+
+### Retry and fallback tracing
+
+Every provider adapter records one `UpstreamAttempt` per real request, each
+with its own unique `attempt_id` and 1-based `attempt_number`; retries are
+never collapsed into a single record. A retry (rate limit, timeout,
+transient connection error) produces attempt 2, 3, ... under the same
+invocation automatically, nothing extra to configure:
+
+```python
+with llm_trace_context(workflow_id="wf-1"):
+    result = client.llm.chat(messages)  # e.g. times out once, then succeeds
+
+invocation = client.get_recent_llm_invocations(limit=1)[0]
+assert invocation.total_attempts == 2
+assert invocation.attempts[0].attempt_id != invocation.attempts[1].attempt_id
+assert invocation.attempts[0].status == "error"
+assert invocation.attempts[0].error_type == "timeout"
+assert invocation.attempts[1].status == "success"
+```
+
+For a complete, runnable, offline proof of this (workflow → step → logical
+invocation → retryable failure → provider fallback → success, with full
+sanitized JSON output), see `scripts/validate_llm_tracing.py`:
+
+```bash
+python scripts/validate_llm_tracing.py
+```
+
+Model/provider **fallback** is not something the four built-in adapters do
+today (each is pinned to one provider/model), but the trace contract fully
+supports it for a router or wrapper that does. Record a fallback attempt by
+passing `fallback_reason`/`routing_reason`/`selected_model` to `llm_attempt`:
+
+```python
+from hippocampai.telemetry import llm_invocation, llm_attempt, UpstreamMetadata
+
+with llm_invocation(provider="openai", requested_model="gpt-4o", operation="chat") as inv_id:
+    try:
+        with llm_attempt(provider="openai", requested_model="gpt-4o"):
+            raise TimeoutError("primary provider timed out")
+    except TimeoutError:
+        pass  # fall back to a secondary provider
+
+    with llm_attempt(
+        provider="anthropic",
+        requested_model="gpt-4o",
+        selected_model="claude-3-haiku-20240307",
+        fallback_reason="provider_unavailable",
+        routing_reason="primary_timeout",
+    ) as attempt:
+        # ... make the real fallback request, then:
+        attempt.input_tokens, attempt.output_tokens = 8, 4
+```
+
+### Cost estimation
+
+Cost is computed from per-token pricing you configure. HippocampAI ships
+**no built-in price catalog**, so unpriced usage estimates as `None` rather
+than a guessed number:
+
+```bash
+# Dollars per 1M tokens, keyed by "<provider>:<model>" (or bare "<model>")
+LLM_PRICING='{"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6, "cached_input": 0.075}, "anthropic:claude-3-5-sonnet-20241022": {"input": 3.0, "output": 15.0}}'
+LLM_COST_ESTIMATION_ENABLED=true   # default
+LLM_TELEMETRY_MAX_METADATA_BYTES=8192  # custom metadata is truncated beyond this
+```
+
+`rates` may also include `"reasoning"` (falls back to the `output` rate if
+omitted). `invocation.estimated_cost` is the sum of every attempt's cost
+(so a failed attempt that still burned tokens before erroring is included);
+it is `None` whenever no rate is configured for that provider/model, and
+`None` (not summed as zero) when every attempt itself has unknown cost.
+
+### OpenAI-compatible upstream metadata (e.g. NovaRouteAI or your own router)
+
+If you route requests through an OpenAI-compatible proxy or a router such as
+NovaRouteAI, `UpstreamMetadata` normalizes its response the same way the
+built-in adapters do; HippocampAI never depends on any specific router:
+
+```python
+from hippocampai.telemetry import UpstreamMetadata, llm_attempt
+
+with llm_attempt(provider="my-router", requested_model="gpt-4o-mini") as attempt:
+    response = my_openai_compatible_client.chat.completions.create(...)
+    # Works for any OpenAI-compatible response shape (choices/usage/id/model),
+    # plus optional headers the router adds (x-request-id, routing hints, ...).
+    attempt.apply_metadata(
+        UpstreamMetadata.from_openai_response(response, headers=dict(response_headers))
+    )
+```
+
+All `UpstreamMetadata` fields are optional. A router that doesn't expose a
+`provider_request_id` or per-token cache/reasoning counts simply leaves
+those fields unset; nothing breaks.
+
+### Privacy
+
+By default, telemetry stores **operational metadata only** - identifiers,
+token counts, latency, status, error classification. It never stores raw
+prompt or response text. Error messages are sanitized before being stored:
+API keys, `Authorization`/`Bearer` headers, and common provider key formats
+are redacted, and messages are truncated to 500 characters.
+
+### Disabling
+
+LLM usage tracing shares the same enabled flag as the rest of telemetry:
+
+```python
+client = MemoryClient(enable_telemetry=False)
+```
+
+When disabled, provider calls behave identically but no `LLMInvocation` or
+`UpstreamAttempt` is recorded - the overhead is a handful of `is-disabled`
+checks per call.
+
+### Streaming
+
+No provider adapter in this repository implements streaming today (`chat`/
+`generate` return a plain `str`). The trace contract already carries
+`streaming` and `time_to_first_token_ms` fields on `LLMInvocation` for when
+a streaming adapter is added - a caller wrapping a stream can set
+`invocation.time_to_first_token_ms` on first-chunk receipt without
+consuming or altering the stream itself.
 
 ## Next Steps
 

@@ -1,4 +1,4 @@
-"""Alembic environment — async asyncpg engine, no ORM models required.
+"""Alembic environment async asyncpg engine, no ORM models required.
 
 Migrations use ``op.execute(sql)`` for raw SQL statements. This keeps the
 migration tooling independent of any SQLAlchemy ORM layer while still giving
@@ -35,7 +35,7 @@ if database_url:
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode — emits SQL to stdout without a DB connection."""
+    """Run migrations in 'offline' mode emits SQL to stdout without a DB connection."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,

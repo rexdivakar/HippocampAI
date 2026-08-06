@@ -19,7 +19,7 @@ hippocampai/
 
 ## Package Components
 
-### `hippocampai.core` — Core Library
+### `hippocampai.core` Core Library
 
 The core library contains everything needed to use HippocampAI as a memory engine in your application. It has minimal dependencies and doesn't require any SaaS infrastructure.
 
@@ -59,7 +59,7 @@ from hippocampai.core import (
 - Local development and testing
 - Lightweight deployments
 
-### `hippocampai.platform` — SaaS Platform
+### `hippocampai.platform` SaaS Platform
 
 The platform package contains everything needed to run HippocampAI as a SaaS service with full production infrastructure.
 
@@ -226,7 +226,7 @@ flower>=2.0
 
 If you're upgrading from an older version:
 
-1. **No changes required** for basic usage — all imports work as before
+1. **No changes required** for basic usage all imports work as before
 2. **For cleaner imports**, consider using the subpackages:
    - `from hippocampai.core import ...` for library features
    - `from hippocampai.platform import ...` for SaaS features

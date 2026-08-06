@@ -45,7 +45,7 @@ class Config(BaseSettings):
     )
     rerank_cache_ttl: int = Field(default=86400, validation_alias="RERANK_CACHE_TTL")  # 24h
 
-    # CORS — set CORS_ORIGINS as a JSON array in .env for production, e.g.:
+    # CORS set CORS_ORIGINS as a JSON array in .env for production, e.g.:
     # CORS_ORIGINS='["https://app.yourdomain.com","https://admin.yourdomain.com"]'
     # The wildcard "*" must NOT be used in production (credentials + wildcard is invalid).
     cors_origins: list[str] = Field(
@@ -230,6 +230,20 @@ class Config(BaseSettings):
 
     # Feature 6: Embedding Model Migration
     embed_model_version: str = Field(default="1", validation_alias="EMBED_MODEL_VERSION")
+
+    # LLM Usage Tracing (logical invocation + upstream attempt telemetry)
+    llm_cost_estimation_enabled: bool = Field(
+        default=True, validation_alias="LLM_COST_ESTIMATION_ENABLED"
+    )
+    # Dollars per 1M tokens, keyed by "<provider>:<model>" (or bare "<model>"):
+    # {"openai:gpt-4o-mini": {"input": 0.15, "output": 0.6, "cached_input": 0.075}}
+    # Empty by default - no price is ever invented; unpriced usage estimates as None.
+    llm_pricing: dict[str, dict[str, float]] = Field(
+        default_factory=dict, validation_alias="LLM_PRICING"
+    )
+    llm_telemetry_max_metadata_bytes: int = Field(
+        default=8192, validation_alias="LLM_TELEMETRY_MAX_METADATA_BYTES"
+    )
 
     def get_weights(self) -> dict[str, float]:
         return {

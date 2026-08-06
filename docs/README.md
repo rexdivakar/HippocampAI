@@ -200,16 +200,16 @@ docs/
 
 ## Recent Changes
 
-### 2026-02-11: v0.5.0 — Intelligent Memory Features
+### 2026-02-11: v0.5.0 Intelligent Memory Features
 
 **6 New Features:**
 
-1. **Real-Time Knowledge Graph** — Auto-extraction of entities, facts, and relationships on every `remember()` call
-2. **Graph-Aware Retrieval** — 3-way RRF fusion combining vector, BM25, and graph-based scoring
-3. **Memory Relevance Feedback** — User feedback loop with exponentially-weighted scoring
-4. **Memory Triggers** — Event-driven actions (webhooks, websocket, log) on memory lifecycle events
-5. **Procedural Memory** — Self-optimizing prompts via learned behavioral rules
-6. **Embedding Migration** — Safe model migration with Celery background processing
+1. **Real-Time Knowledge Graph** Auto-extraction of entities, facts, and relationships on every `remember()` call
+2. **Graph-Aware Retrieval** 3-way RRF fusion combining vector, BM25, and graph-based scoring
+3. **Memory Relevance Feedback** User feedback loop with exponentially-weighted scoring
+4. **Memory Triggers** Event-driven actions (webhooks, websocket, log) on memory lifecycle events
+5. **Procedural Memory** Self-optimizing prompts via learned behavioral rules
+6. **Embedding Migration** Safe model migration with Celery background processing
 
 **Also added:** 16 new config fields, 15 new REST API endpoints, 2 new Celery tasks
 

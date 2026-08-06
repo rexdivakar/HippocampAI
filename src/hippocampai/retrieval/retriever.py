@@ -453,7 +453,7 @@ class HybridRetriever:
             # Skip reranking, use original scores
             reranked = [(doc_id, text, score, 0.0) for doc_id, text, score in rerank_input]
 
-        # Score fusion — uses effective_weights (intent-adjusted) per query
+        # Score fusion uses effective_weights (intent-adjusted) per query
         results = []
         # Build a fast lookup map to avoid O(n²) scan
         candidate_map = {c[0]: c[1]["payload"] for c in all_candidates}

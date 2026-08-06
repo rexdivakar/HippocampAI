@@ -1,7 +1,7 @@
 """Integration tests against live Qdrant at 100.113.229.40.
 
 These tests verify end-to-end memory storage and retrieval using the real
-MemoryClient pipeline — no mocks for the storage layer. Tests use isolated
+MemoryClient pipeline no mocks for the storage layer. Tests use isolated
 collection names prefixed with 'inttest_' and clean up after themselves.
 
 Run with:
@@ -145,7 +145,7 @@ class TestDeduplication:
         client.remember(original, user_id=user_id)
         time.sleep(0.3)
 
-        # Store a near-duplicate — high cosine similarity should trigger dedup
+        # Store a near-duplicate high cosine similarity should trigger dedup
         near_dup = "I really enjoy playing chess a lot"
         client.remember(near_dup, user_id=user_id)
         time.sleep(0.5)
@@ -155,7 +155,7 @@ class TestDeduplication:
 
 
 # ---------------------------------------------------------------------------
-# 3. BM25 incremental update — keyword search works immediately after remember
+# 3. BM25 incremental update keyword search works immediately after remember
 # ---------------------------------------------------------------------------
 
 

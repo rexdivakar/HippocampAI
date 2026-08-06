@@ -1,4 +1,4 @@
-"""Initial schema — baseline from src/hippocampai/auth/schema.sql.
+"""Initial schema baseline from src/hippocampai/auth/schema.sql.
 
 Revision ID: 0001
 Revises:
@@ -9,7 +9,7 @@ entrypoint init script (schema.sql). It exists so that Alembic's revision
 table is populated and future incremental migrations can be applied cleanly.
 
 On a fresh install the Docker entrypoint already runs schema.sql, so this
-migration performs no destructive work — it uses CREATE TABLE IF NOT EXISTS
+migration performs no destructive work it uses CREATE TABLE IF NOT EXISTS
 and CREATE INDEX IF NOT EXISTS throughout.
 """
 
