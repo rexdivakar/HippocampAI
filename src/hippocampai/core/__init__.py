@@ -61,7 +61,7 @@ from hippocampai.storage import MemoryKVStore
 from hippocampai.utils.context_injection import ContextInjector, inject_context
 from hippocampai.versioning import AuditEntry, ChangeType, MemoryVersion, MemoryVersionControl
 
-__version__ = "0.3.0"
+__version__ = "0.6.0"
 
 __all__ = [
     # Main client

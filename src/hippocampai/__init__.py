@@ -60,7 +60,7 @@ from hippocampai.pipeline.insights import (
 from hippocampai.pipeline.insights import ChangeType as InsightChangeType
 from hippocampai.pipeline.temporal import ScheduledMemory, TemporalEvent, Timeline, TimeRange
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 __all__ = [
     # Version
