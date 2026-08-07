@@ -226,7 +226,8 @@ All variables are read from `.env` (or shell environment). Complete list is in `
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint. Use `http://qdrant:6333` inside Docker compose. |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint. Use `http://qdrant:6333` inside Docker compose, or a Qdrant Cloud cluster URL. |
+| `QDRANT_API_KEY` | unset | Qdrant Cloud API key. Leave unset for unauthenticated local Qdrant. |
 | `REDIS_URL` | `redis://localhost:6379` | Redis for caching and Celery broker |
 | `POSTGRES_HOST` | `localhost` | PostgreSQL host (used for auth) |
 

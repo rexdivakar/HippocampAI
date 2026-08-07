@@ -1,5 +1,7 @@
 """Configuration with env var overrides."""
 
+from typing import Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,6 +11,8 @@ class Config(BaseSettings):
 
     # Qdrant
     qdrant_url: str = Field(default="http://localhost:6333", validation_alias="QDRANT_URL")
+    # Optional: required for Qdrant Cloud, must stay unset for unauthenticated local Qdrant.
+    qdrant_api_key: Optional[str] = Field(default=None, validation_alias="QDRANT_API_KEY")
     collection_facts: str = Field(default="hippocampai_facts", validation_alias="COLLECTION_FACTS")
     collection_prefs: str = Field(default="hippocampai_prefs", validation_alias="COLLECTION_PREFS")
 

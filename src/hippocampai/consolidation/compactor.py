@@ -149,20 +149,23 @@ class ConversationCompactor:
     def __init__(
         self,
         qdrant_url: str | None = None,
+        qdrant_api_key: str | None = None,
         llm_provider: str = "groq",
     ):
         """Initialize the compactor.
 
         Args:
             qdrant_url: Qdrant server URL
+            qdrant_api_key: Qdrant Cloud API key (unset for unauthenticated local Qdrant)
             llm_provider: LLM provider for summarization (groq, openai, ollama)
         """
         self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
+        self.qdrant_api_key = qdrant_api_key or os.getenv("QDRANT_API_KEY") or None
         self.llm_provider = llm_provider
 
         from qdrant_client import QdrantClient
 
-        self.client = QdrantClient(url=self.qdrant_url)
+        self.client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key)
 
     def compact_conversations(
         self,

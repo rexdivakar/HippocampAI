@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize components
     qdrant = QdrantStore(
         url=config.qdrant_url,
+        api_key=config.qdrant_api_key,
         collection_facts=config.collection_facts,
         collection_prefs=config.collection_prefs,
     )

@@ -12,6 +12,7 @@ from hippocampai.retrieval.rerank import Reranker
 from hippocampai.services.memory_service import MemoryManagementService
 from hippocampai.storage.redis_store import AsyncMemoryKVStore
 from hippocampai.vector.qdrant_store import QdrantStore
+from tests.conftest import namespaced_collection
 
 
 @pytest_asyncio.fixture
@@ -29,27 +30,30 @@ async def redis_store():
 def qdrant_store():
     """Create Qdrant store for testing."""
     config = Config()
+    collection_facts = namespaced_collection("test_facts")
+    collection_prefs = namespaced_collection("test_prefs")
     store = QdrantStore(
         url=config.qdrant_url,
-        collection_facts="test_facts",
-        collection_prefs="test_prefs",
+        api_key=config.qdrant_api_key,
+        collection_facts=collection_facts,
+        collection_prefs=collection_prefs,
     )
     # Ensure collections exist
     store.ensure_collection(
-        collection_name="test_facts",
+        collection_name=collection_facts,
         vector_size=384,
         distance="Cosine",
     )
     store.ensure_collection(
-        collection_name="test_prefs",
+        collection_name=collection_prefs,
         vector_size=384,
         distance="Cosine",
     )
     yield store
     # Cleanup
     try:
-        store.client.delete_collection("test_facts")
-        store.client.delete_collection("test_prefs")
+        store.client.delete_collection(collection_facts)
+        store.client.delete_collection(collection_prefs)
     except Exception:
         pass
 

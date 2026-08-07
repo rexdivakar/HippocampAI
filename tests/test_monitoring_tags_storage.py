@@ -1,5 +1,6 @@
 """Tests for monitoring tags and Qdrant storage integration."""
 
+import os
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -14,26 +15,43 @@ from hippocampai.monitoring import (
     OperationType,
 )
 from hippocampai.vector.qdrant_store import QdrantStore
+from tests.conftest import namespaced_collection
 
 
 @pytest.fixture
 def qdrant_store():
     """Create Qdrant store instance."""
-    return QdrantStore(
-        url="http://localhost:6333",
-        collection_facts="test_facts",
-        collection_prefs="test_prefs",
+    collection_facts = namespaced_collection("test_facts")
+    collection_prefs = namespaced_collection("test_prefs")
+    store = QdrantStore(
+        url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+        collection_facts=collection_facts,
+        collection_prefs=collection_prefs,
     )
+    yield store
+    for name in (collection_facts, collection_prefs):
+        try:
+            store.client.delete_collection(name)
+        except Exception:
+            pass
 
 
 @pytest.fixture
 def monitoring_storage(qdrant_store):
     """Create monitoring storage instance."""
-    return MonitoringStorage(
+    collection_health = namespaced_collection("test_health_reports")
+    collection_traces = namespaced_collection("test_traces")
+    storage = MonitoringStorage(
         qdrant_store=qdrant_store,
-        collection_health="test_health_reports",
-        collection_traces="test_traces",
+        collection_health=collection_health,
+        collection_traces=collection_traces,
     )
+    yield storage
+    for name in (collection_health, collection_traces):
+        try:
+            qdrant_store.client.delete_collection(name)
+        except Exception:
+            pass
 
 
 @pytest.fixture

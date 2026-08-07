@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import json
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -21,15 +22,18 @@ from pathlib import Path
 import pytest
 
 from hippocampai import ChangeType, MemoryClient, MemoryType, RelationType
+from tests.conftest import namespaced_collection
+
+QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 
 
 @pytest.fixture
 def client():
     """Create a MemoryClient instance for testing."""
     return MemoryClient(
-        qdrant_url="http://localhost:6333",
-        collection_facts="test_facts_advanced",
-        collection_prefs="test_prefs_advanced",
+        qdrant_url=QDRANT_URL,
+        collection_facts=namespaced_collection("test_facts_advanced"),
+        collection_prefs=namespaced_collection("test_prefs_advanced"),
         enable_telemetry=False,
     )
 
@@ -310,9 +314,10 @@ class TestGraphPersistence:
 
         # Create second graph in temp file
         m2 = client.remember("Memory 2", user_id="bob")
+        temp_collection = namespaced_collection("test_temp_graph_merge")
         temp_client = MemoryClient(
-            qdrant_url="http://localhost:6333",
-            collection_facts="test_temp_graph",
+            qdrant_url=QDRANT_URL,
+            collection_facts=temp_collection,
             enable_telemetry=False,
         )
         temp_client.graph.add_memory(m2.id, "bob", {})
@@ -337,6 +342,10 @@ class TestGraphPersistence:
 
         finally:
             Path(temp_path).unlink(missing_ok=True)
+            try:
+                temp_client.qdrant.client.delete_collection(temp_collection)
+            except Exception:
+                pass
 
     def test_import_graph_replace_mode(self, client):
         """Test importing graph with replace mode."""
@@ -346,9 +355,10 @@ class TestGraphPersistence:
 
         # Create second graph
         m2 = client.remember("Memory 2", user_id="bob")
+        temp_collection = namespaced_collection("test_temp_graph_replace")
         temp_client = MemoryClient(
-            qdrant_url="http://localhost:6333",
-            collection_facts="test_temp_graph",
+            qdrant_url=QDRANT_URL,
+            collection_facts=temp_collection,
             enable_telemetry=False,
         )
         temp_client.graph.add_memory(m2.id, "bob", {})
@@ -373,6 +383,10 @@ class TestGraphPersistence:
 
         finally:
             Path(temp_path).unlink(missing_ok=True)
+            try:
+                temp_client.qdrant.client.delete_collection(temp_collection)
+            except Exception:
+                pass
 
     def test_import_graph_file_not_found(self, client):
         """Test importing from non-existent file."""

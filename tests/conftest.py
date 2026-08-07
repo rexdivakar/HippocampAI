@@ -37,32 +37,35 @@ if str(SRC) not in sys.path:
     sys.path.append(str(SRC))
 
 
+# CI sets this to something like "ci-<run_id>-<python-version>" so concurrent
+# matrix jobs against the same Qdrant Cloud cluster never share collections.
+# Empty locally, which keeps existing local collection names unchanged.
+QDRANT_TEST_NAMESPACE = os.getenv("QDRANT_TEST_NAMESPACE", "")
+
+
+def namespaced_collection(name: str) -> str:
+    """Prefix a fixed test collection name with the CI namespace, if any.
+
+    Only use this for collections with a fixed/shared name across test runs
+    (e.g. "test_facts_advanced"). Collections already suffixed with a random
+    id (e.g. via uuid4()) are unique per test and don't need this.
+    """
+    return f"{QDRANT_TEST_NAMESPACE}_{name}" if QDRANT_TEST_NAMESPACE else name
+
+
 @pytest.fixture(scope="session", autouse=True)
 def ensure_qdrant_collections():
     """Ensure test collections exist before any memory tests run."""
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-    # Parse host and port from URL
-    stripped = qdrant_url
-    if stripped.startswith("http://"):
-        stripped = stripped[7:]
-    elif stripped.startswith("https://"):
-        stripped = stripped[8:]
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
-    if ":" in stripped:
-        host, port_str = stripped.split(":", 1)
-        port = int(port_str)
-    else:
-        host = stripped
-        port = 6333
+    test_collections = [
+        (namespaced_collection("test_facts_advanced"), 384),
+        (namespaced_collection("test_prefs_advanced"), 384),
+    ]
 
     try:
-        client = QdrantClient(host=host, port=port, timeout=5)
-
-        # Create both test collections needed for advanced features tests
-        test_collections = [
-            ("test_facts_advanced", 384),  # Default embed_dimension for BAAI/bge-small-en-v1.5
-            ("test_prefs_advanced", 384),
-        ]
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=5)
 
         for collection_name, vector_size in test_collections:
             if not client.collection_exists(collection_name=collection_name):
@@ -75,8 +78,18 @@ def ensure_qdrant_collections():
         import warnings
 
         warnings.warn(f"Could not connect to Qdrant: {e}")
+        yield
+        return
 
     yield
+
+    # Clean up the collections this fixture created so they don't linger on
+    # a shared Qdrant Cloud cluster across CI runs.
+    try:
+        for collection_name, _ in test_collections:
+            client.delete_collection(collection_name=collection_name)
+    except Exception:
+        pass
 
 
 @pytest.fixture

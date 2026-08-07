@@ -137,7 +137,7 @@ def test_qdrant_connection() -> bool:
         from hippocampai.config import get_config
 
         config = get_config()
-        client = QdrantClient(url=config.qdrant_url)
+        client = QdrantClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
         client.get_collections()
         print_success(f"Connected to Qdrant at {config.qdrant_url}")
         return True
@@ -155,6 +155,7 @@ def initialize_collections() -> bool:
         config = get_config()
         store = QdrantStore(
             url=config.qdrant_url,
+            api_key=config.qdrant_api_key,
             collection_facts=config.collection_facts,
             collection_prefs=config.collection_prefs,
             dimension=config.embed_dimension,

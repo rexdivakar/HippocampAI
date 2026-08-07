@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] - 2026-08-07
 
+### Added
+
+- **Qdrant Cloud support**: `QDRANT_API_KEY` is now a first-class, optional config field (`Config.qdrant_api_key`) threaded through every `QdrantClient`/`QdrantStore` construction site (`MemoryClient`, `ConversationCompactor`, the FastAPI app, `setup_app`, auth/session routes). Leaving it unset preserves today's unauthenticated local Qdrant behavior exactly; setting `QDRANT_URL` to a `https://<cluster>.cloud.qdrant.io` URL plus `QDRANT_API_KEY` connects to Qdrant Cloud instead. An empty-string API key (e.g. a blank `.env` placeholder) is treated the same as unset.
+- CI (`.github/workflows/ci.yml`) now runs against Qdrant Cloud instead of a `qdrant/qdrant` Docker service, using the `QDRANT_URL`/`QDRANT_API_KEY` repository secrets, with an early connectivity check that fails the job fast (before installing dependencies) if the cluster isn't reachable. Redis remains a local Docker service. Each matrix job (Python 3.10/3.11/3.12) gets an isolated `QDRANT_TEST_NAMESPACE=ci-<run_id>-<python-version>` so concurrent jobs against the shared cluster never touch the same test collections; test fixtures that create fixed-name collections now use this namespace and clean up after themselves.
+- CI now also runs on a weekly schedule (Sunday 12am EST) in addition to push/PR, to catch Qdrant Cloud connectivity or credential issues even without new commits.
+
 ### Fixed
 
 - **Request identity separation**: added `router_request_id` to `UpstreamMetadata`/`UpstreamAttempt`/`LLMInvocation` as the explicit home for an external gateway or router's own request ID. HippocampAI's own `request_id` remains authoritative and is never overwritten by it; `provider_request_id` remains attempt-specific and is never populated from a router ID. `UpstreamMetadata.request_id` is kept as a deprecated, backwards-compatible alias for `router_request_id`
@@ -16,11 +22,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`retry_reason` placement**: now set on the attempt that resulted from a prior failure (inherited from that failure's `error_type`), not on the failing attempt itself, and stays `null` on fallback attempts
 - **Missing example fixture**: `examples/traces/provider_trace_example.json` was being silently excluded by a blanket `*.json` rule in `.gitignore`, so it never shipped in 0.6.0 despite being referenced by the docs. Added a scoped negation (`!examples/traces/*.json`) and a schema-drift test that fails if the fixture ever diverges from the live `LLMInvocation`/`UpstreamAttempt` dataclasses
 - **Broken release links**: `CHANGELOG.md` linked the lowercase `v0.6.0` tag, which 404s; corrected to the actual published tag `V0.6.0`
+- **`tests/test_qdrant_integration.py` was silently breaking the default CI test run**: it hardcoded a private, CI-unreachable IP as `QDRANT_URL` and, unlike every other live-Qdrant test file in this repo, was missing the `pytest.mark.integration` marker that excludes it from `pytest tests/ -m "not integration"`. Combined with CI's `-x` (fail-fast) flag, any connection failure here aborted the entire run. Now reads `QDRANT_URL`/`QDRANT_API_KEY` from the environment and is marked `integration` + skipped when Qdrant isn't reachable, matching the existing convention (see `tests/test_tms_integration.py`).
 
 ### Changed
 
 - `docs/provider_tracing.md`: added an explicit identity-hierarchy section distinguishing `request_id`, `router_request_id`, and `provider_request_id`, and reworked the retry/fallback accounting examples to match the corrected semantics
 - Documentation now states explicitly that provider adapters remain non-streaming in this release, to avoid implying streaming support that doesn't exist yet
+
+### Security
+
+Dependency maintenance release addressing GitHub Dependabot alerts. `uv.lock` was re-resolved (no `pyproject.toml` constraint changes were required; all patched versions already satisfy the existing version ranges). Verified against `pip-audit`: **15 of 66 known advisories closed** by upgrading to the latest release already available on PyPI for each affected package:
+
+- `idna` 3.11 -> 3.18
+- `pygments` 2.19.2 -> 2.20.0
+- `pyjwt` 2.11.0 -> 2.13.0
+- `python-engineio` 4.13.1 -> 4.13.4
+- `python-socketio` 5.16.1 -> 5.16.4
+- `tornado` 6.5.5 -> 6.5.8
+
+All are transitive dependencies except `python-socketio` (declared directly, `>=5.11,<6.0`); the resolved version stays within that existing range.
+
+The remaining 51 advisories (across `pillow`, `torch`, `transformers`, `starlette`, `urllib3`, `requests`, `filelock`, `h2`, `msgpack`, `python-dotenv`, `pytest`, `black`, `click`, `setuptools`, `pip`) could not be remediated in this release: for every one of them, the version PyPI advisories list as the fix has **not yet been published upstream** (verified against the live package index on 2026-08-07) or, for `pip`/`setuptools`, is build/environment tooling rather than a project dependency. No downgrade, workaround, or unrelated major-version jump was applied to force a fix. These will be revisited as upstream releases land; `pip-audit` was run against the resolved environment to confirm this list rather than inferred from package names.
 
 ## [0.6.0] - 2026-08-06
 

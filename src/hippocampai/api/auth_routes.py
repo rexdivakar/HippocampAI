@@ -73,7 +73,8 @@ def _get_user_id_from_session(unique_id: str) -> Optional[str]:
         from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        client = QdrantClient(url=qdrant_url)
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
         collections_to_check = [
             "hippocampai_facts",

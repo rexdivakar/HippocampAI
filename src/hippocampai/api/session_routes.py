@@ -295,7 +295,8 @@ async def sync_from_qdrant() -> dict:
     from hippocampai.storage.models import Session, User
 
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-    client = QdrantClient(url=qdrant_url)
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     store = get_user_store()
 
     collections = ["hippocampai_facts", "hippocampai_prefs", "personal_facts"]
@@ -406,7 +407,8 @@ async def _soft_delete_qdrant_memories(session_id: str) -> int:
     from qdrant_client.models import FieldCondition, Filter, MatchValue, PointIdsList
 
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-    client = QdrantClient(url=qdrant_url)
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
     collections = ["hippocampai_facts", "hippocampai_prefs", "personal_facts"]
     total_updated = 0
@@ -454,7 +456,8 @@ async def _restore_qdrant_memories(session_id: str) -> int:
     from qdrant_client.models import FieldCondition, Filter, MatchValue, PointIdsList
 
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-    client = QdrantClient(url=qdrant_url)
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
     collections = ["hippocampai_facts", "hippocampai_prefs", "personal_facts"]
     total_updated = 0

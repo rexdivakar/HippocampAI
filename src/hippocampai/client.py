@@ -77,6 +77,7 @@ PresetType = Literal["local", "cloud", "production", "development"]
 def _apply_config_overrides(
     config: Config,
     qdrant_url: Optional[str],
+    qdrant_api_key: Optional[str],
     collection_facts: Optional[str],
     collection_prefs: Optional[str],
     embed_model: Optional[str],
@@ -95,6 +96,7 @@ def _apply_config_overrides(
     """Apply parameter overrides to config."""
     overrides = {
         "qdrant_url": qdrant_url,
+        "qdrant_api_key": qdrant_api_key,
         "collection_facts": collection_facts,
         "collection_prefs": collection_prefs,
         "embed_model": embed_model,
@@ -168,6 +170,7 @@ class MemoryClient:
     def __init__(
         self,
         qdrant_url: Optional[str] = None,
+        qdrant_api_key: Optional[str] = None,
         collection_facts: Optional[str] = None,
         collection_prefs: Optional[str] = None,
         embed_model: Optional[str] = None,
@@ -215,6 +218,7 @@ class MemoryClient:
         _apply_config_overrides(
             self.config,
             qdrant_url,
+            qdrant_api_key,
             collection_facts,
             collection_prefs,
             embed_model,
@@ -234,6 +238,7 @@ class MemoryClient:
         # Initialize components
         self.qdrant = QdrantStore(
             url=self.config.qdrant_url,
+            api_key=self.config.qdrant_api_key,
             collection_facts=self.config.collection_facts,
             collection_prefs=self.config.collection_prefs,
             dimension=self.config.embed_dimension,

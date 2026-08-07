@@ -29,9 +29,17 @@ All fields are defined in `src/hippocampai/config.py` as a `Config(BaseSettings)
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `QDRANT_URL` | str | `http://localhost:6333` | Qdrant server URL |
+| `QDRANT_URL` | str | `http://localhost:6333` | Qdrant server URL. Local Qdrant or a Qdrant Cloud cluster URL (`https://<cluster>.cloud.qdrant.io`) both work |
+| `QDRANT_API_KEY` | str, optional | unset | Qdrant Cloud API key. Leave unset for unauthenticated local Qdrant; required for Qdrant Cloud |
 | `COLLECTION_FACTS` | str | `hippocampai_facts` | Collection name for facts |
 | `COLLECTION_PREFS` | str | `hippocampai_prefs` | Collection name for preferences |
+
+Qdrant Cloud example:
+
+```env
+QDRANT_URL=https://your-cluster-id.cloud.qdrant.io
+QDRANT_API_KEY=your-qdrant-cloud-api-key
+```
 
 ### HNSW Index Tuning
 

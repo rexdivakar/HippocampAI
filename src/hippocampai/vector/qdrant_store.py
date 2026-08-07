@@ -33,6 +33,7 @@ class QdrantStore:
     def __init__(
         self,
         url: Optional[str] = None,
+        api_key: Optional[str] = None,
         collection_facts: str = "hippocampai_facts",
         collection_prefs: str = "hippocampai_prefs",
         dimension: int = 384,
@@ -43,7 +44,12 @@ class QdrantStore:
         import os
 
         resolved_url: str = url or os.getenv("QDRANT_URL", "http://localhost:6333")
-        self.client = QdrantClient(url=resolved_url, timeout=60)
+        # api_key stays None for unauthenticated local Qdrant; Qdrant Cloud requires it.
+        # Never logged below - only the URL is safe to print.
+        # Falsy (None or "") means "no key" so a blank QDRANT_API_KEY= in a
+        # .env template behaves the same as leaving it unset.
+        resolved_api_key: Optional[str] = api_key or os.getenv("QDRANT_API_KEY") or None
+        self.client = QdrantClient(url=resolved_url, api_key=resolved_api_key, timeout=60)
         self.collection_facts = collection_facts
         self.collection_prefs = collection_prefs
         self.dimension = dimension
@@ -51,7 +57,7 @@ class QdrantStore:
         self.ef_construction = ef_construction
         self.ef_search = ef_search
 
-        logger.info(f"Connected to Qdrant at {url}")
+        logger.info(f"Connected to Qdrant at {resolved_url}")
         self._ensure_collections()
 
     def _ensure_collections(self, collection_name: Optional[str] = None) -> None:

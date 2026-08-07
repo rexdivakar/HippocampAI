@@ -393,7 +393,8 @@ class TestLibraryIntegrations:
         import os
 
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        client = QdrantClient(url=qdrant_url)
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
         collections = client.get_collections()
         assert collections is not None
 

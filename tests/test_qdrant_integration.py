@@ -1,24 +1,50 @@
-"""Integration tests against live Qdrant at 100.113.229.40.
+"""Integration tests against a live Qdrant instance.
 
 These tests verify end-to-end memory storage and retrieval using the real
 MemoryClient pipeline no mocks for the storage layer. Tests use isolated
 collection names prefixed with 'inttest_' and clean up after themselves.
 
+Marked ``integration`` so they're skipped in unit-only runs (they require a
+real, reachable Qdrant instance at ``QDRANT_URL``, local or Cloud). Not
+following this repo's ``pytest.mark.integration`` convention previously is
+what let this file's hardcoded, CI-unreachable URL slip into the default
+"not integration" CI run and break it.
+
 Run with:
-    pytest tests/test_qdrant_integration.py -v
+    QDRANT_URL=http://localhost:6333 pytest tests/test_qdrant_integration.py -v
 """
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 
+import httpx
 import pytest
 
-QDRANT_URL = "http://100.113.229.40:6333"
-FACTS_COLLECTION = "inttest_facts"
-PREFS_COLLECTION = "inttest_prefs"
+from tests.conftest import namespaced_collection
+
+QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+FACTS_COLLECTION = namespaced_collection("inttest_facts")
+PREFS_COLLECTION = namespaced_collection("inttest_prefs")
 TEST_USER = f"test_user_{uuid.uuid4().hex[:8]}"
+
+
+def _qdrant_reachable() -> bool:
+    try:
+        headers = {"api-key": QDRANT_API_KEY} if QDRANT_API_KEY else {}
+        httpx.get(QDRANT_URL, headers=headers, timeout=2.0)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(not _qdrant_reachable(), reason="Qdrant is not reachable"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +59,7 @@ def client():
 
     c = MemoryClient(
         qdrant_url=QDRANT_URL,
+        qdrant_api_key=QDRANT_API_KEY,
         collection_facts=FACTS_COLLECTION,
         collection_prefs=PREFS_COLLECTION,
         enable_telemetry=False,
