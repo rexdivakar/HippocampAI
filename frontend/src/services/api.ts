@@ -442,16 +442,20 @@ class APIClient {
   // AUTH
   // ============================================================================
 
+  private authToken: string | null = null;
+
   setAuthToken(token: string): void {
-    localStorage.setItem('auth_token', token);
+    this.authToken = token;
+    localStorage.removeItem('auth_token');
   }
 
   clearAuthToken(): void {
+    this.authToken = null;
     localStorage.removeItem('auth_token');
   }
 
   getAuthToken(): string | null {
-    return localStorage.getItem('auth_token');
+    return this.authToken;
   }
 
   // ============================================================================
