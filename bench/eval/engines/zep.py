@@ -88,7 +88,7 @@ class ZepAdapter:
                 session_id=sid,
                 messages=[{"role": "user", "role_type": "user", "content": text}],
             )
-        except Exception as exc:  # noqa: BLE001 - surface as zero-id placeholder
+        except Exception:  # noqa: BLE001 - surface as zero-id placeholder
             return _Mem(id=f"zep:error:{uuid.uuid4()}", text=text)
 
         # Zep returns either a message UUID directly or a list of messages
