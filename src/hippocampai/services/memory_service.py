@@ -266,7 +266,7 @@ class MemoryManagementService:
             "weights": custom_weights,
         }
         cache_str = json.dumps(cache_data, sort_keys=True)
-        cache_hash = hashlib.md5(cache_str.encode(), usedforsecurity=False).hexdigest()
+        cache_hash = hashlib.sha256(cache_str.encode()).hexdigest()
         return f"query_cache:{cache_hash}"
 
     async def _handle_duplicate_check(
