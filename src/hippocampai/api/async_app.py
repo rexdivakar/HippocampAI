@@ -200,7 +200,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="HippocampAI API",
     description="Autonomous memory engine with hybrid retrieval, batch operations, deduplication, and consolidation",
-    version="0.6.0",
+    version="0.6.1",
     lifespan=lifespan,
 )
 

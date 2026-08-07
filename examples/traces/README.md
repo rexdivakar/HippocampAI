@@ -21,6 +21,20 @@ field-by-field schema reference.
   set; by default (no pricing configured) this field is `null`, not `0`.
   HippocampAI never fabricates a cost for an unpriced model.
 
+**Identity:** three distinct IDs appear - `request_id` (HippocampAI's own
+authoritative logical invocation identity), `router_request_id` (an optional
+external router/gateway identity, here the same fictional value on both
+attempts since it identifies the one logical request, not a specific
+attempt), and each attempt's own `provider_request_id` (`null` on attempt 1,
+since it never received a response before failing). None of the three is
+ever copied into another. See
+[Identity Hierarchy](../../docs/provider_tracing.md#identity-hierarchy) for
+the full explanation.
+
+Because attempt 2 is a **fallback** (`fallback_reason` set) rather than a
+same-route retry, `total_retries` is `0` and `total_fallbacks` is `1` - a
+fallback attempt is never also counted as a retry.
+
 **Sanitization:** all identifiers (`tenant_id`, `user_id`, `workflow_id`,
 etc.) are fictional. The `error_message` on attempt 1 demonstrates that a
 secret embedded in a raw provider error (`Authorization: Bearer ...`) is

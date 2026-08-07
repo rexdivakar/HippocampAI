@@ -126,11 +126,18 @@ def test_failed_attempt_then_successful_retry(telemetry, openai_llm):
     assert invocation.status == "success"
     assert invocation.total_attempts == 2
     assert invocation.total_retries == 1
+    assert invocation.total_fallbacks == 0
     assert invocation.attempts[0].status == "error"
     assert invocation.attempts[0].error_type == "timeout"
     assert invocation.attempts[0].is_final is False
     assert invocation.attempts[1].status == "success"
     assert invocation.attempts[1].is_final is True
+
+    # retry_reason belongs to the attempt that was retried INTO, not the
+    # one that failed: a failed attempt already explains itself via
+    # error_type, so its own retry_reason stays null.
+    assert invocation.attempts[0].retry_reason is None
+    assert invocation.attempts[1].retry_reason == "timeout"
 
     # Each attempt has its own stable, unique, ordered ID - retries are never collapsed.
     assert invocation.attempts[0].attempt_id != invocation.attempts[1].attempt_id
@@ -172,8 +179,14 @@ def test_provider_or_model_fallback(telemetry):
     assert invocation.status == "success"
     assert invocation.total_attempts == 2
     assert invocation.total_fallbacks == 1
+    # A fallback is not a retry: attempt 2 switched provider/model rather
+    # than retrying the same route, so total_retries stays 0.
+    assert invocation.total_retries == 0
     assert invocation.attempts[1].fallback_reason == "provider_unavailable"
     assert invocation.attempts[1].routing_reason == "primary_timeout"
+    # retry_reason stays null on a fallback attempt even though the
+    # previous attempt failed - fallback_reason already explains it.
+    assert invocation.attempts[1].retry_reason is None
     assert invocation.selected_provider == "anthropic"
     assert invocation.selected_model == "claude-3-haiku-20240307"
 
@@ -211,9 +224,7 @@ def test_total_only_attempt_usage_is_included_in_invocation(telemetry):
         provider="router", requested_model="routed-model", operation="chat"
     ) as invocation_id:
         with llm_attempt(provider="router", requested_model="routed-model") as attempt:
-            attempt.apply_metadata(
-                UpstreamMetadata(upstream_token_usage={"total_tokens": 37})
-            )
+            attempt.apply_metadata(UpstreamMetadata(upstream_token_usage={"total_tokens": 37}))
 
     invocation = telemetry.get_llm_invocation(invocation_id)
     assert invocation.input_tokens == 0
@@ -237,14 +248,10 @@ def test_invocation_token_total_prefers_breakdown_per_attempt(telemetry):
                 )
             )
         with llm_attempt(provider="router", requested_model="routed-model") as attempt:
-            attempt.apply_metadata(
-                UpstreamMetadata(upstream_token_usage={"total_tokens": 20})
-            )
+            attempt.apply_metadata(UpstreamMetadata(upstream_token_usage={"total_tokens": 20}))
         with llm_attempt(provider="router", requested_model="routed-model") as attempt:
             attempt.apply_metadata(
-                UpstreamMetadata(
-                    upstream_token_usage={"input_tokens": 7, "total_tokens": 500}
-                )
+                UpstreamMetadata(upstream_token_usage={"input_tokens": 7, "total_tokens": 500})
             )
 
     invocation = telemetry.get_llm_invocation(invocation_id)
@@ -907,3 +914,254 @@ def test_memory_telemetry_llm_invocations_isolated_per_instance():
     a.start_llm_invocation(provider="openai", requested_model="gpt-4o-mini", operation="chat")
     assert len(a.llm_invocations) == 1
     assert len(b.llm_invocations) == 0
+
+
+# ---------------------------------------------------------------------
+# Request identity: HippocampAI request_id vs. router_request_id vs.
+# provider_request_id must never be conflated.
+# ---------------------------------------------------------------------
+
+
+def test_hippocampai_request_id_is_authoritative_and_unaffected_by_router_metadata(
+    telemetry, openai_llm
+):
+    """HippocampAI's own request_id must never be overwritten by anything
+    a router or provider supplies."""
+    response = _openai_response()
+    response.id = "chatcmpl-provider-side-id"
+    openai_llm.client.chat.completions.create.return_value = response
+
+    openai_llm.chat([{"role": "user", "content": "hi"}])
+
+    invocation = list(telemetry.llm_invocations.values())[0]
+    assert invocation.request_id
+    # HippocampAI's own logical request_id is a UUID it minted itself, not
+    # the provider's response id or anything router-supplied.
+    assert invocation.request_id != "chatcmpl-provider-side-id"
+    assert invocation.attempts[0].provider_request_id == "chatcmpl-provider-side-id"
+
+
+def test_router_request_id_is_preserved_separately_from_hippocampai_request_id(telemetry):
+    """A router-supplied identity is recorded on the attempt (and rolled up
+    onto the invocation) without ever touching HippocampAI's own request_id
+    or the attempt's provider_request_id."""
+    with llm_invocation(
+        provider="openai", requested_model="gpt-4o-mini", operation="chat"
+    ) as inv_id:
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(
+                    router_request_id="router-abc-123",
+                    provider_request_id="chatcmpl-real-provider-id",
+                )
+            )
+
+    invocation = telemetry.get_llm_invocation(inv_id)
+    assert invocation.router_request_id == "router-abc-123"
+    assert invocation.attempts[0].router_request_id == "router-abc-123"
+    assert invocation.attempts[0].provider_request_id == "chatcmpl-real-provider-id"
+    # The three identities are distinct values, not aliases of each other.
+    assert invocation.request_id != invocation.router_request_id
+    assert invocation.router_request_id != invocation.attempts[0].provider_request_id
+
+
+def test_router_request_id_never_copied_into_provider_request_id(telemetry):
+    with llm_invocation(provider="openai", requested_model="gpt-4o-mini", operation="chat"):
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            # A router supplies only its own gateway-level ID - no
+            # per-attempt provider ID is available from it.
+            attempt.apply_metadata(UpstreamMetadata(router_request_id="router-only-id"))
+
+    invocation = list(telemetry.llm_invocations.values())[0]
+    assert invocation.attempts[0].router_request_id == "router-only-id"
+    assert invocation.attempts[0].provider_request_id is None
+
+
+def test_upstream_metadata_request_id_is_deprecated_alias_for_router_request_id(telemetry):
+    """Backwards compatibility: callers still using the old
+    UpstreamMetadata.request_id field get the same router_request_id
+    behavior, never mapped into provider_request_id."""
+    with llm_invocation(provider="openai", requested_model="gpt-4o-mini", operation="chat"):
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            attempt.apply_metadata(UpstreamMetadata(request_id="legacy-router-id"))
+
+    invocation = list(telemetry.llm_invocations.values())[0]
+    assert invocation.attempts[0].router_request_id == "legacy-router-id"
+    assert invocation.attempts[0].provider_request_id is None
+
+    # router_request_id (new field) takes precedence when both are set.
+    with llm_invocation(provider="openai", requested_model="gpt-4o-mini", operation="chat"):
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            attempt.apply_metadata(
+                UpstreamMetadata(request_id="legacy-id", router_request_id="preferred-id")
+            )
+    invocation2 = list(telemetry.llm_invocations.values())[1]
+    assert invocation2.attempts[0].router_request_id == "preferred-id"
+
+
+def test_provider_request_id_stays_none_when_not_supplied(telemetry):
+    """Missing provider_request_id is valid and must not break tracing or
+    aggregation - it is never invented."""
+    with llm_invocation(provider="ollama", requested_model="qwen2.5:7b-instruct", operation="chat"):
+        with llm_attempt(provider="ollama", requested_model="qwen2.5:7b-instruct"):
+            pass  # local Ollama call: no provider request id, no router id
+
+    invocation = list(telemetry.llm_invocations.values())[0]
+    assert invocation.status == "success"
+    assert invocation.attempts[0].provider_request_id is None
+    assert invocation.attempts[0].router_request_id is None
+    assert invocation.router_request_id is None
+
+
+def test_serialized_trace_preserves_router_request_id(telemetry):
+    with llm_invocation(
+        provider="openai", requested_model="gpt-4o-mini", operation="chat"
+    ) as inv_id:
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            attempt.apply_metadata(UpstreamMetadata(router_request_id="router-export-check"))
+
+    exported = telemetry.export_llm_invocations([inv_id])[0]
+    assert exported["router_request_id"] == "router-export-check"
+    assert exported["attempts"][0]["router_request_id"] == "router-export-check"
+    assert exported["request_id"] != exported["router_request_id"]
+
+
+# ---------------------------------------------------------------------
+# Retry vs. fallback accounting must not double-count.
+# ---------------------------------------------------------------------
+
+
+def test_pure_retry_increments_total_retries_only(telemetry):
+    with llm_invocation(
+        provider="openai", requested_model="gpt-4o-mini", operation="chat"
+    ) as inv_id:
+        try:
+            with llm_attempt(provider="openai", requested_model="gpt-4o-mini"):
+                raise TimeoutError("slow")
+        except TimeoutError:
+            pass
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini"):
+            pass  # same route, succeeds
+
+    invocation = telemetry.get_llm_invocation(inv_id)
+    assert invocation.total_attempts == 2
+    assert invocation.total_retries == 1
+    assert invocation.total_fallbacks == 0
+
+
+def test_pure_fallback_increments_total_fallbacks_only(telemetry):
+    with llm_invocation(
+        provider="groq", requested_model="llama-3.3-70b-versatile", operation="chat"
+    ) as inv_id:
+        try:
+            with llm_attempt(provider="groq", requested_model="llama-3.3-70b-versatile"):
+                raise TimeoutError("rate limited")
+        except TimeoutError:
+            pass
+        with llm_attempt(
+            provider="openai",
+            requested_model="llama-3.3-70b-versatile",
+            selected_model="gpt-4o-mini",
+            fallback_reason="provider_rate_limited",
+        ):
+            pass
+
+    invocation = telemetry.get_llm_invocation(inv_id)
+    assert invocation.total_attempts == 2
+    assert invocation.total_retries == 0
+    assert invocation.total_fallbacks == 1
+
+
+def test_retry_then_fallback_counts_each_exactly_once(telemetry):
+    """Scenario D: attempt 1 fails, attempt 2 retries the same route and
+    also fails, attempt 3 falls back and succeeds. total_retries=1,
+    total_fallbacks=1, total_attempts=3 - never total_retries=2."""
+    with llm_invocation(
+        provider="groq", requested_model="llama-3.3-70b-versatile", operation="chat"
+    ) as inv_id:
+        try:
+            with llm_attempt(provider="groq", requested_model="llama-3.3-70b-versatile"):
+                raise TimeoutError("timeout 1")
+        except TimeoutError:
+            pass
+        try:
+            with llm_attempt(provider="groq", requested_model="llama-3.3-70b-versatile"):
+                raise TimeoutError("timeout 2")
+        except TimeoutError:
+            pass
+        with llm_attempt(
+            provider="openai",
+            requested_model="llama-3.3-70b-versatile",
+            selected_model="gpt-4o-mini",
+            fallback_reason="provider_rate_limited",
+        ):
+            pass
+
+    invocation = telemetry.get_llm_invocation(inv_id)
+    assert invocation.total_attempts == 3
+    assert invocation.total_retries == 1
+    assert invocation.total_fallbacks == 1
+    assert invocation.status == "success"
+
+
+# ---------------------------------------------------------------------
+# Partial upstream telemetry: missing fields stay None, never fabricated
+# as zero.
+# ---------------------------------------------------------------------
+
+
+def test_missing_external_telemetry_remains_none_not_zero(telemetry):
+    """A router that only exposes a router_request_id (no per-attempt
+    latency/tokens/provider id) must not have those fields silently
+    replaced with 0 - that would look like a measured zero."""
+    with llm_invocation(provider="openai", requested_model="gpt-4o-mini", operation="chat"):
+        with llm_attempt(provider="openai", requested_model="gpt-4o-mini") as attempt:
+            attempt.apply_metadata(UpstreamMetadata(router_request_id="router-partial"))
+            # No input_tokens/output_tokens/provider_request_id supplied.
+
+    invocation = list(telemetry.llm_invocations.values())[0]
+    attempt = invocation.attempts[0]
+    assert attempt.input_tokens is None
+    assert attempt.output_tokens is None
+    assert attempt.provider_request_id is None
+    # The invocation-level aggregate correctly treats the missing per-attempt
+    # usage as contributing nothing, without claiming the attempt itself
+    # measured zero tokens.
+    assert invocation.input_tokens == 0
+    assert invocation.output_tokens == 0
+
+
+# ---------------------------------------------------------------------
+# Example fixture: examples/traces/provider_trace_example.json must stay
+# schema-valid against the live implementation.
+# ---------------------------------------------------------------------
+
+
+def test_example_fixture_matches_live_schema():
+    import json
+    from dataclasses import fields
+    from pathlib import Path
+
+    from hippocampai.telemetry import LLMInvocation, UpstreamAttempt
+
+    fixture_path = (
+        Path(__file__).resolve().parents[1] / "examples" / "traces" / "provider_trace_example.json"
+    )
+    fixture = json.loads(fixture_path.read_text())
+
+    invocation_fields = {f.name for f in fields(LLMInvocation)} - {"attempts"}
+    attempt_fields = {f.name for f in fields(UpstreamAttempt)}
+
+    assert set(fixture.keys()) - {"attempts"} == invocation_fields
+    assert len(fixture["attempts"]) == 2
+    for attempt in fixture["attempts"]:
+        assert set(attempt.keys()) == attempt_fields
+
+    # Sanitization: no secret-shaped content anywhere in the fixture.
+    raw = json.dumps(fixture)
+    assert "sk-" not in raw
+    assert "Bearer " not in raw or "[REDACTED]" in raw
+    assert "router_request_id" in fixture
+    assert fixture["attempts"][0]["retry_reason"] is None or isinstance(
+        fixture["attempts"][0]["retry_reason"], str
+    )

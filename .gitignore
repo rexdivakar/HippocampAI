@@ -131,6 +131,7 @@ dmypy.json
 # Data files
 *.csv
 *.json
+!examples/traces/*.json
 *.jsonl
 *.parquet
 *.pkl

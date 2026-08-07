@@ -717,9 +717,30 @@ class UpstreamMetadata:
     explicitly by an OpenAI-compatible routing layer (e.g. a self-hosted
     router) without HippocampAI depending on that layer. Every field is
     optional; unknown/missing fields never raise.
+
+    Identity fields are deliberately kept separate and are never merged
+    into one another:
+      - HippocampAI's own ``LLMInvocation.request_id`` (the logical
+        invocation identity) is authoritative and is never overwritten by
+        anything in this class.
+      - ``router_request_id`` is an *external* gateway/router's own
+        identifier for the logical request as it crosses that boundary
+        (e.g. a client-request-ID header an OpenAI-compatible proxy
+        assigns). It is provider-neutral - no specific router product is
+        named or required here.
+      - ``provider_request_id`` identifies exactly one upstream attempt at
+        exactly one provider (e.g. OpenAI's ``response.id``). It must never
+        be populated from a router/gateway-level ID, since that ID does not
+        reliably identify a single attempt.
     """
 
+    router_request_id: Optional[str] = None
     request_id: Optional[str] = None
+    """Deprecated alias for ``router_request_id``, kept for backwards
+    compatibility with callers written against the pre-router-identity
+    contract. ``apply_metadata()`` falls back to this only when
+    ``router_request_id`` is unset. Never mapped into ``provider_request_id``.
+    New code should set ``router_request_id`` directly."""
     provider_request_id: Optional[str] = None
     selected_model: Optional[str] = None
     routing_reason: Optional[str] = None
@@ -868,6 +889,12 @@ class UpstreamAttempt:
     attempt_id: str = field(default_factory=lambda: str(uuid4()))
     selected_model: Optional[str] = None
     provider_request_id: Optional[str] = None
+    router_request_id: Optional[str] = None
+    """External gateway/router's own identifier for the logical request
+    this attempt belongs to, if supplied via ``UpstreamMetadata``. Distinct
+    from ``provider_request_id`` (this specific attempt's upstream ID) and
+    from the owning ``LLMInvocation.request_id`` (HippocampAI's own
+    authoritative logical invocation ID, never overwritten by this field)."""
     start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: Optional[datetime] = None
     latency_ms: Optional[float] = None
@@ -896,6 +923,9 @@ class UpstreamAttempt:
         """
         if meta.provider_request_id:
             self.provider_request_id = meta.provider_request_id
+        router_request_id = meta.router_request_id or meta.request_id
+        if router_request_id:
+            self.router_request_id = router_request_id
         if meta.selected_model:
             self.selected_model = meta.selected_model
         if meta.routing_reason:
@@ -930,6 +960,10 @@ class LLMInvocation:
     invocation_id: str
     trace_id: str
     request_id: str
+    """HippocampAI's own authoritative logical invocation identity. Never
+    overwritten by any router/provider-supplied identifier - see
+    ``router_request_id`` for an external gateway's own ID for this same
+    logical request."""
     provider: str
     requested_model: str
     operation: str
@@ -971,6 +1005,11 @@ class LLMInvocation:
     total_attempts: int = 0
     total_retries: int = 0
     total_fallbacks: int = 0
+    router_request_id: Optional[str] = None
+    """External gateway/router's own identifier for this logical request,
+    if any attempt reported one via ``UpstreamMetadata``. Distinct from
+    ``request_id`` (HippocampAI's own ID, always authoritative) and from
+    each attempt's own ``provider_request_id``."""
     attempts: list[UpstreamAttempt] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -995,8 +1034,14 @@ class LLMInvocation:
         self.error_message = error_message
 
         self.total_attempts = len(self.attempts)
-        self.total_retries = max(0, self.total_attempts - 1)
+        # A fallback attempt is not also a retry: total_retries only counts
+        # additional attempts along the *same* route (no fallback_reason).
+        # See docs/provider_tracing.md#retry-behavior for the worked examples.
         self.total_fallbacks = sum(1 for a in self.attempts if a.fallback_reason)
+        self.total_retries = max(0, self.total_attempts - 1) - self.total_fallbacks
+        self.router_request_id = next(
+            (a.router_request_id for a in self.attempts if a.router_request_id), None
+        )
         self.input_tokens = sum(a.input_tokens or 0 for a in self.attempts)
         self.output_tokens = sum(a.output_tokens or 0 for a in self.attempts)
         self.cached_input_tokens = sum(a.cached_input_tokens or 0 for a in self.attempts)
@@ -1034,6 +1079,7 @@ def _invocation_to_dict(invocation: LLMInvocation) -> dict[str, Any]:
             "requested_model": attempt.requested_model,
             "selected_model": attempt.selected_model,
             "provider_request_id": attempt.provider_request_id,
+            "router_request_id": attempt.router_request_id,
             "start_time": attempt.start_time.isoformat(),
             "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
             "latency_ms": attempt.latency_ms,
@@ -1096,6 +1142,7 @@ def _invocation_to_dict(invocation: LLMInvocation) -> dict[str, Any]:
         "total_attempts": invocation.total_attempts,
         "total_retries": invocation.total_retries,
         "total_fallbacks": invocation.total_fallbacks,
+        "router_request_id": invocation.router_request_id,
         "attempts": [_attempt_dict(a) for a in invocation.attempts],
         "metadata": invocation.metadata,
     }
@@ -1170,6 +1217,14 @@ def llm_attempt(
     ``llm_invocation`` block (found via a context variable), if any. Yields
     the ``UpstreamAttempt`` so the caller can fill in usage/ids via
     ``attempt.apply_metadata(...)`` before returning.
+
+    ``retry_reason`` semantics: it belongs to the attempt that was started
+    *because* a previous attempt failed, not to the failing attempt itself
+    (a failed attempt's ``error_type`` already says why it failed; its
+    ``retry_reason`` stays ``None``). If the previous attempt in this
+    invocation errored and this attempt isn't an explicit fallback, its
+    ``retry_reason`` is inherited from that previous attempt's
+    ``error_type`` unless the caller passes one explicitly.
     """
     telemetry = get_telemetry()
     invocation_id = _current_llm_invocation_id.get()
@@ -1178,6 +1233,10 @@ def llm_attempt(
         if (invocation_id and telemetry.enabled)
         else None
     )
+    previous_attempt = invocation.attempts[-1] if invocation and invocation.attempts else None
+    if retry_reason is None and fallback_reason is None and previous_attempt is not None:
+        if previous_attempt.status == "error":
+            retry_reason = previous_attempt.error_type
     attempt_number = (len(invocation.attempts) + 1) if invocation is not None else 1
     attempt = UpstreamAttempt(
         attempt_number=attempt_number,
@@ -1194,12 +1253,10 @@ def llm_attempt(
         attempt.status = "success"
         attempt.is_final = True
     except Exception as exc:
-        error_type, classified_retry_reason = classify_llm_error(exc)
+        error_type, _ = classify_llm_error(exc)
         attempt.status = "error"
         attempt.error_type = error_type
         attempt.error_message = sanitize_error_message(str(exc))
-        if attempt.retry_reason is None:
-            attempt.retry_reason = classified_retry_reason
         raise
     finally:
         attempt.end_time = datetime.now(timezone.utc)

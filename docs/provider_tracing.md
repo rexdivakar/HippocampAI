@@ -39,6 +39,7 @@ optionally** supply, per upstream attempt:
 | Field | Populated via |
 |---|---|
 | `logical_request_id`* | n/a; always assigned by HippocampAI (see [Note on `logical_request_id`](#note-on-logical_request_id)) |
+| `router_request_id` | `UpstreamMetadata.router_request_id` (or its deprecated alias `UpstreamMetadata.request_id`) - a *separate*, optional external identity; see [Identity Hierarchy](#identity-hierarchy) |
 | `provider_request_id` | `UpstreamMetadata.provider_request_id` |
 | `attempt_id`* | n/a; always assigned by HippocampAI |
 | `selected_provider`* | the attempt's own `provider` field, set by the caller |
@@ -66,6 +67,58 @@ that exposes all of it. No provider integration in this repository, and no
 routing layer, is required for tracing to work; the four built-in adapters
 (OpenAI, Anthropic, Groq, Ollama) populate `UpstreamMetadata` themselves from
 each SDK's native response shape.
+
+---
+
+## Identity Hierarchy
+
+Three distinct identifiers exist at three distinct scopes. They are never
+merged, aliased, or overwritten into one another:
+
+```
+TraceContext
+  -> LogicalInvocation
+       request_id            <- HippocampAI-owned, authoritative, always set
+       router_request_id     <- optional, external router/gateway identity
+       -> ProviderAttempt 1
+            provider_request_id   <- optional, this attempt's upstream ID
+            router_request_id     <- inherited from the same logical request
+       -> ProviderAttempt 2
+            provider_request_id   <- optional, this attempt's upstream ID
+            router_request_id     <- inherited from the same logical request
+```
+
+- **`request_id`** (`LLMInvocation.request_id`): HippocampAI's own logical
+  invocation identity. A fresh UUID minted per invocation. **Authoritative
+  and never overwritten** by anything a router or provider supplies. This is
+  what the discussion's `logical_request_id` term refers to.
+- **`router_request_id`** (`LLMInvocation.router_request_id` and
+  `UpstreamAttempt.router_request_id`): optional, external. An outer
+  gateway/router's own identifier for the logical request as it crosses that
+  boundary (e.g. the value NovaRouteAI or any other OpenAI-compatible router
+  would assign per logical request, such as a client-request-ID header).
+  Populated via `UpstreamMetadata.router_request_id` and rolled onto the
+  invocation from whichever attempt(s) reported it. It is provider-neutral -
+  no specific router product is named or required anywhere in this field's
+  definition or population path.
+- **`provider_request_id`** (`UpstreamAttempt.provider_request_id`):
+  optional, attempt-specific. The ID the actual upstream provider returned
+  for *this one* real request (e.g. OpenAI's `response.id`). Never populated
+  from a router/gateway-level ID, a final-response ID that doesn't reliably
+  identify a single attempt, or any logical/router identity - see
+  [ProviderAttempt](#providerattempt).
+
+### Backwards compatibility: `UpstreamMetadata.request_id`
+
+An earlier revision of this contract had only a single, ambiguous
+`UpstreamMetadata.request_id` field with no clear owner. It is preserved as
+a **deprecated alias for `router_request_id`**: `apply_metadata()` uses
+`router_request_id` when set, and falls back to `request_id` only when
+`router_request_id` is unset. Either way the result lands in
+`UpstreamAttempt.router_request_id`, never in `provider_request_id`, and
+never overwrites `LLMInvocation.request_id`. New integrations should set
+`router_request_id` directly; existing callers using `request_id` keep
+working unchanged.
 
 ---
 
@@ -122,7 +175,8 @@ provider adapter's public method.
 |---|---|---|---|
 | `invocation_id` | `str` | Always set | Internal record identifier. |
 | `trace_id` | `str` | Always set | From `TraceContext.trace_id`, or auto-generated. |
-| `request_id` | `str` | Always set | The **logical request ID** (see [note](#note-on-logical_request_id)): a fresh UUID minted per invocation, never shared across invocations or reused from a provider response. |
+| `request_id` | `str` | Always set | The **logical request ID** (see [note](#note-on-logical_request_id)): a fresh UUID minted per invocation, never shared across invocations or reused from a provider response. Authoritative - never overwritten. |
+| `router_request_id` | `Optional[str]` | Optional | External router/gateway's own identity for this logical request, if any attempt reported one. See [Identity Hierarchy](#identity-hierarchy). Distinct from `request_id`. |
 | `parent_span_id` | `Optional[str]` | Optional | From `TraceContext`. |
 | `provider` | `str` | Always set | The provider **requested** (e.g. `"openai"`), from the first attempt. |
 | `requested_model` | `str` | Always set | The model **requested**, independent of what a fallback attempt ends up using. |
@@ -139,7 +193,7 @@ provider adapter's public method.
 | `error_type` / `error_message` | `Optional[str]` | Set on error | Sanitized error classification/message for the invocation as a whole. |
 | `finish_reason` | `Optional[str]` | Optional | Inherited from the final attempt's `finish_reason` unless explicitly overridden. |
 | `total_attempts` | `int` | Set on finalize | `len(attempts)`. |
-| `total_retries` | `int` | Set on finalize | `max(0, total_attempts - 1)`. |
+| `total_retries` | `int` | Set on finalize | `max(0, total_attempts - 1) - total_fallbacks`. Counts only same-route retries; a fallback attempt is never also counted as a retry. See [Retry behavior](#retry-behavior) and [Fallback behavior](#fallback-behavior). |
 | `total_fallbacks` | `int` | Set on finalize | Count of attempts whose `fallback_reason` is set. |
 | `attempts` | `list[ProviderAttempt]` | Always present (may be empty) | **Every** upstream attempt, in order. See [ProviderAttempt](#providerattempt). |
 | `metadata` | `dict[str, Any]` | Optional | From `TraceContext.metadata`, size-capped as above. |
@@ -178,14 +232,15 @@ rate-limit backoff, timeout, or model/provider fallback produces its own
 | `provider` | `str` | Always set | The provider actually contacted for **this** attempt (may differ from the invocation's `provider` after a provider fallback). |
 | `requested_model` | `str` | Always set | The model that was asked for on this attempt. |
 | `selected_model` | `Optional[str]` | Optional | The model that actually served the request, if a router/provider reports it (may differ from `requested_model` on a model fallback). |
-| `provider_request_id` | `Optional[str]` | Optional | The upstream provider's own request/response ID, if returned (e.g. OpenAI's `response.id`). `None` for providers that don't expose one (e.g. local Ollama). |
+| `provider_request_id` | `Optional[str]` | Optional | The upstream provider's own request/response ID for **this attempt only**, if returned (e.g. OpenAI's `response.id`). `None` for providers that don't expose one (e.g. local Ollama) or for a failed attempt that never got a response. Never populated from a router/gateway ID. |
+| `router_request_id` | `Optional[str]` | Optional | An external router/gateway's own identity for the *logical request* this attempt belongs to (not this attempt specifically - typically the same value across all attempts under one invocation). See [Identity Hierarchy](#identity-hierarchy). Never copied into `provider_request_id`. |
 | `start_time` / `end_time` | `datetime` / `Optional[datetime]` | `start_time` always set | Wall-clock bounds of this specific attempt only. |
 | `latency_ms` | `Optional[float]` | Set on completion | This attempt's own latency, never the whole invocation's. |
 | `input_tokens` / `output_tokens` / `cached_input_tokens` / `reasoning_tokens` / `total_tokens` | `Optional[int]` | Optional | Usage for this attempt only, normalized from the provider's native response shape. `None` (not `0`) when the provider didn't report it. |
 | `estimated_cost` | `Optional[float]` | Optional | This attempt's own estimated cost; `None` if pricing is unknown for `(provider, selected_model or requested_model)`. |
 | `status` | `str` | Default `"in_progress"` | `"in_progress"` \| `"success"` \| `"error"`. See [Status values](#status-values). |
 | `finish_reason` | `Optional[str]` | Optional | Provider-native finish/stop reason (e.g. `"stop"`, `"length"`), when returned. |
-| `retry_reason` | `Optional[str]` | Optional | Why this attempt is a retry of a prior one (e.g. `"rate_limit"`, `"timeout"`, `"connection_error"`, `"server_error"`). Auto-classified from the exception when not explicitly supplied. |
+| `retry_reason` | `Optional[str]` | Optional | Why *this* attempt was started because a *previous* attempt failed (e.g. `"rate_limit"`, `"timeout"`, `"connection_error"`, `"server_error"`) - see [Retry behavior](#retry-behavior). `None` on the failing attempt itself (its own `error_type` already explains it) and `None` on a fallback attempt (its `fallback_reason` already explains it). Auto-inherited from the previous attempt's `error_type` when not explicitly supplied. |
 | `fallback_reason` | `Optional[str]` | Optional | Set only when this attempt represents a provider/model fallback rather than a same-provider retry. Presence of this field is what `total_fallbacks` counts. |
 | `routing_reason` | `Optional[str]` | Optional | Free-form explanation from a router for why this attempt was routed the way it was. |
 | `is_final` | `bool` | Default `False` | `True` only on the attempt that actually completed the logical invocation (successfully, or as the last attempt before giving up). |
@@ -206,18 +261,57 @@ gave up).
 ### Retry behavior
 
 A retry (rate limit, timeout, transient connection/server error) produces a
-new `ProviderAttempt` with an incremented `attempt_number`, the same
-`provider`/`requested_model` as the one it's retrying, and a `retry_reason`
-either supplied explicitly or auto-classified from the causing exception.
-`LogicalInvocation.total_retries` is always `total_attempts - 1`.
+new `ProviderAttempt` with an incremented `attempt_number` and the same
+`provider`/`requested_model` as the one it's retrying (no `fallback_reason`).
+
+`retry_reason` is placed on the attempt that resulted **from** the failure,
+not on the failing attempt itself:
+
+| Attempt | status | error_type | retry_reason |
+|---|---|---|---|
+| 1 (fails) | `"error"` | `"rate_limit"` | `null` |
+| 2 (retries, succeeds) | `"success"` | `null` | `"rate_limit"` |
+
+`llm_attempt(...)` inherits attempt 2's `retry_reason` automatically from
+attempt 1's `error_type` when the caller doesn't pass one explicitly and the
+new attempt isn't itself a fallback (see [`llm_attempt`](../src/hippocampai/telemetry.py)).
+
+`LogicalInvocation.total_retries` counts only attempts like attempt 2 above:
+same-route continuations with no `fallback_reason`. A fallback attempt (see
+below) is never also counted as a retry - `total_retries =
+max(0, total_attempts - 1) - total_fallbacks`.
 
 ### Fallback behavior
 
 A fallback (provider or model) is any `ProviderAttempt` with `fallback_reason`
-set. There is no structural difference from a retry beyond that field:
-`provider`/`requested_model`/`selected_model` may simply differ from the
-previous attempt's. `LogicalInvocation.total_fallbacks` counts attempts with
-`fallback_reason` set.
+set. `provider`/`requested_model`/`selected_model` may differ from the
+previous attempt's. Because it explains itself via `fallback_reason`, a
+fallback attempt's `retry_reason` stays `null` even though the previous
+attempt failed:
+
+| Attempt | status | fallback_reason | retry_reason |
+|---|---|---|---|
+| 1 (fails) | `"error"` | `null` | `null` |
+| 2 (falls back, succeeds) | `"success"` | `"provider_rate_limited"` | `null` |
+
+`LogicalInvocation.total_fallbacks` counts attempts with `fallback_reason`
+set. A single attempt is either a retry or a fallback, never counted as
+both - see the worked table below.
+
+### Worked examples
+
+| Scenario | Attempts | total_attempts | total_retries | total_fallbacks |
+|---|---|---|---|---|
+| A: single success | 1 succeeds | 1 | 0 | 0 |
+| B: retry, same route | 1 fails, 2 retries and succeeds | 2 | 1 | 0 |
+| C: pure fallback | 1 fails, 2 falls back and succeeds | 2 | 0 | 1 |
+| D: retry then fallback | 1 fails, 2 retries and fails, 3 falls back and succeeds | 3 | 1 | 1 |
+
+Scenario D is the case that was previously miscounted (a fallback was also
+counted as a retry, making `total_retries` always `total_attempts - 1`
+regardless of how many of those attempts were actually fallbacks). It is now
+corrected: `total_retries` and `total_fallbacks` always sum to
+`total_attempts - 1` and never double-count the same attempt.
 
 ---
 
@@ -230,22 +324,25 @@ Workflow (workflow_id, workflow_name)
 Workflow Step (workflow_step_id, workflow_step_name)
   │
   ▼
-Logical Invocation  (request_id = "logical request id", trace_id, provider,
-                      requested_model, attribution copied from TraceContext)
+Logical Invocation  (request_id = "logical request id", router_request_id,
+                      trace_id, provider, requested_model,
+                      attribution copied from TraceContext)
   │
   ├─▶ Attempt 1  (attempt_id, attempt_number=1, status="error",
-  │               retry_reason="rate_limit", is_final=false)
+  │               error_type="rate_limit", retry_reason=null, is_final=false)
   │
   ├─▶ Attempt 2  (attempt_id, attempt_number=2, status="error",
-  │               retry_reason="timeout", is_final=false)
+  │               error_type="timeout", retry_reason="rate_limit" [inherited
+  │               from attempt 1], is_final=false)
   │
   └─▶ Attempt N  (attempt_id, attempt_number=N, status="success",
-                  fallback_reason="provider_rate_limited", is_final=true)
+                  fallback_reason="provider_rate_limited", retry_reason=null,
+                  is_final=true)
 
 Logical Invocation aggregates:
   total_attempts = N
-  total_retries  = N - 1
   total_fallbacks = attempts with fallback_reason set
+  total_retries  = max(0, N - 1) - total_fallbacks   (never double-counted)
   input_tokens / output_tokens / total_tokens = sum across all attempts
   estimated_cost = sum of attempt costs (None if none priced)
   latency_ms     = end_time - start_time (spans every attempt)
@@ -276,9 +373,12 @@ recorded:
   contributes `0`). For each attempt, `total_tokens` uses the input/output
   sum when either breakdown field is present, otherwise it uses the reported
   attempt total; invocation totals sum those effective attempt totals.
-- **Retries**: `total_retries = total_attempts - 1` (a single successful
-  attempt has zero retries).
-- **Fallbacks**: `total_fallbacks = count(attempts where fallback_reason is set)`.
+- **Fallbacks**: `total_fallbacks = count(attempts where fallback_reason is set)`,
+  computed first.
+- **Retries**: `total_retries = max(0, total_attempts - 1) - total_fallbacks`
+  (a single successful attempt has zero retries; a fallback attempt is
+  subtracted out so it is never also counted as a retry - see
+  [Worked examples](#worked-examples)).
 - **Estimated cost**: `estimated_cost = sum(attempt.estimated_cost for attempt
   in attempts if attempt.estimated_cost is not None)`, or `None` if **no**
   attempt had a known price (see [Cost Estimation](TELEMETRY.md#cost-estimation)).
@@ -291,6 +391,36 @@ recorded:
 - **Final provider/model**: taken from the attempt with `is_final=True` (the
   last attempt appended, whether it succeeded or was the last try before
   giving up).
+
+---
+
+## Partial Upstream Telemetry
+
+A routing layer may expose only some of what the trace contract can carry -
+for example, a `router_request_id` for the logical request, but no
+per-attempt `provider_request_id`, latency, token usage, or full internal
+routing history for every attempt it made behind the scenes. This is
+expected and fully supported: every per-attempt field on `ProviderAttempt`
+is `Optional`, and `apply_metadata()` only ever sets a field when the
+supplied `UpstreamMetadata` actually contains it (see
+[`UpstreamAttempt.apply_metadata()`](../src/hippocampai/telemetry.py)).
+
+**`null` always means "not exposed or not available from the upstream
+system" - it is never converted to `0`, `""`, or any other value that could
+be mistaken for a real measurement.** Concretely:
+
+- `provider_request_id: null` means no upstream ID was reported (not "ID is
+  empty string").
+- `input_tokens: null` / `output_tokens: null` means token usage wasn't
+  reported for that attempt (not "0 tokens were used"). Aggregation treats a
+  missing per-attempt value as contributing `0` to the invocation-level sum
+  (see [Aggregation Rules](#aggregation-rules)), but the attempt's own field
+  stays `null`, preserving the distinction between "not measured" and
+  "measured as zero."
+- `estimated_cost: null` means pricing is unknown for that provider/model
+  (not "this attempt was free").
+- `router_request_id: null` means no router/gateway supplied one (not "the
+  router's ID was blank").
 
 ---
 
@@ -337,7 +467,8 @@ logic for, any specific routing product; this contract is generic.
 
 | Field | Type | Maps to `ProviderAttempt` field |
 |---|---|---|
-| `request_id` | `Optional[str]` | (advisory; not currently surfaced separately from `provider_request_id`) |
+| `router_request_id` | `Optional[str]` | `router_request_id` (also rolled up onto the owning `LogicalInvocation.router_request_id`) |
+| `request_id` | `Optional[str]` | Deprecated alias for `router_request_id`, used only when `router_request_id` is unset. Never mapped into `provider_request_id`. |
 | `provider_request_id` | `Optional[str]` | `provider_request_id` |
 | `selected_model` | `Optional[str]` | `selected_model` |
 | `routing_reason` | `Optional[str]` | `routing_reason` |
@@ -368,13 +499,21 @@ which only overwrites fields actually present in the supplied metadata.
 
 ## Streaming status
 
-No provider adapter in this repository (`OpenAILLM`, `AnthropicLLM`,
-`GroqLLM`, `OllamaLLM`) implements streaming today: `chat()`/`generate()`
-return a plain `str`. `LLMInvocation.streaming` and
-`time_to_first_token_ms` exist in the schema for forward compatibility and
-are validated at the data-model level (see `tests/test_llm_telemetry.py`),
-but no cancelled/failed-stream behavior exists to document beyond the
-general error path, since there is no streaming code path yet.
+**Current built-in provider adapters (OpenAI, Anthropic, Groq, Ollama) in
+V0.6.0 remain non-streaming.** `chat()`/`generate()` return a plain `str`;
+there is no streaming code path anywhere in this repository today.
+
+`LLMInvocation.streaming` and `time_to_first_token_ms` exist in the trace
+schema purely for forward compatibility with a future streaming adapter.
+They are validated at the data-model level only (see
+`tests/test_llm_telemetry.py::test_streaming_flag_and_ttft_are_recorded` /
+`::test_streaming_cancellation_marks_invocation_failed`) by constructing an
+`LLMInvocation` directly, not by exercising a real streaming call. Concretely:
+`streaming` defaults to `False` and is only ever `True` if a caller passes
+`streaming=True` explicitly; `time_to_first_token_ms` is `None` unless a
+caller sets it after observing a real first token, which no shipped adapter
+does. Neither field implies streaming support exists today - do not read
+their presence in the schema as a capability claim.
 
 ---
 
@@ -404,7 +543,8 @@ Related, not part of the trace schema itself:
 
 ## See also
 
+- [Provider-neutral trace contract and sanitized sample](PROVIDER_NEUTRAL_TRACE_SAMPLE.md)
 - [`TELEMETRY.md`](TELEMETRY.md#llm-usage-tracing): usage guide, code examples, configuration.
 - [`scripts/validate_llm_tracing.py`](../scripts/validate_llm_tracing.py): runnable, offline, bounded validation scenario producing exactly the parent/child example shown in this document.
 - [`examples/traces/provider_trace_example.json`](../examples/traces/provider_trace_example.json): the sanitized JSON example, as a standalone fixture.
-- [`tests/test_llm_telemetry.py`](../tests/test_llm_telemetry.py): 34 tests covering every behavior documented here.
+- [`tests/test_llm_telemetry.py`](../tests/test_llm_telemetry.py): 43 tests covering every behavior documented here.

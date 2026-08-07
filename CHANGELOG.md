@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Latest Version]
 
+## [0.6.1] - 2026-08-07
+
+### Fixed
+
+- **Request identity separation**: added `router_request_id` to `UpstreamMetadata`/`UpstreamAttempt`/`LLMInvocation` as the explicit home for an external gateway or router's own request ID. HippocampAI's own `request_id` remains authoritative and is never overwritten by it; `provider_request_id` remains attempt-specific and is never populated from a router ID. `UpstreamMetadata.request_id` is kept as a deprecated, backwards-compatible alias for `router_request_id`
+- **Retry/fallback double counting**: `LLMInvocation.finalize()` no longer counts a fallback attempt as a retry. `total_retries` is now `total_attempts - 1 - total_fallbacks`, so a route that retries once then falls back to another provider reports one retry and one fallback, not two retries
+- **`retry_reason` placement**: now set on the attempt that resulted from a prior failure (inherited from that failure's `error_type`), not on the failing attempt itself, and stays `null` on fallback attempts
+- **Missing example fixture**: `examples/traces/provider_trace_example.json` was being silently excluded by a blanket `*.json` rule in `.gitignore`, so it never shipped in 0.6.0 despite being referenced by the docs. Added a scoped negation (`!examples/traces/*.json`) and a schema-drift test that fails if the fixture ever diverges from the live `LLMInvocation`/`UpstreamAttempt` dataclasses
+- **Broken release links**: `CHANGELOG.md` linked the lowercase `v0.6.0` tag, which 404s; corrected to the actual published tag `V0.6.0`
+
+### Changed
+
+- `docs/provider_tracing.md`: added an explicit identity-hierarchy section distinguishing `request_id`, `router_request_id`, and `provider_request_id`, and reworked the retry/fallback accounting examples to match the corrected semantics
+- Documentation now states explicitly that provider adapters remain non-streaming in this release, to avoid implying streaming support that doesn't exist yet
+
 ## [0.6.0] - 2026-08-06
 
 ### Added
@@ -1061,9 +1076,10 @@ Not applicable (initial release)
 
 ---
 
-[Latest Version]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.6.0
-[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.6.0
+[Latest Version]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.6.1
+[Unreleased]: https://github.com/rexdivakar/HippocampAI/compare/V0.6.1...HEAD
+[0.6.1]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.6.1
+[0.6.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/V0.6.0
 [0.5.1]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.5.1
 [0.5.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rexdivakar/HippocampAI/releases/tag/v0.4.0

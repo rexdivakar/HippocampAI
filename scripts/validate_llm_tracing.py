@@ -58,12 +58,19 @@ def run_scenario() -> dict:
             provider="groq", requested_model="llama-3.3-70b-versatile", operation="chat"
         ) as invocation_id:
             # Attempt 1: primary provider is rate limited (retryable failure).
+            # A router forwarding this request would tag it with its own
+            # router_request_id - the same logical request, so the same ID
+            # is expected to show up on every attempt underneath it. No
+            # provider_request_id: the request never got a response.
             try:
                 with llm_attempt(
                     provider="groq",
                     requested_model="llama-3.3-70b-versatile",
                     routing_reason="primary_provider",
-                ):
+                ) as attempt_1:
+                    attempt_1.apply_metadata(
+                        UpstreamMetadata(router_request_id="router-req-example-001")
+                    )
                     raise TimeoutError(
                         "groq 429: rate limit exceeded, Authorization: Bearer gsk_should_never_appear_in_trace"
                     )
@@ -71,13 +78,15 @@ def run_scenario() -> dict:
                 pass  # caller (a router or this scenario) decides to fall back
 
             # Attempt 2: fall back to a different provider and model; succeeds.
+            # This is a FALLBACK, not a retry of the same route - it counts
+            # toward total_fallbacks, not total_retries (see validate()).
             with llm_attempt(
                 provider="openai",
                 requested_model="llama-3.3-70b-versatile",
                 selected_model="gpt-4o-mini",
                 fallback_reason="provider_rate_limited",
                 routing_reason="secondary_provider",
-            ) as attempt:
+            ) as attempt_2:
                 # Simulate a normalized OpenAI-compatible response.
                 fake_response = type(
                     "FakeResponse",
@@ -98,8 +107,14 @@ def run_scenario() -> dict:
                         )(),
                     },
                 )()
-                attempt.apply_metadata(UpstreamMetadata.from_openai_response(fake_response))
-                attempt.finish_reason = "stop"
+                attempt_2.apply_metadata(UpstreamMetadata.from_openai_response(fake_response))
+                # Same router_request_id as attempt 1: still the same logical
+                # request as far as the router is concerned, even though it
+                # was served by a different upstream provider.
+                attempt_2.apply_metadata(
+                    UpstreamMetadata(router_request_id="router-req-example-001")
+                )
+                attempt_2.finish_reason = "stop"
 
     invocation = telemetry.get_llm_invocation(invocation_id)
     assert invocation is not None
@@ -116,13 +131,20 @@ def validate(invocation) -> None:
     assert invocation.agent_id == "agent-triage"
     assert invocation.agent_name == "Triage Agent"
 
-    # The logical request ID is stable and distinct from any provider request ID.
+    # Identity hierarchy: HippocampAI's own request_id, an external router's
+    # own request_id, and each attempt's provider_request_id are three
+    # distinct identities that are never conflated with one another.
     assert invocation.request_id
     assert invocation.trace_id
+    assert invocation.router_request_id == "router-req-example-001"
+    assert invocation.request_id != invocation.router_request_id
 
     # Retries are never collapsed: two distinct, ordered attempts exist.
+    # This scenario is a pure fallback (attempt 2 switched provider/model
+    # rather than retrying the same route), so total_retries is 0 and
+    # total_fallbacks is 1 - a fallback is never double-counted as a retry.
     assert invocation.total_attempts == 2
-    assert invocation.total_retries == 1
+    assert invocation.total_retries == 0
     assert invocation.total_fallbacks == 1
     attempt_ids = [a.attempt_id for a in invocation.attempts]
     assert len(set(attempt_ids)) == 2, "attempt IDs must be unique"
@@ -135,10 +157,16 @@ def validate(invocation) -> None:
     assert attempt_1.requested_model == "llama-3.3-70b-versatile"
     assert attempt_1.status == "error"
     assert attempt_1.error_type == "timeout"
-    assert attempt_1.retry_reason == "timeout"
+    # retry_reason belongs to whichever attempt was started BECAUSE this one
+    # failed - not to the failing attempt itself (error_type already says
+    # why it failed). Attempt 2 here is a fallback, not a same-route retry,
+    # so retry_reason never gets inherited onto it either (see below).
+    assert attempt_1.retry_reason is None
     assert attempt_1.routing_reason == "primary_provider"
     assert attempt_1.is_final is False
     assert attempt_1.latency_ms is not None and attempt_1.latency_ms >= 0
+    assert attempt_1.router_request_id == "router-req-example-001"
+    assert attempt_1.provider_request_id is None  # never got a response
     assert "gsk_should_never_appear_in_trace" not in (attempt_1.error_message or "")
 
     # Attempt 2: provider + model fallback, terminal success.
@@ -147,11 +175,14 @@ def validate(invocation) -> None:
     assert attempt_2.selected_model == "gpt-4o-mini"  # what actually served it
     assert attempt_2.fallback_reason == "provider_rate_limited"
     assert attempt_2.routing_reason == "secondary_provider"
+    assert attempt_2.retry_reason is None  # fallback, not a retry
     assert attempt_2.status == "success"
     assert attempt_2.is_final is True
     assert attempt_2.input_tokens == 128
     assert attempt_2.output_tokens == 64
     assert attempt_2.total_tokens == 192
+    assert attempt_2.provider_request_id == "chatcmpl-fallback-example"
+    assert attempt_2.router_request_id == "router-req-example-001"
 
     # Aggregation on the logical invocation reflects BOTH attempts, not just the winner.
     assert invocation.status == "success"
