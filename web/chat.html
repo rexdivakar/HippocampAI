@@ -488,12 +488,18 @@
 
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    ${content}
-                    <div class="message-time">${time}</div>
-                </div>
-            `;
+            const messageContentDiv = document.createElement('div');
+            messageContentDiv.className = 'message-content';
+
+            const messageTextNode = document.createTextNode(content);
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = time;
+
+            messageContentDiv.appendChild(messageTextNode);
+            messageContentDiv.appendChild(timeDiv);
+            messageDiv.appendChild(messageContentDiv);
 
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
