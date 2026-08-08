@@ -632,12 +632,15 @@ class TestAdvancedFilters:
             user_id="alice",
             tags=["work"],
         )
-        # Add metadata after creation
-        m1 = client.remember("Project B task", user_id="alice", tags=["work"])
+        # Add metadata after creation. Texts must be semantically distinct enough
+        # to avoid remember()'s smart-update/dedup merge (similarity_threshold=0.85),
+        # which otherwise collapses near-duplicate texts into a single memory and
+        # returns the same id for both - unrelated to the metadata filter under test.
+        m1 = client.remember("Project B kickoff meeting notes", user_id="alice", tags=["work"])
         m1.metadata["project"] = "B"
         client.update_memory(m1.id, metadata={"project": "B"})
 
-        m2 = client.remember("Project B note", user_id="alice", tags=["work"])
+        m2 = client.remember("Quarterly budget review scheduled", user_id="alice", tags=["work"])
         m2.metadata["project"] = "B"
         client.update_memory(m2.id, metadata={"project": "B"})
 

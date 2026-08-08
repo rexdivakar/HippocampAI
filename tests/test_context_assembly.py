@@ -132,8 +132,13 @@ class TestContextModels:
         assert "mem-2" in citations_text
 
 
+@pytest.mark.integration
 class TestContextAssemblyIntegration:
-    """Integration tests for context assembly."""
+    """Integration tests for context assembly.
+
+    Marked ``integration``: uses a real MemoryClient backed by Qdrant and,
+    depending on LLM_PROVIDER, real LLM enrichment calls on every remember().
+    """
 
     @pytest.fixture
     def client(self):

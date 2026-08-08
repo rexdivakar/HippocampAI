@@ -110,10 +110,14 @@ class TestAsyncOperations:
     @pytest.mark.asyncio
     async def test_batch_operations_async(self, client, test_user_id):
         """Test async batch operations."""
+        # Texts must be semantically distinct enough to avoid remember()'s
+        # smart-update/dedup merge (similarity_threshold=0.85), which otherwise
+        # collapses near-duplicate texts (e.g. "... memory 1"/"2"/"3") into a
+        # single memory and returns the same id for all of them.
         memories_data = [
-            {"text": "Async batch memory 1", "tags": ["batch"]},
-            {"text": "Async batch memory 2", "tags": ["batch"]},
-            {"text": "Async batch memory 3", "tags": ["batch"]},
+            {"text": "Deployed the payment service to production", "tags": ["batch"]},
+            {"text": "Reviewed quarterly security audit findings", "tags": ["batch"]},
+            {"text": "Scheduled onboarding session for new hires", "tags": ["batch"]},
         ]
 
         created = await client.add_memories_async(

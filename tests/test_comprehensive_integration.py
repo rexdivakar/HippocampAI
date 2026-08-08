@@ -9,6 +9,11 @@ Tests:
 6. Library compatibility
 7. Memory usage
 8. Performance
+
+Marked ``integration`` (like tests/test_tms_integration.py and
+tests/test_qdrant_integration.py) since these exercise real Qdrant/Redis
+and, for test_batch_operations, a live LLM provider call - not suitable
+for the default "not integration" unit-test run.
 """
 
 import os
@@ -18,6 +23,8 @@ import traceback
 import tracemalloc
 from datetime import datetime
 from typing import Any
+
+import pytest
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -33,6 +40,8 @@ from hippocampai.pipeline.auto_healing import AutoHealingEngine
 from hippocampai.pipeline.predictive_analytics import PredictiveAnalyticsEngine
 from hippocampai.pipeline.temporal_analytics import TemporalAnalytics
 from hippocampai.simple import Memory as SimpleMemory
+
+pytestmark = pytest.mark.integration
 
 
 class TestResults:
