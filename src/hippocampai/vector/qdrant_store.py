@@ -120,9 +120,15 @@ class QdrantStore:
                     field_name="updated_at",
                     field_schema=PayloadSchemaType.DATETIME,
                 )
+                # Index is_deleted (BOOL for soft-delete filtering)
+                self.client.create_payload_index(
+                    collection_name=coll_name,
+                    field_name="is_deleted",
+                    field_schema=PayloadSchemaType.BOOL,
+                )
 
                 logger.info(
-                    f"Created collection '{coll_name}' with 6 payload indices (user_id, type, tags, importance, created_at, updated_at)"
+                    f"Created collection '{coll_name}' with 7 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted)"
                 )
 
                 # Wait for collection to be fully ready (avoid race conditions in tests)
@@ -204,9 +210,14 @@ class QdrantStore:
                 field_name="updated_at",
                 field_schema=PayloadSchemaType.DATETIME,
             )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="is_deleted",
+                field_schema=PayloadSchemaType.BOOL,
+            )
 
             logger.info(
-                f"Created collection '{collection_name}' with 6 payload indices (user_id, type, tags, importance, created_at, updated_at)"
+                f"Created collection '{collection_name}' with 7 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted)"
             )
 
             # Wait for collection to be fully ready
