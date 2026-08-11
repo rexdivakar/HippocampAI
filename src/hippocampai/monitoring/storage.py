@@ -59,7 +59,10 @@ class MonitoringStorage:
             logger.warning(f"Could not list collections: {e}")
             existing_collections = []
 
-        # Only create if they don't exist
+        # Create the collection if missing, then (re)ensure indices unconditionally
+        # so a collection left over from before an index was added gets it too -
+        # create_payload_index is idempotent, so re-creating an existing index is
+        # a no-op.
         if self.collection_health not in existing_collections:
             try:
                 # Health reports collection (minimal vectors, metadata-focused)
@@ -68,17 +71,21 @@ class MonitoringStorage:
                     collection_name=self.collection_health,
                     vectors_config=VectorParams(size=1, distance=Distance.COSINE),
                 )
-                for field_name in ("user_id", "health_status"):
-                    self.qdrant.client.create_payload_index(
-                        collection_name=self.collection_health,
-                        field_name=field_name,
-                        field_schema=PayloadSchemaType.KEYWORD,
-                    )
                 logger.info(f"Initialized collection: {self.collection_health}")
             except Exception as e:
                 logger.debug(f"Collection {self.collection_health} creation failed: {e}")
         else:
             logger.debug(f"Collection {self.collection_health} already exists")
+
+        try:
+            for field_name in ("user_id", "health_status"):
+                self.qdrant.client.create_payload_index(
+                    collection_name=self.collection_health,
+                    field_name=field_name,
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
+        except Exception as e:
+            logger.debug(f"Could not ensure indices on {self.collection_health}: {e}")
 
         if self.collection_traces not in existing_collections:
             try:
@@ -88,22 +95,26 @@ class MonitoringStorage:
                     collection_name=self.collection_traces,
                     vectors_config=VectorParams(size=1, distance=Distance.COSINE),
                 )
-                for field_name in ("operation", "user_id", "session_id", "memory_type"):
-                    self.qdrant.client.create_payload_index(
-                        collection_name=self.collection_traces,
-                        field_name=field_name,
-                        field_schema=PayloadSchemaType.KEYWORD,
-                    )
-                self.qdrant.client.create_payload_index(
-                    collection_name=self.collection_traces,
-                    field_name="success",
-                    field_schema=PayloadSchemaType.BOOL,
-                )
                 logger.info(f"Initialized collection: {self.collection_traces}")
             except Exception as e:
                 logger.debug(f"Collection {self.collection_traces} creation failed: {e}")
         else:
             logger.debug(f"Collection {self.collection_traces} already exists")
+
+        try:
+            for field_name in ("operation", "user_id", "session_id", "memory_type"):
+                self.qdrant.client.create_payload_index(
+                    collection_name=self.collection_traces,
+                    field_name=field_name,
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
+            self.qdrant.client.create_payload_index(
+                collection_name=self.collection_traces,
+                field_name="success",
+                field_schema=PayloadSchemaType.BOOL,
+            )
+        except Exception as e:
+            logger.debug(f"Could not ensure indices on {self.collection_traces}: {e}")
 
     def store_health_report(
         self,

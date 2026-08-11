@@ -48,7 +48,13 @@ class BiTemporalStore:
         self._ensure_collection()
 
     def _ensure_collection(self) -> None:
-        """Ensure the bi-temporal collection exists."""
+        """Ensure the bi-temporal collection and its payload indices exist.
+
+        Index creation runs unconditionally (not just on first create) so a
+        collection left over from before an index was added gets it too.
+        create_payload_index is idempotent - re-creating an existing index
+        is a no-op, not an error.
+        """
         try:
             if not self.qdrant.client.collection_exists(self.collection_name):
                 self.qdrant.client.create_collection(
@@ -58,14 +64,15 @@ class BiTemporalStore:
                         distance=Distance.COSINE,
                     ),
                 )
-                # Index fields used by _build_query_filters for fast filtered queries
-                for field_name in ("user_id", "entity_id", "property_name", "status"):
-                    self.qdrant.client.create_payload_index(
-                        collection_name=self.collection_name,
-                        field_name=field_name,
-                        field_schema=PayloadSchemaType.KEYWORD,
-                    )
                 logger.info(f"Created bi-temporal collection: {self.collection_name}")
+
+            # Index fields used by _build_query_filters for fast filtered queries
+            for field_name in ("user_id", "entity_id", "property_name", "status"):
+                self.qdrant.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field_name,
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
         except ConnectionError as e:
             logger.warning(
                 f"Could not connect to Qdrant to ensure bi-temporal collection: {e}. "

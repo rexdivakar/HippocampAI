@@ -106,28 +106,32 @@ Analysis:"""
         self._initialize_collection()
 
     def _initialize_collection(self) -> None:
-        """Initialize Qdrant collection for sessions."""
+        """Initialize Qdrant collection for sessions and its payload indices.
+
+        Index creation runs unconditionally so a collection left over from
+        before an index was added gets it too - create_payload_index is
+        idempotent, so re-creating an existing index is a no-op.
+        """
+        from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
+
         try:
             self.qdrant.client.get_collection(self.collection_name)
             logger.info(f"Session collection '{self.collection_name}' already exists")
         except Exception:
             # Collection doesn't exist, create it
-            from qdrant_client.models import Distance, VectorParams
-
             self.qdrant.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=self.embedder.dimension, distance=Distance.COSINE),
             )
-            # Index fields used by search_sessions/get_user_sessions filters
-            from qdrant_client.models import PayloadSchemaType
-
-            for field_name in ("user_id", "status", "tags"):
-                self.qdrant.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name=field_name,
-                    field_schema=PayloadSchemaType.KEYWORD,
-                )
             logger.info(f"Created session collection '{self.collection_name}'")
+
+        # Index fields used by search_sessions/get_user_sessions filters
+        for field_name in ("user_id", "status", "tags"):
+            self.qdrant.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name=field_name,
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
 
     def create_session(
         self,

@@ -72,8 +72,11 @@ class QdrantStore:
         )
 
         for coll_name in collections_to_ensure:
-            # Use idempotent create_collection to avoid race conditions
-            # If collection exists with same params, this is a no-op
+            # create_collection raises if the collection already exists (despite
+            # the name), so creation and index-ensuring are split: indices are
+            # (re)applied unconditionally below so a collection left over from
+            # before an index was added gets it too. create_payload_index is
+            # idempotent - re-creating an existing index is a no-op.
             try:
                 self.client.create_collection(
                     collection_name=coll_name,
@@ -82,7 +85,16 @@ class QdrantStore:
                     optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
                     wal_config=WalConfigDiff(wal_capacity_mb=32),
                 )
+                logger.info(f"Created collection '{coll_name}'")
+                self._wait_for_collection_ready(coll_name)
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    logger.debug(f"Collection '{coll_name}' already exists, skipping creation")
+                else:
+                    logger.error(f"Error creating collection '{coll_name}': {e}")
+                    raise
 
+            try:
                 # Create payload indices for 5-10x faster filtered queries
                 # Index user_id (KEYWORD for exact match)
                 self.client.create_payload_index(
@@ -140,19 +152,11 @@ class QdrantStore:
                 )
 
                 logger.info(
-                    f"Created collection '{coll_name}' with 9 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
+                    f"Ensured 9 payload indices on '{coll_name}' (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
                 )
-
-                # Wait for collection to be fully ready (avoid race conditions in tests)
-                self._wait_for_collection_ready(coll_name)
             except Exception as e:
-                # If collection already exists with different params, log and continue
-                # This is idempotent behavior - we don't fail if collection exists
-                if "already exists" in str(e).lower():
-                    logger.debug(f"Collection '{coll_name}' already exists, skipping creation")
-                else:
-                    logger.error(f"Error creating collection '{coll_name}': {e}")
-                    raise
+                logger.error(f"Error ensuring payload indices on '{coll_name}': {e}")
+                raise
 
     def ensure_collection(
         self,
@@ -190,8 +194,17 @@ class QdrantStore:
                 optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
                 wal_config=WalConfigDiff(wal_capacity_mb=32),
             )
+            logger.info(f"Created collection '{collection_name}'")
+            self._wait_for_collection_ready(collection_name)
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                logger.debug(f"Collection '{collection_name}' already exists, skipping creation")
+            else:
+                logger.error(f"Error creating collection '{collection_name}': {e}")
+                raise
 
-            # Create payload indices for 5-10x faster filtered queries
+        # (Re)ensure payload indices unconditionally - see _ensure_collections for why.
+        try:
             self.client.create_payload_index(
                 collection_name=collection_name,
                 field_name="user_id",
@@ -239,18 +252,11 @@ class QdrantStore:
             )
 
             logger.info(
-                f"Created collection '{collection_name}' with 9 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
+                f"Ensured 9 payload indices on '{collection_name}' (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
             )
-
-            # Wait for collection to be fully ready
-            self._wait_for_collection_ready(collection_name)
         except Exception as e:
-            # If collection already exists, log and continue
-            if "already exists" in str(e).lower():
-                logger.debug(f"Collection '{collection_name}' already exists, skipping creation")
-            else:
-                logger.error(f"Error creating collection '{collection_name}': {e}")
-                raise
+            logger.error(f"Error ensuring payload indices on '{collection_name}': {e}")
+            raise
 
     def _wait_for_collection_ready(self, collection_name: str, max_attempts: int = 10) -> None:
         """Wait for collection to be fully initialized and queryable."""
