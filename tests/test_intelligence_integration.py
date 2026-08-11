@@ -1,5 +1,8 @@
 """Test intelligence features integration."""
 
+import os
+from uuid import uuid4
+
 import pytest
 
 from hippocampai.client import MemoryClient
@@ -16,7 +19,14 @@ class TestIntelligenceIntegration:
     @pytest.fixture
     def client(self):
         """Create a test client."""
-        return MemoryClient.from_preset("development")
+        test_id = uuid4().hex[:8]
+        return MemoryClient.from_preset(
+            "development",
+            qdrant_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+            qdrant_api_key=os.getenv("QDRANT_API_KEY"),
+            collection_facts=f"test_facts_{test_id}",
+            collection_prefs=f"test_prefs_{test_id}",
+        )
 
     def test_fact_extraction(self, client):
         """Test fact extraction from text."""
