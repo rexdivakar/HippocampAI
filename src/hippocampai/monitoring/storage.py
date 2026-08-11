@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import numpy as np
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 
 from hippocampai.monitoring.memory_health import (
     MemoryQualityReport,
@@ -68,6 +68,12 @@ class MonitoringStorage:
                     collection_name=self.collection_health,
                     vectors_config=VectorParams(size=1, distance=Distance.COSINE),
                 )
+                for field_name in ("user_id", "health_status"):
+                    self.qdrant.client.create_payload_index(
+                        collection_name=self.collection_health,
+                        field_name=field_name,
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
                 logger.info(f"Initialized collection: {self.collection_health}")
             except Exception as e:
                 logger.debug(f"Collection {self.collection_health} creation failed: {e}")
@@ -81,6 +87,17 @@ class MonitoringStorage:
                 self.qdrant.client.create_collection(
                     collection_name=self.collection_traces,
                     vectors_config=VectorParams(size=1, distance=Distance.COSINE),
+                )
+                for field_name in ("operation", "user_id", "session_id", "memory_type"):
+                    self.qdrant.client.create_payload_index(
+                        collection_name=self.collection_traces,
+                        field_name=field_name,
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
+                self.qdrant.client.create_payload_index(
+                    collection_name=self.collection_traces,
+                    field_name="success",
+                    field_schema=PayloadSchemaType.BOOL,
                 )
                 logger.info(f"Initialized collection: {self.collection_traces}")
             except Exception as e:

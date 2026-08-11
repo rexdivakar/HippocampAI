@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import numpy as np
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 
 from hippocampai.models.bitemporal import (
     BiTemporalFact,
@@ -58,6 +58,13 @@ class BiTemporalStore:
                         distance=Distance.COSINE,
                     ),
                 )
+                # Index fields used by _build_query_filters for fast filtered queries
+                for field_name in ("user_id", "entity_id", "property_name", "status"):
+                    self.qdrant.client.create_payload_index(
+                        collection_name=self.collection_name,
+                        field_name=field_name,
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
                 logger.info(f"Created bi-temporal collection: {self.collection_name}")
         except ConnectionError as e:
             logger.warning(

@@ -118,6 +118,15 @@ Analysis:"""
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=self.embedder.dimension, distance=Distance.COSINE),
             )
+            # Index fields used by search_sessions/get_user_sessions filters
+            from qdrant_client.models import PayloadSchemaType
+
+            for field_name in ("user_id", "status", "tags"):
+                self.qdrant.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field_name,
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
             logger.info(f"Created session collection '{self.collection_name}'")
 
     def create_session(
