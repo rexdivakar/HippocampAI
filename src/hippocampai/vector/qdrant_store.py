@@ -126,9 +126,21 @@ class QdrantStore:
                     field_name="is_deleted",
                     field_schema=PayloadSchemaType.BOOL,
                 )
+                # Index is_archived (BOOL for archive filtering)
+                self.client.create_payload_index(
+                    collection_name=coll_name,
+                    field_name="is_archived",
+                    field_schema=PayloadSchemaType.BOOL,
+                )
+                # Index session_id (KEYWORD for session filtering)
+                self.client.create_payload_index(
+                    collection_name=coll_name,
+                    field_name="session_id",
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
 
                 logger.info(
-                    f"Created collection '{coll_name}' with 7 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted)"
+                    f"Created collection '{coll_name}' with 9 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
                 )
 
                 # Wait for collection to be fully ready (avoid race conditions in tests)
@@ -215,9 +227,19 @@ class QdrantStore:
                 field_name="is_deleted",
                 field_schema=PayloadSchemaType.BOOL,
             )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="is_archived",
+                field_schema=PayloadSchemaType.BOOL,
+            )
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="session_id",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
 
             logger.info(
-                f"Created collection '{collection_name}' with 7 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted)"
+                f"Created collection '{collection_name}' with 9 payload indices (user_id, type, tags, importance, created_at, updated_at, is_deleted, is_archived, session_id)"
             )
 
             # Wait for collection to be fully ready
