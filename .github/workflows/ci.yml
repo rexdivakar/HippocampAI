@@ -3,11 +3,16 @@ name: CI
 on:
   push:
     branches: ["*"]
+
   pull_request:
     branches: ["main"]
+
   schedule:
-    # Sunday 12am EST (UTC-5) = 05:00 UTC Sunday.
+    # Weekly safety sweep.
+    # GitHub cron uses UTC.
     - cron: "0 5 * * 0"
+
+  workflow_dispatch:
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -17,7 +22,9 @@ jobs:
   test:
     name: Test and Lint (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
@@ -35,13 +42,19 @@ jobs:
     env:
       QDRANT_URL: ${{ secrets.QDRANT_URL }}
       QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
-      # Isolates each matrix job's test collections on the shared Qdrant Cloud
-      # cluster so concurrent Python-version runs never touch the same data.
+
+      # Every collection created by this matrix job MUST start with this.
+      #
+      # Examples:
+      # ci-123456-3.10_test_facts_abc123
+      # ci-123456-3.11_test_prefs_def456
+      #
+      # This prevents concurrent matrix jobs from touching each other's data.
       QDRANT_TEST_NAMESPACE: ci-${{ github.run_id }}-${{ matrix.python-version }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955   # v4.3.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -51,19 +64,21 @@ jobs:
       - name: Verify Qdrant Cloud connectivity
         run: |
           if [ -z "$QDRANT_URL" ] || [ -z "$QDRANT_API_KEY" ]; then
-            echo "::error ::QDRANT_URL or QDRANT_API_KEY secret is not set. Configure both repository secrets before CI can reach Qdrant Cloud."
+            echo "::error ::QDRANT_URL or QDRANT_API_KEY secret is not set."
             exit 1
           fi
+
           if ! curl -fsS --max-time 10 \
               -H "api-key: $QDRANT_API_KEY" \
               "$QDRANT_URL/collections" > /dev/null; then
-            echo "::error ::Could not reach Qdrant Cloud at the configured QDRANT_URL. Check that the cluster is running and QDRANT_API_KEY is valid."
+            echo "::error ::Could not reach Qdrant Cloud."
             exit 1
           fi
+
           echo "Qdrant Cloud is reachable."
 
       - name: Cache Python dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830       # v4.3.0
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cache/pip
@@ -78,7 +93,9 @@ jobs:
           pip install -e '.[dev,saas]'
 
       - name: Ruff lint
-        run: pip install ruff && ruff check . --output-format=github
+        run: |
+          pip install ruff
+          ruff check . --output-format=github
 
       - name: Ruff format (warn only)
         run: |
@@ -94,24 +111,104 @@ jobs:
           fi
 
       - name: Run unit tests
-        run: pytest tests/ -m "not integration" -x --timeout=60 -q
+        run: |
+          pytest tests/ -m "not integration" -x --timeout=60 -q
         env:
           REDIS_URL: redis://localhost:6379
           AUTH_ENABLED: "false"
           USER_AUTH_ENABLED: "false"
 
-      - name: Clean up Qdrant test collections
+      # First layer of protection:
+      # Clean everything belonging to THIS matrix job.
+      - name: Clean up this job's Qdrant collections
         if: always()
-        run: python scripts/cleanup_qdrant_test_collections.py
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py
+
+      # Make leaked collections obvious in the Actions log.
+      - name: Verify this job's Qdrant collections were deleted
+        if: always()
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py --verify
+
+
+  # ---------------------------------------------------------------------------
+  # SECOND CLEANUP LAYER
+  #
+  # Runs after every Python matrix job has finished.
+  #
+  # This catches collections that may have survived fixture teardown or the
+  # individual job cleanup.
+  # ---------------------------------------------------------------------------
+
+  qdrant-cleanup:
+    name: Final Qdrant Cleanup
+    runs-on: ubuntu-latest
+
+    needs: [test]
+
+    # Run even when tests fail.
+    if: always()
+
+    env:
+      QDRANT_URL: ${{ secrets.QDRANT_URL }}
+      QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+
+      # Delete collections belonging to ANY Python version from this run.
+      QDRANT_RUN_PREFIX: ci-${{ github.run_id }}-
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Install Qdrant client
+        run: |
+          python -m pip install --upgrade pip
+          pip install qdrant-client
+
+      - name: Delete remaining collections from this workflow run
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py --run
+
+      - name: Verify workflow collections were deleted
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py --run --verify
+
+      # On the scheduled Sunday workflow perform an additional garbage
+      # collection pass for legacy test collections left behind by old,
+      # cancelled, or crashed workflow runs.
+      #
+      # This intentionally only runs on schedule, NOT on every PR/push.
+      - name: Remove stale legacy test collections
+        if: github.event_name == 'schedule'
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py --all-stale
+
+      - name: Show remaining CI/test collections
+        if: always()
+        run: |
+          python scripts/cleanup_qdrant_test_collections.py --list
+
 
   build:
     name: Build Package
     runs-on: ubuntu-latest
-    needs: [test]
+
+    needs:
+      - test
+      - qdrant-cleanup
+
+    # Build only when tests actually succeeded.
+    if: needs.test.result == 'success'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955   # v4.3.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -119,7 +216,7 @@ jobs:
           python-version: "3.11"
 
       - name: Cache Python dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830       # v4.3.0
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-build-${{ hashFiles('**/pyproject.toml') }}
@@ -132,10 +229,13 @@ jobs:
           pip install -e '.[dev,api]'
 
       - name: Install build tools
-        run: pip install build twine
+        run: |
+          pip install build twine
 
       - name: Build package
-        run: python -m build
+        run: |
+          python -m build
 
       - name: Validate build with Twine
-        run: twine check dist/*
+        run: |
+          twine check dist/*
