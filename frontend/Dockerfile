@@ -7,11 +7,11 @@ WORKDIR /app
 # Set environment variable for API URL (Docker backend service name)
 ENV VITE_API_URL=http://hippocampai:8000
 
-# Copy package files
+# Copy package files (including package-lock.json for reproducible installs)
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies from the lockfile
+RUN npm ci
 
 # Copy source code
 COPY . .

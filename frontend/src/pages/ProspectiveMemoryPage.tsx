@@ -186,10 +186,6 @@ export function ProspectiveMemoryPage({ userId }: ProspectiveMemoryPageProps) {
   const pendingCount = intents.filter((i) => i.status === 'pending').length;
   const triggeredCount = intents.filter((i) => i.status === 'triggered').length;
   const completedCount = intents.filter((i) => i.status === 'completed').length;
-  const avgPriority =
-    intents.length > 0
-      ? intents.reduce((sum, i) => sum + i.priority, 0) / intents.length
-      : 0;
 
   return (
     <div className="space-y-6">

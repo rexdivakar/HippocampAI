@@ -1,9 +1,20 @@
 // Memory types
+export type MemoryType =
+  | 'fact'
+  | 'preference'
+  | 'goal'
+  | 'habit'
+  | 'event'
+  | 'context'
+  | 'summary'
+  | 'procedural'
+  | 'prospective';
+
 export interface Memory {
   id: string;
   text: string;
   user_id: string;
-  type: 'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context' | 'summary' | 'procedural' | 'prospective';
+  type: MemoryType;
   importance: number;
   confidence: number;
   tags: string[];

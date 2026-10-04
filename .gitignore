@@ -140,6 +140,11 @@ dmypy.json
 *.hdf5
 *.npz
 
+# Frontend config/lockfiles must be tracked (override broad *.json rule above)
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/tsconfig.node.json
+
 # Log files
 logs/
 *.log

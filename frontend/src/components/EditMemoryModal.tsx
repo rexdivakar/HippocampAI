@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { X, Edit, Save } from 'lucide-react';
-import type { Memory } from '../types';
+import type { Memory, MemoryType } from '../types';
 
 interface EditMemoryModalProps {
   memory: Memory | null;
@@ -8,7 +8,7 @@ interface EditMemoryModalProps {
   onClose: () => void;
   onSubmit: (memoryId: string, data: {
     text?: string;
-    type?: 'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context';
+    type?: MemoryType;
     importance?: number;
     tags?: string[];
     metadata?: Record<string, any>;
@@ -19,7 +19,7 @@ const memoryTypes = ['fact', 'preference', 'goal', 'habit', 'event', 'context'];
 
 export function EditMemoryModal({ memory, isOpen, onClose, onSubmit }: EditMemoryModalProps) {
   const [text, setText] = useState('');
-  const [type, setType] = useState<'fact' | 'preference' | 'goal' | 'habit' | 'event' | 'context'>('fact');
+  const [type, setType] = useState<MemoryType>('fact');
   const [importance, setImportance] = useState(5);
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
